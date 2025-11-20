@@ -2,756 +2,475 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <title>SMS開立事項查詢及AI審查系統</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Reset / 基本 */
-        *, *::before, *::after { box-sizing: border-box; }
-        html, body { height: 100%; margin: 0; padding: 0; }
-        body {
-            font-family: 'Microsoft JhengHei', Arial, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            -webkit-font-smoothing:antialiased;
-            -moz-osx-font-smoothing:grayscale;
-            scrollbar-gutter: stable;
+        :root {
+            /* --- 配色變數 --- */
+            
+            /* 主色調：操作按鈕、Logo (標準藍) */
+            --primary: #2563eb;       
+            --primary-dark: #1d4ed8;
+            
+            /* 數據強調色：總筆數 (靛紫色) - 與藍色區隔 */
+            --data-total: #6366f1; 
+            
+            /* 圖表色：長條圖 (天空青) */
+            --chart-bar: #0ea5e9;
+
+            /* 狀態色 */
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            
+            /* 背景與文字 */
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            --header-h: 60px;
         }
 
-        .app { max-width: 1800px; margin: 0 auto; background: white; min-height: 100vh; display: flex; flex-direction: column; height: 100vh; }
-        .header { background: white; border-bottom: 3px solid #52a3cc; padding: 18px 22px; text-align: center; flex: 0 0 auto; }
-        .header h1 { font-size: 26px; color: #333; display: inline-flex; align-items: center; gap: 10px; margin: 0; }
-        .icon { background: #52a3cc; color: white; border-radius: 8px; padding: 6px; font-size: 20px; display:inline-flex; align-items:center; justify-content:center; }
-        .data-updated { font-size: 13px; color: #666; margin-top: 6px; display: block; }
+        /* Reset & Base */
+        *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden; }
+        body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: var(--bg-body); color: var(--text-main); display: flex; flex-direction: column; }
 
-        .main { padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; flex: 1 1 auto; overflow: auto; }
-        .search-section { background: #e8e8e8; padding: 14px; border-radius: 8px; margin-bottom: 0; flex: 0 0 auto; }
-        .search-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
-        .search-group { display:flex; flex-direction:column; }
-        .search-group label { font-size: 13px; font-weight:600; color:#333; margin-bottom:6px; }
-        .search-group select, .search-group input { padding: 8px 10px; border-radius:6px; border:1px solid #cfcfcf; background:white; font-size:14px; }
-
-        .button-group { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-        .btn { padding:8px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:700; font-size:13px; }
-        .btn-search { background:#52a3cc; color:white; }
-        .btn-reset { background:#6c757d; color:white; }
-        .btn-export { background:#f0ad4e; color:white; }
-        .btn-ai-all { background:#6f42c1; color:white; }
-
-        .stats-section { display:none; margin:0; flex: 0 0 auto; }
-        .stats-grid { display:flex; gap:10px; }
-        .stat-card { flex:1 1 0; padding:10px 12px; border-radius:8px; color:white; font-weight:800; display:flex; flex-direction:column; justify-content:center; }
-        .stat-card.blue { background:#52a3cc; }
-        .stat-card.red { background:#d9534f; }
-        .stat-card.green { background:#5cb85c; }
-        .stat-number { font-size:22px; }
-
-        .results-section { background:white; padding:8px; border-radius:8px; border:1px solid #e6e6e6; flex: 1 1 auto; min-height: 200px; }
-        .results-header { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; }
-        .results-title { font-weight:800; font-size:15px; }
-        .table-container { border:1px solid #ddd; border-radius:6px; overflow: visible; }
-        .table-wrapper { overflow-x: auto; }
-        table { width:100%; border-collapse: collapse; min-width:1100px; font-size:13px; }
-        th { position: sticky; top:0; z-index:5; background:#4a5568; color:white; padding:10px; text-align:left; font-weight:700; white-space:nowrap; }
-        td { padding:10px; border-bottom:1px solid #f2f2f2; vertical-align:top; }
-
-        .clickable-row { transition: background 0.12s ease; }
-        .clickable-row:hover,
-        .clickable-row:focus-visible {
-            background: #fff6d9;
-            cursor: pointer;
-            outline: none;
+        /* Header (Left Sidebar Top) */
+        .app-header { 
+            background: var(--bg-card); 
+            border-bottom: 1px solid var(--border); 
+            padding: 0 16px; 
+            height: var(--header-h); 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            flex-shrink: 0; 
+            z-index: 30; 
+            box-shadow: var(--shadow-sm); 
         }
-        tr:hover { background: #fafafa; }
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; color: var(--text-main); }
+        .brand-icon { background: linear-gradient(135deg, var(--primary), #60a5fa); color: white; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        .filter-toggle-btn { display: none; background: transparent; border: 1px solid var(--border); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 18px; color: var(--text-main); }
 
-        .preview-cell, .content-preview { max-width:320px; word-break:break-word; cursor:default; }
-        .status-badge { padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700; color:white; display:inline-block; }
-        .status-active { background:#d9534f; }
-        .status-resolved { background:#5cb85c; }
-        .status-self { background:#f0ad4e; color:#fff; }
+        /* Layout */
+        .app-body { display: flex; flex: 1; height: calc(100% - var(--header-h)); overflow: hidden; position: relative; }
 
-        .ai-badge { padding:4px 8px; border-radius:12px; font-size:12px; font-weight:700; color:white; display:inline-block; }
-        .ai-yes { background:#28a745; }
-        .ai-no  { background:#dc3545; }
-        .ai-done { background:#2e8b57; }
-        .ai-pending { background:#ffc107; color:#333; }
-        .ai-fail { background:#6c2630; }
+        /* Sidebar Filters */
+        .filters-panel { width: 260px; background: var(--bg-card); border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; transition: transform 0.3s ease; z-index: 40; height: 100%; }
+        
+        /* Main Content */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px; background: var(--bg-body); scroll-behavior: smooth; height: 100%; min-height: 0; }
 
-        .btn-sm { padding:6px 10px; border-radius:6px; cursor:pointer; border:none; font-weight:700; }
-        .btn-ai { background:#6f42c1; color:white; }
-
-        .empty-message { text-align:center; padding:26px; color:#666; }
-
-        .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1200; align-items:center; justify-content:center; padding:16px; }
-        .modal-backdrop.open { display:flex; }
-        .modal-panel { background:white; width:100%; max-width:1200px; max-height:calc(100vh - 40px); border-radius:8px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.25); display:flex; flex-direction:column; }
-        .modal-header { display:flex; justify-content:space-between; align-items:center; padding:16px 18px; border-bottom:1px solid #eee; flex: 0 0 auto; }
-        .modal-title { font-weight:800; font-size:18px; }
-        .modal-close { background:transparent; border:none; font-size:20px; cursor:pointer; color:#666; }
-        .modal-body { padding:14px 18px; overflow:auto; flex: 1 1 auto; }
-
-        .detail-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; margin-bottom:12px; }
-        .detail-item { background:#f8f9fa; padding:10px; border-radius:6px; border-left:4px solid #52a3cc; }
-        .detail-label { font-weight:700; margin-bottom:6px; color:#333; font-size:13px; }
-        .detail-value { color:#444; font-size:13px; line-height:1.6; word-break:break-word; }
-
-        .round-container { margin-bottom:12px; background:#fff; border-radius:6px; border:1px solid #f1f1f1; }
-        .round-header { padding:8px 10px; background:linear-gradient(90deg,#f0fbf6,#eef8f2); font-weight:700; color:#175a2f; border-bottom:1px solid #f5f5f5; }
-        .round-body { padding:10px; color:#333; font-size:13px; }
-
-        .ai-analysis-section { margin-top:12px; background:#f0f8ff; border-radius:6px; padding:10px; }
-        .ai-analysis-section h4 { margin:0 0 8px 0; color:#0b5fa5; }
-        .ai-note { font-size:13px; color:#333; }
-
-        .modal-footer { padding:10px 16px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:8px; background:#fafafa; flex: 0 0 auto; }
-
-        .spinner { display:inline-block; width:14px; height:14px; border:2px solid #fff; border-radius:50%; border-top-color: rgba(0,0,0,0.2); animation:spin 0.8s linear infinite; vertical-align:middle; margin-right:6px; }
-        @keyframes spin { to { transform:rotate(360deg); } }
-
-        /* 長文字欄位的顯示樣式（摘要 + 更多按鈕） */
-        .cell-wrapper { position: relative; max-width:420px; }
-        .cell-short {
-            max-height: 3.6em; /* 大約展示兩行（依 font-size）*/
-            overflow: hidden;
-            transition: max-height .22s ease;
-            position: relative;
-            white-space: pre-wrap;
-            word-break: break-word;
-            line-height: 1.8em;
+        /* ★ 新增：右側內容區的標頭 (解決頂部空白問題) ★ */
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            flex-shrink: 0; /* 防止被壓縮 */
         }
-        .cell-short.has-more::after {
-            content: "";
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            height: 1.2em;
-            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95) 60%, #fff 100%);
-            pointer-events: none;
+        .content-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        .cell-full {
-            display: none;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        .cell-full.open {
-            display: block;
-        }
-        .cell-controls {
-            display:flex;
-            gap:6px;
-            margin-top:6px;
-            align-items:center;
-        }
-        .more-btn {
-            background: transparent;
-            border: 1px solid #cfcfcf;
-            color: #0b5fa5;
-            padding:4px 8px;
-            border-radius:6px;
-            font-size:12px;
-            cursor:pointer;
+        .content-subtitle {
+            font-size: 13px;
+            color: var(--text-sub);
+            font-weight: 500;
+            background: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
         }
 
-        @media (max-width: 980px) {
-            .modal-panel { max-width: 92%; }
-            table { font-size:12px; }
-            .search-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-            .cell-wrapper { max-width:260px; }
+        /* Stats Cards */
+        .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; flex-shrink: 0; }
+        .stat-item { background: white; padding: 12px; border-radius: 8px; border: 1px solid var(--border); text-align: center; display: flex; flex-direction: column; align-items: center; }
+        .stat-val { font-size: 20px; font-weight: 800; }
+        .stat-lbl { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+        
+        /* 顏色應用 */
+        .stat-item.total { border-bottom: 3px solid var(--data-total); color: var(--data-total); } /* 紫色 */
+        .stat-item.red { border-bottom: 3px solid var(--danger); color: var(--danger); }
+        .stat-item.green { border-bottom: 3px solid var(--success); color: var(--success); }
+        
+        /* Charts */
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; flex-shrink: 0; }
+        .chart-card { background: white; border-radius: 10px; padding: 16px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); height: 220px; position: relative; }
+        .chart-title { font-size: 13px; font-weight: 600; color: var(--text-sub); margin-bottom: 10px; }
+
+        /* Form Elements */
+        .filter-group label { font-size: 12px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; display: block; }
+        .filter-input, .filter-select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #f8fafc; }
+        
+        .btn { width: 100%; padding: 10px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: opacity 0.2s; }
+        .btn:active { opacity: 0.8; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-ai { background: #7c3aed; color: white; } /* 抽屜裡的分析按鈕維持紫色 */
+
+        /* Table Styles */
+        .data-container { 
+            background: white; 
+            border-radius: 10px; 
+            border: 1px solid var(--border); 
+            box-shadow: var(--shadow-sm); 
+            overflow-x: auto; 
+            margin-bottom: 40px;
         }
-        @media (max-width: 680px) {
-            .header h1 { font-size:18px; gap:8px; }
-            .data-updated { font-size:12px; }
-            table { min-width: 1000px; font-size:12px; }
-            .modal-panel { width:100%; height:100%; max-width:100%; max-height:100%; border-radius:0; }
-            .modal-body { padding:12px; }
-            .cell-wrapper { max-width:180px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 1000px; }
+        th { position: sticky; top: 0; background: #f8fafc; padding: 12px 8px; text-align: left; font-size: 13px; color: var(--text-sub); border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 10; font-weight: 600; }
+        td { padding: 14px 8px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; color: #333; }
+
+        /* Column Widths */
+        .col-id     { width: 140px; } 
+        .col-year   { width: 60px; text-align: center; } 
+        .col-unit   { width: 70px; text-align: center; } 
+        .col-status { width: 90px; text-align: center; } 
+        .col-ai     { width: 85px; text-align: center; } 
+        
+        .text-center { text-align: center; }
+        tr { cursor: pointer; transition: background 0.1s; }
+        tr:hover { background: #f8fafc; }
+
+        .text-content { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.6; max-width: 100%; color: #4b5563; }
+
+        /* Badges */
+        .badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
+        .badge.active { background: #fee2e2; color: #991b1b; }
+        .badge.resolved { background: #d1fae5; color: #065f46; }
+        .badge.self { background: #fef3c7; color: #92400e; }
+
+        .ai-tag { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: #f3f4f6; }
+        .ai-tag.yes { color: var(--success); background: #ecfdf5; }
+        .ai-tag.no { color: var(--danger); background: #fef2f2; }
+
+        /* Drawer */
+        .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; display: none; backdrop-filter: blur(2px); opacity: 0; transition: opacity 0.2s; }
+        .drawer-backdrop.open { display: block; opacity: 1; }
+        .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 650px; max-width: 100vw; background: white; z-index: 101; box-shadow: -5px 0 20px rgba(0,0,0,0.1); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); display: flex; flex-direction: column; }
+        .drawer.open { transform: translateX(0); }
+        .drawer-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #fff; }
+        .drawer-body { flex: 1; overflow-y: auto; padding: 20px; background: #f8fafc; }
+        .detail-card { background: white; padding: 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px; }
+        .detail-label { font-size: 11px; color: var(--text-sub); text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; }
+        .detail-val { font-size: 15px; line-height: 1.6; color: #333; white-space: pre-wrap; }
+        .ai-box { background: linear-gradient(180deg, #f5f3ff 0%, #fff 100%); border: 1px solid #ddd6fe; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+        .spinner { width: 12px; height: 12px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* RWD */
+        @media (max-width: 1024px) {
+            .filters-panel { position: fixed; top: var(--header-h); left: 0; bottom: 0; width: 280px; transform: translateX(-100%); box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
+            .filters-panel.open { transform: translateX(0); }
+            .filter-toggle-btn { display: block; }
+            .main-content { padding: 12px; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .chart-card { height: 200px; }
+        }
+
+        @media (max-width: 768px) {
+            thead { display: none; }
+            .data-container { background: transparent; border: none; box-shadow: none; overflow: visible; }
+            table { width: 100%; min-width: 0; table-layout: auto; }
+            table, tbody, tr, td { display: block; width: 100%; }
+            tr { background: white; margin-bottom: 12px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 12px; position: relative; }
+            td { padding: 6px 0; border-bottom: none; display: flex; flex-direction: column; gap: 4px; text-align: left !important; }
+            
+            .col-id, .col-year, .col-unit, .col-status, .col-ai { width: auto; }
+            td[data-label="編號"] { font-weight: 700; color: var(--primary); font-size: 15px; padding-bottom: 8px; border-bottom: 1px solid #f1f1f1; margin-bottom: 8px; }
+            td[data-label="年度"], td[data-label="機構"] { display: inline-block; width: auto; margin-right: 10px; font-size: 13px; color: #666; }
+            td[data-label="狀態"] { position: absolute; top: 12px; right: 12px; padding: 0; width: auto; }
+            td[data-label="事項內容摘要"] .text-content { -webkit-line-clamp: 3; }
+            td[data-label="最新辦理/審查摘要"] { display: none; } 
+            td[data-label="AI 分析"]:empty { display: none; }
+            td[data-label="AI 分析"] { border-top: 1px dashed #eee; margin-top: 8px; padding-top: 8px; flex-direction: row; align-items: center; justify-content: space-between; }
         }
     </style>
 </head>
 <body>
-    <div class="app" id="appRoot">
-        <div class="header">
-            <h1><span class="icon">🚄</span>SMS開立事項查詢及AI審查系統</h1>
-            <span id="dataUpdated" class="data-updated">資料庫更新：-</span>
+
+    <header class="app-header">
+        <div class="brand">
+            <button class="filter-toggle-btn" onclick="toggleFilters()">☰</button>
+            <div class="brand-icon">🚄</div>
+            <div>
+                <div style="line-height: 1.2;">SMS開立事項查詢及AI審查系統</div>
+                </div>
         </div>
+    </header>
 
-        <div class="main">
-            <div class="search-section" role="region" aria-label="查詢條件">
-                <div class="search-grid">
-                    <div class="search-group"><label for="filterYear">年度</label><select id="filterYear"><option value="">全部</option></select></div>
-                    <div class="search-group"><label for="filterUnit">鐵路機構</label><select id="filterUnit"><option value="">全部</option></select></div>
-                    <div class="search-group"><label for="filterCategory">事項類別</label><select id="filterCategory"><option value="">全部</option><option value="缺失事項">缺失事項</option><option value="觀察事項">觀察事項</option><option value="建議事項">建議事項</option></select></div>
-                    <div class="search-group"><label for="filterInspectionCategory">檢查類別</label><select id="filterInspectionCategory"><option value="">全部</option></select></div>
-                    <div class="search-group"><label for="filterDivision">分組</label><select id="filterDivision"><option value="">全部</option></select></div>
-                    <div class="search-group"><label for="filterStatus">狀態</label><select id="filterStatus"><option value="">全部</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
-                    <div class="search-group" style="grid-column:1 / -1;"><label for="filterKeyword">關鍵字搜尋</label><input id="filterKeyword" type="text" placeholder="輸入編號或內容關鍵字..."></div>
-                </div>
+    <div class="app-body">
+        <aside class="filters-panel" id="filtersPanel">
+            <div style="font-size: 12px; font-weight:700; color:var(--text-sub); text-transform:uppercase; margin-bottom:8px;">篩選條件</div>
+            <div class="filter-group"><label>關鍵字</label><input type="text" id="filterKeyword" class="filter-input" placeholder="搜尋內容或編號..."></div>
+            <div class="filter-group"><label>年度</label><select id="filterYear" class="filter-select"></select></div>
+            <div class="filter-group"><label>機構</label><select id="filterUnit" class="filter-select"></select></div>
+            <div class="filter-group"><label>狀態</label><select id="filterStatus" class="filter-select"><option value="">全部</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
+            <div style="margin-top: auto; display:flex; flex-direction:column; gap:10px;">
+                <button class="btn btn-primary" onclick="applyFilters()">🔍 搜尋結果</button>
+                <button class="btn btn-outline" onclick="resetFilters()">🔄 重設條件</button>
+                <button class="btn btn-outline" onclick="window.exportQueryCSV()">📊 匯出 CSV</button>
+            </div>
+        </aside>
+        <div id="filterBackdrop" style="position:fixed; inset:0; background:rgba(0,0,0,0.3); z-index:35; display:none;" onclick="toggleFilters()"></div>
 
-                <div class="button-group" aria-hidden="false">
-                    <button class="btn btn-search" onclick="window.searchData()">🔍 開始搜尋</button>
-                    <button class="btn btn-reset" onclick="window.resetQueryFilters()">🔄 重設</button>
-                    <button class="btn btn-export" onclick="window.exportQueryCSV()">📊 匯出CSV</button>
-                    <button class="btn btn-ai-all" onclick="window.analyzeAllDisplayed()">🖥️ 一鍵AI分析（目前結果）</button>
-                </div>
+        <main class="main-content">
+            
+            <div class="content-header">
+                <div class="content-title">📊 總覽看板</div>
+                <div class="content-subtitle" id="dataTimestamp">資料更新中...</div>
             </div>
 
-            <div id="statsSection" class="stats-section" aria-live="polite">
-                <div class="stats-grid">
-                    <div class="stat-card blue"><div id="totalCount" class="stat-number">0</div><div>總計</div></div>
-                    <div class="stat-card red"><div id="activeCount" class="stat-number">0</div><div>列管中</div></div>
-                    <div class="stat-card green"><div id="resolvedCount" class="stat-number">0</div><div>已解除/自行列管</div></div>
-                </div>
+            <div class="stats-bar">
+                <div class="stat-item total"><span class="stat-val" id="countTotal">0</span><span class="stat-lbl">總開立事項數</span></div>
+                <div class="stat-item red"><span class="stat-val" id="countActive">0</span><span class="stat-lbl">持續列管</span></div>
+                <div class="stat-item green"><span class="stat-val" id="countResolved">0</span><span class="stat-lbl">已解除/自行</span></div>
             </div>
 
-            <div id="resultsSection" class="results-section" role="region" aria-label="查詢結果">
-                <div class="results-header">
-                    <div class="results-title">📋 查詢結果 <span id="resultCount">(0 筆資料)</span></div>
-                    <div class="muted">點選列或按「AI分析」打開詳細視窗</div>
-                </div>
-
-                <div class="table-container" aria-live="polite">
-                    <div class="table-wrapper">
-                        <table id="queryTable" role="table" aria-label="查詢表格">
-                            <thead>
-                                <tr>
-                                    <th>年度</th>
-                                    <th>鐵路機構</th>
-                                    <th>編號</th>
-                                    <th>事項類別</th>
-                                    <th>檢查類別</th>
-                                    <th>分組</th>
-                                    <th>狀態</th>
-                                    <th>內容</th>
-                                    <th>辦理情形</th>
-                                    <th>最新審查意見</th>
-                                    <th>AI分析摘要</th>
-                                </tr>
-                            </thead>
-                            <tbody id="queryTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
+            <div class="charts-grid">
+                <div class="chart-card"><div class="chart-title">開立事項狀態分佈</div><div style="height: 170px; width:100%; display:flex; justify-content:center;"><canvas id="statusChart"></canvas></div></div>
+                <div class="chart-card"><div class="chart-title">各機構開立事項統計</div><div style="height: 170px; width:100%;"><canvas id="unitChart"></canvas></div></div>
             </div>
 
-            <div id="queryMessage" class="empty-message" style="display:none;"></div>
+            <div class="data-container">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th class="col-id">編號</th>
+                            <th class="col-year">年度</th>
+                            <th class="col-unit">機構</th>
+                            <th class="col-status">狀態</th>
+                            <th>事項內容摘要</th>
+                            <th>最新辦理/審查摘要</th>
+                            <th class="col-ai">AI 分析</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataBody"></tbody>
+                </table>
+            </div>
+            <div id="emptyMsg" style="text-align:center; padding:40px; color:#999; display:none;">查無符合資料</div>
+        </main>
+    </div>
+
+    <div class="drawer-backdrop" id="drawerBackdrop"></div>
+    <div class="drawer" id="detailDrawer">
+        <div class="drawer-header">
+            <div style="font-weight:700; font-size:16px;">事項詳細資料</div>
+            <button onclick="closeDrawer()" style="border:none; background:none; font-size:24px; padding:0 8px;">&times;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="ai-box">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <strong style="color:#6d28d9;">🔮 AI 智能助手分析</strong>
+                    <span id="drawerAiBadge" class="badge" style="background:#eee; color:#666;">未分析</span>
+                </div>
+                <div id="drawerAiContent" style="font-size:14px; color:#4c1d95; line-height:1.5; margin-bottom:12px;">點擊下方按鈕進行分析...</div>
+                <div style="text-align:right;"><button class="btn btn-ai" style="width:auto; display:inline-flex; padding:6px 12px; font-size:12px;" id="drawerAnalyzeBtn">立即分析</button></div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-label">編號 / 年度 / 機構</div>
+                <div class="detail-val" style="margin-bottom:8px;"><span id="dNumber" style="font-weight:700; color:var(--primary);"></span> | <span id="dYear"></span> | <span id="dUnit"></span></div>
+                <div class="detail-label">狀態</div><div style="margin-bottom:12px;" id="dStatus"></div>
+                <div class="detail-label">事項內容</div><div class="detail-val" id="dContent"></div>
+            </div>
+            <div style="font-weight:700; font-size:14px; margin:20px 0 10px 4px;">歷程紀錄</div>
+            <div id="dTimeline"></div>
+            <div style="height: 40px;"></div>
         </div>
     </div>
 
-    <!-- 模態視窗（覆蓋） -->
-    <div id="detailModalBackdrop" class="modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true">
-        <div class="modal-panel" role="document">
-            <div class="modal-header">
-                <div class="modal-title">開立事項詳細資料</div>
-                <div><button class="modal-close" aria-label="關閉" id="modalCloseBtn">✕</button></div>
-            </div>
-            <div class="modal-body">
-                <div class="detail-grid" id="modalDetailGrid">
-                    <div class="detail-item"><div class="detail-label">年度</div><div class="detail-value" id="viewYear">-</div></div>
-                    <div class="detail-item"><div class="detail-label">鐵路機構</div><div class="detail-value" id="viewUnit">-</div></div>
-                    <div class="detail-item"><div class="detail-label">編號</div><div class="detail-value" id="viewNumber">-</div></div>
-                    <div class="detail-item"><div class="detail-label">事項類別</div><div class="detail-value" id="viewCategory">-</div></div>
-                    <div class="detail-item"><div class="detail-label">檢查類別</div><div class="detail-value" id="viewInspectionCategory">-</div></div>
-                    <div class="detail-item"><div class="detail-label">分組</div><div class="detail-value" id="viewDivision">-</div></div>
-                    <div class="detail-item" style="grid-column: span 2;"><div class="detail-label">列管狀態</div><div class="detail-value" id="viewStatus">-</div></div>
-                    <div class="detail-item" style="grid-column: 1 / -1;"><div class="detail-label">內容</div><div class="detail-value" id="viewContent"></div></div>
-                </div>
-
-                <div id="modalRounds"></div>
-
-                <div class="ai-analysis-section" id="modalAISection">
-                    <h4>🔮 AI協助判斷（參考用）</h4>
-                    <div class="ai-note"><strong>是否符合改善方向：</strong><span id="aiFulfill">尚未分析</span></div>
-                    <div class="ai-note" style="margin-top:8px;"><strong>分析說明：</strong><div id="aiReason" style="margin-top:6px;color:#222;"></div></div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-sm" id="reAnalyzeBtn" style="background:#17a2b8;color:white;">🔁 重新分析</button>
-                <button class="btn btn-sm" id="modalCloseBtn2" style="background:#6c757d;color:white;">關閉</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 保持原始資料來源的 script -->
-    <script src="https://rbgov.sharepoint.com/sites/inspect_demo/_layouts/15/download.aspx?UniqueId=5e22f44f-eaa9-4d1b-a0ae-c050fceda031"></script>
-
+    <script src="https://rbgov-my.sharepoint.com/personal/hckuo_rb_gov_tw/_layouts/15/download.aspx?UniqueId=e2684913-5be9-4093-b270-1da5f074848d"></script>
     <script>
-        // 全域變數
-        let queryDatabase = [];
-        let filteredData = [];
-        let currentDetailId = null;
+        let rawData = [], currentData = [], currentId = null, charts = {};
 
-        // 可調整的字數限制（依需求修改）
-        const MAX_CHARS = {
-            content: 160,    // 內容欄位預設顯示字數（超過會截斷）
-            handling: 140,   // 辦理情形欄位預設顯示字數
-            review: 140      // 最新審查意見欄位預設顯示字數
-        };
-
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeSystem();
+        document.addEventListener('DOMContentLoaded', () => {
+            initData(); initListeners(); initCharts(); applyFilters();
         });
 
-        function initializeSystem() {
-            loadQueryData();
-            displayInitialQueryData();
-            updateDataTimestampDisplay();
-            document.getElementById('filterKeyword').addEventListener('keypress', function(e){ if (e.key === 'Enter') searchData(); });
-            // Modal close handlers
-            document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
-            document.getElementById('modalCloseBtn2').addEventListener('click', closeModal);
-            document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
-            document.getElementById('detailModalBackdrop').addEventListener('click', function(e){
-                if (e.target === this) closeModal();
-            });
-            document.getElementById('reAnalyzeBtn').addEventListener('click', function(){ if (currentDetailId) analyzeItem(currentDetailId); });
-        }
-
-        function loadQueryData() {
+        function initData() {
             try {
-                if (typeof window.railwayData !== 'undefined' && Array.isArray(window.railwayData.data)) {
-                    queryDatabase = window.railwayData.data.map(function(item, index){ return { ...item, id: item.id || (index+1), aiResult: item.aiResult || null }; });
-                    initializeQueryFilters();
-                } else {
-                    showMessage('找不到 Railway_data.js 或檔案格式不符', 'error');
+                if (window.railwayData && Array.isArray(window.railwayData.data)) {
+                    rawData = window.railwayData.data.map((d, i) => ({ ...d, id: d.id || `sys-${i}`, aiResult: d.aiResult || null }));
+                    const ts = window.railwayData.convertedAt || window.railwayData.timestamp;
+                    if (ts) document.getElementById('dataTimestamp').textContent = `更新於: ${ts}`;
+                    populateSelect('filterYear', rawData, 'year');
+                    populateSelect('filterUnit', rawData, 'unit');
                 }
-            } catch (e) {
-                showMessage('載入查詢資料失敗: ' + e.message, 'error');
-            }
+            } catch(e) { console.error(e); }
         }
 
-        function updateDataTimestampDisplay() {
-            const el = document.getElementById('dataUpdated');
-            try {
-                if (typeof window.railwayData !== 'undefined') {
-                    if (window.railwayData.convertedAt) {
-                        el.textContent = `資料庫更新：${window.railwayData.convertedAt}`;
-                    } else if (window.railwayData.timestamp) {
-                        const dt = new Date(window.railwayData.timestamp);
-                        if (!isNaN(dt)) el.textContent = `資料庫更新：${dt.toLocaleString('zh-TW')}`;
-                        else el.textContent = `資料庫更新：${window.railwayData.timestamp}`;
-                    } else {
-                        el.textContent = '資料庫更新：未知';
-                    }
-                } else {
-                    el.textContent = '資料庫更新：找不到 railwayData';
-                }
-            } catch (e) {
-                el.textContent = '資料庫更新：無法解析時間';
-            }
+        function populateSelect(id, data, field) {
+            const unique = [...new Set(data.map(i => i[field]).filter(Boolean))].sort().reverse();
+            document.getElementById(id).innerHTML = '<option value="">全部</option>' + unique.map(v => `<option value="${v}">${v}</option>`).join('');
         }
 
-        function initializeQueryFilters() {
-            function populateDropdown(elementId, values) {
-                const select = document.getElementById(elementId);
-                select.innerHTML = '<option value="">全部</option>' + [...values].map(v => `<option value="${v}">${v}</option>`).join('');
-            }
-            populateDropdown('filterYear', new Set(queryDatabase.map(i => i.year).filter(Boolean).sort((a,b)=>b-a)));
-            populateDropdown('filterUnit', new Set(queryDatabase.map(i => i.unit).filter(Boolean).sort()));
-            populateDropdown('filterInspectionCategory', new Set(queryDatabase.map(i => i.inspectionCategoryName).filter(Boolean).sort()));
-            populateDropdown('filterDivision', new Set(queryDatabase.map(i => i.divisionName).filter(Boolean).sort()));
+        function initListeners() {
+            document.getElementById('filterKeyword').addEventListener('keyup', (e) => { if (e.key === 'Enter') applyFilters(); });
+            document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer);
+            document.getElementById('drawerAnalyzeBtn').addEventListener('click', () => runAiAnalysis(currentId));
         }
 
-        function displayInitialQueryData() {
-            if (queryDatabase.length === 0) {
-                document.getElementById('queryTableBody').innerHTML = `<tr><td colspan="11" class="empty-message">資料庫無資料</td></tr>`;
-                return;
-            }
-            filteredData = [...queryDatabase];
-            displayQueryResults(sortQueryResults(filteredData));
-            updateStatistics(filteredData);
-            document.getElementById('statsSection').style.display = 'block';
-            document.getElementById('resultsSection').style.display = 'block';
-        }
+        function applyFilters() {
+            const k = document.getElementById('filterKeyword').value.toLowerCase();
+            const year = document.getElementById('filterYear').value;
+            const unit = document.getElementById('filterUnit').value;
+            const status = document.getElementById('filterStatus').value;
 
-        function searchData() {
-            const filters = {
-                year: document.getElementById('filterYear').value,
-                unit: document.getElementById('filterUnit').value,
-                category: document.getElementById('filterCategory').value,
-                inspectionCategory: document.getElementById('filterInspectionCategory').value,
-                division: document.getElementById('filterDivision').value,
-                status: document.getElementById('filterStatus').value,
-                keyword: document.getElementById('filterKeyword').value.toLowerCase()
-            };
-            filteredData = queryDatabase.filter(function(item) {
-                return (!filters.year || item.year === filters.year) &&
-                    (!filters.unit || item.unit === filters.unit) &&
-                    (!filters.category || item.category === filters.category) &&
-                    (!filters.inspectionCategory || item.inspectionCategoryName === filters.inspectionCategory) &&
-                    (!filters.division || item.divisionName === filters.division) &&
-                    (!filters.status || item.status === filters.status) &&
-                    (!filters.keyword || JSON.stringify(item).toLowerCase().includes(filters.keyword));
+            currentData = rawData.filter(d => {
+                return (!k || JSON.stringify(d).toLowerCase().includes(k)) &&
+                       (!year || d.year == year) &&
+                       (!unit || d.unit == unit) &&
+                       (!status || d.status == status);
             });
-            displayQueryResults(sortQueryResults(filteredData));
-            updateStatistics(filteredData);
+
+            document.getElementById('filtersPanel').classList.remove('open');
+            document.getElementById('filterBackdrop').style.display = 'none';
+            renderStats(); updateChartsData(); renderTable();
         }
 
-        function stripHtml(html) {
-            if (!html) return '';
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            return doc.body.textContent || "";
+        function resetFilters() { document.querySelectorAll('.filter-input, .filter-select').forEach(el => el.value = ''); applyFilters(); }
+        function renderStats() {
+            document.getElementById('countTotal').innerText = currentData.length;
+            document.getElementById('countActive').innerText = currentData.filter(d => d.status === '持續列管').length;
+            document.getElementById('countResolved').innerText = currentData.filter(d => ['解除列管','自行列管'].includes(d.status)).length;
         }
 
-        // 切換展開/收合（只保留更多按鈕，移除複製）
-        function toggleContent(id, field) {
-            const shortEl = document.getElementById(`${field}-short-${id}`);
-            const fullEl = document.getElementById(`${field}-full-${id}`);
-            const btn = document.getElementById(`${field}-toggle-${id}`);
-            if (!shortEl || !fullEl || !btn) return;
-            const isOpen = fullEl.classList.contains('open');
-            if (isOpen) {
-                fullEl.classList.remove('open');
-                shortEl.style.display = 'block';
-                btn.textContent = '更多';
-                btn.setAttribute('aria-expanded','false');
-            } else {
-                fullEl.classList.add('open');
-                shortEl.style.display = 'none';
-                btn.textContent = '收合';
-                btn.setAttribute('aria-expanded','true');
-            }
-        }
+        function renderTable() {
+            const tbody = document.getElementById('dataBody'); tbody.innerHTML = '';
+            if (currentData.length === 0) { document.getElementById('emptyMsg').style.display = 'block'; return; }
+            document.getElementById('emptyMsg').style.display = 'none';
 
-        function displayQueryResults(data) {
-            const tbody = document.getElementById('queryTableBody');
-            document.getElementById('resultCount').textContent = `(${data.length} 筆資料)`;
-            if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="11" class="empty-message">查無符合條件的資料</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = data.map(function(item){
-                const statusClass = item.status === '持續列管' ? 'status-active' : (item.status === '解除列管' ? 'status-resolved' : 'status-self');
-
-                function createPreviewHtml(fieldValue, fieldName, maxChars) {
-                    const text = stripHtml(fieldValue).replace(/\s+/g,' ').trim();
-                    const shortText = text.length > maxChars ? text.substring(0, maxChars) + '...' : text;
-                    const hasMore = text.length > shortText.length;
-                    const safeShort = escapeHtml(shortText);
-                    const safeFull = escapeHtml(text);
-                    return `<div class="cell-wrapper" aria-live="polite">
-                                <div id="${fieldName}-short-${item.id}" class="cell-short ${hasMore ? 'has-more' : ''}" tabindex="0">${safeShort || '-'}</div>
-                                <div id="${fieldName}-full-${item.id}" class="cell-full" aria-hidden="true">${safeFull || '-'}</div>
-                                <div class="cell-controls" role="group" aria-label="${fieldName} 操作">
-                                    ${hasMore ? `<button class="more-btn" id="${fieldName}-toggle-${item.id}" onclick="event.stopPropagation(); toggleContent('${item.id}','${fieldName}')" aria-expanded="false">更多</button>` : ''}
-                                </div>
-                            </div>`;
-                }
-
-                const contentHtml = createPreviewHtml(item.content, 'content', MAX_CHARS.content);
-                const handlingHtml = createPreviewHtml(getLatestHandling(item), 'handling', MAX_CHARS.handling);
-                const reviewHtml = createPreviewHtml(getLatestReview(item), 'review', MAX_CHARS.review);
-
-                let aiCell = `<div class="muted">尚未分析</div>`;
+            tbody.innerHTML = currentData.map(item => {
+                const statusType = item.status === '持續列管' ? 'active' : (item.status === '解除列管' ? 'resolved' : 'self');
+                const badge = `<span class="badge ${statusType}">${item.status}</span>`;
+                let updateTxt = '-';
+                const lastReview = getLatest(item, 'review');
+                const lastHandl = getLatest(item, 'handling');
+                if(lastReview) updateTxt = `[審查] ${lastReview}`; else if(lastHandl) updateTxt = `[回復] ${lastHandl}`;
+                
+                let aiHTML = `<span style="color:#ddd; font-size:12px;">-</span>`; 
                 if (item.aiResult) {
                     if (item.aiResult.status === 'analyzing') {
-                        aiCell = `<div><span class="ai-badge ai-pending"><span class="spinner"></span>分析中</span></div>`;
+                        aiHTML = `<div style="text-align:center"><span class="spinner" style="display:inline-block; border-color:#2563eb; border-top-color:transparent;"></span></div>`;
                     } else if (item.aiResult.status === 'done') {
-                        const fulfill = (item.aiResult.fulfill || '').toString().trim();
-                        const snippet = (item.aiResult.reason || '').toString();
-                        if (fulfill === '是' || fulfill === 'Yes' || fulfill === 'Y') {
-                            aiCell = `<div><span class="ai-badge ai-yes">是</span></div><div style="margin-top:6px;color:#444;max-width:260px;font-size:13px;">${snippet.length>80? escapeHtml(snippet.substring(0,80)) + '...' : escapeHtml(snippet)}</div>`;
-                        } else if (fulfill === '否' || fulfill === 'No' || fulfill === 'N') {
-                            aiCell = `<div><span class="ai-badge ai-no">否</span></div><div style="margin-top:6px;color:#444;max-width:260px;font-size:13px;">${snippet.length>80? escapeHtml(snippet.substring(0,80)) + '...' : escapeHtml(snippet)}</div>`;
-                        } else {
-                            aiCell = `<div><span class="ai-badge ai-done">${escapeHtml(fulfill || '已分析')}</span></div><div style="margin-top:6px;color:#444;max-width:260px;font-size:13px;">${snippet.length>80? escapeHtml(snippet.substring(0,80)) + '...' : escapeHtml(snippet)}</div>`;
-                        }
-                    } else if (item.aiResult.status === 'error') {
-                        aiCell = `<div><span class="ai-badge ai-fail">分析失敗</span></div><div style="color:#c00;font-size:12px;margin-top:6px;">${escapeHtml(item.aiResult.error||'')}</div>`;
+                        const f = item.aiResult.fulfill || '';
+                        const isYes = f.includes('是') || f.includes('Yes');
+                        const icon = isYes ? '✅' : (f.includes('否') || f.includes('No') ? '⚠️' : 'ℹ️');
+                        aiHTML = `<div style="text-align:center"><div class="ai-tag ${isYes ? 'yes' : 'no'}">${icon} ${f}</div></div>`;
+                    } else {
+                        aiHTML = `<div style="text-align:center; color:red; font-size:11px;">失敗</div>`;
                     }
                 }
 
-                return `<tr class="clickable-row" data-id="${item.id}" tabindex="0" onclick="openModal('${item.id}')">
-                    <td class="preview-cell">${escapeHtml(item.year||'')}</td>
-                    <td class="preview-cell">${escapeHtml(item.unit||'')}</td>
-                    <td class="preview-cell">${escapeHtml(item.number||'')}</td>
-                    <td class="preview-cell">${escapeHtml(item.category||'')}</td>
-                    <td class="preview-cell">${escapeHtml(item.inspectionCategoryName||'')}</td>
-                    <td class="preview-cell">${escapeHtml(item.divisionName||'')}</td>
-                    <td class="preview-cell"><span class="status-badge ${statusClass}">${escapeHtml(item.status||'')}</span></td>
-                    <td class="content-preview">${contentHtml}</td>
-                    <td class="content-preview">${handlingHtml}</td>
-                    <td class="content-preview">${reviewHtml}</td>
-                    <td onclick="event.stopPropagation();" style="min-width:240px;">
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <button class="btn-sm btn-ai" onclick="event.stopPropagation(); analyzeItem('${item.id}')">🖥️ AI分析</button>
-                            <div style="flex:1;">${aiCell}</div>
-                        </div>
-                    </td>
-                </tr>`;
+                return `<tr onclick="openDetail('${item.id}')">
+                        <td data-label="編號">${item.number}</td>
+                        <td data-label="年度" class="text-center">${item.year}</td>
+                        <td data-label="機構" class="text-center">${item.unit}</td>
+                        <td data-label="狀態" class="text-center">${badge}</td>
+                        <td data-label="事項內容摘要"><div class="text-content">${stripHtml(item.content)}</div></td>
+                        <td data-label="最新辦理/審查摘要"><div class="text-content">${stripHtml(updateTxt)}</div></td>
+                        <td data-label="AI 分析">${aiHTML}</td>
+                    </tr>`;
             }).join('');
         }
 
-        function openModal(id) {
-            currentDetailId = id;
-            const item = queryDatabase.find(r => String(r.id) === String(id));
-            if (!item) return;
-            document.getElementById('viewYear').textContent = item.year || '-';
-            document.getElementById('viewUnit').textContent = item.unit || '-';
-            document.getElementById('viewNumber').textContent = item.number || '-';
-            document.getElementById('viewCategory').textContent = item.category || '-';
-            document.getElementById('viewInspectionCategory').textContent = item.inspectionCategoryName || '-';
-            document.getElementById('viewDivision').textContent = item.divisionName || '-';
-            document.getElementById('viewStatus').textContent = item.status || '-';
-            document.getElementById('viewContent').innerHTML = item.content || '尚無內容';
-            analyzeAndDisplayRounds(item, document.getElementById('modalRounds'));
-
-            const fulfilEl = document.getElementById('aiFulfill');
-            const reasonEl = document.getElementById('aiReason');
-            if (item.aiResult && item.aiResult.status === 'done') {
-                const fulfill = (item.aiResult.fulfill || '').toString().trim();
-                const reason = item.aiResult.reason || '';
-                if (fulfill === '是' || fulfill === 'Yes' || fulfill === 'Y') {
-                    fulfilEl.innerHTML = `<span class="ai-badge ai-yes">是</span>`;
-                } else if (fulfill === '否' || fulfill === 'No' || fulfill === 'N') {
-                    fulfilEl.innerHTML = `<span class="ai-badge ai-no">否</span>`;
-                } else {
-                    fulfilEl.innerHTML = `<span class="ai-badge ai-done">${fulfill ? fulfill : '已分析'}</span>`;
-                }
-                reasonEl.textContent = reason;
-            } else if (item.aiResult && item.aiResult.status === 'analyzing') {
-                fulfilEl.textContent = '分析中...';
-                reasonEl.textContent = '分析中...';
-            } else if (item.aiResult && item.aiResult.status === 'error') {
-                fulfilEl.innerHTML = `<span class="ai-badge ai-fail">分析失敗</span>`;
-                reasonEl.textContent = item.aiResult.error || '';
-            } else {
-                fulfilEl.textContent = '尚未分析';
-                reasonEl.textContent = '尚未分析';
-            }
-
-            const backdrop = document.getElementById('detailModalBackdrop');
-            backdrop.classList.add('open');
-            backdrop.setAttribute('aria-hidden', 'false');
-            document.body.style.overflow = 'hidden';
-            const panel = backdrop.querySelector('.modal-panel');
-            if (panel) panel.focus && panel.setAttribute('tabindex', '-1'), panel.focus();
+        function initCharts() {
+            charts.status = new Chart(document.getElementById('statusChart').getContext('2d'), { type: 'doughnut', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } } } });
+            charts.unit = new Chart(document.getElementById('unitChart').getContext('2d'), { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { font: { size: 11 } } } } } });
         }
 
-        function closeModal() {
-            const backdrop = document.getElementById('detailModalBackdrop');
-            backdrop.classList.remove('open');
-            backdrop.setAttribute('aria-hidden', 'true');
-            document.body.style.overflow = '';
-            currentDetailId = null;
+        function updateChartsData() {
+            const statusCounts = { '持續列管': 0, '解除列管': 0, '自行列管': 0 };
+            currentData.forEach(d => { if (statusCounts[d.status] !== undefined) statusCounts[d.status]++; });
+            charts.status.data = { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#ef4444', '#10b981', '#f59e0b'], borderWidth: 0 }] };
+            charts.status.update();
+
+            /* 長條圖使用天空青色 */
+            const unitMap = {}; currentData.forEach(d => { unitMap[d.unit] = (unitMap[d.unit] || 0) + 1; });
+            const sortedUnits = Object.entries(unitMap).sort((a,b) => b[1] - a[1]);
+            charts.unit.data = { labels: sortedUnits.map(x => x[0]), datasets: [{ label: '案件數', data: sortedUnits.map(x => x[1]), backgroundColor: '#0ea5e9', borderRadius: 4 }] };
+            charts.unit.update();
         }
 
-        function analyzeAndDisplayRounds(item, container) {
-            container.innerHTML = '';
-            let html = '';
-            for (let i=1;i<=20;i++) {
-                const handlingKey = i===1 ? 'handling' : `handling${i}`;
-                const reviewKey = i===1 ? 'review' : `review${i}`;
-                const dateKey = i===1 ? 'firstDate' : (i===2 ? 'secondDate' : (i===3 ? 'thirdDate' : `round${i}Date`));
-                const actualDateKey = i===1 ? 'firstActualDate' : (i===2 ? 'secondActualDate' : (i===3 ? 'thirdActualDate' : `round${i}ActualDate`));
-                const handlingContent = item[handlingKey];
-                const reviewContent = item[reviewKey];
-                const reviewDate = item[dateKey];
-                const actualDate = item[actualDateKey];
+        function toggleFilters() {
+            const p = document.getElementById('filtersPanel'), bd = document.getElementById('filterBackdrop');
+            if(p.classList.contains('open')) { p.classList.remove('open'); bd.style.display = 'none'; } else { p.classList.add('open'); bd.style.display = 'block'; }
+        }
 
-                if (handlingContent || reviewContent || reviewDate || actualDate) {
-                    html += `<div class="round-container">
-                        <div class="round-header">📝 第${i}次回復與審查記錄</div>
-                        <div class="round-body">
-                            <div style="margin-bottom:8px;">
-                                <strong>鐵路機構回復辦理情形 ${actualDate ? `(實際回復日期: ${actualDate})` : ''}</strong>
-                                <div style="margin-top:6px;">${handlingContent || '<i>尚無回復內容</i>'}</div>
-                            </div>
-                            <div>
-                                <strong>審查意見 ${reviewDate ? `(審查發函日期: ${reviewDate})` : ''}</strong>
-                                <div style="margin-top:6px;">${reviewContent || '<i>尚無審查意見</i>'}</div>
-                            </div>
-                        </div>
+        function openDetail(id) {
+            currentId = id; const item = rawData.find(d => d.id == id); if (!item) return;
+            document.getElementById('dNumber').textContent = item.number; document.getElementById('dYear').textContent = item.year; document.getElementById('dUnit').textContent = item.unit; document.getElementById('dContent').innerHTML = item.content;
+            const statusType = item.status === '持續列管' ? 'active' : (item.status === '解除列管' ? 'resolved' : 'self');
+            document.getElementById('dStatus').innerHTML = `<span class="badge ${statusType}" style="font-size:13px; padding:4px 10px;">${item.status}</span>`;
+
+            let tlHtml = '';
+            for(let i=1; i<=20; i++) {
+                const h = item[i===1?'handling':`handling${i}`], r = item[i===1?'review':`review${i}`], d = item[i===1?'firstDate':(i===2?'secondDate':(i===3?'thirdDate':`round${i}Date`))];
+                if (h || r) {
+                    tlHtml += `<div style="padding-left:16px; border-left:2px solid #e5e7eb; margin-left:8px; padding-bottom:20px; position:relative;">
+                        <div style="position:absolute; left:-7px; top:0; width:12px; height:12px; border-radius:50%; background:white; border:2px solid var(--primary);"></div>
+                        <div style="font-size:13px; font-weight:700; color:#333; margin-bottom:6px;">第 ${i} 次辦理情形 ${d?`(${d})`:''}</div>
+                        ${h ? `<div style="background:#f1f5f9; padding:10px; border-radius:6px; font-size:14px; margin-bottom:8px;"><strong>回復：</strong><br>${h}</div>` : ''}
+                        ${r ? `<div style="background:#fff; border:1px solid #e2e8f0; padding:10px; border-radius:6px; font-size:14px;"><strong>審查：</strong><br>${r}</div>` : ''}
                     </div>`;
                 }
             }
-            container.innerHTML = html || `<div class="empty-message">暫無回復與審查記錄</div>`;
+            document.getElementById('dTimeline').innerHTML = tlHtml || '<div style="color:#999;">無歷程</div>';
+            updateDrawerAi(item);
+            document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open');
         }
 
-        function sortQueryResults(data) {
-            return data.sort(function(a,b){
-                const ay = Number(a.year)||0;
-                const by = Number(b.year)||0;
-                if (by - ay !== 0) return by - ay;
-                const an = a.number || '';
-                const bn = b.number || '';
-                return an.localeCompare(bn);
-            });
+        function closeDrawer() { document.getElementById('drawerBackdrop').classList.remove('open'); document.getElementById('detailDrawer').classList.remove('open'); }
+
+        function updateDrawerAi(item) {
+            const badge = document.getElementById('drawerAiBadge'), content = document.getElementById('drawerAiContent');
+            if (!item.aiResult) { badge.textContent = '未分析'; badge.style.background='#eee'; badge.style.color='#666'; content.innerHTML = '尚未進行分析，請點擊按鈕。'; }
+            else if (item.aiResult.status === 'analyzing') { badge.textContent = '分析中...'; badge.style.background='#dbeafe'; badge.style.color='#1e40af'; content.innerHTML = '<span class="spinner" style="display:inline-block; border-color:#6d28d9; border-top-color:transparent;"></span> 正在連線 AI 模型...'; }
+            else if (item.aiResult.status === 'done') {
+                const isYes = (item.aiResult.fulfill||'').includes('是') || (item.aiResult.fulfill||'').includes('Yes');
+                badge.textContent = '分析完成'; badge.style.background = isYes ? '#d1fae5' : '#fee2e2'; badge.style.color = isYes ? '#065f46' : '#991b1b';
+                content.innerHTML = `<strong>符合改善方向：${item.aiResult.fulfill}</strong><div style="margin-top:8px; padding-top:8px; border-top:1px solid #eee;">${item.aiResult.reason}</div>`;
+            } else { badge.textContent = '錯誤'; badge.style.background='#fee2e2'; content.innerText = item.aiResult.error; }
         }
 
-        function getLatestHandling(item) {
-            for (let i=20;i>=1;i--) {
-                const key = i===1 ? 'handling' : `handling${i}`;
-                if (item[key]) return item[key];
-            }
-            return '';
-        }
-        function getLatestReview(item) {
-            for (let i=20;i>=1;i--) {
-                const key = i===1 ? 'review' : `review${i}`;
-                if (item[key]) return item[key];
-            }
-            return '';
-        }
-
-        function updateStatistics(data) {
-            document.getElementById('totalCount').textContent = data.length;
-            document.getElementById('activeCount').textContent = data.filter(d => d.status === '持續列管').length;
-            document.getElementById('resolvedCount').textContent = data.filter(d => ['解除列管','自行列管'].includes(d.status)).length;
-        }
-
-        function resetQueryFilters() {
-            document.querySelectorAll('.search-group select, .search-group input').forEach(function(el){ el.value = ''; });
-            displayInitialQueryData();
-            showMessage('已重設篩選條件', 'success');
-        }
-
-        function exportQueryCSV() {
-            const dataToExport = filteredData.length > 0 ? filteredData : queryDatabase;
-            if (dataToExport.length === 0) { showMessage('沒有資料可匯出', 'error'); return; }
-            let csvContent = '\uFEFF年度,鐵路機構,編號,事項類別,檢查類別,分組,狀態,內容,最新辦理情形,最新審查意見\n';
-            dataToExport.forEach(function(item){
-                const row = [item.year, item.unit, item.number, item.category, item.inspectionCategoryName, item.divisionName, item.status, stripHtml(item.content), stripHtml(getLatestHandling(item)), stripHtml(getLatestReview(item))].map(function(f){ return `"${(f||'').toString().replace(/"/g,'""').replace(/\n/g,'\\r\\n')}"`; }).join(',');
-                csvContent += row + '\n';
-            });
-            downloadFile(csvContent, 'SMS_Query_Export.csv', 'text/csv;charset=utf-8;');
-            showMessage(`成功匯出 ${dataToExport.length} 筆資料`, 'success');
-        }
-
-        function downloadFile(content, filename, mimeType) {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(new Blob([content], { type: mimeType }));
-            link.download = filename;
-            link.click();
-            URL.revokeObjectURL(link.href);
-        }
-
-        function showMessage(message, type) {
-            const el = document.getElementById('queryMessage');
-            el.textContent = message;
-            el.style.display = 'block';
-            el.className = type === 'success' ? 'message success' : (type === 'error' ? 'message error' : 'empty-message');
-            setTimeout(function(){ el.style.display = 'none'; }, 4200);
-        }
-
-        // 分析單筆（改進：更友善地處理非 JSON 回應並記錄內容以便 Debug）
-        async function analyzeItem(id) {
-            const item = queryDatabase.find(r => String(r.id) === String(id));
-            if (!item) return;
-            if (item.aiResult && item.aiResult.status === 'analyzing') return;
-            item.aiResult = { status: 'analyzing' };
-            displayQueryResults(sortQueryResults(filteredData));
-            if (currentDetailId && String(currentDetailId) === String(id)) {
-                document.getElementById('aiFulfill').textContent = '分析中...';
-                document.getElementById('aiReason').textContent = '分析中...';
-            }
+        async function runAiAnalysis(id) {
+            const item = rawData.find(d => d.id == id); if (!item) return;
+            item.aiResult = { status: 'analyzing' }; 
+            renderTable(); 
+            if(currentId == id) updateDrawerAi(item);
             try {
-                const content = item.content || '';
-                const rounds = collectAllRounds(item);
-
-                // 如果你的後端部署在不同的 origin，請把下面路徑改為完整 URL，例如 "https://api.example.com/api/gemini"
-                const res = await fetch('/api/gemini', {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ content, rounds })
-                });
-
-                const contentType = res.headers.get('content-type') || '';
-                const rawText = await res.text(); // 先取文字，避免直接解析失敗造成 Uncaught
-                if (!res.ok) {
-                    // 若後端回傳非 2xx，嘗試解析錯誤資訊
-                    let parsedError = rawText;
-                    try {
-                        if (contentType.includes('application/json')) {
-                            parsedError = JSON.parse(rawText);
-                        }
-                    } catch (e) {
-                        // leave parsedError as rawText
-                    }
-                    item.aiResult = { status: 'error', error: `Server ${res.status}: ${typeof parsedError === 'string' ? parsedError : JSON.stringify(parsedError)}` };
-                    console.error('AI API non-ok response:', res.status, rawText);
-                } else {
-                    // 回傳為 2xx：但可能是 HTML（content-type 含 text/html）或 JSON
-                    if (contentType.includes('application/json')) {
-                        let result;
-                        try {
-                            result = JSON.parse(rawText);
-                        } catch (e) {
-                            item.aiResult = { status: 'error', error: '解析 JSON 失敗' };
-                            console.error('JSON parse error:', e, rawText);
-                        }
-                        if (result) {
-                            if (result.error) {
-                                item.aiResult = { status: 'error', error: result.error };
-                            } else {
-                                item.aiResult = { status: 'done', fulfill: result.fulfill || '', reason: result.reason || '' };
-                            }
-                        }
-                    } else {
-                        // 非 JSON 回應（例如 HTML）——記錄並回報到 UI
-                        item.aiResult = { status: 'error', error: `非 JSON 回應（Content-Type: ${contentType}）。伺服器回應片段: ${rawText.substring(0,500)}` };
-                        console.error('Non-JSON response from /api/gemini:', res.status, contentType, rawText);
-                    }
-                }
-            } catch (e) {
-                item.aiResult = { status: 'error', error: e.message };
-                console.error('analyzeItem error:', e);
-            }
-            displayQueryResults(sortQueryResults(filteredData));
-            if (currentDetailId && String(currentDetailId) === String(id)) {
-                const ai = item.aiResult;
-                const fulfilEl = document.getElementById('aiFulfill');
-                const reasonEl = document.getElementById('aiReason');
-                if (ai.status === 'done') {
-                    const fulfill = (ai.fulfill || '').toString().trim();
-                    if (fulfill === '是' || fulfill === 'Yes' || fulfill === 'Y') {
-                        fulfilEl.innerHTML = `<span class="ai-badge ai-yes">是</span>`;
-                    } else if (fulfill === '否' || fulfill === 'No' || fulfill === 'N') {
-                        fulfilEl.innerHTML = `<span class="ai-badge ai-no">否</span>`;
-                    } else {
-                        fulfilEl.innerHTML = `<span class="ai-badge ai-done">${fulfill ? fulfill : '已分析'}</span>`;
-                    }
-                    reasonEl.textContent = ai.reason || '';
-                } else if (ai.status === 'error') {
-                    fulfilEl.innerHTML = `<span class="ai-badge ai-fail">分析失敗</span>`;
-                    reasonEl.textContent = ai.error || '';
-                }
-            }
-            return item.aiResult;
+                const rounds = []; for(let i=1; i<=20; i++) { const h = item[i===1?'handling':`handling${i}`], r = item[i===1?'review':`review${i}`]; if(h||r) rounds.push({handling:h||'', review:r||''}); }
+                const res = await fetch('/api/gemini', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ content: item.content, rounds: rounds }) });
+                if (!res.ok) throw new Error(`API Error`);
+                const json = await res.json();
+                if (json.error) throw new Error(json.error);
+                item.aiResult = { status: 'done', fulfill: json.fulfill, reason: json.reason };
+            } catch(e) { console.error(e); item.aiResult = { status: 'error', error: e.message }; }
+            renderTable(); 
+            if(currentId == id) updateDrawerAi(item);
         }
 
-        async function analyzeAllDisplayed() {
-            const list = filteredData.length > 0 ? filteredData : queryDatabase;
-            if (!list || list.length === 0) { showMessage('目前無資料可分析', 'error'); return; }
-            showMessage('開始依序分析每筆（可能較久），請稍候...', 'success');
-            for (let i=0;i<list.length;i++) {
-                const item = list[i];
-                if (item.aiResult && item.aiResult.status === 'done') continue;
-                await analyzeItem(item.id);
-                await new Promise(r => setTimeout(r, 220));
-            }
-            showMessage('一鍵分析完成（已更新表格中的 AI 結果）', 'success');
-        }
-
-        function runAIAnalysis() {
-            if (!currentDetailId) { document.getElementById('aiReason').textContent = '請先選擇要分析的項目'; return; }
-            analyzeItem(currentDetailId);
-        }
-
-        function escapeHtml(str) {
-            if (!str && str !== 0) return '';
-            return String(str).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); });
-        }
-
-        // collect rounds (unchanged)
-        function collectAllRounds(item) {
-            const rounds = [];
-            for (let i=1;i<=20;i++) {
-                const handlingKey = i===1 ? 'handling' : `handling${i}`;
-                const reviewKey = i===1 ? 'review' : `review${i}`;
-                if (item[handlingKey] || item[reviewKey]) rounds.push({ handling: item[handlingKey]||'', review: item[reviewKey]||'' });
-            }
-            return rounds;
+        function stripHtml(html) { if (!html) return ''; let tmp = document.createElement("DIV"); tmp.innerHTML = html; return tmp.textContent || tmp.innerText || ""; }
+        function getLatest(item, prefix) { for(let i=20; i>=1; i--) { const key = i===1 ? prefix : `${prefix}${i}`; if (item[key]) return item[key]; } return null; }
+        function exportQueryCSV() {
+            let csv = '\uFEFF編號,年度,機構,狀態,內容,最新辦理,AI分析\n';
+            currentData.forEach(d => {
+                const ai = d.aiResult && d.aiResult.status === 'done' ? `${d.aiResult.fulfill} - ${d.aiResult.reason}` : '';
+                csv += `"${d.number}","${d.year}","${d.unit}","${d.status}","${stripHtml(d.content).replace(/"/g,'""')}","${stripHtml(getLatest(d, 'handling')||'').replace(/"/g,'""')}","${ai.replace(/"/g,'""')}"\n`;
+            });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); a.download = 'export.csv'; a.click();
         }
     </script>
 </body>
