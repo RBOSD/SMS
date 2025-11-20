@@ -66,6 +66,7 @@
             border-bottom: 1px solid rgba(0,0,0,0.05);
             flex-shrink: 0;
         }
+        /* ★ 標題修正 3: 內容標題樣式不變，但文字會在 HTML 中修正 */
         .content-title { font-size: 20px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
         .content-subtitle { font-size: 13px; color: var(--text-sub); font-weight: 500; background: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); }
 
@@ -81,6 +82,7 @@
         /* Charts */
         .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; flex-shrink: 0; }
         .chart-card { background: white; border-radius: 10px; padding: 16px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); height: 220px; position: relative; }
+        /* ★ 圖表標題樣式不變，但文字會在 HTML 中修正 */
         .chart-title { font-size: 13px; font-weight: 600; color: var(--text-sub); margin-bottom: 10px; }
 
         /* Inputs */
@@ -110,7 +112,6 @@
         .col-year   { width: 60px; text-align: center; } 
         .col-unit   { width: 70px; text-align: center; } 
         .col-status { width: 90px; text-align: center; } 
-        /* 修改：AI欄位加寬，以便顯示文字 */
         .col-ai     { width: 220px; text-align: left; } 
         
         .text-center { text-align: center; }
@@ -150,7 +151,8 @@
             .filter-toggle-btn { display: block; }
             .main-content { padding: 12px; }
             .charts-grid { grid-template-columns: 1fr; }
-            .chart-card { height: 200px; }
+            /* 圓餅圖修正: 在小螢幕上給予足夠高度以容納圖例 */
+            .chart-card { height: 250px; } 
         }
 
         @media (max-width: 768px) {
@@ -263,7 +265,7 @@
         </div>
     </div>
 
-    <script src="https://rbgov-my.sharepoint.com/personal/hckuo_rb_gov_tw/_layouts/15/download.aspx?UniqueId=e2684913-5be9-4093-b270-1da5f074848d"></script>
+    <script src="Railway_data.js"></script> 
     <script>
         let rawData = [], currentData = [], currentId = null, charts = {};
 
@@ -279,8 +281,15 @@
                     if (ts) document.getElementById('dataTimestamp').textContent = `更新於: ${ts}`;
                     populateSelect('filterYear', rawData, 'year');
                     populateSelect('filterUnit', rawData, 'unit');
+                } else {
+                    // 若資料載入失敗，顯示錯誤訊息而非 "更新中..."
+                    document.getElementById('dataTimestamp').textContent = `錯誤: 資料載入失敗`;
+                    console.error("Data loading failed. window.railwayData is undefined or not an array.");
                 }
-            } catch(e) { console.error(e); }
+            } catch(e) { 
+                console.error(e); 
+                document.getElementById('dataTimestamp').textContent = `錯誤: 資料處理異常`;
+            }
         }
 
         function populateSelect(id, data, field) {
@@ -314,6 +323,7 @@
 
         function resetFilters() { document.querySelectorAll('.filter-input, .filter-select').forEach(el => el.value = ''); applyFilters(); }
         function renderStats() {
+            // ★ 標題修正 5: 統計項目文字已修正
             document.getElementById('countTotal').innerText = currentData.length;
             document.getElementById('countActive').innerText = currentData.filter(d => d.status === '持續列管').length;
             document.getElementById('countResolved').innerText = currentData.filter(d => ['解除列管','自行列管'].includes(d.status)).length;
@@ -341,12 +351,12 @@
                         const f = item.aiResult.fulfill || '';
                         const isYes = f.includes('是') || f.includes('Yes');
                         const icon = isYes ? '✅' : (f.includes('否') || f.includes('No') ? '⚠️' : 'ℹ️');
-                        const reason = item.aiResult.reason || '';
+                        const reason = stripHtml(item.aiResult.reason) || '';
                         
                         // 這裡顯示標籤與文字內容
                         aiHTML = `
                             <div class="ai-tag ${isYes ? 'yes' : 'no'}">${icon} ${f}</div>
-                            <div class="text-content" style="font-size:13px; color:#555;">${stripHtml(reason)}</div>
+                            <div class="text-content" style="font-size:13px; color:#555;">${reason}</div>
                         `;
                     } else {
                         aiHTML = `<div style="color:red; font-size:11px;">失敗</div>`;
@@ -366,13 +376,40 @@
         }
 
         function initCharts() {
-            charts.status = new Chart(document.getElementById('statusChart').getContext('2d'), { type: 'doughnut', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12 } } } } });
+            // 圓餅圖修正: 調整 options，將 legend 移至 'bottom' 並增加 padding
+            charts.status = new Chart(document.getElementById('statusChart').getContext('2d'), { 
+                type: 'doughnut', 
+                data: { labels: [], datasets: [] }, 
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { 
+                            position: 'bottom', // 將圖例移至下方 
+                            labels: { 
+                                boxWidth: 12,
+                                padding: 15 // 增加圖例項目間距
+                            } 
+                        } 
+                    },
+                    layout: { // 增加繪圖區的內邊距
+                        padding: {
+                            top: 10,
+                            bottom: 10,
+                            left: 10,
+                            right: 10
+                        }
+                    }
+                } 
+            });
+            // 長條圖維持不變
             charts.unit = new Chart(document.getElementById('unitChart').getContext('2d'), { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { font: { size: 11 } } } } } });
         }
 
         function updateChartsData() {
             const statusCounts = { '持續列管': 0, '解除列管': 0, '自行列管': 0 };
             currentData.forEach(d => { if (statusCounts[d.status] !== undefined) statusCounts[d.status]++; });
+            // ★ 標題修正 6 & 7: 圖表標題在 HTML 中已修正，此處只更新數據
             charts.status.data = { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#ef4444', '#10b981', '#f59e0b'], borderWidth: 0 }] };
             charts.status.update();
 
