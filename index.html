@@ -375,10 +375,9 @@
         }
 
         function initCharts() {
-            // ★ 修正 2: 圓餅圖加入 datalabels 設定
+            // ★ 修正圓餅圖：僅顯示百分比，並調整文字顏色為深灰色
             charts.status = new Chart(document.getElementById('statusChart').getContext('2d'), { 
                 type: 'doughnut', 
-                // 必須將 datalabels 插件註冊到 Chart 實例
                 plugins: [ChartDataLabels],
                 data: { labels: [], datasets: [] }, 
                 options: { 
@@ -386,25 +385,25 @@
                     maintainAspectRatio: false, 
                     plugins: { 
                         legend: { 
-                            position: 'bottom', // 將圖例移至下方 
+                            position: 'bottom',
                             labels: { 
                                 boxWidth: 12,
-                                padding: 15 // 增加圖例項目間距
+                                padding: 15
                             } 
                         },
-                        // 新增 datalabels 設定
                         datalabels: {
                             formatter: (value, context) => {
                                 const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
                                 if (total === 0) return '';
                                 const percentage = ((value / total) * 100).toFixed(1);
-                                // 顯示數量和百分比
-                                return `${value} (${percentage}%)`; 
+                                // 僅顯示百分比
+                                return `${percentage}%`; 
                             },
-                            color: '#fff', // 文字顏色
-                            font: { weight: 'bold', size: 12 },
-                            textShadowBlur: 4,
-                            textShadowColor: 'rgba(0, 0, 0, 0.6)' // 增加陰影以提高可讀性
+                            // 修正文字配色
+                            color: '#222', // 改為深灰色
+                            font: { weight: 'bold', size: 13 }, // 字體略大一點
+                            textShadowBlur: 0, // 移除陰影
+                            textShadowColor: 'transparent'
                         }
                     },
                     layout: { // 增加繪圖區的內邊距
