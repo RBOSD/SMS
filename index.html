@@ -6,6 +6,7 @@
     <title>SMS開立事項查詢及AI審查系統</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <style>
         :root {
             /* --- 配色變數 --- */
@@ -66,7 +67,6 @@
             border-bottom: 1px solid rgba(0,0,0,0.05);
             flex-shrink: 0;
         }
-        /* ★ 標題修正 3: 內容標題樣式不變，但文字會在 HTML 中修正 */
         .content-title { font-size: 20px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
         .content-subtitle { font-size: 13px; color: var(--text-sub); font-weight: 500; background: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); }
 
@@ -82,7 +82,6 @@
         /* Charts */
         .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; flex-shrink: 0; }
         .chart-card { background: white; border-radius: 10px; padding: 16px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); height: 220px; position: relative; }
-        /* ★ 圖表標題樣式不變，但文字會在 HTML 中修正 */
         .chart-title { font-size: 13px; font-weight: 600; color: var(--text-sub); margin-bottom: 10px; }
 
         /* Inputs */
@@ -323,7 +322,7 @@
 
         function resetFilters() { document.querySelectorAll('.filter-input, .filter-select').forEach(el => el.value = ''); applyFilters(); }
         function renderStats() {
-            // ★ 標題修正 5: 統計項目文字已修正
+            // 標題修正 5: 統計項目文字已修正
             document.getElementById('countTotal').innerText = currentData.length;
             document.getElementById('countActive').innerText = currentData.filter(d => d.status === '持續列管').length;
             document.getElementById('countResolved').innerText = currentData.filter(d => ['解除列管','自行列管'].includes(d.status)).length;
@@ -376,9 +375,11 @@
         }
 
         function initCharts() {
-            // 圓餅圖修正: 調整 options，將 legend 移至 'bottom' 並增加 padding
+            // ★ 修正 2: 圓餅圖加入 datalabels 設定
             charts.status = new Chart(document.getElementById('statusChart').getContext('2d'), { 
                 type: 'doughnut', 
+                // 必須將 datalabels 插件註冊到 Chart 實例
+                plugins: [ChartDataLabels],
                 data: { labels: [], datasets: [] }, 
                 options: { 
                     responsive: true, 
@@ -390,7 +391,21 @@
                                 boxWidth: 12,
                                 padding: 15 // 增加圖例項目間距
                             } 
-                        } 
+                        },
+                        // 新增 datalabels 設定
+                        datalabels: {
+                            formatter: (value, context) => {
+                                const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                if (total === 0) return '';
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                // 顯示數量和百分比
+                                return `${value} (${percentage}%)`; 
+                            },
+                            color: '#fff', // 文字顏色
+                            font: { weight: 'bold', size: 12 },
+                            textShadowBlur: 4,
+                            textShadowColor: 'rgba(0, 0, 0, 0.6)' // 增加陰影以提高可讀性
+                        }
                     },
                     layout: { // 增加繪圖區的內邊距
                         padding: {
@@ -409,7 +424,7 @@
         function updateChartsData() {
             const statusCounts = { '持續列管': 0, '解除列管': 0, '自行列管': 0 };
             currentData.forEach(d => { if (statusCounts[d.status] !== undefined) statusCounts[d.status]++; });
-            // ★ 標題修正 6 & 7: 圖表標題在 HTML 中已修正，此處只更新數據
+            // 標題修正 6 & 7: 圖表標題在 HTML 中已修正，此處只更新數據
             charts.status.data = { labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#ef4444', '#10b981', '#f59e0b'], borderWidth: 0 }] };
             charts.status.update();
 
