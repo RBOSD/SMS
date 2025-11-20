@@ -9,23 +9,13 @@
     <style>
         :root {
             /* --- 配色變數 --- */
-            
-            /* 主色調：操作按鈕、Logo (標準藍) */
             --primary: #2563eb;       
             --primary-dark: #1d4ed8;
-            
-            /* 數據強調色：總筆數 (靛紫色) - 與藍色區隔 */
             --data-total: #6366f1; 
-            
-            /* 圖表色：長條圖 (天空青) */
             --chart-bar: #0ea5e9;
-
-            /* 狀態色 */
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
-            
-            /* 背景與文字 */
             --bg-body: #f1f5f9;
             --bg-card: #ffffff;
             --text-main: #0f172a;
@@ -40,7 +30,7 @@
         html, body { height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden; }
         body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: var(--bg-body); color: var(--text-main); display: flex; flex-direction: column; }
 
-        /* Header (Left Sidebar Top) */
+        /* Header */
         .app-header { 
             background: var(--bg-card); 
             border-bottom: 1px solid var(--border); 
@@ -60,13 +50,13 @@
         /* Layout */
         .app-body { display: flex; flex: 1; height: calc(100% - var(--header-h)); overflow: hidden; position: relative; }
 
-        /* Sidebar Filters */
+        /* Sidebar */
         .filters-panel { width: 260px; background: var(--bg-card); border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; transition: transform 0.3s ease; z-index: 40; height: 100%; }
         
         /* Main Content */
         .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px; background: var(--bg-body); scroll-behavior: smooth; height: 100%; min-height: 0; }
 
-        /* ★ 新增：右側內容區的標頭 (解決頂部空白問題) ★ */
+        /* Page Header */
         .content-header {
             display: flex;
             justify-content: space-between;
@@ -74,34 +64,17 @@
             margin-bottom: 20px;
             padding-bottom: 10px;
             border-bottom: 1px solid rgba(0,0,0,0.05);
-            flex-shrink: 0; /* 防止被壓縮 */
+            flex-shrink: 0;
         }
-        .content-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .content-subtitle {
-            font-size: 13px;
-            color: var(--text-sub);
-            font-weight: 500;
-            background: #fff;
-            padding: 4px 8px;
-            border-radius: 4px;
-            border: 1px solid var(--border);
-        }
+        .content-title { font-size: 20px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+        .content-subtitle { font-size: 13px; color: var(--text-sub); font-weight: 500; background: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); }
 
-        /* Stats Cards */
+        /* Stats */
         .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; flex-shrink: 0; }
         .stat-item { background: white; padding: 12px; border-radius: 8px; border: 1px solid var(--border); text-align: center; display: flex; flex-direction: column; align-items: center; }
         .stat-val { font-size: 20px; font-weight: 800; }
         .stat-lbl { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
-        
-        /* 顏色應用 */
-        .stat-item.total { border-bottom: 3px solid var(--data-total); color: var(--data-total); } /* 紫色 */
+        .stat-item.total { border-bottom: 3px solid var(--data-total); color: var(--data-total); }
         .stat-item.red { border-bottom: 3px solid var(--danger); color: var(--danger); }
         .stat-item.green { border-bottom: 3px solid var(--success); color: var(--success); }
         
@@ -110,17 +83,16 @@
         .chart-card { background: white; border-radius: 10px; padding: 16px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); height: 220px; position: relative; }
         .chart-title { font-size: 13px; font-weight: 600; color: var(--text-sub); margin-bottom: 10px; }
 
-        /* Form Elements */
+        /* Inputs */
         .filter-group label { font-size: 12px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; display: block; }
         .filter-input, .filter-select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #f8fafc; }
-        
         .btn { width: 100%; padding: 10px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: opacity 0.2s; }
         .btn:active { opacity: 0.8; }
         .btn-primary { background: var(--primary); color: white; }
         .btn-outline { background: white; border: 1px solid var(--border); color: var(--text-main); }
-        .btn-ai { background: #7c3aed; color: white; } /* 抽屜裡的分析按鈕維持紫色 */
+        .btn-ai { background: #7c3aed; color: white; }
 
-        /* Table Styles */
+        /* Table */
         .data-container { 
             background: white; 
             border-radius: 10px; 
@@ -133,12 +105,13 @@
         th { position: sticky; top: 0; background: #f8fafc; padding: 12px 8px; text-align: left; font-size: 13px; color: var(--text-sub); border-bottom: 1px solid var(--border); white-space: nowrap; z-index: 10; font-weight: 600; }
         td { padding: 14px 8px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; color: #333; }
 
-        /* Column Widths */
+        /* Column Widths - Adjusted */
         .col-id     { width: 140px; } 
         .col-year   { width: 60px; text-align: center; } 
         .col-unit   { width: 70px; text-align: center; } 
         .col-status { width: 90px; text-align: center; } 
-        .col-ai     { width: 85px; text-align: center; } 
+        /* 修改：AI欄位加寬，以便顯示文字 */
+        .col-ai     { width: 220px; text-align: left; } 
         
         .text-center { text-align: center; }
         tr { cursor: pointer; transition: background 0.1s; }
@@ -152,7 +125,7 @@
         .badge.resolved { background: #d1fae5; color: #065f46; }
         .badge.self { background: #fef3c7; color: #92400e; }
 
-        .ai-tag { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: #f3f4f6; }
+        .ai-tag { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; padding: 2px 6px; border-radius: 4px; background: #f3f4f6; margin-bottom: 4px; }
         .ai-tag.yes { color: var(--success); background: #ecfdf5; }
         .ai-tag.no { color: var(--danger); background: #fef2f2; }
 
@@ -195,7 +168,7 @@
             td[data-label="事項內容摘要"] .text-content { -webkit-line-clamp: 3; }
             td[data-label="最新辦理/審查摘要"] { display: none; } 
             td[data-label="AI 分析"]:empty { display: none; }
-            td[data-label="AI 分析"] { border-top: 1px dashed #eee; margin-top: 8px; padding-top: 8px; flex-direction: row; align-items: center; justify-content: space-between; }
+            td[data-label="AI 分析"] { border-top: 1px dashed #eee; margin-top: 8px; padding-top: 8px; display: block; }
         }
     </style>
 </head>
@@ -207,7 +180,7 @@
             <div class="brand-icon">🚄</div>
             <div>
                 <div style="line-height: 1.2;">SMS開立事項查詢及AI審查系統</div>
-                </div>
+            </div>
         </div>
     </header>
 
@@ -227,9 +200,8 @@
         <div id="filterBackdrop" style="position:fixed; inset:0; background:rgba(0,0,0,0.3); z-index:35; display:none;" onclick="toggleFilters()"></div>
 
         <main class="main-content">
-            
             <div class="content-header">
-                <div class="content-title">📊 總覽看板</div>
+                <div class="content-title">📊 開立事項總覽看板</div>
                 <div class="content-subtitle" id="dataTimestamp">資料更新中...</div>
             </div>
 
@@ -360,6 +332,7 @@
                 const lastHandl = getLatest(item, 'handling');
                 if(lastReview) updateTxt = `[審查] ${lastReview}`; else if(lastHandl) updateTxt = `[回復] ${lastHandl}`;
                 
+                // AI 欄位邏輯：預設顯示 "-"，完成後顯示 標籤+內容
                 let aiHTML = `<span style="color:#ddd; font-size:12px;">-</span>`; 
                 if (item.aiResult) {
                     if (item.aiResult.status === 'analyzing') {
@@ -368,9 +341,15 @@
                         const f = item.aiResult.fulfill || '';
                         const isYes = f.includes('是') || f.includes('Yes');
                         const icon = isYes ? '✅' : (f.includes('否') || f.includes('No') ? '⚠️' : 'ℹ️');
-                        aiHTML = `<div style="text-align:center"><div class="ai-tag ${isYes ? 'yes' : 'no'}">${icon} ${f}</div></div>`;
+                        const reason = item.aiResult.reason || '';
+                        
+                        // 這裡顯示標籤與文字內容
+                        aiHTML = `
+                            <div class="ai-tag ${isYes ? 'yes' : 'no'}">${icon} ${f}</div>
+                            <div class="text-content" style="font-size:13px; color:#555;">${stripHtml(reason)}</div>
+                        `;
                     } else {
-                        aiHTML = `<div style="text-align:center; color:red; font-size:11px;">失敗</div>`;
+                        aiHTML = `<div style="color:red; font-size:11px;">失敗</div>`;
                     }
                 }
 
