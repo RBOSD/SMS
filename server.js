@@ -56,7 +56,7 @@ app.use(express.static(path.join(__dirname)));
 
 // 2. 新增一個簡單的 API 來初始化資料庫表格 (一次性執行)
 // 警告：這只是為了方便建立表格，正式上線後建議移除或加強權限
-app.get('/api/init-db', async (req, res) => {
+app.get('/api/sms-db', async (req, res) => {
   try {
     const client = await pool.connect();
     
