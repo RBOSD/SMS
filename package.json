@@ -1,0 +1,23 @@
+{
+  "name": "sms-ai-review",
+  "version": "1.0.0",
+  "description": "SMS 開立事項查詢及 AI 審查系統 (Render 部署用)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.2",
+    "connect-pg-simple": "^9.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "pg": "^8.16.3"
+  }
+}

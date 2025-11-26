@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系統登入</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f1f5f9; margin: 0; }
+        .login-card { background: white; padding: 40px 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 360px; text-align: center; }
+        h2 { color: #1e293b; margin-top: 0; margin-bottom: 20px; font-size: 24px; }
+        .icon { font-size: 48px; margin-bottom: 10px; display: block; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 15px; transition: border 0.2s; }
+        input:focus { border-color: #2563eb; outline: none; }
+        button { width: 100%; padding: 12px; background: #2563eb; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 15px; transition: background 0.2s; }
+        button:hover { background: #1d4ed8; }
+        .error { color: #ef4444; text-align: center; font-size: 14px; margin-top: 15px; display: none; background: #fef2f2; padding: 8px; border-radius: 6px; }
+        .hint { color: #64748b; font-size: 13px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <span class="icon">🚄</span>
+        <h2>SMS 系統登入</h2>
+        <input type="text" id="username" placeholder="帳號 (User ID)">
+        <input type="password" id="password" placeholder="密碼">
+        <button onclick="login()">登入</button>
+        <div id="errorMsg" class="error"></div>
+        
+        <!-- 提示：如果是第一次初始化系統 -->
+        <div id="initHint" class="hint" style="display:none;">
+            系統尚無使用者<br>
+            <a href="#" onclick="openInitModal()" style="color:#2563eb;text-decoration:none;">按此建立管理員帳號</a>
+        </div>
+    </div>
+
+    <!-- 初始化註冊 Modal (隱藏) -->
+    <div id="initModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center;">
+        <div style="background:white; padding:30px; border-radius:12px; width:300px;">
+            <h3 style="margin-top:0;">初始化管理員</h3>
+            <input type="text" id="newAdmin" placeholder="新帳號">
+            <input type="password" id="newPwd" placeholder="新密碼">
+            <input type="text" id="newName" placeholder="顯示名稱 (選填)">
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button onclick="registerFirstAdmin()">建立</button>
+                <button onclick="document.getElementById('initModal').style.display='none'" style="background:#ccc;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 檢查系統是否為空 (是否需要初始化)
+        // 注意：這裡不檢查登入狀態，只檢查使用者數量
+        fetch('/api/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({checkOnly:true}) })
+            .catch(() => {}); // 忽略錯誤，這只是為了讓 API 暖身或試探
+
+        // 這裡我們用一個簡單的技巧：如果登入失敗顯示「帳號不存在」，且你知道是第一次，可以用下方的隱藏功能
+        // 或者我們主動檢查一次 users API (但這需要權限，除了第一次)
+        // 為了簡單，我們直接讓使用者登入。
+
+        async function login() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const err = document.getElementById('errorMsg');
+            
+            if(!u || !p) { err.innerText = '請輸入帳號密碼'; err.style.display = 'block'; return; }
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    window.location.href = '/index.html';
+                } else {
+                    err.innerText = data.error || '登入失敗';
+                    err.style.display = 'block';
+                    
+                    // 如果錯誤是「帳號不存在」，可能是新系統，顯示初始化提示
+                    if(data.error === '帳號不存在') {
+                        // 嘗試建立第一位使用者 (不需要驗證)
+                        checkIfSystemEmpty();
+                    }
+                }
+            } catch (e) {
+                err.innerText = '連線錯誤';
+                err.style.display = 'block';
+            }
+        }
+
+        // 檢查是否允許註冊第一位 (透過嘗試呼叫 create api，如果回傳 401/403 代表有這隻 API 但沒權限=系統有人)
+        // 這裡我們用更簡單的方式：直接嘗試註冊，如果後端擋下來就是不行
+        function openInitModal() {
+            document.getElementById('initModal').style.display = 'flex';
+        }
+
+        async function checkIfSystemEmpty() {
+            // 這裡無法直接檢查，因為沒權限。
+            // 我們依賴使用者自己知道「我是第一個」，手動點擊初始化。
+            // 或者我們顯示一個提示
+            document.getElementById('initHint').style.display = 'block';
+        }
+
+        async function registerFirstAdmin() {
+            const u = document.getElementById('newAdmin').value;
+            const p = document.getElementById('newPwd').value;
+            const n = document.getElementById('newName').value;
+            if(!u || !p) return alert('請輸入帳號密碼');
+
+            try {
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p, name: n, role: 'admin' })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert('管理員建立成功，請登入');
+                    document.getElementById('initModal').style.display = 'none';
+                    document.getElementById('username').value = u;
+                    document.getElementById('initHint').style.display = 'none';
+                } else {
+                    alert('建立失敗：' + (data.error || '系統可能已存在管理員'));
+                }
+            } catch(e) { alert('錯誤'); }
+        }
+    </script>
+</body>
+</html>
