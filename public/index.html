@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>SMS開立事項查詢及AI審查系統</title>
+    <!-- [修正 1] 標題與 Header 統一 -->
+    <title>SMS開立事項查詢</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -44,7 +45,6 @@
         /* Layout */
         .app-body { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 60px); position: relative; }
         
-        /* Sidebar */
         .filters-panel { 
             width: 260px; background: var(--bg-card); border-right: 1px solid var(--border); padding: 20px; 
             overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; z-index: 40; 
@@ -55,8 +55,9 @@
         .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px; background: var(--bg-body); scroll-behavior: smooth; position: relative; z-index: 1; }
         
         /* Components */
-        .content-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); flex-shrink: 0; }
-        .content-title { font-size: 20px; font-weight: 700; color: var(--text-main); }
+        .content-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); flex-shrink: 0; min-height: 30px; }
+        /* [修正 2] 移除了 content-title 樣式，因為標題已被移除 */
+        
         .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; flex-shrink: 0; }
         .stat-item { background: white; padding: 16px; border-radius: 12px; border: 1px solid var(--border); text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .stat-val { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
@@ -149,7 +150,6 @@
             td[data-label="內容摘要"] { font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
             td[data-label="最新進度"] { font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             td[data-label="操作 / AI"] { margin-top: 8px; display: flex; gap: 8px; justify-content: flex-end; }
-            /* 手機版隱藏勾選框，避免版面混亂 */
             .manager-col { display: none !important; }
             .drawer { width: 100%; max-width: 100%; top: 0; height: 100%; z-index: 9999; }
             #toast-container { left: 20px; right: 20px; top: 80px; width: auto; }
@@ -157,7 +157,6 @@
     </style>
 </head>
 <body>
-    <!-- Toast Container -->
     <div id="toast-container"></div>
 
     <header class="app-header">
@@ -203,13 +202,9 @@
 
         <main class="main-content">
             <div id="searchView" class="view-section active">
-                <div class="content-header"><div class="content-title">開立事項總覽</div><div style="font-size:12px;color:#666;" id="dataTimestamp">...</div></div>
-                
-                <!-- [新增] 批次刪除工具列 (只有 Admin/Manager 看得到) -->
-                <div id="managerToolbar" style="display:none; margin-bottom: 10px;">
-                    <button class="btn btn-danger" onclick="batchDeleteIssues()">
-                        <i style="margin-right:4px">🗑️</i> 批次刪除
-                    </button>
+                <!-- [修正 2] 移除了左側的「開立事項總覽」標題 -->
+                <div class="content-header">
+                    <div style="font-size:12px;color:#666;margin-left:auto;" id="dataTimestamp">...</div>
                 </div>
 
                 <div class="stats-bar">
@@ -221,11 +216,18 @@
                     <div class="chart-card"><div style="height:220px;width:100%;display:flex;justify-content:center;"><canvas id="statusChart"></canvas></div></div>
                     <div class="chart-card"><div style="height:220px;width:100%;"><canvas id="unitChart"></canvas></div></div>
                 </div>
+
+                <!-- [修正 3] 批次刪除移到表格正上方，且靠右對齊 -->
+                <div id="managerToolbar" style="display:none; justify-content: flex-end; margin-bottom: 8px;">
+                    <button class="btn btn-danger btn-sm" onclick="batchDeleteIssues()">
+                        <i style="margin-right:4px">🗑️</i> 批次刪除
+                    </button>
+                </div>
+
                 <div class="data-container">
                     <table id="dataTable">
                         <thead>
                             <tr>
-                                <!-- [新增] 勾選框欄位 -->
                                 <th style="width:40px; display:none;" class="manager-col">
                                     <input type="checkbox" id="selectAll" onclick="toggleAllCheckboxes()">
                                 </th>
@@ -244,6 +246,7 @@
                 <div id="emptyMsg" style="text-align:center;padding:40px;color:#999;display:none;">查無資料</div>
             </div>
 
+            <!-- 其他 View (Import / Users) 保持不變 -->
             <div id="importView" class="view-section">
                 <div class="content-header"><div class="content-title">📥 資料匯入</div></div>
                 <div class="detail-card" id="uploadCard" style="max-width:800px;">
@@ -309,7 +312,6 @@
     <div class="modal-overlay" id="userModal"><div class="modal-box"><h3 style="margin-top:0;" id="userModalTitle">使用者</h3><input type="hidden" id="targetUserId"><div class="form-group"><label>姓名</label><input type="text" id="uName" class="filter-input"></div><div class="form-group"><label>帳號 (Username)</label><input type="text" id="uEmail" class="filter-input"></div><div class="form-group"><label>密碼 <span style="font-weight:400;color:#666;font-size:12px" id="pwdHint"></span></label><input type="password" id="uPwd" class="filter-input"></div>
     <div class="form-group">
         <label>權限</label>
-        <!-- [更新] 權限中文化 -->
         <select id="uRole" class="filter-select">
             <option value="admin">系統管理員 (Admin)</option>
             <option value="manager">資料管理者 (Manager)</option>
@@ -322,7 +324,6 @@
 
     <script>
         let rawData=[], currentData=[], currentUser=null, charts={}, currentEditItem=null, userList=[], sortState = { field: null, dir: 'asc' }, stagedImportData = []; 
-        // ... (保留原本的解析函式，不更動) ...
         function normalizeCodeString(str){ if(!str) return ""; var s = (str.normalize? str.normalize("NFKC") : str); s=s.replace(/[\u200B-\u200D\uFEFF]/g,""); s=s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g,"-"); s=s.replace(/[ \t]+/g," ").replace(/\s*-\s*/g,"-"); return s.trim(); }
         function extractNumberFromCell(cell){ if(!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); var mB = whole.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/); if (mB) return (mB[1] || "").toUpperCase(); var mA = whole.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/); if (mA) return (mA[1] || "").toUpperCase(); return ""; }
         function parseItemNumber(numberStr){ var raw=normalizeCodeString(numberStr||""); if(!raw) return null; var m = raw.match(/^(\d{2})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i); if(m){ var yy=parseInt(m[1],10), rocYear=100+yy, org=m[2].toUpperCase(), cat=m[3], div=m[4].toUpperCase(), divSeq=m[5], kind=m[6].toUpperCase(), seq=m[7]; return {scheme:"THAS-v1", raw:raw, yearRoc:rocYear, orgCodeRaw:org, inspectionCategoryCode:cat, divisionCode:div, divisionSeq:divSeq, itemKindCode:kind, itemSeq:seq.toString(), period:""}; } m = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d{1,3})$/i); if(m){ var rocYear2=parseInt(m[1],10), org2=m[2].toUpperCase(), cat2=m[3], period=m[4], div2=m[5].toUpperCase(), kind2=m[6].toUpperCase(), seq2=m[7]; return {scheme:"TRC-v2", raw:raw, yearRoc:rocYear2, orgCodeRaw:org2, inspectionCategoryCode:cat2, divisionCode:div2, itemKindCode:kind2, itemSeq:seq2.toString(), period:period}; } return null; }
@@ -389,17 +390,15 @@
                     currentUser = data; 
                     document.getElementById('headerUserName').innerText = data.name || data.username; 
                     document.getElementById('headerUserRole').innerText = getRoleName(data.role); 
-                    // [更新] 權限邏輯：admin 或 manager 都可以看到進階按鈕
                     if(['admin', 'manager'].includes(data.role)) { 
                         document.getElementById('btn-importView').classList.remove('hidden'); 
                         document.getElementById('btn-usersView').classList.remove('hidden'); 
-                        if(data.role === 'admin') loadUsers(); // 只有admin可以管理帳號
+                        if(data.role === 'admin') loadUsers(); 
                     } 
                 } else window.location.href = '/login.html'; 
             } catch(e) { window.location.href = '/login.html'; } 
         }
         
-        // [更新] 中文職稱對照表
         function getRoleName(r) { 
             const map = { 'admin':'系統管理員', 'manager':'資料管理者', 'editor':'審查人員', 'viewer':'檢視人員' };
             return map[r] || r; 
@@ -429,17 +428,14 @@
         function updateSortUI() { document.querySelectorAll('th').forEach(th => { th.classList.remove('sort-asc', 'sort-desc'); if(th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc'); }); }
         function renderStats() { document.getElementById('countTotal').innerText = currentData.length; document.getElementById('countActive').innerText = currentData.filter(d => d.status==='持續列管').length; document.getElementById('countResolved').innerText = currentData.filter(d => ['解除列管','自行列管'].includes(d.status)).length; }
 
-        // [更新] renderTable: 加入勾選框、控制按鈕權限
         function renderTable() { 
             const tbody = document.getElementById('dataBody'); tbody.innerHTML = ''; 
             if (currentData.length===0) { document.getElementById('emptyMsg').style.display='block'; return; } 
             document.getElementById('emptyMsg').style.display='none'; 
             
-            // 權限判斷
-            const canManage = ['admin', 'manager'].includes(currentUser.role); // 刪除/匯入/批次
-            const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role); // 編輯/AI
+            const canManage = ['admin', 'manager'].includes(currentUser.role); 
+            const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role); 
 
-            // 控制批次按鈕與表頭
             const toolbar = document.getElementById('managerToolbar');
             if(toolbar) toolbar.style.display = canManage ? 'flex' : 'none';
             document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
@@ -450,11 +446,8 @@
                 let updateTxt = '-'; const lr = getLatest(item,'review'), lh = getLatest(item,'handling'); if(lr) updateTxt = `[審] ${lr}`; else if(lh) updateTxt = `[回] ${lh}`; 
                 let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if (item.aiResult && item.aiResult.status==='done') { const f = item.aiResult.fulfill||'', isYes = f.includes('是')||f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes?'yes':'no'}">${isYes?'✅':'⚠️'} ${f}</div>`; } 
                 
-                // 操作按鈕
                 const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : ''; 
                 const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : ''; 
-
-                // 勾選框
                 const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation()"></td>` : `<td class="manager-col" style="display:none"></td>`;
 
                 return `<tr onclick="openDetail('${item.id}',false)">
@@ -473,21 +466,15 @@
         function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
         async function submitProfile() { const name=document.getElementById('myProfileName').value, pwd=document.getElementById('myProfilePwd').value; const res=await fetch('/api/auth/profile', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name, password:pwd}) }); if(res.ok) { showToast('更新成功，請重新登入'); document.getElementById('profileModal').classList.remove('open'); logout(); } else showToast('更新失敗', 'error'); }
         function switchView(id){ document.querySelectorAll('.view-section').forEach(e=>e.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.sidebar-btn').forEach(e=>e.classList.remove('active')); const btn=document.getElementById(`btn-${id}`); if(btn) btn.classList.add('active'); document.getElementById('searchFilters').style.display = id==='searchView'?'block':'none'; if(window.innerWidth<=1024){const p=document.getElementById('filtersPanel'); if(p.classList.contains('open') || p.style.transform==='translateX(0px)') onToggleSidebar();} }
-        
         function openDetail(id,isEdit){ 
             currentEditItem=rawData.find(d=>String(d.id)===String(id)); if(!currentEditItem)return; 
             document.getElementById('dNumber').textContent=currentEditItem.number; document.getElementById('dYear').textContent=currentEditItem.year; document.getElementById('dUnit').textContent=currentEditItem.unit; document.getElementById('dContent').innerHTML=currentEditItem.content; const st=currentEditItem.status==='持續列管'?'active':(currentEditItem.status==='解除列管'?'resolved':'self'); document.getElementById('dStatus').innerHTML=currentEditItem.status && currentEditItem.status!=='Open'?`<span class="badge ${st}">${currentEditItem.status}</span>`:'(未設定)'; let h=''; for(let i=1;i<=20;i++){const ha=currentEditItem[i===1?'handling':`handling${i}`],re=currentEditItem[i===1?'review':`review${i}`];if(ha||re)h+=`<div style="padding-left:16px;border-left:2px solid #e5e7eb;margin-left:8px;padding-bottom:20px;position:relative;"><div style="position:absolute;left:-7px;top:0;width:12px;height:12px;border-radius:50%;background:white;border:2px solid var(--primary);"></div><div style="font-size:13px;font-weight:700;margin-bottom:6px;">第 ${i} 次辦理情形</div>${ha?`<div style="background:#f1f5f9;padding:10px;border-radius:6px;font-size:14px;margin-bottom:8px;">${ha}</div>`:''}${re?`<div style="background:#fff;border:1px solid #e2e8f0;padding:10px;border-radius:6px;font-size:14px;">${re}</div>`:''}</div>`;} document.getElementById('dTimeline').innerHTML=h||'<div style="color:#999;">無歷程</div>'; 
-            
-            // [更新] 控制 Drawer 內的編輯與刪除按鈕
             const canEdit = ['admin','manager','editor'].includes(currentUser.role); 
-            const canDelete = ['admin','manager'].includes(currentUser.role); // Editor 不可刪除
-            
+            const canDelete = ['admin','manager'].includes(currentUser.role); 
             document.getElementById('editBtn').classList.toggle('hidden', !canEdit); 
             document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); 
-            
             document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit); 
         }
-
         function toggleEditMode(edit){ document.getElementById('viewModeContent').classList.toggle('hidden',edit); document.getElementById('editModeContent').classList.toggle('hidden',!edit); document.getElementById('drawerTitle').innerText=edit?"編輯事項":"詳細資料"; if(edit){ document.getElementById('editId').value=currentEditItem.id; document.getElementById('editStatus').value=(currentEditItem.status==='Open')?'':currentEditItem.status; document.getElementById('editRound').value=1; loadRoundData(); document.getElementById('aiBox').style.display='none'; } }
         function loadRoundData(){ const r=parseInt(document.getElementById('editRound').value),s=r===1?'':r; const rawHandling = currentEditItem['handling'+s]||''; const rawReview = currentEditItem['review'+s]||''; document.getElementById('editHandling').value = formatHtmlToText(rawHandling); document.getElementById('editReview').value = formatHtmlToText(rawReview); }
         async function saveEdit(){const id=document.getElementById('editId').value, payload={status:document.getElementById('editStatus').value, round:document.getElementById('editRound').value, handling:document.getElementById('editHandling').value, review:document.getElementById('editReview').value}; const res=await fetch(`/api/issues/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(res.ok){showToast('儲存成功');await loadData();toggleEditMode(false);openDetail(id,false);}else showToast('儲存失敗', 'error');}
@@ -506,7 +493,6 @@
         async function deleteIssue(id) { if(!confirm('確定要刪除此事項嗎？此操作無法復原。')) return; try { const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('已刪除'); loadData(); closeDrawer(); } else { showToast('刪除失敗', 'error'); } } catch(e) { showToast('Error: ' + e.message, 'error'); } }
         async function deleteIssueFromDrawer() { if(!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
 
-        // [新增] 批次刪除 JS
         function toggleAllCheckboxes() {
             const master = document.getElementById('selectAll');
             document.querySelectorAll('.issue-check').forEach(cb => cb.checked = master.checked);
