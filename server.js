@@ -12,15 +12,12 @@ const rateLimit = require('express-rate-limit');
 
 console.log("🚀 Server starting...");
 
-// 1. 環境變數檢查
 if (!process.env.SESSION_SECRET || !process.env.DATABASE_URL) {
     console.error("❌ Critical Error: SESSION_SECRET or DATABASE_URL is missing.");
     process.exit(1);
 }
 
 const app = express();
-
-// 2. [重要] 解決 Render 代理與 Rate Limit 誤判問題
 app.set('trust proxy', 1);
 
 const pool = new Pool({ 
@@ -33,48 +30,37 @@ pool.on('error', (err) => {
     process.exit(-1);
 });
 
-// 3. Session 設定
 app.use(session({
   store: new pgSession({ pool: pool, tableName: 'session', createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET,
   resave: false, 
   saveUninitialized: false,
-  cookie: { 
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30天
-      httpOnly: true,
-      secure: true // Render 有 HTTPS，建議開啟
-  }
+  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true, secure: true }
 }));
 
 app.use(cors({ credentials: true, origin: true }));
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 4. 暴力破解防護 (Rate Limiting)
 const loginLimiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 分鐘
-	limit: 10, // 允許錯誤 10 次
+	windowMs: 15 * 60 * 1000,
+	limit: 10,
 	message: { error: '嘗試登入次數過多，請 15 分鐘後再試' },
 	standardHeaders: true, 
 	legacyHeaders: false, 
 });
 
-// 5. 權限檢查 Middleware
 function checkAuth(req, res, next) { if (req.session.userId) next(); else res.status(401).json({ error: '請先登入' }); }
 function checkAdmin(req, res, next) { if (req.session.role === 'admin') next(); else res.status(403).json({ error: '權限不足' }); }
-// Manager: 可匯入、刪除
 function checkManager(req, res, next) { if (['admin', 'manager'].includes(req.session.role)) next(); else res.status(403).json({ error: '權限不足' }); }
-// Editor: 可編輯/審查
 function checkEditor(req, res, next) { if (['admin', 'manager', 'editor'].includes(req.session.role)) next(); else res.status(403).json({ error: '權限不足' }); }
 
-// 6. 資料庫初始化
 async function initDB() {
     let client;
     try {
         client = await pool.connect();
         console.log("✅ Database connected.");
 
-        // 使用者表格 (確保有 username)
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY, 
@@ -88,9 +74,11 @@ async function initDB() {
         
         try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;`); } catch(e){}
 
-        // [修復] 確保 log 表格存在
         await client.query(`CREATE TABLE IF NOT EXISTS login_logs (id SERIAL PRIMARY KEY, user_id INTEGER, ip_address VARCHAR(50), login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
         
+        // [修正 3] 建立索引以加速查詢登入紀錄
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_login_logs_time ON login_logs(login_time DESC);`);
+
         await client.query(`CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT, status VARCHAR(50), year VARCHAR(20), unit VARCHAR(50), category VARCHAR(50), inspection_category VARCHAR(50), division VARCHAR(50), handling TEXT, review TEXT, raw_data JSONB, created_by VARCHAR(50), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
         
         console.log("✅ Tables ready.");
@@ -101,7 +89,6 @@ initDB();
 
 // --- API Routes ---
 
-// 登入 (Username 方式) & [修復] 登入紀錄
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
     const { username, password } = req.body;
     if (!username) return res.status(400).json({ error: '請輸入帳號' });
@@ -117,13 +104,10 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             req.session.name = user.name; 
             req.session.role = user.role;
             
-            // [修復] 更穩健的 IP 抓取方式
             let ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
-            // 如果是 IPv6 loopback，轉為 IPv4 顯示
             if (ip === '::1') ip = '127.0.0.1';
-            if (ip.includes(',')) ip = ip.split(',')[0].trim(); // 取第一個 IP
+            if (ip.includes(',')) ip = ip.split(',')[0].trim();
 
-            // [修復] 寫入 Log (不使用 await，避免卡住回傳，但加上錯誤捕捉)
             pool.query('INSERT INTO login_logs (user_id, ip_address) VALUES ($1, $2)', [user.id, ip])
                 .catch(err => console.error("Login Log Error:", err.message));
             
@@ -140,7 +124,6 @@ app.get('/api/auth/me', (req, res) => {
     else res.json({ isLogin: false });
 });
 
-// 使用者管理
 const ROLE_MAP = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' };
 app.get('/api/users', checkAuth, checkAdmin, async (req, res) => {
     const r = await pool.query('SELECT id, username, email, name, role, created_at FROM users ORDER BY id ASC');
@@ -175,10 +158,9 @@ app.delete('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
     res.json({ success: true });
 });
 
-// [管理員專用] 讀取登入紀錄
+// [修正 3] 優化查詢語法
 app.get('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     try {
-        // 結合使用者名稱
         const r = await pool.query(`
             SELECT l.login_time, l.ip_address, u.username, u.name 
             FROM login_logs l
@@ -188,11 +170,11 @@ app.get('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
         `);
         res.json(r.rows);
     } catch (e) {
+        console.error(e);
         res.status(500).json({ error: '無法讀取紀錄' });
     }
 });
 
-// 事項管理
 app.get('/api/issues', checkAuth, async (req, res) => {
     try {
         const r = await pool.query('SELECT * FROM issues ORDER BY created_at DESC');
@@ -201,7 +183,6 @@ app.get('/api/issues', checkAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// [批次刪除] - Manager Only
 app.post('/api/issues/batch-delete', checkAuth, checkManager, async (req, res) => {
     const { ids } = req.body; 
     if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: '未選擇項目' });
@@ -242,7 +223,6 @@ app.put('/api/issues/:id', checkAuth, checkEditor, async (req, res) => {
     res.json({ success: true });
 });
 
-// 匯入 - Manager Only
 app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
     const { data, round, reviewDate, actualReplyDate } = req.body; 
     const targetRound = parseInt(round || 1); 
@@ -290,7 +270,6 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
     } finally { client.release(); }
 });
 
-// AI API
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 app.post('/api/gemini', checkAuth, checkEditor, async (req, res) => {
     const { content, rounds } = req.body; 
