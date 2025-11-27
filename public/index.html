@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <!-- [修正 1] 標題與 Header 統一 -->
     <title>SMS開立事項查詢</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -56,7 +55,6 @@
         
         /* Components */
         .content-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); flex-shrink: 0; min-height: 30px; }
-        /* [修正 2] 移除了 content-title 樣式，因為標題已被移除 */
         
         .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; flex-shrink: 0; }
         .stat-item { background: white; padding: 16px; border-radius: 12px; border: 1px solid var(--border); text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
@@ -202,7 +200,6 @@
 
         <main class="main-content">
             <div id="searchView" class="view-section active">
-                <!-- [修正 2] 移除了左側的「開立事項總覽」標題 -->
                 <div class="content-header">
                     <div style="font-size:12px;color:#666;margin-left:auto;" id="dataTimestamp">...</div>
                 </div>
@@ -217,7 +214,7 @@
                     <div class="chart-card"><div style="height:220px;width:100%;"><canvas id="unitChart"></canvas></div></div>
                 </div>
 
-                <!-- [修正 3] 批次刪除移到表格正上方，且靠右對齊 -->
+                <!-- 批次刪除工具列 -->
                 <div id="managerToolbar" style="display:none; justify-content: flex-end; margin-bottom: 8px;">
                     <button class="btn btn-danger btn-sm" onclick="batchDeleteIssues()">
                         <i style="margin-right:4px">🗑️</i> 批次刪除
@@ -246,7 +243,6 @@
                 <div id="emptyMsg" style="text-align:center;padding:40px;color:#999;display:none;">查無資料</div>
             </div>
 
-            <!-- 其他 View (Import / Users) 保持不變 -->
             <div id="importView" class="view-section">
                 <div class="content-header"><div class="content-title">📥 資料匯入</div></div>
                 <div class="detail-card" id="uploadCard" style="max-width:800px;">
@@ -303,7 +299,10 @@
                 <div class="form-group"><label>狀態</label><select id="editStatus" class="filter-select"><option value="">(未設定)</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
                 <div class="form-group"><label>編輯回合</label><select id="editRound" class="filter-select" onchange="loadRoundData()"></select></div>
                 <div class="form-group"><label>辦理情形</label><textarea id="editHandling" class="filter-input" rows="5"></textarea></div>
-                <div class="form-group"><label>審查意見 <button class="btn btn-ai" style="padding:2px 6px;font-size:11px;" onclick="runAiInEdit()">🤖 AI 分析</button></label><div id="aiBox" style="background:#f0f9ff;padding:10px;border-radius:6px;margin-bottom:8px;display:none;font-size:13px;"><span id="aiRes"></span></div><textarea id="editReview" class="filter-input" rows="5"></textarea></div>
+                <div class="form-group"><label>審查意見 
+                    <!-- [修正] 傳遞 this，確保按鈕狀態正常 -->
+                    <button class="btn btn-ai" style="padding:2px 6px;font-size:11px;" onclick="runAiInEdit(this)">🤖 AI 分析</button>
+                </label><div id="aiBox" style="background:#f0f9ff;padding:10px;border-radius:6px;margin-bottom:8px;display:none;font-size:13px;"><span id="aiRes"></span></div><textarea id="editReview" class="filter-input" rows="5"></textarea></div>
                 <div style="display:flex;gap:10px;"><button class="btn btn-primary" onclick="saveEdit()">儲存</button><button class="btn btn-outline" onclick="toggleEditMode(false)">取消</button></div>
             </div>
         </div>
@@ -478,7 +477,42 @@
         function toggleEditMode(edit){ document.getElementById('viewModeContent').classList.toggle('hidden',edit); document.getElementById('editModeContent').classList.toggle('hidden',!edit); document.getElementById('drawerTitle').innerText=edit?"編輯事項":"詳細資料"; if(edit){ document.getElementById('editId').value=currentEditItem.id; document.getElementById('editStatus').value=(currentEditItem.status==='Open')?'':currentEditItem.status; document.getElementById('editRound').value=1; loadRoundData(); document.getElementById('aiBox').style.display='none'; } }
         function loadRoundData(){ const r=parseInt(document.getElementById('editRound').value),s=r===1?'':r; const rawHandling = currentEditItem['handling'+s]||''; const rawReview = currentEditItem['review'+s]||''; document.getElementById('editHandling').value = formatHtmlToText(rawHandling); document.getElementById('editReview').value = formatHtmlToText(rawReview); }
         async function saveEdit(){const id=document.getElementById('editId').value, payload={status:document.getElementById('editStatus').value, round:document.getElementById('editRound').value, handling:document.getElementById('editHandling').value, review:document.getElementById('editReview').value}; const res=await fetch(`/api/issues/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(res.ok){showToast('儲存成功');await loadData();toggleEditMode(false);openDetail(id,false);}else showToast('儲存失敗', 'error');}
-        async function runAiInEdit(){ const btn = event.target; btn.disabled = true; btn.innerText = 'AI 分析中...'; const handlingTxt = document.getElementById('editHandling').value; const r = [{ handling: handlingTxt, review: '(待審查)' }]; try{ if(!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); const res = await fetch('/api/gemini',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ content: currentEditItem.content, rounds: r }) }); const j = await res.json(); if(!res.ok) throw new Error(j.error || '未知錯誤'); if(!j.fulfill) throw new Error('AI 回傳格式錯誤'); document.getElementById('aiRes').innerHTML = `<strong style="color:${j.fulfill.includes('Yes')||j.fulfill.includes('是')?'#10b981':'#ef4444'}">[${j.fulfill}]</strong> ${j.reason}`; document.getElementById('aiBox').style.display = 'block'; } catch(e) { showToast('AI 失敗: ' + e.message, 'error'); console.error(e); } finally { btn.disabled = false; btn.innerText = '🤖 AI 分析'; } }
+        
+        // [修正 1 & 2] 傳入 btn 參數，並先過濾 HTML 再發送給 AI
+        async function runAiInEdit(btn){ 
+            btn.disabled = true; 
+            btn.innerText = 'AI 分析中...'; 
+            
+            const handlingTxt = document.getElementById('editHandling').value; 
+            const r = [{ handling: handlingTxt, review: '(待審查)' }]; 
+            
+            try{ 
+                if(!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); 
+                
+                // 確保只傳送純文字給 AI，避免 HTML 標籤造成錯誤
+                const cleanContent = stripHtml(currentEditItem.content);
+                
+                const res = await fetch('/api/gemini',{ 
+                    method:'POST', 
+                    headers:{'Content-Type':'application/json'}, 
+                    body:JSON.stringify({ content: cleanContent, rounds: r }) 
+                }); 
+                
+                const j = await res.json(); 
+                if(!res.ok) throw new Error(j.error || '未知錯誤'); 
+                if(!j.fulfill) throw new Error('AI 回傳格式錯誤'); 
+                
+                document.getElementById('aiRes').innerHTML = `<strong style="color:${j.fulfill.includes('Yes')||j.fulfill.includes('是')?'#10b981':'#ef4444'}">[${j.fulfill}]</strong> ${j.reason}`; 
+                document.getElementById('aiBox').style.display = 'block'; 
+            } catch(e) { 
+                showToast('AI 失敗: ' + e.message, 'error'); 
+                console.error(e); 
+            } finally { 
+                btn.disabled = false; 
+                btn.innerText = '🤖 AI 分析'; 
+            } 
+        }
+        
         function populateSelect(id,d,f){const u=[...new Set(d.map(i=>i[f]).filter(Boolean))].sort().reverse();document.getElementById(id).innerHTML='<option value="">全部</option>'+u.map(v=>`<option value="${v}">${v}</option>`).join('');}
         function getLatest(i,p){for(let k=20;k>=1;k--){const key=k===1?p:`${p}${k}`;if(i[key])return i[key];}return null;}
         function stripHtml(h){if(!h)return '';let t=document.createElement("DIV");t.innerHTML=h;return t.textContent||t.innerText||"";}
