@@ -3,23 +3,25 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <!-- [修正] 標題統一 -->
     <title>SMS開立事項查詢</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <style>
+        /* 1. 基礎設定 */
         body { display: none; font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f1f5f9; margin: 0; min-height: 100vh; flex-direction: column; } 
         :root { --primary: #2563eb; --bg-body: #f1f5f9; --bg-card: #ffffff; --text-main: #0f172a; --text-sub: #64748b; --border: #e2e8f0; --header-h: 60px; --danger: #ef4444; --success: #10b981; }
         *, *::before, *::after { box-sizing: border-box; }
         
+        /* Header */
         .app-header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 20px; height: var(--header-h); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 30; width: 100%; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; color: var(--text-main); }
         .brand-icon { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 5px rgba(37,99,235,0.2); }
         .filter-toggle-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: transparent; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 18px; color: var(--text-sub); transition: all 0.2s; }
         .filter-toggle-btn:hover { background: #f1f5f9; color: var(--primary); border-color: var(--primary); }
 
+        /* User Menu */
         .user-menu-container { position: relative; }
         .user-capsule { display: flex; align-items: center; gap: 10px; padding: 6px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 30px; cursor: pointer; transition: all 0.2s; }
         .user-capsule:hover { background: #eff6ff; border-color: #bfdbfe; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
@@ -31,12 +33,15 @@
         .dropdown-item:hover { background: #f1f5f9; color: var(--primary); }
         .dropdown-divider { height: 1px; background: #f1f5f9; margin: 4px 0; }
 
+        /* Layout */
         .app-body { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 60px); position: relative; }
         .filters-panel { width: 260px; background: var(--bg-card); border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; z-index: 40; height: 100%; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
         .filters-panel.collapsed { width: 0; padding: 0; border-right: none; overflow: hidden; }
         .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px; background: var(--bg-body); scroll-behavior: smooth; position: relative; z-index: 1; }
         
+        /* Components */
         .content-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); flex-shrink: 0; min-height: 30px; }
+        
         .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; flex-shrink: 0; }
         .stat-item { background: white; padding: 16px; border-radius: 12px; border: 1px solid var(--border); text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .stat-val { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
@@ -95,6 +100,9 @@
         .toast-title { font-weight: 700; font-size: 14px; color: var(--text-main); margin-bottom: 2px; }
         .toast-msg { font-size: 13px; color: var(--text-sub); }
 
+        /* [修復] 工具列樣式：讓按鈕跟日期左右對齊 */
+        .table-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; min-height: 32px; }
+
         @media (max-width: 1024px) { 
             .filters-panel.collapsed { width: 280px; }
             .app-body { display: block; height: auto; overflow: visible; background: #f8fafc; }
@@ -152,6 +160,7 @@
             <div style="font-size:12px;font-weight:700;color:var(--text-sub);text-transform:uppercase;margin-bottom:8px;">功能選單</div>
             <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')"><span>📊</span> 查詢看板</button>
             <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')"><span>📥</span> 資料匯入</button>
+            <!-- [權限修正] 只有 Admin 會看到這個，Manager 預設隱藏 -->
             <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')"><span>👥</span> 帳號管理</button>
             <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;">
             <div id="searchFilters">
@@ -170,11 +179,6 @@
 
         <main class="main-content">
             <div id="searchView" class="view-section active">
-                <!-- [修正] 移除總覽大標題 -->
-                <div class="content-header">
-                    <div style="font-size:12px;color:#666;margin-left:auto;" id="dataTimestamp">...</div>
-                </div>
-
                 <div class="stats-bar">
                     <div class="stat-item"><div class="stat-val" style="color:#6366f1" id="countTotal">0</div><div class="stat-label">總數</div></div>
                     <div class="stat-item"><div class="stat-val" style="color:#ef4444" id="countActive">0</div><div class="stat-label">列管中</div></div>
@@ -185,17 +189,23 @@
                     <div class="chart-card"><div style="height:220px;width:100%;"><canvas id="unitChart"></canvas></div></div>
                 </div>
 
-                <!-- [修正] 批次刪除放在表格正上方右側 -->
-                <div id="managerToolbar" style="display:none; justify-content: flex-end; margin-bottom: 8px;">
-                    <button class="btn btn-danger btn-sm" onclick="batchDeleteIssues()">
-                        <i style="margin-right:4px">🗑️</i> 批次刪除
-                    </button>
+                <!-- [修正] 表格上方工具列：左邊刪除按鈕(預設隱藏)，右邊更新日期 -->
+                <div class="table-toolbar">
+                    <!-- 左側：批次刪除 (勾選後顯示) -->
+                    <div id="batchActionContainer" style="display:none;">
+                        <button class="btn btn-danger btn-sm" onclick="batchDeleteIssues()">
+                            <i style="margin-right:4px">🗑️</i> 批次刪除 <span id="selectedCountBadge"></span>
+                        </button>
+                    </div>
+                    <!-- 右側：更新日期 -->
+                    <div style="font-size:12px;color:#666; margin-left: auto;" id="dataTimestamp">...</div>
                 </div>
 
                 <div class="data-container">
                     <table id="dataTable">
                         <thead>
                             <tr>
+                                <!-- 勾選框 -->
                                 <th style="width:40px; display:none;" class="manager-col">
                                     <input type="checkbox" id="selectAll" onclick="toggleAllCheckboxes()">
                                 </th>
@@ -271,7 +281,6 @@
                 <div class="form-group"><label>編輯回合</label><select id="editRound" class="filter-select" onchange="loadRoundData()"></select></div>
                 <div class="form-group"><label>辦理情形</label><textarea id="editHandling" class="filter-input" rows="5"></textarea></div>
                 <div class="form-group"><label>審查意見 
-                    <!-- [修正] AI 按鈕修復 -->
                     <button class="btn btn-ai" style="padding:2px 6px;font-size:11px;" onclick="runAiInEdit(this)">🤖 AI 分析</button>
                 </label><div id="aiBox" style="background:#f0f9ff;padding:10px;border-radius:6px;margin-bottom:8px;display:none;font-size:13px;"><span id="aiRes"></span></div><textarea id="editReview" class="filter-input" rows="5"></textarea></div>
                 <div style="display:flex;gap:10px;"><button class="btn btn-primary" onclick="saveEdit()">儲存</button><button class="btn btn-outline" onclick="toggleEditMode(false)">取消</button></div>
@@ -360,10 +369,16 @@
                     currentUser = data; 
                     document.getElementById('headerUserName').innerText = data.name || data.username; 
                     document.getElementById('headerUserRole').innerText = getRoleName(data.role); 
+                    
+                    // [權限修正] 只有 Admin 和 Manager 能看到部分功能
                     if(['admin', 'manager'].includes(data.role)) { 
                         document.getElementById('btn-importView').classList.remove('hidden'); 
-                        document.getElementById('btn-usersView').classList.remove('hidden'); 
-                        if(data.role === 'admin') loadUsers(); 
+                        
+                        // [修正] 只有 Admin 能看到「帳號管理」
+                        if(data.role === 'admin') {
+                            document.getElementById('btn-usersView').classList.remove('hidden'); 
+                            loadUsers();
+                        }
                     } 
                 } else window.location.href = '/login.html'; 
             } catch(e) { window.location.href = '/login.html'; } 
@@ -406,8 +421,11 @@
             const canManage = ['admin', 'manager'].includes(currentUser.role); 
             const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role); 
 
-            const toolbar = document.getElementById('managerToolbar');
-            if(toolbar) toolbar.style.display = canManage ? 'flex' : 'none';
+            // [修正] 預設隱藏批次按鈕，每次渲染重置
+            document.getElementById('batchActionContainer').style.display = 'none';
+            document.getElementById('selectedCountBadge').innerText = '';
+            document.getElementById('selectAll').checked = false;
+
             document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
 
             tbody.innerHTML = currentData.slice(0,100).map(item => { 
@@ -418,7 +436,9 @@
                 
                 const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : ''; 
                 const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : ''; 
-                const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation()"></td>` : `<td class="manager-col" style="display:none"></td>`;
+                
+                // [修正] 勾選框加上 onchange 事件來觸發按鈕顯示
+                const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
 
                 return `<tr onclick="openDetail('${item.id}',false)">
                     ${checkbox}
@@ -449,7 +469,6 @@
         function loadRoundData(){ const r=parseInt(document.getElementById('editRound').value),s=r===1?'':r; const rawHandling = currentEditItem['handling'+s]||''; const rawReview = currentEditItem['review'+s]||''; document.getElementById('editHandling').value = formatHtmlToText(rawHandling); document.getElementById('editReview').value = formatHtmlToText(rawReview); }
         async function saveEdit(){const id=document.getElementById('editId').value, payload={status:document.getElementById('editStatus').value, round:document.getElementById('editRound').value, handling:document.getElementById('editHandling').value, review:document.getElementById('editReview').value}; const res=await fetch(`/api/issues/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(res.ok){showToast('儲存成功');await loadData();toggleEditMode(false);openDetail(id,false);}else showToast('儲存失敗', 'error');}
         
-        // [修正] AI 按鈕修復: 傳遞 btn 參數並使用 stripHtml
         async function runAiInEdit(btn){ 
             btn.disabled = true; 
             btn.innerText = 'AI 分析中...'; 
@@ -457,7 +476,6 @@
             const r = [{ handling: handlingTxt, review: '(待審查)' }]; 
             try{ 
                 if(!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); 
-                // [重要] 傳送純文字給 AI
                 const cleanContent = stripHtml(currentEditItem.content);
                 const res = await fetch('/api/gemini',{ 
                     method:'POST', 
@@ -492,9 +510,23 @@
         async function deleteIssue(id) { if(!confirm('確定要刪除此事項嗎？此操作無法復原。')) return; try { const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('已刪除'); loadData(); closeDrawer(); } else { showToast('刪除失敗', 'error'); } } catch(e) { showToast('Error: ' + e.message, 'error'); } }
         async function deleteIssueFromDrawer() { if(!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
 
+        // [修正] 批次刪除相關邏輯：計算勾選數量並顯示/隱藏按鈕
         function toggleAllCheckboxes() {
             const master = document.getElementById('selectAll');
             document.querySelectorAll('.issue-check').forEach(cb => cb.checked = master.checked);
+            updateBatchUI();
+        }
+        function updateBatchUI() {
+            const checked = document.querySelectorAll('.issue-check:checked');
+            const count = checked.length;
+            const container = document.getElementById('batchActionContainer');
+            
+            if (count > 0) {
+                container.style.display = 'block';
+                document.getElementById('selectedCountBadge').innerText = `(${count})`;
+            } else {
+                container.style.display = 'none';
+            }
         }
         async function batchDeleteIssues() {
             const checked = document.querySelectorAll('.issue-check:checked');
@@ -512,6 +544,7 @@
                     showToast(`成功刪除 ${ids.length} 筆資料`);
                     loadData();
                     document.getElementById('selectAll').checked = false;
+                    updateBatchUI(); // 刪除後隱藏按鈕
                 } else {
                     showToast('刪除失敗: ' + result.error, 'error');
                 }

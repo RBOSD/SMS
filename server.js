@@ -86,10 +86,11 @@ async function initDB() {
             );
         `);
         
-        // 嘗試補 email 欄位 (選填)
         try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;`); } catch(e){}
 
+        // [修復] 確保 log 表格存在
         await client.query(`CREATE TABLE IF NOT EXISTS login_logs (id SERIAL PRIMARY KEY, user_id INTEGER, ip_address VARCHAR(50), login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
+        
         await client.query(`CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT, status VARCHAR(50), year VARCHAR(20), unit VARCHAR(50), category VARCHAR(50), inspection_category VARCHAR(50), division VARCHAR(50), handling TEXT, review TEXT, raw_data JSONB, created_by VARCHAR(50), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
         
         console.log("✅ Tables ready.");
@@ -100,7 +101,7 @@ initDB();
 
 // --- API Routes ---
 
-// 登入 (Username 方式)
+// 登入 (Username 方式) & [修復] 登入紀錄
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
     const { username, password } = req.body;
     if (!username) return res.status(400).json({ error: '請輸入帳號' });
@@ -116,8 +117,15 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             req.session.name = user.name; 
             req.session.role = user.role;
             
-            const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-            pool.query('INSERT INTO login_logs (user_id, ip_address) VALUES ($1, $2)', [user.id, ip]).catch(()=>{});
+            // [修復] 更穩健的 IP 抓取方式
+            let ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
+            // 如果是 IPv6 loopback，轉為 IPv4 顯示
+            if (ip === '::1') ip = '127.0.0.1';
+            if (ip.includes(',')) ip = ip.split(',')[0].trim(); // 取第一個 IP
+
+            // [修復] 寫入 Log (不使用 await，避免卡住回傳，但加上錯誤捕捉)
+            pool.query('INSERT INTO login_logs (user_id, ip_address) VALUES ($1, $2)', [user.id, ip])
+                .catch(err => console.error("Login Log Error:", err.message));
             
             res.json({ success: true });
         } else {
@@ -132,7 +140,7 @@ app.get('/api/auth/me', (req, res) => {
     else res.json({ isLogin: false });
 });
 
-// 使用者管理 (回傳中文職稱)
+// 使用者管理
 const ROLE_MAP = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' };
 app.get('/api/users', checkAuth, checkAdmin, async (req, res) => {
     const r = await pool.query('SELECT id, username, email, name, role, created_at FROM users ORDER BY id ASC');
@@ -167,6 +175,23 @@ app.delete('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
     res.json({ success: true });
 });
 
+// [管理員專用] 讀取登入紀錄
+app.get('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
+    try {
+        // 結合使用者名稱
+        const r = await pool.query(`
+            SELECT l.login_time, l.ip_address, u.username, u.name 
+            FROM login_logs l
+            LEFT JOIN users u ON l.user_id = u.id
+            ORDER BY l.login_time DESC 
+            LIMIT 100
+        `);
+        res.json(r.rows);
+    } catch (e) {
+        res.status(500).json({ error: '無法讀取紀錄' });
+    }
+});
+
 // 事項管理
 app.get('/api/issues', checkAuth, async (req, res) => {
     try {
@@ -186,13 +211,11 @@ app.post('/api/issues/batch-delete', checkAuth, checkManager, async (req, res) =
     } catch (e) { res.status(500).json({ error: '批次刪除失敗' }); }
 });
 
-// 單筆刪除 - Manager Only
 app.delete('/api/issues/:id', checkAuth, checkManager, async (req, res) => { 
     await pool.query('DELETE FROM issues WHERE id=$1', [req.params.id]); 
     res.json({ success: true }); 
 });
 
-// 編輯/審查 - Editor Only (含 Admin/Manager)
 app.put('/api/issues/:id', checkAuth, checkEditor, async (req, res) => {
     const { status, round, handling, review } = req.body; 
     const id = req.params.id;
@@ -208,7 +231,6 @@ app.put('/api/issues/:id', checkAuth, checkEditor, async (req, res) => {
     let sql = 'UPDATE issues SET status=$1, raw_data=$2'; 
     let params = [status, JSON.stringify(raw)];
     
-    // 若是第一回合，同步更新主欄位
     if(parseInt(round) === 1) { 
         sql += ', handling=$3, review=$4'; 
         params.push(handling, review); 
@@ -268,47 +290,38 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
     } finally { client.release(); }
 });
 
-// 7. AI API (修復且強化版)
+// AI API
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 app.post('/api/gemini', checkAuth, checkEditor, async (req, res) => {
     const { content, rounds } = req.body; 
     if (!GEMINI_API_KEY) return res.status(500).json({ error: "No API Key configured" });
 
-    // 設定明確的 Prompt，要求 JSON 格式
     const prompt = `
-    Role: 監理機關審查人員 (Regulatory Authority Officer).
+    Role: 監理機關審查人員.
     Task: 針對「開立事項 (Finding)」審查營運機構回報的「辦理情形 (Action)」。
     開立事項: ${content}
     辦理情形: ${JSON.stringify(rounds)}
-    
     請判斷辦理情形是否足以解除列管。
-    語氣要求: 中性、冷靜、公務化。禁止稱讚。
-    Output Format: JSON ONLY. 
-    Example: { "fulfill": "是" or "否", "reason": "你的簡短中文審查意見" }
+    語氣: 中性、冷靜、公務化。
+    Output Format: JSON ONLY. Example: { "fulfill": "是/否", "reason": "審查意見" }
     `;
 
     try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
         const r = await axios.post(url, { 
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" } // 強制 JSON 模式
+            generationConfig: { responseMimeType: "application/json" }
         });
         
         let txt = r.data.candidates[0].content.parts[0].text;
-        
-        // 嘗試解析回傳的 JSON
         const jsonMatch = txt.match(/{[\s\S]*}/);
         if (jsonMatch) {
-             try { 
-                 res.json(JSON.parse(jsonMatch[0])); 
-             } catch (e) { 
-                 res.json({ fulfill: "失敗", reason: "AI 回傳格式錯誤 (JSON Parse Error)" }); 
-             }
+             try { res.json(JSON.parse(jsonMatch[0])); } catch (e) { res.json({ fulfill: "失敗", reason: "AI 格式錯誤" }); }
         } else { 
-            res.json({ fulfill: "失敗", reason: "AI 未回傳 JSON 格式" }); 
+            res.json({ fulfill: "失敗", reason: "AI 未回傳 JSON" }); 
         }
     } catch (e) { 
-        console.error("AI Error:", e.response ? e.response.data : e.message);
+        console.error("AI Error:", e.message);
         res.status(500).json({ error: "AI 連線失敗" }); 
     }
 });
