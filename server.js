@@ -10,7 +10,7 @@ const bcrypt = require('bcrypt');
 const axios = require('axios');
 const rateLimit = require('express-rate-limit');
 
-console.log("🚀 Server starting...");
+console.log("🚀 Server starting (Username Login Mode)...");
 
 // 環境變數檢查
 if (!process.env.SESSION_SECRET || !process.env.DATABASE_URL) {
@@ -20,8 +20,8 @@ if (!process.env.SESSION_SECRET || !process.env.DATABASE_URL) {
 
 const app = express();
 
-// [關鍵修正] 這一行是為了解決 Render 的 "ERR_ERL_UNEXPECTED_X_FORWARDED_FOR" 錯誤
-app.set('trust proxy', 1); 
+// [關鍵設定] 解決 Render 上的 Rate Limit 錯誤
+app.set('trust proxy', 1);
 
 const pool = new Pool({ 
     connectionString: process.env.DATABASE_URL, 
@@ -33,59 +33,51 @@ pool.on('error', (err) => {
     process.exit(-1);
 });
 
-// --- Middleware ---
+// Middleware
 app.use(session({
   store: new pgSession({ pool: pool, tableName: 'session', createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET,
   resave: false, saveUninitialized: false,
-  cookie: { 
-      maxAge: 30 * 24 * 60 * 60 * 1000, 
-      httpOnly: true,
-      secure: true // Render 有 HTTPS，建議開啟
-  }
+  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true, secure: true }
 }));
 
 app.use(cors({ credentials: true, origin: true }));
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- 暴力破解防護 (Rate Limiting) ---
+// [保留] 暴力破解防護 (針對 username)
 const loginLimiter = rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 分鐘
-	limit: 5, // [修正] 新版參數名稱是 limit 不是 max
-	message: { error: '嘗試登入次數過多，請 15 分鐘後再試' },
+	limit: 10, // 允許錯誤 10 次
+	message: { error: '嘗試次數過多，請 15 分鐘後再試' },
 	standardHeaders: true, 
 	legacyHeaders: false, 
 });
 
-// --- 權限檢查 ---
+// 權限檢查
 function checkAuth(req, res, next) { if (req.session.userId) next(); else res.status(401).json({ error: '請先登入' }); }
 function checkAdmin(req, res, next) { if (req.session.role === 'admin') next(); else res.status(403).json({ error: '權限不足' }); }
 function checkManager(req, res, next) { if (['admin', 'manager'].includes(req.session.role)) next(); else res.status(403).json({ error: '權限不足' }); }
 function checkEditor(req, res, next) { if (['admin', 'manager', 'editor'].includes(req.session.role)) next(); else res.status(403).json({ error: '權限不足' }); }
 
-function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-// --- 資料庫初始化 ---
+// DB 初始化 (維持原樣，確保 username 存在)
 async function initDB() {
     let client;
     try {
         client = await pool.connect();
-        console.log("✅ Database connected.");
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY, 
-                email VARCHAR(255) UNIQUE, 
-                username VARCHAR(100),
+                username VARCHAR(100) UNIQUE NOT NULL, 
                 name VARCHAR(50), 
                 password_hash VARCHAR(255) NOT NULL, 
                 role VARCHAR(20) DEFAULT 'viewer', 
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
+        // 嘗試補 email 欄位但不強制使用
         try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;`); } catch(e){}
+        
         await client.query(`CREATE TABLE IF NOT EXISTS login_logs (id SERIAL PRIMARY KEY, user_id INTEGER, ip_address VARCHAR(50), login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
         await client.query(`CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT, status VARCHAR(50), year VARCHAR(20), unit VARCHAR(50), category VARCHAR(50), inspection_category VARCHAR(50), division VARCHAR(50), handling TEXT, review TEXT, raw_data JSONB, created_by VARCHAR(50), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
         console.log("✅ Tables ready.");
@@ -96,26 +88,22 @@ initDB();
 
 // --- API Routes ---
 
-// 登入 (套用 loginLimiter)
+// [還原] 傳統 Username 登入
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
-    let { email, password } = req.body;
-    if (!email) return res.status(400).json({ error: '請輸入帳號' });
+    const { username, password } = req.body; // 只收 username
     
-    // 支援 Email 或 Username
-    let queryField = 'username';
-    if (isValidEmail(email)) {
-        email = email.toLowerCase().trim();
-        queryField = 'email';
-    }
-
+    if (!username) return res.status(400).json({ error: '請輸入使用者名稱' });
+    
     try {
-        const r = await pool.query(`SELECT * FROM users WHERE ${queryField} = $1`, [email]);
-        if (r.rows.length === 0) return res.status(401).json({ error: '帳號或密碼錯誤' });
+        // 直接查 username，完全不經過 email 邏輯
+        const r = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+        if (r.rows.length === 0) return res.status(401).json({ error: '帳號不存在' });
         
         const user = r.rows[0];
-        if (await bcrypt.compare(password, user.password_hash)) {
+        const match = await bcrypt.compare(password, user.password_hash);
+        
+        if (match) {
             req.session.userId = user.id; 
-            req.session.email = user.email;
             req.session.username = user.username;
             req.session.name = user.name; 
             req.session.role = user.role;
@@ -125,19 +113,9 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             
             res.json({ success: true });
         } else {
-            res.status(401).json({ error: '帳號或密碼錯誤' });
+            res.status(401).json({ error: '密碼錯誤' });
         }
     } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// [緊急救援通道] - 如果還是登不進去，去 Console 執行 fetch('/api/emergency-admin', {method:'POST'}) 
-app.post('/api/emergency-admin', async (req, res) => {
-    try {
-        const hash = await bcrypt.hash("admin123", 10);
-        await pool.query(`INSERT INTO users (username, name, password_hash, role) VALUES ($1, $2, $3, $4)`, 
-            ['admin_rescue', '救援管理員', hash, 'admin']);
-        res.json({ success: true, message: "救援帳號建立成功: admin_rescue / admin123" });
-    } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 app.post('/api/auth/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
@@ -146,23 +124,31 @@ app.get('/api/auth/me', (req, res) => {
     else res.json({ isLogin: false });
 });
 
-// 使用者管理 (Admin)
+// 使用者管理 (保留中文職稱顯示)
 const ROLE_MAP = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' };
 app.get('/api/users', checkAuth, checkAdmin, async (req, res) => {
-    const r = await pool.query('SELECT id, email, username, name, role, created_at FROM users ORDER BY id ASC');
+    const r = await pool.query('SELECT * FROM users ORDER BY id ASC');
     const data = r.rows.map(u => ({ ...u, role_display: ROLE_MAP[u.role] || u.role }));
     res.json(data);
 });
+
 app.post('/api/users', checkAuth, checkAdmin, async (req, res) => {
-    let { email, name, password, role } = req.body;
-    let colName = 'username';
-    if (email && email.includes('@')) { colName = 'email'; email = email.toLowerCase().trim(); }
+    // 恢復為 username 必填
+    const { username, name, password, role, email } = req.body; 
     try {
         const hash = await bcrypt.hash(password, 10);
-        await pool.query(`INSERT INTO users (${colName}, name, password_hash, role) VALUES ($1, $2, $3, $4)`, [email, name, hash, role]);
+        // email 為選填
+        await pool.query(
+            `INSERT INTO users (username, name, password_hash, role, email) VALUES ($1, $2, $3, $4, $5)`, 
+            [username, name, hash, role, email || null]
+        );
         res.json({ success: true });
-    } catch (e) { if(e.code === '23505') return res.status(400).json({error:'帳號重複'}); res.status(400).json({ error: '建立失敗' }); }
+    } catch (e) { 
+        if(e.code === '23505') return res.status(400).json({error:'帳號名稱已存在'}); 
+        res.status(400).json({ error: '建立失敗' }); 
+    }
 });
+
 app.put('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
     const { name, role, password } = req.body;
     let sql = 'UPDATE users SET name=$1, role=$2', params = [name, role];
@@ -177,7 +163,7 @@ app.delete('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
     res.json({ success: true });
 });
 
-// 事項管理
+// 事項管理 (保留批次刪除與新權限)
 app.get('/api/issues', checkAuth, async (req, res) => {
     try {
         const r = await pool.query('SELECT * FROM issues ORDER BY created_at DESC');
@@ -185,9 +171,10 @@ app.get('/api/issues', checkAuth, async (req, res) => {
         res.json(data);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// [新增] 批次刪除
 app.post('/api/issues/batch-delete', checkAuth, checkManager, async (req, res) => {
     const { ids } = req.body; 
-    if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: '未選擇項目' });
+    if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: '未選擇' });
     try { await pool.query('DELETE FROM issues WHERE id = ANY($1::int[])', [ids]); res.json({ success: true }); } 
     catch (e) { res.status(500).json({ error: '刪除失敗' }); }
 });
@@ -222,7 +209,7 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 app.post('/api/gemini', checkAuth, checkEditor, async (req, res) => {
     const { content, rounds } = req.body; if (!GEMINI_API_KEY) return res.status(500).json({ error: "No API Key" });
-    const prompt = `Role: 監理機關... (略) ... Finding: ${content}, Action: ${JSON.stringify(rounds)} ... Output JSON only.`;
+    const prompt = `Role: 監理機關... Finding: ${content}, Action: ${JSON.stringify(rounds)} ... Output JSON.`;
     try { const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
         const r = await axios.post(url, { contents: [{ parts: [{ text: prompt }] }] }); let txt = r.data.candidates[0].content.parts[0].text;
         const jsonMatch = txt.match(/{[\s\S]*}/); if (jsonMatch) { try { res.json(JSON.parse(jsonMatch[0])); } catch (e) { res.json({ fulfill: "失敗", reason: "JSON Err" }); } } else { res.json({ fulfill: "失敗", reason: "No JSON" }); }

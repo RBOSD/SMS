@@ -52,22 +52,21 @@
 <div class="login-container">
     <h2>系統登入</h2>
     
-    <!-- [修正點 1] type 改回 text，讓您可以輸入原本的使用者名稱 -->
-    <input type="text" id="loginInput" placeholder="請輸入 Email 或 使用者名稱" required>
-    
+    <!-- [還原] 輸入使用者名稱 -->
+    <input type="text" id="username" placeholder="使用者名稱" required>
     <input type="password" id="password" placeholder="密碼" required>
+    
     <button onclick="login()">登入</button>
     <p id="error-msg" class="error"></p>
 </div>
 
 <script>
     async function login() {
-        // 取得輸入值
-        const loginInput = document.getElementById('loginInput').value;
+        const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
         const errorMsg = document.getElementById('error-msg');
 
-        if(!loginInput || !password) {
+        if(!username || !password) {
             errorMsg.innerText = "請輸入帳號和密碼";
             errorMsg.style.display = "block";
             return;
@@ -77,8 +76,8 @@
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // [修正點 2] 這裡統一用 'email' 這個欄位名稱傳送，後端會自動判斷它是 username 還是 email
-                body: JSON.stringify({ email: loginInput, password: password }) 
+                // [還原] 傳送 username 參數
+                body: JSON.stringify({ username, password })
             });
             
             const data = await res.json();
@@ -95,7 +94,6 @@
         }
     }
 
-    // 支援按 Enter 登入
     document.addEventListener('keydown', function(event) {
         if (event.key === "Enter") login();
     });
