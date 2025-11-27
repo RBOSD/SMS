@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <!-- [修正 1] 標題更名 -->
     <title>SMS開立事項查詢與AI審查系統</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -40,8 +39,8 @@
         .filters-panel.collapsed { width: 0; padding: 0; border-right: none; overflow: hidden; }
         .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px; background: var(--bg-body); scroll-behavior: smooth; position: relative; z-index: 1; }
         
-        /* [修正 2] Content Header: 左右對齊，標題靠左，日期靠右 */
-        .content-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); flex-shrink: 0; min-height: 30px; }
+        /* Content Header */
+        .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); flex-shrink: 0; min-height: 30px; }
         .content-title { font-size: 20px; font-weight: 700; color: var(--text-main); }
 
         .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; flex-shrink: 0; }
@@ -102,6 +101,7 @@
         .toast-title { font-weight: 700; font-size: 14px; color: var(--text-main); margin-bottom: 2px; }
         .toast-msg { font-size: 13px; color: var(--text-sub); }
 
+        /* [修正] 工具列設定 */
         .table-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; min-height: 32px; }
 
         /* Mobile Optimization */
@@ -124,18 +124,16 @@
             tr:active { transform: scale(0.98); background: #fafafa; }
             
             td { padding: 0; border: none; display: block; text-align: left; width: 100%; margin-bottom: 4px; }
-            td[data-label="編號"] { font-size: 16px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; padding-right: 80px; margin-left: 30px; } /* [修正 4] 留位子給勾選框 */
+            td[data-label="編號"] { font-size: 16px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; padding-right: 80px; margin-left: 30px; }
             td[data-label="狀態"] { position: absolute; top: 16px; right: 16px; width: auto; pointer-events: none; }
             td[data-label="年度"], td[data-label="機構"] { display: inline-block; width: auto; font-size: 12px; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 6px; margin-right: 6px; margin-bottom: 12px; }
             td[data-label="內容摘要"] { font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
             td[data-label="最新進度"] { font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             td[data-label="操作 / AI"] { margin-top: 8px; display: flex; gap: 8px; justify-content: flex-end; }
             
-            /* [修正 4] 手機版勾選框顯示與定位 */
             .manager-col { display: block !important; position: absolute; top: 16px; left: 16px; width: auto; }
             .issue-check { transform: scale(1.3); }
 
-            /* [修正 4] 帳號管理頁面表格在手機上也轉為卡片，避免左右滑動空白 */
             .user-table tr { padding-bottom: 40px; }
             .user-table td[data-label="姓名"] { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
             .user-table td[data-label="帳號"] { font-size: 13px; color: #666; margin-bottom: 8px; }
@@ -154,7 +152,6 @@
         <div class="brand">
             <button class="filter-toggle-btn" onclick="onToggleSidebar()">☰</button>
             <div class="brand-icon">🚄</div>
-            <!-- [修正 1] 標題更名 -->
             <div>SMS開立事項查詢與AI審查系統</div>
         </div>
         <div class="user-menu-container">
@@ -194,11 +191,8 @@
 
         <main class="main-content">
             <div id="searchView" class="view-section active">
-                <div class="content-header">
-                    <!-- [修正 2] 左邊無標題，自動對齊，右邊顯示日期 -->
-                    <div style="font-size:12px;color:#666;margin-left:auto;" id="dataTimestamp">...</div>
-                </div>
-
+                <!-- [修正] 移除頂部 Content Header，因為沒有標題了 -->
+                
                 <div class="stats-bar">
                     <div class="stat-item"><div class="stat-val" style="color:#6366f1" id="countTotal">0</div><div class="stat-label">總數</div></div>
                     <div class="stat-item"><div class="stat-val" style="color:#ef4444" id="countActive">0</div><div class="stat-label">列管中</div></div>
@@ -209,13 +203,15 @@
                     <div class="chart-card"><div style="height:220px;width:100%;"><canvas id="unitChart"></canvas></div></div>
                 </div>
 
+                <!-- [修正] Table Toolbar: 批次刪除在左，更新日期在右 -->
                 <div class="table-toolbar">
-                    <!-- 左側：批次刪除 (手機版也會顯示) -->
                     <div id="batchActionContainer" style="display:none;">
                         <button class="btn btn-danger btn-sm" onclick="batchDeleteIssues()">
                             <i style="margin-right:4px">🗑️</i> 批次刪除 <span id="selectedCountBadge"></span>
                         </button>
                     </div>
+                    <!-- [修正] 日期移動到這裡 -->
+                    <div style="font-size:12px;color:#666; margin-left: auto;" id="dataTimestamp">...</div>
                 </div>
 
                 <div class="data-container">
@@ -241,7 +237,6 @@
             </div>
 
             <div id="importView" class="view-section">
-                <!-- [修正 2] 標題靠左 -->
                 <div class="content-header" style="justify-content: flex-start;">
                     <div class="content-title">📥 資料匯入</div>
                 </div>
@@ -270,22 +265,19 @@
             </div>
 
             <div id="usersView" class="view-section">
-                <!-- [修正 2] 標題與按鈕靠左排列 -->
                 <div class="content-header" style="justify-content: flex-start; gap: 16px;">
                     <div class="content-title">👥 帳號與紀錄</div>
                     <button class="btn btn-primary" onclick="openUserModal('create')">➕ 新增</button>
                 </div>
                 <div class="admin-tabs"><button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button><button class="admin-tab-btn" onclick="switchAdminTab('logs')">登入紀錄</button></div>
                 <div id="tab-users" class="data-container"><table class="user-table"><thead><tr><th style="padding:12px;">姓名</th><th>帳號</th><th>權限</th><th>註冊時間</th><th>操作</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>
-                
-                <!-- [修正 3] 加入 loading 提示 -->
                 <div id="logsLoading" style="display:none; padding:20px; text-align:center; color:#666;">⏳ 載入紀錄中...</div>
                 <div id="tab-logs" class="data-container hidden"><table class="user-table"><thead><tr><th style="padding:12px;">時間</th><th>姓名</th><th>IP 位址</th></tr></thead><tbody id="logsTableBody"></tbody></table></div>
             </div>
         </main>
     </div>
 
-    <!-- Drawer & Modal HTML (保持不變) -->
+    <!-- Drawer & Modal -->
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
     <div class="drawer" id="detailDrawer">
         <div class="drawer-header"><div style="font-weight:700;font-size:16px;" id="drawerTitle">詳細資料</div><button onclick="closeDrawer()" style="border:none;background:none;font-size:24px;">&times;</button></div>
@@ -329,7 +321,7 @@
     <script>
         let rawData=[], currentData=[], currentUser=null, charts={}, currentEditItem=null, userList=[], sortState = { field: null, dir: 'asc' }, stagedImportData = []; 
         
-        // ... (標準解析函式保持不變) ...
+        // ... (標準解析函式與之前相同) ...
         function normalizeCodeString(str){ if(!str) return ""; var s = (str.normalize? str.normalize("NFKC") : str); s=s.replace(/[\u200B-\u200D\uFEFF]/g,""); s=s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g,"-"); s=s.replace(/[ \t]+/g," ").replace(/\s*-\s*/g,"-"); return s.trim(); }
         function extractNumberFromCell(cell){ if(!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); var mB = whole.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/); if (mB) return (mB[1] || "").toUpperCase(); var mA = whole.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/); if (mA) return (mA[1] || "").toUpperCase(); return ""; }
         function parseItemNumber(numberStr){ var raw=normalizeCodeString(numberStr||""); if(!raw) return null; var m = raw.match(/^(\d{2})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i); if(m){ var yy=parseInt(m[1],10), rocYear=100+yy, org=m[2].toUpperCase(), cat=m[3], div=m[4].toUpperCase(), divSeq=m[5], kind=m[6].toUpperCase(), seq=m[7]; return {scheme:"THAS-v1", raw:raw, yearRoc:rocYear, orgCodeRaw:org, inspectionCategoryCode:cat, divisionCode:div, divisionSeq:divSeq, itemKindCode:kind, itemSeq:seq.toString(), period:""}; } m = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d{1,3})$/i); if(m){ var rocYear2=parseInt(m[1],10), org2=m[2].toUpperCase(), cat2=m[3], period=m[4], div2=m[5].toUpperCase(), kind2=m[6].toUpperCase(), seq2=m[7]; return {scheme:"TRC-v2", raw:raw, yearRoc:rocYear2, orgCodeRaw:org2, inspectionCategoryCode:cat2, divisionCode:div2, itemKindCode:kind2, itemSeq:seq2.toString(), period:period}; } return null; }
