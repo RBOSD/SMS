@@ -51,8 +51,10 @@
 
 <div class="login-container">
     <h2>系統登入</h2>
-    <!-- 改用 type="email" 方便手機輸入 -->
-    <input type="email" id="email" placeholder="請輸入 Email" required>
+    
+    <!-- [修正點 1] type 改回 text，讓您可以輸入原本的使用者名稱 -->
+    <input type="text" id="loginInput" placeholder="請輸入 Email 或 使用者名稱" required>
+    
     <input type="password" id="password" placeholder="密碼" required>
     <button onclick="login()">登入</button>
     <p id="error-msg" class="error"></p>
@@ -60,11 +62,12 @@
 
 <script>
     async function login() {
-        const email = document.getElementById('email').value;
+        // 取得輸入值
+        const loginInput = document.getElementById('loginInput').value;
         const password = document.getElementById('password').value;
         const errorMsg = document.getElementById('error-msg');
 
-        if(!email || !password) {
+        if(!loginInput || !password) {
             errorMsg.innerText = "請輸入帳號和密碼";
             errorMsg.style.display = "block";
             return;
@@ -74,7 +77,8 @@
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                // [修正點 2] 這裡統一用 'email' 這個欄位名稱傳送，後端會自動判斷它是 username 還是 email
+                body: JSON.stringify({ email: loginInput, password: password }) 
             });
             
             const data = await res.json();
@@ -82,7 +86,6 @@
             if (res.ok) {
                 window.location.href = '/';
             } else {
-                // 顯示錯誤 (例如：嘗試次數過多)
                 errorMsg.innerText = data.error || '登入失敗';
                 errorMsg.style.display = "block";
             }
