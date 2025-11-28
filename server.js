@@ -88,7 +88,7 @@ async function initDB() {
         await client.query(`CREATE TABLE IF NOT EXISTS login_logs (id SERIAL PRIMARY KEY, user_id INTEGER, ip_address VARCHAR(50), login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_login_logs_time ON login_logs(login_time DESC);`);
 
-        // [新增] 詳細操作紀錄表
+        // 詳細操作紀錄表
         await client.query(`
             CREATE TABLE IF NOT EXISTS action_logs (
                 id SERIAL PRIMARY KEY,
@@ -199,7 +199,7 @@ app.get('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: '無法讀取紀錄' }); }
 });
 
-// [新增] 讀取操作紀錄 API
+// 讀取操作紀錄 API
 app.get('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => {
     try {
         const r = await pool.query(`
@@ -226,46 +226,65 @@ app.post('/api/issues/batch-delete', checkAuth, checkManager, async (req, res) =
     const { ids } = req.body; 
     if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: '未選擇項目' });
     try { 
+        // [優化] 先查出要刪除的編號，以便記錄 Log
+        const check = await pool.query('SELECT title FROM issues WHERE id = ANY($1::int[])', [ids]);
+        const titles = check.rows.map(r => r.title).join(', ');
+
         await pool.query('DELETE FROM issues WHERE id = ANY($1::int[])', [ids]); 
-        // Log Action
-        logAction(req.session.userId, 'BATCH_DELETE', `批次刪除 ${ids.length} 筆資料`, req.ip);
+        
+        // Log Action 包含編號
+        logAction(req.session.userId, 'BATCH_DELETE', `批次刪除 ${ids.length} 筆資料: [${titles}]`, req.ip);
         res.json({ success: true, message: `已刪除 ${ids.length} 筆資料` }); 
     } catch (e) { res.status(500).json({ error: '批次刪除失敗' }); }
 });
 
 app.delete('/api/issues/:id', checkAuth, checkManager, async (req, res) => { 
-    await pool.query('DELETE FROM issues WHERE id=$1', [req.params.id]); 
-    // Log Action
-    logAction(req.session.userId, 'DELETE_ISSUE', `刪除事項 ID: ${req.params.id}`, req.ip);
-    res.json({ success: true }); 
+    try {
+        // [優化] 先查詢編號
+        const check = await pool.query('SELECT title FROM issues WHERE id=$1', [req.params.id]);
+        const issueTitle = check.rows.length > 0 ? check.rows[0].title : '未知';
+
+        await pool.query('DELETE FROM issues WHERE id=$1', [req.params.id]); 
+        
+        // Log Action 包含編號
+        logAction(req.session.userId, 'DELETE_ISSUE', `刪除事項: ${issueTitle} (ID: ${req.params.id})`, req.ip);
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ error: '刪除失敗' }); }
 });
 
 app.put('/api/issues/:id', checkAuth, checkEditor, async (req, res) => {
     const { status, round, handling, review } = req.body; 
     const id = req.params.id;
-    const r = await pool.query('SELECT * FROM issues WHERE id=$1', [id]); 
-    if (r.rows.length === 0) return res.status(404).json({ error: '找不到事項' });
+    
+    try {
+        const r = await pool.query('SELECT * FROM issues WHERE id=$1', [id]); 
+        if (r.rows.length === 0) return res.status(404).json({ error: '找不到事項' });
 
-    let raw = r.rows[0].raw_data || {}; 
-    raw.status = status; 
-    const suffix = parseInt(round) === 1 ? '' : round;
-    raw['handling'+suffix] = handling; 
-    raw['review'+suffix] = review;
-    
-    let sql = 'UPDATE issues SET status=$1, raw_data=$2'; 
-    let params = [status, JSON.stringify(raw)];
-    
-    if(parseInt(round) === 1) { 
-        sql += ', handling=$3, review=$4'; 
-        params.push(handling, review); 
-    }
-    sql += ` WHERE id=$${params.length+1}`; 
-    params.push(id); 
-    
-    await pool.query(sql, params); 
-    // Log Action
-    logAction(req.session.userId, 'UPDATE_ISSUE', `更新事項 ID: ${id}, 回合: ${round}, 狀態: ${status}`, req.ip);
-    res.json({ success: true });
+        // [優化] 取得編號
+        const issueTitle = r.rows[0].title || '無編號';
+
+        let raw = r.rows[0].raw_data || {}; 
+        raw.status = status; 
+        const suffix = parseInt(round) === 1 ? '' : round;
+        raw['handling'+suffix] = handling; 
+        raw['review'+suffix] = review;
+        
+        let sql = 'UPDATE issues SET status=$1, raw_data=$2'; 
+        let params = [status, JSON.stringify(raw)];
+        
+        if(parseInt(round) === 1) { 
+            sql += ', handling=$3, review=$4'; 
+            params.push(handling, review); 
+        }
+        sql += ` WHERE id=$${params.length+1}`; 
+        params.push(id); 
+        
+        await pool.query(sql, params); 
+        
+        // Log Action 包含編號
+        logAction(req.session.userId, 'UPDATE_ISSUE', `更新事項: ${issueTitle}, 回合: ${round}, 狀態: ${status} (ID: ${id})`, req.ip);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: '更新失敗' }); }
 });
 
 app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
