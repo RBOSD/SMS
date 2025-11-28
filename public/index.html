@@ -81,7 +81,8 @@
 
         .drawer-backdrop, .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
         .drawer-backdrop.open, .modal-overlay.open { display: flex; }
-        .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 650px; max-width: 100vw; background: white; z-index: 101; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; box-shadow: -5px 0 25px rgba(0,0,0,0.15); }
+        /* [優化] Drawer 寬度加寬，適應左右分割 */
+        .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 900px; max-width: 100vw; background: white; z-index: 101; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; box-shadow: -5px 0 25px rgba(0,0,0,0.15); }
         .drawer.open { transform: translateX(0); }
         .drawer-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #fcfcfc; }
         .drawer-body { flex: 1; overflow-y: auto; padding: 24px; }
@@ -101,8 +102,15 @@
         .toast-title { font-weight: 700; font-size: 14px; color: var(--text-main); margin-bottom: 2px; }
         .toast-msg { font-size: 13px; color: var(--text-sub); }
 
-        /* [修正] 工具列設定 */
         .table-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; min-height: 32px; }
+
+        /* [優化] 左右分割與快捷按鈕樣式 */
+        .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; height: 100%; }
+        .review-left { border-right: 1px solid #e2e8f0; padding-right: 24px; overflow-y: auto; }
+        .review-right { display: flex; flex-direction: column; overflow-y: auto; }
+        .quick-btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+        .quick-btn { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 20px; font-size: 12px; color: #475569; cursor: pointer; transition: 0.1s; }
+        .quick-btn:hover { background: #e2e8f0; color: var(--primary); border-color: var(--primary); }
 
         /* Mobile Optimization */
         @media (max-width: 1024px) { 
@@ -141,6 +149,10 @@
             .user-table td[data-label="操作"] { position: absolute; bottom: 16px; right: 16px; width: auto; margin-top: 0; }
 
             .drawer { width: 100%; max-width: 100%; top: 0; height: 100%; z-index: 9999; }
+            /* [優化] 手機版時 Review Grid 改為上下排列 */
+            .review-grid { grid-template-columns: 1fr; gap: 10px; display: block; }
+            .review-left { border-right: none; border-bottom: 1px solid #e2e8f0; padding-right: 0; padding-bottom: 20px; margin-bottom: 20px; max-height: 300px; }
+            
             #toast-container { left: 20px; right: 20px; top: 80px; width: auto; }
         }
     </style>
@@ -191,8 +203,6 @@
 
         <main class="main-content">
             <div id="searchView" class="view-section active">
-                <!-- [修正] 移除頂部 Content Header，因為沒有標題了 -->
-                
                 <div class="stats-bar">
                     <div class="stat-item"><div class="stat-val" style="color:#6366f1" id="countTotal">0</div><div class="stat-label">總數</div></div>
                     <div class="stat-item"><div class="stat-val" style="color:#ef4444" id="countActive">0</div><div class="stat-label">列管中</div></div>
@@ -203,14 +213,12 @@
                     <div class="chart-card"><div style="height:220px;width:100%;"><canvas id="unitChart"></canvas></div></div>
                 </div>
 
-                <!-- [修正] Table Toolbar: 批次刪除在左，更新日期在右 -->
                 <div class="table-toolbar">
                     <div id="batchActionContainer" style="display:none;">
                         <button class="btn btn-danger btn-sm" onclick="batchDeleteIssues()">
                             <i style="margin-right:4px">🗑️</i> 批次刪除 <span id="selectedCountBadge"></span>
                         </button>
                     </div>
-                    <!-- [修正] 日期移動到這裡 -->
                     <div style="font-size:12px;color:#666; margin-left: auto;" id="dataTimestamp">...</div>
                 </div>
 
@@ -282,6 +290,8 @@
     <div class="drawer" id="detailDrawer">
         <div class="drawer-header"><div style="font-weight:700;font-size:16px;" id="drawerTitle">詳細資料</div><button onclick="closeDrawer()" style="border:none;background:none;font-size:24px;">&times;</button></div>
         <div class="drawer-body">
+            
+            <!-- View Mode (保持不變) -->
             <div id="viewModeContent">
                 <div class="detail-card">
                     <div style="font-size:11px;color:#666;">基本資訊</div>
@@ -294,14 +304,71 @@
                     <button class="btn btn-danger hidden" id="deleteBtnDrawer" style="width:100%;" onclick="deleteIssueFromDrawer()">🗑️ 刪除此項目</button>
                 </div>
             </div>
-            <div id="editModeContent" class="hidden">
+
+            <!-- [優化] Edit Mode: 左右分割，更方便對照 -->
+            <div id="editModeContent" class="hidden" style="height:100%;">
                 <input type="hidden" id="editId">
-                <div class="form-group"><label>狀態</label><select id="editStatus" class="filter-select"><option value="">(未設定)</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
-                <div class="form-group"><label>編輯回合</label><select id="editRound" class="filter-select" onchange="loadRoundData()"></select></div>
-                <div class="form-group"><label>辦理情形</label><textarea id="editHandling" class="filter-input" rows="5"></textarea></div>
-                <div class="form-group"><label>審查意見 <button class="btn btn-ai" style="padding:2px 6px;font-size:11px;" onclick="runAiInEdit(this)">🤖 AI 分析</button></label><div id="aiBox" style="background:#f0f9ff;padding:10px;border-radius:6px;margin-bottom:8px;display:none;font-size:13px;"><span id="aiRes"></span></div><textarea id="editReview" class="filter-input" rows="5"></textarea></div>
-                <div style="display:flex;gap:10px;"><button class="btn btn-primary" onclick="saveEdit()">儲存</button><button class="btn btn-outline" onclick="toggleEditMode(false)">取消</button></div>
+                <div class="review-grid">
+                    <!-- 左側：參考資料區 -->
+                    <div class="review-left">
+                        <div style="font-size:11px;color:#666;margin-bottom:4px;">開立事項內容</div>
+                        <div style="background:#f1f5f9;padding:12px;border-radius:8px;font-size:13px;margin-bottom:16px;line-height:1.5;" id="editContentDisplay"></div>
+                        
+                        <div class="form-group">
+                            <label>編輯回合</label>
+                            <select id="editRound" class="filter-select" onchange="loadRoundData()"></select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>機構辦理情形 (廠商回報)</label>
+                            <textarea id="editHandling" class="filter-input" rows="10" style="background:#f8fafc;"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- 右側：審查作業區 -->
+                    <div class="review-right">
+                        <div class="form-group">
+                            <label>設定狀態</label>
+                            <select id="editStatus" class="filter-select">
+                                <option value="">(未設定)</option>
+                                <option value="持續列管">🔴 持續列管</option>
+                                <option value="解除列管">🟢 解除列管</option>
+                                <option value="自行列管">🟠 自行列管</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="flex:1;display:flex;flex-direction:column;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                                <label style="margin-bottom:0;">審查意見</label>
+                                <button class="btn btn-ai" style="padding:2px 8px;font-size:11px;" onclick="runAiInEdit(this)">🤖 AI 智能分析</button>
+                            </div>
+                            
+                            <!-- AI 結果區塊 -->
+                            <div id="aiBox" style="background:#f0f9ff;padding:12px;border-radius:6px;border:1px solid #bae6fd;margin-bottom:12px;display:none;">
+                                <div style="font-size:13px;margin-bottom:6px;"><span id="aiRes"></span></div>
+                                <button class="btn btn-primary" style="width:100%;font-size:12px;padding:4px;" onclick="applyAiSuggestion()">⬇️ 一鍵帶入 AI 擬稿意見</button>
+                                <div id="aiReasonHidden" style="display:none;"></div>
+                            </div>
+
+                            <!-- 快速樣板按鈕 -->
+                            <div class="quick-btn-group">
+                                <div class="quick-btn" onclick="insertTemplate('同意備查，解除列管。')">✅ 同意解除</div>
+                                <div class="quick-btn" onclick="insertTemplate('辦理情形尚有不足，請補充佐證資料後再報。')">📄 補充佐證</div>
+                                <div class="quick-btn" onclick="insertTemplate('請持續辦理，列入持續列管。')">🔴 持續列管</div>
+                                <div class="quick-btn" onclick="insertTemplate('敬悉，擬同意自行列管。')">🟠 自行列管</div>
+                            </div>
+
+                            <textarea id="editReview" class="filter-input" style="flex:1;resize:none;" placeholder="請輸入審查意見..."></textarea>
+                        </div>
+
+                        <div style="display:flex;gap:10px;margin-top:auto;">
+                            <button class="btn btn-primary" style="flex:1" onclick="saveEdit()">💾 儲存審查結果</button>
+                            <button class="btn btn-outline" style="flex:1" onclick="toggleEditMode(false)">取消</button>
+                        </div>
+                    </div>
+                </div>
             </div>
+
         </div>
     </div>
 
@@ -321,7 +388,7 @@
     <script>
         let rawData=[], currentData=[], currentUser=null, charts={}, currentEditItem=null, userList=[], sortState = { field: null, dir: 'asc' }, stagedImportData = []; 
         
-        // ... (標準解析函式與之前相同) ...
+        // ... (前面所有標準 JS 函式保持不變，省略以節省空間，請保留原本的邏輯) ...
         function normalizeCodeString(str){ if(!str) return ""; var s = (str.normalize? str.normalize("NFKC") : str); s=s.replace(/[\u200B-\u200D\uFEFF]/g,""); s=s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g,"-"); s=s.replace(/[ \t]+/g," ").replace(/\s*-\s*/g,"-"); return s.trim(); }
         function extractNumberFromCell(cell){ if(!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); var mB = whole.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/); if (mB) return (mB[1] || "").toUpperCase(); var mA = whole.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/); if (mA) return (mA[1] || "").toUpperCase(); return ""; }
         function parseItemNumber(numberStr){ var raw=normalizeCodeString(numberStr||""); if(!raw) return null; var m = raw.match(/^(\d{2})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i); if(m){ var yy=parseInt(m[1],10), rocYear=100+yy, org=m[2].toUpperCase(), cat=m[3], div=m[4].toUpperCase(), divSeq=m[5], kind=m[6].toUpperCase(), seq=m[7]; return {scheme:"THAS-v1", raw:raw, yearRoc:rocYear, orgCodeRaw:org, inspectionCategoryCode:cat, divisionCode:div, divisionSeq:divSeq, itemKindCode:kind, itemSeq:seq.toString(), period:""}; } m = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d{1,3})$/i); if(m){ var rocYear2=parseInt(m[1],10), org2=m[2].toUpperCase(), cat2=m[3], period=m[4], div2=m[5].toUpperCase(), kind2=m[6].toUpperCase(), seq2=m[7]; return {scheme:"TRC-v2", raw:raw, yearRoc:rocYear2, orgCodeRaw:org2, inspectionCategoryCode:cat2, divisionCode:div2, itemKindCode:kind2, itemSeq:seq2.toString(), period:period}; } return null; }
@@ -342,7 +409,8 @@
                 await loadData(); 
             }
         });
-
+        // ... (保留中間所有輔助函式、圖表、匯入邏輯) ...
+        
         function onToggleSidebar() {
             const panel = document.getElementById('filtersPanel');
             const backdrop = document.getElementById('filterBackdrop');
@@ -464,12 +532,9 @@
         async function loadLogs() { 
             document.getElementById('logsLoading').style.display = 'block';
             document.getElementById('tab-logs').classList.add('hidden');
-            
             const res = await fetch('/api/admin/logs'); 
             const logs = await res.json(); 
-            
             document.getElementById('logsTableBody').innerHTML = logs.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="姓名">${l.name||l.username}</td><td data-label="IP">${l.ip_address||'-'}</td></tr>`).join(''); 
-            
             document.getElementById('logsLoading').style.display = 'none';
             document.getElementById('tab-logs').classList.remove('hidden');
         }
@@ -480,16 +545,32 @@
         function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
         async function submitProfile() { const name=document.getElementById('myProfileName').value, pwd=document.getElementById('myProfilePwd').value; const res=await fetch('/api/auth/profile', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name, password:pwd}) }); if(res.ok) { showToast('更新成功，請重新登入'); document.getElementById('profileModal').classList.remove('open'); logout(); } else showToast('更新失敗', 'error'); }
         function switchView(id){ document.querySelectorAll('.view-section').forEach(e=>e.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.sidebar-btn').forEach(e=>e.classList.remove('active')); const btn=document.getElementById(`btn-${id}`); if(btn) btn.classList.add('active'); document.getElementById('searchFilters').style.display = id==='searchView'?'block':'none'; if(window.innerWidth<=1024){const p=document.getElementById('filtersPanel'); if(p.classList.contains('open') || p.style.transform==='translateX(0px)') onToggleSidebar();} }
+        
         function openDetail(id,isEdit){ 
             currentEditItem=rawData.find(d=>String(d.id)===String(id)); if(!currentEditItem)return; 
             document.getElementById('dNumber').textContent=currentEditItem.number; document.getElementById('dYear').textContent=currentEditItem.year; document.getElementById('dUnit').textContent=currentEditItem.unit; document.getElementById('dContent').innerHTML=currentEditItem.content; const st=currentEditItem.status==='持續列管'?'active':(currentEditItem.status==='解除列管'?'resolved':'self'); document.getElementById('dStatus').innerHTML=currentEditItem.status && currentEditItem.status!=='Open'?`<span class="badge ${st}">${currentEditItem.status}</span>`:'(未設定)'; let h=''; for(let i=1;i<=20;i++){const ha=currentEditItem[i===1?'handling':`handling${i}`],re=currentEditItem[i===1?'review':`review${i}`];if(ha||re)h+=`<div style="padding-left:16px;border-left:2px solid #e5e7eb;margin-left:8px;padding-bottom:20px;position:relative;"><div style="position:absolute;left:-7px;top:0;width:12px;height:12px;border-radius:50%;background:white;border:2px solid var(--primary);"></div><div style="font-size:13px;font-weight:700;margin-bottom:6px;">第 ${i} 次辦理情形</div>${ha?`<div style="background:#f1f5f9;padding:10px;border-radius:6px;font-size:14px;margin-bottom:8px;">${ha}</div>`:''}${re?`<div style="background:#fff;border:1px solid #e2e8f0;padding:10px;border-radius:6px;font-size:14px;">${re}</div>`:''}</div>`;} document.getElementById('dTimeline').innerHTML=h||'<div style="color:#999;">無歷程</div>'; 
+            
             const canEdit = ['admin','manager','editor'].includes(currentUser.role); 
             const canDelete = ['admin','manager'].includes(currentUser.role); 
             document.getElementById('editBtn').classList.toggle('hidden', !canEdit); 
             document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); 
+            
             document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit); 
         }
-        function toggleEditMode(edit){ document.getElementById('viewModeContent').classList.toggle('hidden',edit); document.getElementById('editModeContent').classList.toggle('hidden',!edit); document.getElementById('drawerTitle').innerText=edit?"編輯事項":"詳細資料"; if(edit){ document.getElementById('editId').value=currentEditItem.id; document.getElementById('editStatus').value=(currentEditItem.status==='Open')?'':currentEditItem.status; document.getElementById('editRound').value=1; loadRoundData(); document.getElementById('aiBox').style.display='none'; } }
+        
+        function toggleEditMode(edit){ 
+            document.getElementById('viewModeContent').classList.toggle('hidden',edit); 
+            document.getElementById('editModeContent').classList.toggle('hidden',!edit); 
+            document.getElementById('drawerTitle').innerText=edit?"編輯事項":"詳細資料"; 
+            if(edit){ 
+                document.getElementById('editId').value=currentEditItem.id; 
+                document.getElementById('editStatus').value=(currentEditItem.status==='Open')?'':currentEditItem.status; 
+                document.getElementById('editRound').value=1; 
+                document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); // 顯示左側參考
+                loadRoundData(); 
+                document.getElementById('aiBox').style.display='none'; 
+            } 
+        }
         function loadRoundData(){ const r=parseInt(document.getElementById('editRound').value),s=r===1?'':r; const rawHandling = currentEditItem['handling'+s]||''; const rawReview = currentEditItem['review'+s]||''; document.getElementById('editHandling').value = formatHtmlToText(rawHandling); document.getElementById('editReview').value = formatHtmlToText(rawReview); }
         async function saveEdit(){const id=document.getElementById('editId').value, payload={status:document.getElementById('editStatus').value, round:document.getElementById('editRound').value, handling:document.getElementById('editHandling').value, review:document.getElementById('editReview').value}; const res=await fetch(`/api/issues/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(res.ok){showToast('儲存成功');await loadData();toggleEditMode(false);openDetail(id,false);}else showToast('儲存失敗', 'error');}
         
@@ -509,15 +590,34 @@
                 const j = await res.json(); 
                 if(!res.ok) throw new Error(j.error || '未知錯誤'); 
                 if(!j.fulfill) throw new Error('AI 回傳格式錯誤'); 
-                document.getElementById('aiRes').innerHTML = `<strong style="color:${j.fulfill.includes('Yes')||j.fulfill.includes('是')?'#10b981':'#ef4444'}">[${j.fulfill}]</strong> ${j.reason}`; 
+                
+                const isPass = j.fulfill.includes('Yes')||j.fulfill.includes('是');
+                document.getElementById('aiRes').innerHTML = `<strong style="color:${isPass?'#10b981':'#ef4444'}">[${j.fulfill}]</strong> 建議意見已生成，可直接帶入。`; 
+                document.getElementById('aiReasonHidden').innerText = j.reason; // 暫存 AI 建議
                 document.getElementById('aiBox').style.display = 'block'; 
             } catch(e) { 
                 showToast('AI 失敗: ' + e.message, 'error'); 
                 console.error(e); 
             } finally { 
                 btn.disabled = false; 
-                btn.innerText = '🤖 AI 分析'; 
+                btn.innerText = '🤖 AI 智能分析'; 
             } 
+        }
+
+        // [新功能] 一鍵帶入 AI 意見
+        function applyAiSuggestion() {
+            const reason = document.getElementById('aiReasonHidden').innerText;
+            if(reason) {
+                insertTemplate(reason);
+                document.getElementById('aiBox').style.display = 'none';
+            }
+        }
+
+        // [新功能] 插入樣板文字
+        function insertTemplate(text) {
+            const textarea = document.getElementById('editReview');
+            const currentVal = textarea.value;
+            textarea.value = currentVal ? (currentVal + "\n" + text) : text;
         }
         
         function populateSelect(id,d,f){const u=[...new Set(d.map(i=>i[f]).filter(Boolean))].sort().reverse();document.getElementById(id).innerHTML='<option value="">全部</option>'+u.map(v=>`<option value="${v}">${v}</option>`).join('');}
