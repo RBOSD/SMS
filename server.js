@@ -88,7 +88,6 @@ async function initDB() {
         await client.query(`CREATE TABLE IF NOT EXISTS login_logs (id SERIAL PRIMARY KEY, user_id INTEGER, ip_address VARCHAR(50), login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_login_logs_time ON login_logs(login_time DESC);`);
 
-        // 詳細操作紀錄表
         await client.query(`
             CREATE TABLE IF NOT EXISTS action_logs (
                 id SERIAL PRIMARY KEY,
@@ -158,7 +157,6 @@ app.post('/api/users', checkAuth, checkAdmin, async (req, res) => {
     try {
         const hash = await bcrypt.hash(password, 10);
         await pool.query(`INSERT INTO users (username, name, password_hash, role) VALUES ($1, $2, $3, $4)`, [username, name, hash, role]);
-        // Log Action
         logAction(req.session.userId, 'CREATE_USER', `建立使用者: ${username} (${role})`, req.ip);
         res.json({ success: true });
     } catch (e) { 
@@ -173,7 +171,6 @@ app.put('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
     if (password) { sql += ', password_hash=$3'; params.push(await bcrypt.hash(password, 10)); }
     sql += ` WHERE id=$${params.length+1}`; params.push(req.params.id);
     await pool.query(sql, params);
-    // Log Action
     logAction(req.session.userId, 'UPDATE_USER', `更新使用者 ID: ${req.params.id}`, req.ip);
     res.json({ success: true });
 });
@@ -181,38 +178,57 @@ app.put('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
 app.delete('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
     if(parseInt(req.params.id) === req.session.userId) return res.status(400).json({ error: '不能刪除自己' });
     await pool.query('DELETE FROM users WHERE id=$1', [req.params.id]);
-    // Log Action
     logAction(req.session.userId, 'DELETE_USER', `刪除使用者 ID: ${req.params.id}`, req.ip);
     res.json({ success: true });
 });
 
+// [API] 讀取登入紀錄 (包含 username)
 app.get('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     try {
         const r = await pool.query(`
-            SELECT l.login_time, l.ip_address, u.username, u.name 
+            SELECT l.login_time, l.ip_address, u.username 
             FROM login_logs l
             LEFT JOIN users u ON l.user_id = u.id
             ORDER BY l.login_time DESC 
-            LIMIT 100
+            LIMIT 500
         `);
         res.json(r.rows);
     } catch (e) { res.status(500).json({ error: '無法讀取紀錄' }); }
 });
 
-// 讀取操作紀錄 API
+// [新增] 清空登入紀錄
+app.delete('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
+    try {
+        await pool.query('TRUNCATE TABLE login_logs');
+        logAction(req.session.userId, 'CLEAR_LOGS', '清空所有登入紀錄', req.ip);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
+});
+
+// [API] 讀取操作紀錄 (包含 username)
 app.get('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => {
     try {
         const r = await pool.query(`
-            SELECT a.created_at, a.action, a.details, a.ip_address, u.username, u.name 
+            SELECT a.created_at, a.action, a.details, a.ip_address, u.username 
             FROM action_logs a
             LEFT JOIN users u ON a.user_id = u.id
             ORDER BY a.created_at DESC 
-            LIMIT 100
+            LIMIT 500
         `);
         res.json(r.rows);
     } catch (e) { res.status(500).json({ error: '無法讀取操作紀錄' }); }
 });
 
+// [新增] 清空操作紀錄
+app.delete('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => {
+    try {
+        await pool.query('TRUNCATE TABLE action_logs');
+        logAction(req.session.userId, 'CLEAR_ACTIONS', '清空所有操作歷程', req.ip);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
+});
+
+// ... (Issues API 與 Gemini API 保持不變，省略以節省空間) ...
 
 app.get('/api/issues', checkAuth, async (req, res) => {
     try {
@@ -226,13 +242,9 @@ app.post('/api/issues/batch-delete', checkAuth, checkManager, async (req, res) =
     const { ids } = req.body; 
     if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: '未選擇項目' });
     try { 
-        // [優化] 先查出要刪除的編號，以便記錄 Log
         const check = await pool.query('SELECT title FROM issues WHERE id = ANY($1::int[])', [ids]);
         const titles = check.rows.map(r => r.title).join(', ');
-
         await pool.query('DELETE FROM issues WHERE id = ANY($1::int[])', [ids]); 
-        
-        // Log Action 包含編號
         logAction(req.session.userId, 'BATCH_DELETE', `批次刪除 ${ids.length} 筆資料: [${titles}]`, req.ip);
         res.json({ success: true, message: `已刪除 ${ids.length} 筆資料` }); 
     } catch (e) { res.status(500).json({ error: '批次刪除失敗' }); }
@@ -240,13 +252,9 @@ app.post('/api/issues/batch-delete', checkAuth, checkManager, async (req, res) =
 
 app.delete('/api/issues/:id', checkAuth, checkManager, async (req, res) => { 
     try {
-        // [優化] 先查詢編號
         const check = await pool.query('SELECT title FROM issues WHERE id=$1', [req.params.id]);
         const issueTitle = check.rows.length > 0 ? check.rows[0].title : '未知';
-
         await pool.query('DELETE FROM issues WHERE id=$1', [req.params.id]); 
-        
-        // Log Action 包含編號
         logAction(req.session.userId, 'DELETE_ISSUE', `刪除事項: ${issueTitle} (ID: ${req.params.id})`, req.ip);
         res.json({ success: true }); 
     } catch (e) { res.status(500).json({ error: '刪除失敗' }); }
@@ -255,14 +263,10 @@ app.delete('/api/issues/:id', checkAuth, checkManager, async (req, res) => {
 app.put('/api/issues/:id', checkAuth, checkEditor, async (req, res) => {
     const { status, round, handling, review } = req.body; 
     const id = req.params.id;
-    
     try {
         const r = await pool.query('SELECT * FROM issues WHERE id=$1', [id]); 
         if (r.rows.length === 0) return res.status(404).json({ error: '找不到事項' });
-
-        // [優化] 取得編號
         const issueTitle = r.rows[0].title || '無編號';
-
         let raw = r.rows[0].raw_data || {}; 
         raw.status = status; 
         const suffix = parseInt(round) === 1 ? '' : round;
@@ -271,17 +275,13 @@ app.put('/api/issues/:id', checkAuth, checkEditor, async (req, res) => {
         
         let sql = 'UPDATE issues SET status=$1, raw_data=$2'; 
         let params = [status, JSON.stringify(raw)];
-        
         if(parseInt(round) === 1) { 
             sql += ', handling=$3, review=$4'; 
             params.push(handling, review); 
         }
         sql += ` WHERE id=$${params.length+1}`; 
         params.push(id); 
-        
         await pool.query(sql, params); 
-        
-        // Log Action 包含編號
         logAction(req.session.userId, 'UPDATE_ISSUE', `更新事項: ${issueTitle}, 回合: ${round}, 狀態: ${status} (ID: ${id})`, req.ip);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: '更新失敗' }); }
@@ -330,7 +330,6 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
             }
         } 
         await client.query('COMMIT'); 
-        // Log Action
         logAction(req.session.userId, 'IMPORT', `匯入資料: 新增 ${countNew}, 更新 ${countUpdate}, 回合: ${targetRound}`, req.ip);
         res.json({ success: true });
     } catch (e) { 
@@ -343,35 +342,14 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 app.post('/api/gemini', checkAuth, checkEditor, async (req, res) => {
     const { content, rounds } = req.body; 
     if (!GEMINI_API_KEY) return res.status(500).json({ error: "No API Key configured" });
-
-    const prompt = `
-    Role: 監理機關審查人員.
-    Task: 針對「開立事項 (Finding)」審查營運機構回報的「辦理情形 (Action)」。
-    開立事項: ${content}
-    辦理情形: ${JSON.stringify(rounds)}
-    請判斷辦理情形是否足以解除列管。
-    語氣: 中性、冷靜、公務化。
-    Output Format: JSON ONLY. Example: { "fulfill": "是/否", "reason": "審查意見" }
-    `;
-
+    const prompt = `Role: 監理機關審查人員. Task: 針對「開立事項 (Finding)」審查營運機構回報的「辦理情形 (Action)」。 開立事項: ${content} 辦理情形: ${JSON.stringify(rounds)} 請判斷辦理情形是否足以解除列管。 語氣: 中性、冷靜、公務化。 Output Format: JSON ONLY. Example: { "fulfill": "是/否", "reason": "審查意見" }`;
     try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-        const r = await axios.post(url, { 
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" }
-        });
-        
+        const r = await axios.post(url, { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" }});
         let txt = r.data.candidates[0].content.parts[0].text;
         const jsonMatch = txt.match(/{[\s\S]*}/);
-        if (jsonMatch) {
-             try { res.json(JSON.parse(jsonMatch[0])); } catch (e) { res.json({ fulfill: "失敗", reason: "AI 格式錯誤" }); }
-        } else { 
-            res.json({ fulfill: "失敗", reason: "AI 未回傳 JSON" }); 
-        }
-    } catch (e) { 
-        console.error("AI Error:", e.message);
-        res.status(500).json({ error: "AI 連線失敗" }); 
-    }
+        if (jsonMatch) { try { res.json(JSON.parse(jsonMatch[0])); } catch (e) { res.json({ fulfill: "失敗", reason: "AI 格式錯誤" }); } } else { res.json({ fulfill: "失敗", reason: "AI 未回傳 JSON" }); }
+    } catch (e) { console.error("AI Error:", e.message); res.status(500).json({ error: "AI 連線失敗" }); }
 });
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
