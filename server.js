@@ -55,6 +55,18 @@ function checkAdmin(req, res, next) { if (req.session.role === 'admin') next(); 
 function checkManager(req, res, next) { if (['admin', 'manager'].includes(req.session.role)) next(); else res.status(403).json({ error: '權限不足' }); }
 function checkEditor(req, res, next) { if (['admin', 'manager', 'editor'].includes(req.session.role)) next(); else res.status(403).json({ error: '權限不足' }); }
 
+// Helper: 寫入操作紀錄
+async function logAction(userId, action, details, ip) {
+    try {
+        await pool.query(
+            'INSERT INTO action_logs (user_id, action, details, ip_address) VALUES ($1, $2, $3, $4)',
+            [userId, action, details, ip]
+        );
+    } catch (e) {
+        console.error("Log Action Error:", e.message);
+    }
+}
+
 async function initDB() {
     let client;
     try {
@@ -68,16 +80,26 @@ async function initDB() {
                 name VARCHAR(50), 
                 password_hash VARCHAR(255) NOT NULL, 
                 role VARCHAR(20) DEFAULT 'viewer', 
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                email VARCHAR(255) UNIQUE
             );
         `);
         
-        try { await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE;`); } catch(e){}
-
         await client.query(`CREATE TABLE IF NOT EXISTS login_logs (id SERIAL PRIMARY KEY, user_id INTEGER, ip_address VARCHAR(50), login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
-        
-        // [修正 3] 建立索引以加速查詢登入紀錄
         await client.query(`CREATE INDEX IF NOT EXISTS idx_login_logs_time ON login_logs(login_time DESC);`);
+
+        // [新增] 詳細操作紀錄表
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS action_logs (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                action VARCHAR(50),
+                details TEXT,
+                ip_address VARCHAR(50),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_action_logs_time ON action_logs(created_at DESC);`);
 
         await client.query(`CREATE TABLE IF NOT EXISTS issues (id SERIAL PRIMARY KEY, title VARCHAR(255), content TEXT, status VARCHAR(50), year VARCHAR(20), unit VARCHAR(50), category VARCHAR(50), inspection_category VARCHAR(50), division VARCHAR(50), handling TEXT, review TEXT, raw_data JSONB, created_by VARCHAR(50), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
         
@@ -136,6 +158,8 @@ app.post('/api/users', checkAuth, checkAdmin, async (req, res) => {
     try {
         const hash = await bcrypt.hash(password, 10);
         await pool.query(`INSERT INTO users (username, name, password_hash, role) VALUES ($1, $2, $3, $4)`, [username, name, hash, role]);
+        // Log Action
+        logAction(req.session.userId, 'CREATE_USER', `建立使用者: ${username} (${role})`, req.ip);
         res.json({ success: true });
     } catch (e) { 
         if(e.code === '23505') return res.status(400).json({error:'帳號已存在'}); 
@@ -149,16 +173,19 @@ app.put('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
     if (password) { sql += ', password_hash=$3'; params.push(await bcrypt.hash(password, 10)); }
     sql += ` WHERE id=$${params.length+1}`; params.push(req.params.id);
     await pool.query(sql, params);
+    // Log Action
+    logAction(req.session.userId, 'UPDATE_USER', `更新使用者 ID: ${req.params.id}`, req.ip);
     res.json({ success: true });
 });
 
 app.delete('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
     if(parseInt(req.params.id) === req.session.userId) return res.status(400).json({ error: '不能刪除自己' });
     await pool.query('DELETE FROM users WHERE id=$1', [req.params.id]);
+    // Log Action
+    logAction(req.session.userId, 'DELETE_USER', `刪除使用者 ID: ${req.params.id}`, req.ip);
     res.json({ success: true });
 });
 
-// [修正 3] 優化查詢語法
 app.get('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     try {
         const r = await pool.query(`
@@ -169,11 +196,23 @@ app.get('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
             LIMIT 100
         `);
         res.json(r.rows);
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: '無法讀取紀錄' });
-    }
+    } catch (e) { res.status(500).json({ error: '無法讀取紀錄' }); }
 });
+
+// [新增] 讀取操作紀錄 API
+app.get('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => {
+    try {
+        const r = await pool.query(`
+            SELECT a.created_at, a.action, a.details, a.ip_address, u.username, u.name 
+            FROM action_logs a
+            LEFT JOIN users u ON a.user_id = u.id
+            ORDER BY a.created_at DESC 
+            LIMIT 100
+        `);
+        res.json(r.rows);
+    } catch (e) { res.status(500).json({ error: '無法讀取操作紀錄' }); }
+});
+
 
 app.get('/api/issues', checkAuth, async (req, res) => {
     try {
@@ -188,12 +227,16 @@ app.post('/api/issues/batch-delete', checkAuth, checkManager, async (req, res) =
     if (!ids || !Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: '未選擇項目' });
     try { 
         await pool.query('DELETE FROM issues WHERE id = ANY($1::int[])', [ids]); 
+        // Log Action
+        logAction(req.session.userId, 'BATCH_DELETE', `批次刪除 ${ids.length} 筆資料`, req.ip);
         res.json({ success: true, message: `已刪除 ${ids.length} 筆資料` }); 
     } catch (e) { res.status(500).json({ error: '批次刪除失敗' }); }
 });
 
 app.delete('/api/issues/:id', checkAuth, checkManager, async (req, res) => { 
     await pool.query('DELETE FROM issues WHERE id=$1', [req.params.id]); 
+    // Log Action
+    logAction(req.session.userId, 'DELETE_ISSUE', `刪除事項 ID: ${req.params.id}`, req.ip);
     res.json({ success: true }); 
 });
 
@@ -220,6 +263,8 @@ app.put('/api/issues/:id', checkAuth, checkEditor, async (req, res) => {
     params.push(id); 
     
     await pool.query(sql, params); 
+    // Log Action
+    logAction(req.session.userId, 'UPDATE_ISSUE', `更新事項 ID: ${id}, 回合: ${round}, 狀態: ${status}`, req.ip);
     res.json({ success: true });
 });
 
@@ -230,6 +275,7 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
     const client = await pool.connect(); 
     try { 
         await client.query('BEGIN'); 
+        let countNew = 0, countUpdate = 0;
         for (const item of data) {
             const check = await client.query('SELECT id, raw_data FROM issues WHERE title = $1', [item.number]);
             const newHandling = item.handling || ''; 
@@ -237,6 +283,7 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
             const newStatus = item.status || ''; 
             const newContent = item.content || '';
             if (check.rows.length > 0) {
+                countUpdate++;
                 const existing = check.rows[0]; 
                 let raw = existing.raw_data || {}; 
                 raw['handling'+suffix] = newHandling; 
@@ -254,6 +301,7 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
                 params.push(existing.id); 
                 await client.query(sql, params);
             } else {
+                countNew++;
                 let raw = { ...item }; 
                 raw['handling'+suffix] = newHandling; 
                 raw['review'+suffix] = newReview; 
@@ -263,6 +311,8 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
             }
         } 
         await client.query('COMMIT'); 
+        // Log Action
+        logAction(req.session.userId, 'IMPORT', `匯入資料: 新增 ${countNew}, 更新 ${countUpdate}, 回合: ${targetRound}`, req.ip);
         res.json({ success: true });
     } catch (e) { 
         await client.query('ROLLBACK'); 
