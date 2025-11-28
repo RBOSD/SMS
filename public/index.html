@@ -81,7 +81,7 @@
 
         .drawer-backdrop, .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
         .drawer-backdrop.open, .modal-overlay.open { display: flex; }
-        /* [優化] Drawer 寬度加寬，適應左右分割 */
+        
         .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 900px; max-width: 100vw; background: white; z-index: 101; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; box-shadow: -5px 0 25px rgba(0,0,0,0.15); }
         .drawer.open { transform: translateX(0); }
         .drawer-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #fcfcfc; }
@@ -104,13 +104,9 @@
 
         .table-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; min-height: 32px; }
 
-        /* [優化] 左右分割與快捷按鈕樣式 */
         .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; height: 100%; }
         .review-left { border-right: 1px solid #e2e8f0; padding-right: 24px; overflow-y: auto; }
         .review-right { display: flex; flex-direction: column; overflow-y: auto; }
-        .quick-btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-        .quick-btn { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 20px; font-size: 12px; color: #475569; cursor: pointer; transition: 0.1s; }
-        .quick-btn:hover { background: #e2e8f0; color: var(--primary); border-color: var(--primary); }
 
         /* Mobile Optimization */
         @media (max-width: 1024px) { 
@@ -149,7 +145,6 @@
             .user-table td[data-label="操作"] { position: absolute; bottom: 16px; right: 16px; width: auto; margin-top: 0; }
 
             .drawer { width: 100%; max-width: 100%; top: 0; height: 100%; z-index: 9999; }
-            /* [優化] 手機版時 Review Grid 改為上下排列 */
             .review-grid { grid-template-columns: 1fr; gap: 10px; display: block; }
             .review-left { border-right: none; border-bottom: 1px solid #e2e8f0; padding-right: 0; padding-bottom: 20px; margin-bottom: 20px; max-height: 300px; }
             
@@ -291,7 +286,7 @@
         <div class="drawer-header"><div style="font-weight:700;font-size:16px;" id="drawerTitle">詳細資料</div><button onclick="closeDrawer()" style="border:none;background:none;font-size:24px;">&times;</button></div>
         <div class="drawer-body">
             
-            <!-- View Mode (保持不變) -->
+            <!-- View Mode -->
             <div id="viewModeContent">
                 <div class="detail-card">
                     <div style="font-size:11px;color:#666;">基本資訊</div>
@@ -305,9 +300,19 @@
                 </div>
             </div>
 
-            <!-- [優化] Edit Mode: 左右分割，更方便對照 -->
+            <!-- [優化] Edit Mode: 左右分割，包含頂部資訊列 -->
             <div id="editModeContent" class="hidden" style="height:100%;">
                 <input type="hidden" id="editId">
+                
+                <!-- [新增] 頂部資訊顯示 -->
+                <div style="background:#eff6ff; padding:12px; border-radius:8px; margin-bottom:16px; border:1px solid #dbeafe; display:flex; gap:10px; align-items:center;">
+                    <span style="font-weight:bold; color:#1e40af; font-size:16px;" id="editHeaderNumber"></span> 
+                    <span style="color:#cbd5e1;">|</span>
+                    <span style="font-weight:500; color:#334155;" id="editHeaderYear"></span>
+                    <span style="color:#cbd5e1;">|</span>
+                    <span style="font-weight:500; color:#334155;" id="editHeaderUnit"></span>
+                </div>
+
                 <div class="review-grid">
                     <!-- 左側：參考資料區 -->
                     <div class="review-left">
@@ -320,7 +325,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label>機構辦理情形 (廠商回報)</label>
+                            <label>機構辦理情形</label> <!-- [修正] 移除 (廠商回報) -->
                             <textarea id="editHandling" class="filter-input" rows="10" style="background:#f8fafc;"></textarea>
                         </div>
                     </div>
@@ -328,9 +333,8 @@
                     <!-- 右側：審查作業區 -->
                     <div class="review-right">
                         <div class="form-group">
-                            <label>設定狀態</label>
+                            <label>審查結果</label> <!-- [修正] 改名並移除未設定 -->
                             <select id="editStatus" class="filter-select">
-                                <option value="">(未設定)</option>
                                 <option value="持續列管">🔴 持續列管</option>
                                 <option value="解除列管">🟢 解除列管</option>
                                 <option value="自行列管">🟠 自行列管</option>
@@ -343,19 +347,14 @@
                                 <button class="btn btn-ai" style="padding:2px 8px;font-size:11px;" onclick="runAiInEdit(this)">🤖 AI 智能分析</button>
                             </div>
                             
-                            <!-- AI 結果區塊 -->
+                            <!-- [修正] AI 結果先預覽，不直接帶入 -->
                             <div id="aiBox" style="background:#f0f9ff;padding:12px;border-radius:6px;border:1px solid #bae6fd;margin-bottom:12px;display:none;">
-                                <div style="font-size:13px;margin-bottom:6px;"><span id="aiRes"></span></div>
-                                <button class="btn btn-primary" style="width:100%;font-size:12px;padding:4px;" onclick="applyAiSuggestion()">⬇️ 一鍵帶入 AI 擬稿意見</button>
-                                <div id="aiReasonHidden" style="display:none;"></div>
-                            </div>
-
-                            <!-- 快速樣板按鈕 -->
-                            <div class="quick-btn-group">
-                                <div class="quick-btn" onclick="insertTemplate('同意備查，解除列管。')">✅ 同意解除</div>
-                                <div class="quick-btn" onclick="insertTemplate('辦理情形尚有不足，請補充佐證資料後再報。')">📄 補充佐證</div>
-                                <div class="quick-btn" onclick="insertTemplate('請持續辦理，列入持續列管。')">🔴 持續列管</div>
-                                <div class="quick-btn" onclick="insertTemplate('敬悉，擬同意自行列管。')">🟠 自行列管</div>
+                                <div style="font-size:13px;margin-bottom:8px;font-weight:bold;color:#0369a1;">💡 AI 分析建議：</div>
+                                <div id="aiPreviewText" style="background:white; padding:10px; border:1px solid #e0f2fe; border-radius:4px; font-size:13px; margin-bottom:8px; line-height:1.5; color:#334155;"></div>
+                                <div style="display:flex; align-items:center; justify-content:space-between;">
+                                    <span id="aiResBadge" style="font-size:12px;"></span>
+                                    <button class="btn btn-primary" style="font-size:12px;padding:4px 12px;" onclick="applyAiSuggestion()">⬇️ 帶入此意見</button>
+                                </div>
                             </div>
 
                             <textarea id="editReview" class="filter-input" style="flex:1;resize:none;" placeholder="請輸入審查意見..."></textarea>
@@ -388,7 +387,7 @@
     <script>
         let rawData=[], currentData=[], currentUser=null, charts={}, currentEditItem=null, userList=[], sortState = { field: null, dir: 'asc' }, stagedImportData = []; 
         
-        // ... (前面所有標準 JS 函式保持不變，省略以節省空間，請保留原本的邏輯) ...
+        // ... (標準 JS 函式保持不變) ...
         function normalizeCodeString(str){ if(!str) return ""; var s = (str.normalize? str.normalize("NFKC") : str); s=s.replace(/[\u200B-\u200D\uFEFF]/g,""); s=s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g,"-"); s=s.replace(/[ \t]+/g," ").replace(/\s*-\s*/g,"-"); return s.trim(); }
         function extractNumberFromCell(cell){ if(!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); var mB = whole.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/); if (mB) return (mB[1] || "").toUpperCase(); var mA = whole.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/); if (mA) return (mA[1] || "").toUpperCase(); return ""; }
         function parseItemNumber(numberStr){ var raw=normalizeCodeString(numberStr||""); if(!raw) return null; var m = raw.match(/^(\d{2})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i); if(m){ var yy=parseInt(m[1],10), rocYear=100+yy, org=m[2].toUpperCase(), cat=m[3], div=m[4].toUpperCase(), divSeq=m[5], kind=m[6].toUpperCase(), seq=m[7]; return {scheme:"THAS-v1", raw:raw, yearRoc:rocYear, orgCodeRaw:org, inspectionCategoryCode:cat, divisionCode:div, divisionSeq:divSeq, itemKindCode:kind, itemSeq:seq.toString(), period:""}; } m = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d{1,3})$/i); if(m){ var rocYear2=parseInt(m[1],10), org2=m[2].toUpperCase(), cat2=m[3], period=m[4], div2=m[5].toUpperCase(), kind2=m[6].toUpperCase(), seq2=m[7]; return {scheme:"TRC-v2", raw:raw, yearRoc:rocYear2, orgCodeRaw:org2, inspectionCategoryCode:cat2, divisionCode:div2, itemKindCode:kind2, itemSeq:seq2.toString(), period:period}; } return null; }
@@ -409,7 +408,6 @@
                 await loadData(); 
             }
         });
-        // ... (保留中間所有輔助函式、圖表、匯入邏輯) ...
         
         function onToggleSidebar() {
             const panel = document.getElementById('filtersPanel');
@@ -564,11 +562,20 @@
             document.getElementById('drawerTitle').innerText=edit?"編輯事項":"詳細資料"; 
             if(edit){ 
                 document.getElementById('editId').value=currentEditItem.id; 
-                document.getElementById('editStatus').value=(currentEditItem.status==='Open')?'':currentEditItem.status; 
+                // [修正] 顯示編號、年度、機構資訊
+                document.getElementById('editHeaderNumber').innerText = currentEditItem.number;
+                document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年';
+                document.getElementById('editHeaderUnit').innerText = currentEditItem.unit;
+
+                // [修正] 若無狀態，預設為持續列管 (因為未設定選項已移除)
+                const st = (currentEditItem.status==='Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status;
+                document.getElementById('editStatus').value = st; 
+                
                 document.getElementById('editRound').value=1; 
-                document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); // 顯示左側參考
+                document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); 
                 loadRoundData(); 
                 document.getElementById('aiBox').style.display='none'; 
+                document.getElementById('aiPreviewText').innerText = '';
             } 
         }
         function loadRoundData(){ const r=parseInt(document.getElementById('editRound').value),s=r===1?'':r; const rawHandling = currentEditItem['handling'+s]||''; const rawReview = currentEditItem['review'+s]||''; document.getElementById('editHandling').value = formatHtmlToText(rawHandling); document.getElementById('editReview').value = formatHtmlToText(rawReview); }
@@ -592,8 +599,9 @@
                 if(!j.fulfill) throw new Error('AI 回傳格式錯誤'); 
                 
                 const isPass = j.fulfill.includes('Yes')||j.fulfill.includes('是');
-                document.getElementById('aiRes').innerHTML = `<strong style="color:${isPass?'#10b981':'#ef4444'}">[${j.fulfill}]</strong> 建議意見已生成，可直接帶入。`; 
-                document.getElementById('aiReasonHidden').innerText = j.reason; // 暫存 AI 建議
+                // [修正] 顯示 AI 建議在預覽框
+                document.getElementById('aiResBadge').innerHTML = `<strong style="color:${isPass?'#10b981':'#ef4444'}">[${j.fulfill}]</strong>`;
+                document.getElementById('aiPreviewText').innerText = j.reason; 
                 document.getElementById('aiBox').style.display = 'block'; 
             } catch(e) { 
                 showToast('AI 失敗: ' + e.message, 'error'); 
@@ -604,20 +612,14 @@
             } 
         }
 
-        // [新功能] 一鍵帶入 AI 意見
+        // [修正] 點擊帶入按鈕
         function applyAiSuggestion() {
-            const reason = document.getElementById('aiReasonHidden').innerText;
+            const reason = document.getElementById('aiPreviewText').innerText;
             if(reason) {
-                insertTemplate(reason);
-                document.getElementById('aiBox').style.display = 'none';
+                const ta = document.getElementById('editReview');
+                ta.value = ta.value ? (ta.value + "\n" + reason) : reason;
+                document.getElementById('aiBox').style.display = 'none'; // 帶入後隱藏
             }
-        }
-
-        // [新功能] 插入樣板文字
-        function insertTemplate(text) {
-            const textarea = document.getElementById('editReview');
-            const currentVal = textarea.value;
-            textarea.value = currentVal ? (currentVal + "\n" + text) : text;
         }
         
         function populateSelect(id,d,f){const u=[...new Set(d.map(i=>i[f]).filter(Boolean))].sort().reverse();document.getElementById(id).innerHTML='<option value="">全部</option>'+u.map(v=>`<option value="${v}">${v}</option>`).join('');}
@@ -643,7 +645,6 @@
             const checked = document.querySelectorAll('.issue-check:checked');
             const count = checked.length;
             const container = document.getElementById('batchActionContainer');
-            
             if (count > 0) {
                 container.style.display = 'block';
                 document.getElementById('selectedCountBadge').innerText = `(${count})`;
