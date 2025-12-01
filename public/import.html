@@ -9,6 +9,7 @@
         textarea { width: 100%; height: 200px; margin-bottom: 10px; }
         button { padding: 10px 20px; background: #28a745; color: white; border: none; cursor: pointer; }
         .note { color: #666; font-size: 0.9em; }
+        .issue-item { border-bottom: 1px solid #eee; padding: 10px 0; }
     </style>
 </head>
 <body>
@@ -24,21 +25,20 @@
 
     <hr>
     
-    <h3>現有資料列表</h3>
+    <h3>現有資料列表 (預覽前 50 筆)</h3>
     <button onclick="loadIssues()" style="background:#007bff;">重新整理列表</button>
     <ul id="issueList"></ul>
 </div>
 
 <script>
-    // 1. 匯入功能
+    // 1. 匯入功能 (保持不變)
     async function uploadData() {
         const input = document.getElementById('jsonInput').value;
         const status = document.getElementById('status');
         
         try {
-            const jsonData = JSON.parse(input); // 解析使用者貼上的 JSON
+            const jsonData = JSON.parse(input);
             
-            // 呼叫後端 API
             const res = await fetch('/api/issues/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -50,7 +50,7 @@
             if (res.ok) {
                 status.innerText = result.message;
                 status.style.color = 'green';
-                loadIssues(); // 成功後刷新列表
+                loadIssues(); 
             } else {
                 status.innerText = '錯誤：' + result.error;
                 status.style.color = 'red';
@@ -61,38 +61,50 @@
         }
     }
 
-    // 2. 讀取列表功能
+    // 2. 讀取列表功能 (修正重點)
     async function loadIssues() {
         const list = document.getElementById('issueList');
         list.innerHTML = '載入中...';
         
         try {
-            const res = await fetch('/api/issues');
+            // 修改處：加入參數 limit=50 (因為現在預設只有 10 筆)
+            const res = await fetch('/api/issues?limit=50&sortBy=created_at&order=DESC');
+            
             if (res.status === 401) {
                 list.innerHTML = '請先 <a href="/login.html">登入</a>';
                 return;
             }
             
-            const issues = await res.json();
+            const jsonResponse = await res.json();
+            
+            // 修改處：現在資料放在 .data 屬性中
+            const issues = jsonResponse.data; 
+
             list.innerHTML = '';
             
+            if (issues.length === 0) {
+                list.innerHTML = '目前沒有資料';
+                return;
+            }
+
             issues.forEach(issue => {
                 const li = document.createElement('li');
+                li.className = 'issue-item';
                 li.innerHTML = `
                     <strong>${issue.title}</strong> (${issue.status}) 
-                    <br><small>建立者: ${issue.created_by} | 時間: ${new Date(issue.created_at).toLocaleString()}</small>
-                    <p>${issue.content}</p>
+                    <br><small>建立者: ${issue.created_by || '系統'} | 時間: ${new Date(issue.created_at).toLocaleString()}</small>
+                    <p>${issue.content || '(無內容)'}</p>
                     <button onclick="deleteIssue(${issue.id})" style="background:red; font-size:0.8em; padding:5px;">刪除</button>
-                    <hr>
                 `;
                 list.appendChild(li);
             });
         } catch (err) {
+            console.error(err);
             list.innerText = '載入失敗';
         }
     }
 
-    // 3. 刪除功能
+    // 3. 刪除功能 (保持不變)
     async function deleteIssue(id) {
         if(!confirm('確定要刪除嗎？')) return;
         

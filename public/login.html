@@ -3,99 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登入系統</title>
+    <title>系統登入</title>
     <style>
         body {
-            font-family: "Microsoft JhengHei", Arial, sans-serif;
-            background-color: #f4f6f8;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
         }
-        .login-container {
+        .login-card {
             background: white;
-            padding: 30px;
+            padding: 40px;
             border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             width: 100%;
-            max-width: 400px;
+            max-width: 350px;
             text-align: center;
         }
-        h2 { color: #333; margin-bottom: 20px; }
+        h2 { color: #2c3e50; margin-bottom: 20px; }
         input {
-            width: 90%;
-            padding: 10px;
+            width: 100%;
+            padding: 12px;
             margin: 10px 0;
-            border: 1px solid #ccc;
+            border: 1px solid #ddd;
             border-radius: 4px;
-            font-size: 16px;
+            box-sizing: border-box;
         }
         button {
-            width: 95%;
-            padding: 10px;
-            background-color: #007bff;
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
             color: white;
             border: none;
             border-radius: 4px;
-            cursor: pointer;
             font-size: 16px;
-            margin-top: 20px;
+            cursor: pointer;
+            margin-top: 10px;
         }
-        button:hover { background-color: #0056b3; }
-        .error { color: red; font-size: 14px; margin-top: 10px; display: none; }
+        button:hover { background-color: #2980b9; }
+        .error { color: #e74c3c; margin-top: 10px; font-size: 0.9em; min-height: 20px; }
     </style>
 </head>
 <body>
 
-<div class="login-container">
-    <h2>系統登入</h2>
-    
-    <!-- [還原] 輸入使用者名稱 -->
-    <input type="text" id="username" placeholder="使用者名稱" required>
-    <input type="password" id="password" placeholder="密碼" required>
-    
-    <button onclick="login()">登入</button>
-    <p id="error-msg" class="error"></p>
+<div class="login-card">
+    <h2>SMS AI Review</h2>
+    <form id="loginForm">
+        <input type="text" name="username" placeholder="帳號" required>
+        <input type="password" name="password" placeholder="密碼" required>
+        <button type="submit" id="btnSubmit">登入</button>
+    </form>
+    <div class="error" id="msg"></div>
 </div>
 
 <script>
-    async function login() {
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        const errorMsg = document.getElementById('error-msg');
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btnSubmit');
+        const msg = document.getElementById('msg');
+        
+        // 鎖定按鈕避免重複提交
+        btn.disabled = true;
+        btn.innerText = '登入中...';
+        msg.innerText = '';
 
-        if(!username || !password) {
-            errorMsg.innerText = "請輸入帳號和密碼";
-            errorMsg.style.display = "block";
-            return;
-        }
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData.entries());
 
         try {
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // [還原] 傳送 username 參數
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify(data)
             });
-            
-            const data = await res.json();
+
+            const result = await res.json();
 
             if (res.ok) {
-                window.location.href = '/';
+                // 登入成功，導向到新的 Dashboard
+                window.location.href = '/dashboard.html';
             } else {
-                errorMsg.innerText = data.error || '登入失敗';
-                errorMsg.style.display = "block";
+                msg.innerText = result.error || '登入失敗';
+                btn.disabled = false;
+                btn.innerText = '登入';
             }
-        } catch (e) {
-            errorMsg.innerText = "連線錯誤，請稍後再試";
-            errorMsg.style.display = "block";
+        } catch (err) {
+            msg.innerText = '連線錯誤，請稍後再試';
+            btn.disabled = false;
+            btn.innerText = '登入';
         }
-    }
-
-    document.addEventListener('keydown', function(event) {
-        if (event.key === "Enter") login();
     });
 </script>
 

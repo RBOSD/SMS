@@ -67,6 +67,15 @@ async function logAction(userId, action, details, ip) {
     }
 }
 
+// Helper: 分頁計算
+const getPagination = (page, limit, total) => {
+    const currentPage = parseInt(page) || 1;
+    const pageSize = parseInt(limit) || 10;
+    const totalItems = parseInt(total);
+    const totalPages = Math.ceil(totalItems / pageSize);
+    return { currentPage, pageSize, totalItems, totalPages };
+};
+
 async function initDB() {
     let client;
     try {
@@ -146,10 +155,49 @@ app.get('/api/auth/me', (req, res) => {
 });
 
 const ROLE_MAP = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' };
+
+// [UPDATED] Get Users with Pagination & Search
 app.get('/api/users', checkAuth, checkAdmin, async (req, res) => {
-    const r = await pool.query('SELECT id, username, email, name, role, created_at FROM users ORDER BY id ASC');
-    const data = r.rows.map(u => ({ ...u, role_display: ROLE_MAP[u.role] || u.role }));
-    res.json(data);
+    const { page = 1, limit = 10, search = '', sortBy = 'id', order = 'ASC' } = req.query;
+    const offset = (page - 1) * limit;
+
+    const allowedSort = ['id', 'username', 'name', 'role', 'created_at', 'email'];
+    const sortColumn = allowedSort.includes(sortBy) ? sortBy : 'id';
+    const sortOrder = order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+    try {
+        let queryParams = [];
+        let whereClause = '';
+        
+        if (search) {
+            queryParams.push(`%${search}%`);
+            whereClause = `WHERE username ILIKE $1 OR name ILIKE $1 OR email ILIKE $1`;
+        }
+
+        const countSql = `SELECT COUNT(*) FROM users ${whereClause}`;
+        const countRes = await pool.query(countSql, queryParams);
+        const totalItems = countRes.rows[0].count;
+
+        const dataParams = [...queryParams, limit, offset];
+        const pLimit = queryParams.length + 1;
+        const pOffset = queryParams.length + 2;
+
+        const dataSql = `
+            SELECT id, username, email, name, role, created_at 
+            FROM users 
+            ${whereClause}
+            ORDER BY ${sortColumn} ${sortOrder}
+            LIMIT $${pLimit} OFFSET $${pOffset}
+        `;
+        
+        const r = await pool.query(dataSql, dataParams);
+        const data = r.rows.map(u => ({ ...u, role_display: ROLE_MAP[u.role] || u.role }));
+
+        res.json({
+            data,
+            pagination: getPagination(page, limit, totalItems)
+        });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/users', checkAuth, checkAdmin, async (req, res) => {
@@ -196,7 +244,6 @@ app.get('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: '無法讀取紀錄' }); }
 });
 
-// [新增] 清空登入紀錄
 app.delete('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     try {
         await pool.query('TRUNCATE TABLE login_logs');
@@ -205,7 +252,7 @@ app.delete('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
 });
 
-// [API] 讀取操作紀錄 (包含 username)
+// [API] 讀取操作紀錄
 app.get('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => {
     try {
         const r = await pool.query(`
@@ -219,7 +266,6 @@ app.get('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: '無法讀取操作紀錄' }); }
 });
 
-// [新增] 清空操作紀錄
 app.delete('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => {
     try {
         await pool.query('TRUNCATE TABLE action_logs');
@@ -228,13 +274,46 @@ app.delete('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => 
     } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
 });
 
-// ... (Issues API 與 Gemini API 保持不變，省略以節省空間) ...
-
+// [UPDATED] Get Issues with Pagination & Search
 app.get('/api/issues', checkAuth, async (req, res) => {
+    const { page = 1, limit = 10, search = '', sortBy = 'created_at', order = 'DESC' } = req.query;
+    const offset = (page - 1) * limit;
+
+    const allowedSort = ['id', 'title', 'status', 'created_at', 'year', 'unit'];
+    const sortColumn = allowedSort.includes(sortBy) ? sortBy : 'created_at';
+    const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
     try {
-        const r = await pool.query('SELECT * FROM issues ORDER BY created_at DESC');
+        let queryParams = [];
+        let whereClause = 'WHERE 1=1';
+
+        if (search) {
+            queryParams.push(`%${search}%`);
+            whereClause += ` AND (title ILIKE $1 OR content ILIKE $1 OR unit ILIKE $1)`;
+        }
+
+        const countSql = `SELECT COUNT(*) FROM issues ${whereClause}`;
+        const countRes = await pool.query(countSql, queryParams);
+        const totalItems = countRes.rows[0].count;
+
+        const dataParams = [...queryParams, limit, offset];
+        const pLimit = queryParams.length + 1;
+        const pOffset = queryParams.length + 2;
+
+        const dataSql = `
+            SELECT * FROM issues 
+            ${whereClause}
+            ORDER BY ${sortColumn} ${sortOrder}
+            LIMIT $${pLimit} OFFSET $${pOffset}
+        `;
+
+        const r = await pool.query(dataSql, dataParams);
         const data = r.rows.map(row => ({ ...(row.raw_data || {}), ...row, id: String(row.id) }));
-        res.json(data);
+
+        res.json({
+            data,
+            pagination: getPagination(page, limit, totalItems)
+        });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -261,30 +340,49 @@ app.delete('/api/issues/:id', checkAuth, checkManager, async (req, res) => {
 });
 
 app.put('/api/issues/:id', checkAuth, checkEditor, async (req, res) => {
-    const { status, round, handling, review } = req.body; 
+    const { status, round, handling, review, content } = req.body; // Added content here
     const id = req.params.id;
     try {
         const r = await pool.query('SELECT * FROM issues WHERE id=$1', [id]); 
         if (r.rows.length === 0) return res.status(404).json({ error: '找不到事項' });
         const issueTitle = r.rows[0].title || '無編號';
         let raw = r.rows[0].raw_data || {}; 
-        raw.status = status; 
-        const suffix = parseInt(round) === 1 ? '' : round;
-        raw['handling'+suffix] = handling; 
-        raw['review'+suffix] = review;
         
-        let sql = 'UPDATE issues SET status=$1, raw_data=$2'; 
-        let params = [status, JSON.stringify(raw)];
-        if(parseInt(round) === 1) { 
-            sql += ', handling=$3, review=$4'; 
-            params.push(handling, review); 
+        // Update Status
+        if(status) raw.status = status; 
+        
+        let sql = 'UPDATE issues SET raw_data=$1';
+        let params = [null]; // Placeholder for raw_data
+
+        // Update Content if provided (For multi-line text update)
+        if(content !== undefined) {
+            sql += `, content=$${params.length + 1}`;
+            params.push(content);
         }
+        if(status) {
+            sql += `, status=$${params.length + 1}`;
+            params.push(status);
+        }
+
+        // Logic for handling rounds (Keep original logic)
+        if (round) {
+            const suffix = parseInt(round) === 1 ? '' : round;
+            raw['handling'+suffix] = handling; 
+            raw['review'+suffix] = review;
+            if(parseInt(round) === 1) { 
+                sql += `, handling=$${params.length + 1}, review=$${params.length + 2}`; 
+                params.push(handling, review); 
+            }
+        }
+        
+        params[0] = JSON.stringify(raw); // Set the first param
         sql += ` WHERE id=$${params.length+1}`; 
         params.push(id); 
+        
         await pool.query(sql, params); 
-        logAction(req.session.userId, 'UPDATE_ISSUE', `更新事項: ${issueTitle}, 回合: ${round}, 狀態: ${status} (ID: ${id})`, req.ip);
+        logAction(req.session.userId, 'UPDATE_ISSUE', `更新事項: ${issueTitle}, 狀態: ${status} (ID: ${id})`, req.ip);
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: '更新失敗' }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: '更新失敗' }); }
 });
 
 app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
