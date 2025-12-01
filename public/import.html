@@ -2,55 +2,123 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>資料匯入系統</title>
+    <title>資料匯入與管理系統</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        textarea { width: 100%; height: 200px; margin-bottom: 10px; }
-        button { padding: 10px 20px; background: #28a745; color: white; border: none; cursor: pointer; }
+        body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        /* 匯入區塊樣式 */
+        textarea { width: 100%; height: 150px; margin-bottom: 10px; border: 1px solid #ccc; padding: 5px; }
+        button { padding: 8px 15px; cursor: pointer; border-radius: 4px; border: none; color: white; }
+        .btn-import { background: #28a745; }
+        .btn-refresh { background: #007bff; }
+        .btn-delete { background: #dc3545; font-size: 0.8em; }
+        .btn-page { background: #6c757d; color: white; margin: 0 5px; }
+        .btn-page:disabled { background: #e2e6ea; color: #999; cursor: not-allowed; }
         .note { color: #666; font-size: 0.9em; }
-        .issue-item { border-bottom: 1px solid #eee; padding: 10px 0; }
+
+        /* 工具列樣式 */
+        .toolbar { margin: 20px 0 10px 0; padding: 10px; background: #f1f1f1; border-radius: 5px; display: flex; gap: 10px; align-items: center; }
+        .toolbar input, .toolbar select { padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+
+        /* 列表樣式 */
+        ul { list-style: none; padding: 0; }
+        .issue-item { border-bottom: 1px solid #eee; padding: 15px 0; position: relative; }
+        .issue-item:hover { background-color: #fafafa; }
+        
+        /* 狀態顏色與標籤 */
+        .status-badge { padding: 3px 8px; border-radius: 3px; color: white; font-size: 0.8em; font-weight: bold; margin-left: 5px; }
+        .status-Open { background-color: #dc3545; } /* 紅 */
+        .status-Closed { background-color: #28a745; } /* 綠 */
+        .status-Pending { background-color: #ffc107; color: black; } /* 黃 */
+        .status-default { background-color: #6c757d; }
+
+        /* 內容預覽 (Preview) */
+        .content-preview {
+            margin-top: 5px;
+            color: #555;
+            max-height: 40px; /* 只顯示約兩行 */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            border-left: 3px solid #eee;
+            padding-left: 10px;
+        }
+        .content-preview.expanded {
+            max-height: none;
+            color: #000;
+            border-left-color: #007bff;
+            background: #f0f8ff;
+            padding: 10px;
+        }
+        .toggle-hint { font-size: 0.8em; color: #007bff; cursor: pointer; display: block; margin-top: 2px; }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <!-- 1. 匯入區塊 (保持不動) -->
     <h2>批次匯入資料 (僅限管理員)</h2>
-    <p class="note">請貼上轉換好的 JSON 資料格式，例如：[{"title":"測試事項","content":"內容說明","status":"Open"}]</p>
-    
+    <p class="note">請貼上轉換好的 JSON 資料格式，例如：[{"number":"M001", "title":"測試事項","content":"內容說明","status":"Open"}]</p>
     <textarea id="jsonInput" placeholder="在此貼上 JSON 資料..."></textarea>
     <br>
-    <button onclick="uploadData()">匯入資料庫</button>
+    <button class="btn-import" onclick="uploadData()">匯入資料庫</button>
     <p id="status"></p>
 
     <hr>
     
-    <h3>現有資料列表 (預覽前 50 筆)</h3>
-    <button onclick="loadIssues()" style="background:#007bff;">重新整理列表</button>
+    <!-- 2. 列表管理區塊 (新增功能) -->
+    <h3>資料列表管理</h3>
+    
+    <!-- 搜尋與過濾工具列 -->
+    <div class="toolbar">
+        <input type="text" id="searchInput" placeholder="搜尋標題或內容..." onkeypress="if(event.key==='Enter') searchIssues()">
+        <select id="statusFilter" onchange="searchIssues()">
+            <option value="">所有狀態</option>
+            <option value="Open">Open</option>
+            <option value="Closed">Closed</option>
+            <option value="Pending">Pending</option>
+        </select>
+        <button class="btn-refresh" onclick="searchIssues()">搜尋</button>
+        <span style="flex: 1;"></span>
+        <select id="sortFilter" onchange="searchIssues()">
+            <option value="created_at">按建立時間排序</option>
+            <option value="status">按狀態排序</option>
+        </select>
+    </div>
+
     <ul id="issueList"></ul>
+
+    <!-- 分頁控制 -->
+    <div style="text-align: center; margin-top: 20px;">
+        <button class="btn-page" id="prevBtn" onclick="changePage(-1)">上一頁</button>
+        <span id="pageInfo">Page 1</span>
+        <button class="btn-page" id="nextBtn" onclick="changePage(1)">下一頁</button>
+    </div>
 </div>
 
 <script>
-    // 1. 匯入功能 (保持不變)
+    // 全域變數
+    let currentPage = 1;
+    const limit = 10;
+
+    // 1. 匯入功能 (保持原有邏輯)
     async function uploadData() {
         const input = document.getElementById('jsonInput').value;
         const status = document.getElementById('status');
         
         try {
             const jsonData = JSON.parse(input);
-            
             const res = await fetch('/api/issues/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data: jsonData })
             });
-            
             const result = await res.json();
-            
             if (res.ok) {
-                status.innerText = result.message;
+                status.innerText = result.message || '匯入成功';
                 status.style.color = 'green';
-                loadIssues(); 
+                searchIssues(); // 刷新列表
             } else {
                 status.innerText = '錯誤：' + result.error;
                 status.style.color = 'red';
@@ -61,65 +129,116 @@
         }
     }
 
-    // 2. 讀取列表功能 (修正重點)
+    // 2. 讀取列表 (修改為支援分頁、搜尋)
     async function loadIssues() {
         const list = document.getElementById('issueList');
-        list.innerHTML = '載入中...';
+        const search = document.getElementById('searchInput').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+        const sort = document.getElementById('sortFilter').value;
+
+        list.innerHTML = '<li style="text-align:center; padding:20px;">載入中...</li>';
         
         try {
-            // 修改處：加入參數 limit=50 (因為現在預設只有 10 筆)
-            const res = await fetch('/api/issues?limit=50&sortBy=created_at&order=DESC');
+            // 建構查詢 URL
+            const params = new URLSearchParams({
+                page: currentPage,
+                limit: limit,
+                search: search,
+                status: statusFilter,
+                sortBy: sort
+            });
+
+            const res = await fetch(`/api/issues?${params.toString()}`);
             
             if (res.status === 401) {
-                list.innerHTML = '請先 <a href="/login.html">登入</a>';
+                list.innerHTML = '<li>請先 <a href="/login.html">登入</a></li>';
                 return;
             }
             
-            const jsonResponse = await res.json();
-            
-            // 修改處：現在資料放在 .data 屬性中
-            const issues = jsonResponse.data; 
+            const responseData = await res.json();
+            // 相容性處理：確認回傳的是物件還是陣列 (雖然我們改了 server.js，但保留彈性好)
+            const issues = responseData.data || responseData; 
+            const total = responseData.total || 0;
 
             list.innerHTML = '';
             
             if (issues.length === 0) {
-                list.innerHTML = '目前沒有資料';
+                list.innerHTML = '<li style="text-align:center; color:#999;">查無資料</li>';
+                updatePagination(0);
                 return;
             }
 
             issues.forEach(issue => {
                 const li = document.createElement('li');
                 li.className = 'issue-item';
+                
+                // 狀態顏色邏輯
+                const statusClass = `status-${issue.status || 'default'}`;
+
                 li.innerHTML = `
-                    <strong>${issue.title}</strong> (${issue.status}) 
-                    <br><small>建立者: ${issue.created_by || '系統'} | 時間: ${new Date(issue.created_at).toLocaleString()}</small>
-                    <p>${issue.content || '(無內容)'}</p>
-                    <button onclick="deleteIssue(${issue.id})" style="background:red; font-size:0.8em; padding:5px;">刪除</button>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong>${issue.title}</strong>
+                            <span class="status-badge ${statusClass}">${issue.status}</span>
+                            <br><small style="color:#888;">建立者: ${issue.created_by || 'System'} | 時間: ${new Date(issue.created_at).toLocaleString()}</small>
+                        </div>
+                        <button class="btn-delete" onclick="deleteIssue('${issue.id}')">刪除</button>
+                    </div>
+                    <!-- 內容預覽與展開 -->
+                    <div class="content-preview" onclick="toggleContent(this)">
+                        ${issue.content || '(無內容)'}
+                    </div>
+                    <span class="toggle-hint" onclick="toggleContent(this.previousElementSibling)">點擊展開/收合內容</span>
                 `;
                 list.appendChild(li);
             });
+
+            updatePagination(total);
+
         } catch (err) {
             console.error(err);
-            list.innerText = '載入失敗';
+            list.innerHTML = '<li style="color:red; text-align:center;">載入失敗</li>';
         }
     }
 
-    // 3. 刪除功能 (保持不變)
+    function searchIssues() {
+        currentPage = 1; // 搜尋時重置為第一頁
+        loadIssues();
+    }
+
+    function changePage(delta) {
+        currentPage += delta;
+        if (currentPage < 1) currentPage = 1;
+        loadIssues();
+    }
+
+    function updatePagination(total) {
+        const totalPages = Math.ceil(total / limit) || 1;
+        document.getElementById('pageInfo').innerText = `Page ${currentPage} / ${totalPages} (共 ${total} 筆)`;
+        document.getElementById('prevBtn').disabled = currentPage <= 1;
+        document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+    }
+
+    // 內容展開切換功能
+    function toggleContent(element) {
+        element.classList.toggle('expanded');
+    }
+
+    // 3. 刪除功能 (保持原有邏輯)
     async function deleteIssue(id) {
         if(!confirm('確定要刪除嗎？')) return;
-        
-        const res = await fetch('/api/issues/' + id, { method: 'DELETE' });
-        const result = await res.json();
-        
-        if(res.ok) {
-            alert('刪除成功');
-            loadIssues();
-        } else {
-            alert('刪除失敗: ' + result.error);
-        }
+        try {
+            const res = await fetch('/api/issues/' + id, { method: 'DELETE' });
+            if(res.ok) {
+                loadIssues(); // 刪除後重新讀取當前頁
+            } else {
+                const d = await res.json();
+                alert('刪除失敗: ' + d.error);
+            }
+        } catch (e) { alert('連線錯誤'); }
     }
 
-    // 頁面載入時自動讀取
+    // 初始化
     loadIssues();
 </script>
 

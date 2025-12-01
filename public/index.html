@@ -2,93 +2,180 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMS AI Review System</title>
+    <title>SMS AI Review - 事項列表</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            margin: 0;
-        }
-        .container {
-            text-align: center;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 50px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
-        h1 { font-size: 2.5em; margin-bottom: 10px; }
-        p { font-size: 1.2em; margin-bottom: 30px; opacity: 0.9; }
+        body { font-family: sans-serif; padding: 20px; background: #f4f6f8; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
         
-        .btn {
-            display: inline-block;
-            padding: 12px 30px;
-            margin: 10px;
-            border-radius: 25px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: transform 0.2s, background 0.2s;
-            cursor: pointer;
-        }
-        .btn-primary { background: white; color: #2c3e50; }
-        .btn-primary:hover { background: #ecf0f1; transform: scale(1.05); }
-        
-        .btn-outline { border: 2px solid white; color: white; }
-        .btn-outline:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
+        /* 頂部導航 */
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+        .user-info { font-size: 0.9em; color: #666; }
+        .btn-logout { background: #6c757d; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; margin-left: 10px; }
 
-        .loading { font-size: 0.9em; opacity: 0.7; margin-top: 20px; }
+        /* 工具列 */
+        .toolbar { background: #e9ecef; padding: 15px; border-radius: 6px; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+        .toolbar input, .toolbar select { padding: 8px; border: 1px solid #ced4da; border-radius: 4px; }
+        .toolbar button { background: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+        
+        /* 列表 */
+        ul { list-style: none; padding: 0; }
+        .issue-item { border-bottom: 1px solid #eee; padding: 15px 0; }
+        .issue-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        
+        /* 狀態標籤 */
+        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; color: white; }
+        .status-Open { background-color: #dc3545; }
+        .status-Closed { background-color: #28a745; }
+        .status-Pending { background-color: #ffc107; color: #333; }
+        .status-default { background-color: #6c757d; }
+
+        /* 內容區塊 */
+        .content-box { background: #f8f9fa; padding: 10px; border-radius: 4px; color: #333; white-space: pre-line; }
+        
+        /* 分頁 */
+        .pagination { text-align: center; margin-top: 30px; }
+        .page-btn { padding: 8px 15px; margin: 0 5px; border: 1px solid #ddd; background: white; cursor: pointer; }
+        .page-btn:disabled { background: #eee; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>SMS AI Review</h1>
-    <p>智慧化審查管理系統</p>
+    <header>
+        <h2>SMS AI Review 事項追蹤</h2>
+        <div id="authArea" class="user-info">檢查身分中...</div>
+    </header>
 
-    <div id="actionArea">
-        <div class="loading">檢查身分中...</div>
+    <!-- 搜尋與篩選工具 -->
+    <div class="toolbar">
+        <input type="text" id="searchInput" placeholder="搜尋關鍵字..." style="flex: 1;">
+        <select id="statusFilter">
+            <option value="">所有狀態</option>
+            <option value="Open">Open</option>
+            <option value="Closed">Closed</option>
+            <option value="Pending">Pending</option>
+        </select>
+        <select id="sortFilter">
+            <option value="created_at">時間 (新→舊)</option>
+            <option value="status">狀態</option>
+        </select>
+        <button onclick="searchData()">搜尋</button>
+    </div>
+
+    <ul id="issueList"></ul>
+
+    <div class="pagination">
+        <button class="page-btn" id="prevBtn" onclick="changePage(-1)">上一頁</button>
+        <span id="pageInfo" style="margin: 0 10px;">Page 1</span>
+        <button class="page-btn" id="nextBtn" onclick="changePage(1)">下一頁</button>
     </div>
 </div>
 
 <script>
-    // 頁面載入時檢查登入狀態
-    document.addEventListener('DOMContentLoaded', async () => {
-        const actionArea = document.getElementById('actionArea');
-        
+    let currentPage = 1;
+    const limit = 10;
+    let currentUser = null;
+
+    // 1. 初始化：檢查登入狀態並讀取資料
+    async function init() {
         try {
             const res = await fetch('/api/auth/me');
             const data = await res.json();
-
+            const authArea = document.getElementById('authArea');
+            
             if (data.isLogin) {
-                // 已登入
-                actionArea.innerHTML = `
-                    <p>歡迎回來，${data.name} (${data.role})</p>
-                    <a href="/dashboard.html" class="btn btn-primary">進入管理儀表板</a>
-                    <br>
-                    <a href="#" onclick="logout()" style="color:white; font-size:0.8em; margin-top:15px; display:inline-block;">登出</a>
-                `;
+                currentUser = data;
+                authArea.innerHTML = `Hi, ${data.name} (${data.role}) <button class="btn-logout" onclick="logout()">登出</button>`;
+                searchData(); // 登入後才讀取資料
             } else {
-                // 未登入
-                actionArea.innerHTML = `
-                    <a href="/login.html" class="btn btn-primary">使用者登入</a>
-                `;
+                authArea.innerHTML = `<a href="/login.html" style="color:blue; font-weight:bold;">請先登入</a>`;
+                document.getElementById('issueList').innerHTML = '<p style="text-align:center">請登入以檢視資料</p>';
             }
         } catch (e) {
-            actionArea.innerHTML = `<p style="color:#ffcccc">系統連線異常</p>`;
+            console.error(e);
         }
-    });
+    }
 
     async function logout() {
         await fetch('/api/auth/logout', { method: 'POST' });
         window.location.reload();
     }
+
+    // 2. 核心搜尋功能
+    async function searchData() {
+        if (!currentUser) return;
+
+        const search = document.getElementById('searchInput').value;
+        const status = document.getElementById('statusFilter').value;
+        const sortBy = document.getElementById('sortFilter').value;
+        const list = document.getElementById('issueList');
+
+        list.innerHTML = '<p style="text-align:center; color:#666;">載入中...</p>';
+
+        try {
+            // 呼叫後端 API (對應 server.js 的修改)
+            const params = new URLSearchParams({
+                page: currentPage,
+                limit: limit,
+                search: search,
+                status: status,
+                sortBy: sortBy
+            });
+
+            const res = await fetch(`/api/issues?${params}`);
+            const result = await res.json();
+            
+            // 這裡處理 API 回傳格式改變 (Data 在 result.data 中)
+            const issues = result.data || [];
+            const total = result.total || 0;
+
+            list.innerHTML = '';
+
+            if (issues.length === 0) {
+                list.innerHTML = '<p style="text-align:center; padding:20px;">查無資料</p>';
+                updatePagination(0);
+                return;
+            }
+
+            issues.forEach(issue => {
+                const statusClass = `status-${issue.status || 'default'}`;
+                const li = document.createElement('li');
+                li.className = 'issue-item';
+                li.innerHTML = `
+                    <div class="issue-header">
+                        <strong>${issue.title}</strong>
+                        <span class="status-badge ${statusClass}">${issue.status}</span>
+                    </div>
+                    <small style="color:#888">
+                        ID: ${issue.id} | 建立時間: ${new Date(issue.created_at).toLocaleString()} | 單位: ${issue.unit || '-'}
+                    </small>
+                    <div class="content-box" style="margin-top:10px;">${issue.content || '(無內容)'}</div>
+                `;
+                list.appendChild(li);
+            });
+
+            updatePagination(total);
+
+        } catch (e) {
+            list.innerHTML = '<p style="text-align:center; color:red;">載入失敗，請稍後再試</p>';
+        }
+    }
+
+    // 3. 分頁邏輯
+    function changePage(delta) {
+        currentPage += delta;
+        searchData();
+    }
+
+    function updatePagination(total) {
+        const totalPages = Math.ceil(total / limit) || 1;
+        document.getElementById('pageInfo').innerText = `Page ${currentPage} / ${totalPages}`;
+        document.getElementById('prevBtn').disabled = currentPage <= 1;
+        document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+    }
+
+    // 啟動
+    init();
 </script>
 
 </body>
