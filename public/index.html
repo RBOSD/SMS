@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <style>
-        /* 1. 基礎設定 - 修正手機滾動 */
+        /* 1. 基礎設定 */
         html, body { min-height: 100vh; overflow-x: hidden; margin: 0; padding: 0; }
         body { display: none; font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f8fafc; flex-direction: column; } 
         :root { --primary: #2563eb; --bg-body: #f8fafc; --bg-card: #ffffff; --text-main: #0f172a; --text-sub: #64748b; --border: #e2e8f0; --header-h: 60px; --danger: #ef4444; --success: #10b981; }
@@ -149,8 +149,9 @@
         .toast-title { font-weight: 700; font-size: 14px; color: var(--text-main); margin-bottom: 2px; }
         .toast-msg { font-size: 13px; color: var(--text-sub); }
 
+        /* 編輯視窗優化 CSS */
         .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; height: 100%; }
-        .review-left { border-right: 1px solid #e2e8f0; padding-right: 32px; overflow-y: auto; }
+        .review-left { border-right: 1px solid #e2e8f0; padding-right: 32px; overflow-y: auto; display: flex; flex-direction: column; }
         .review-right { display: flex; flex-direction: column; overflow-y: auto; }
         
         th.sort-asc::after { content: " ▲"; font-size: 10px; margin-left: 4px; color: var(--primary); }
@@ -159,7 +160,7 @@
         /* Mobile Optimization */
         @media (max-width: 768px) { 
             /* Header Optimizations */
-            .brand-text { display: none; } /* Hide full title */
+            .brand-title { display: none; } /* Hide full title */
             .brand::after { content: "SMS"; font-weight: 700; font-size: 18px; color: var(--text-main); }
             .app-header { padding: 0 12px; }
             .user-menu-container { max-width: unset; }
@@ -201,8 +202,16 @@
             .user-table td[data-label="權限"] { display: inline-block; width: auto; background: #eff6ff; color: var(--primary); padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 8px; }
             .user-table td[data-label="操作"] { position: absolute; bottom: 16px; right: 16px; width: auto; margin-top: 0; }
             .drawer { width: 100%; max-width: 100%; top: 0; height: 100%; z-index: 9999; }
-            .review-grid { grid-template-columns: 1fr; gap: 10px; display: block; }
-            .review-left { border-right: none; border-bottom: 1px solid #e2e8f0; padding-right: 0; padding-bottom: 20px; margin-bottom: 20px; max-height: 300px; }
+            
+            /* 編輯視窗手機版優化 - 改為垂直堆疊 */
+            .review-grid { grid-template-columns: 1fr; gap: 20px; display: block; }
+            .review-left { border-right: none; border-bottom: 1px solid #e2e8f0; padding-right: 0; padding-bottom: 20px; margin-bottom: 20px; height: auto; overflow: visible; }
+            .review-right { height: auto; overflow: visible; }
+            .drawer-body { padding: 20px; }
+            
+            /* 加大輸入框高度 */
+            #editHandling, #editReview { min-height: 200px !important; }
+            
             #toast-container { left: 20px; right: 20px; top: 80px; width: auto; }
         }
     </style>
@@ -214,7 +223,7 @@
         <div class="brand">
             <button class="filter-toggle-btn" onclick="onToggleSidebar()" title="開啟選單">☰</button>
             <div class="brand-icon">🚄</div>
-            <span class="brand-text">SMS開立事項查詢與AI審查系統</span>
+            <div class="brand-title">SMS開立事項查詢與AI審查系統</div>
         </div>
         <div class="user-menu-container">
             <div class="user-capsule" onclick="toggleUserMenu()">
@@ -448,8 +457,9 @@
                              <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 上一回合 (<span id="prevRoundNum"></span>) 審查意見參考：</div>
                              <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;" id="prevReviewText"></div>
                         </div>
-                        <div class="form-group"><label>編輯回合</label><select id="editRound" class="filter-select" onchange="loadRoundData()"></select></div>
-                        <div class="form-group"><label>機構辦理情形</label><textarea id="editHandling" class="filter-input" rows="10" style="background:#ffffff;line-height:1.5;"></textarea></div>
+                        <!-- 文字更新：編輯回合 -> 審查次數 -->
+                        <div class="form-group"><label>審查次數</label><select id="editRound" class="filter-select" onchange="loadRoundData()"></select></div>
+                        <div class="form-group" style="flex:1;display:flex;flex-direction:column;"><label>機構辦理情形</label><textarea id="editHandling" class="filter-input" rows="10" style="background:#ffffff;line-height:1.5;flex:1;min-height:150px;resize:vertical;"></textarea></div>
                     </div>
                     <div class="review-right">
                         <div class="form-group"><label>審查結果</label><select id="editStatus" class="filter-select"><option value="持續列管">🔴 持續列管</option><option value="解除列管">🟢 解除列管</option><option value="自行列管">🟠 自行列管</option></select></div>
@@ -460,9 +470,9 @@
                                 <div id="aiPreviewText" style="background:white; padding:12px; border:1px solid #e0f2fe; border-radius:6px; font-size:14px; margin-bottom:12px; line-height:1.6; color:#334155;"></div>
                                 <div style="display:flex; align-items:center; justify-content:space-between;"><span id="aiResBadge" style="font-size:13px;"></span><button class="btn btn-primary" style="font-size:12px;padding:6px 14px;" onclick="applyAiSuggestion()">⬇️ 帶入此意見</button></div>
                             </div>
-                            <textarea id="editReview" class="filter-input" style="flex:1;resize:none;line-height:1.5;" placeholder="請輸入審查意見..."></textarea>
+                            <textarea id="editReview" class="filter-input" style="flex:1;resize:vertical;line-height:1.5;min-height:150px;" placeholder="請輸入審查意見..."></textarea>
                         </div>
-                        <div style="display:flex;gap:12px;margin-top:auto;"><button class="btn btn-primary" style="flex:1;padding:12px;" onclick="saveEdit()">💾 儲存審查結果</button><button class="btn btn-outline" style="flex:1;padding:12px;" onclick="toggleEditMode(false)">取消</button></div>
+                        <div style="display:flex;gap:12px;margin-top:auto;padding-top:16px;"><button class="btn btn-primary" style="flex:1;padding:12px;" onclick="saveEdit()">💾 儲存審查結果</button><button class="btn btn-outline" style="flex:1;padding:12px;" onclick="toggleEditMode(false)">取消</button></div>
                     </div>
                 </div>
             </div>
@@ -523,7 +533,7 @@
             }
         });
 
-        // --- Helper functions (完整還原) ---
+        // --- Helper functions ---
         function normalizeCodeString(str) { if(!str) return ""; var s = (str.normalize ? str.normalize("NFKC") : str); s = s.replace(/[\u200B-\u200D\uFEFF]/g, ""); s = s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g, "-"); s = s.replace(/[ \t]+/g, " ").replace(/\s*-\s*/g, "-"); return s.trim(); }
         function stripHtml(h) { if(!h) return ''; let t = document.createElement("DIV"); t.innerHTML = h; return t.textContent || t.innerText || ""; }
         function getLatest(i, p) { for(let k = 20; k >= 1; k--) { const key = k === 1 ? p : `${p}${k}`; if(i[key]) return i[key]; } return null; }
@@ -842,263 +852,6 @@
             } catch(e) { showToast('Error: ' + e.message, 'error'); }
         }
 
-        function switchAdminTab(tab) {
-            document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-            document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users');
-            document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs');
-            document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions');
-            if(tab === 'logs') loadLogsPage(1);
-            if(tab === 'actions') loadActionsPage(1);
-        }
-
-        // --- Import functions (已完整保留) ---
-        function parseFromHTML(html) {
-            var items = [];
-            try {
-                var doc = new DOMParser().parseFromString(html, "text/html");
-                var tables = doc.querySelectorAll("table");
-                tables.forEach(function(table) {
-                    var rows = table.querySelectorAll("tr");
-                    var headerRow = -1, dataStart = -1;
-                    for(var i = 0; i < Math.min(rows.length, 6); i++) {
-                        var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, "");
-                        if((/編號|項次編號|項次/).test(t) && (/觀察事項內容|觀察事項|建議事項內容|建議事項|缺失事項內容|缺失事項|事項內容|內容/).test(t)) {
-                            headerRow = i;
-                            dataStart = i + 1;
-                            break;
-                        }
-                    }
-                    if(headerRow === -1) return;
-                    var headerCells = rows[headerRow].querySelectorAll("td,th");
-                    var columnMap = {};
-                    var reviewCols = [];
-                    headerCells.forEach(function(cell, idx) {
-                        var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, "");
-                        if((/編號|項次編號|項次/).test(text)) columnMap.number = idx;
-                        if((/觀察事項內容|觀察事項|建議事項內容|建議事項|缺失事項內容|缺失事項|事項內容|內容/).test(text)) columnMap.content = idx;
-                        if((/辦理情形|辦理|辦理狀況/).test(text)) columnMap.handling = idx;
-                        var mm = text.match(/^第(\d+)次.*(審查意見|意見審查)$/);
-                        if(mm) reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) });
-                        else if((/(審查意見|意見審查)$/).test(text)) reviewCols.push({ idx: idx, round: 1 });
-                        if((/(審查結果|審查結論|列管結果|列管狀態|列管情形|處置結果|狀態)$/).test(text)) columnMap.result = idx;
-                    });
-                    var hc = headerCells.length;
-                    if(columnMap.number === undefined) columnMap.number = 0;
-                    if(columnMap.content === undefined) columnMap.content = Math.min(1, hc - 1);
-                    if(columnMap.handling === undefined) columnMap.handling = Math.min(2, hc - 1);
-                    if(columnMap.result === undefined) columnMap.result = hc - 1;
-                    for(var r = dataStart; r < rows.length; r++) {
-                        var cells = rows[r].querySelectorAll("td,th");
-                        if(cells.length < 2) continue;
-                        var numText = extractNumberFromCell(cells[columnMap.number]);
-                        var info = parseItemNumber(numText);
-                        if(!info) continue;
-                        var numKey = canonicalNumber(info);
-                        var year = info.yearRoc != null ? String(info.yearRoc) : "";
-                        var orgUnifiedCode = ORG_CROSSWALK[info.orgCodeRaw] || info.orgCodeRaw;
-                        var orgName = ORG_MAP_TRCC[orgUnifiedCode] || ORG_MAP_THAS[info.orgCodeRaw] || "";
-                        var inspectionCategoryName = CATEGORY_MAP_1_4[info.inspectionCategoryCode] || "";
-                        var item = { number: numKey, rawNumber: (info.raw || "").toUpperCase(), scheme: info.scheme, yearRoc: info.yearRoc || "", year: year, orgCodeRaw: info.orgCodeRaw || "", orgUnifiedCode: orgUnifiedCode, orgName: orgName, unit: orgName, inspectionCategoryCode: info.inspectionCategoryCode || "", inspectionCategoryName: inspectionCategoryName, divisionCode: info.divisionCode || "", divisionName: DIVISION_MAP_TRCC[info.divisionCode] || DIVISION_MAP_THAS[info.divisionCode] || "", itemKindCode: info.itemKindCode || "", itemKindName: ISSUE_KIND_MAP[info.itemKindCode] || "", itemSeq: info.itemSeq || "", period: info.period || "", category: ISSUE_KIND_MAP[info.itemKindCode] || CATEGORY_MAP_1_4[info.inspectionCategoryCode] || "", content: "", handling: "", status: "" };
-                        if(cells[columnMap.content]) item.content = sanitizeContent(cells[columnMap.content].innerHTML);
-                        if(cells[columnMap.handling]) item.handling = sanitizeContent(cells[columnMap.handling].innerHTML);
-                        if(item.itemKindCode === "R" || item.itemKindName === "建議事項") item.status = "自行列管";
-                        else if(cells[columnMap.result]) item.status = parseStatusFromResultCell(cells[columnMap.result]) || "";
-                        reviewCols.forEach(function(rc) {
-                            var key = (rc.round === 1 ? "review" : ("review" + rc.round));
-                            item[key] = sanitizeContent(cells[rc.idx] ? cells[rc.idx].innerHTML : "");
-                        });
-                        items.push(item);
-                    }
-                });
-            } catch(e) { console.error("Parse error:", e); }
-            return items;
-        }
-
-        function checkImportReady() {
-            const r = document.getElementById('importRound').value, d = document.getElementById('importDate').value, valid = r && r > 0 && d && d.trim().length > 0;
-            document.getElementById('wordInput').disabled = !valid;
-            document.getElementById('btnParse').disabled = !valid || !document.getElementById('wordInput').files[0];
-        }
-        document.getElementById('wordInput').addEventListener('change', checkImportReady);
-        
-        async function previewWord() {
-            const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRound').value, msg = document.getElementById('importStatus');
-            if(!f) return showToast('請先選擇檔案', 'error');
-            msg.innerText = '解析中...';
-            try {
-                const b = await f.arrayBuffer(), r = await mammoth.convertToHtml({ arrayBuffer: b }), items = parseFromHTML(r.value);
-                if(items.length === 0) { msg.innerText = '錯誤：未解析到有效資料，請檢查檔案格式'; return; }
-                
-                // 這裡不再依賴 rawData 做比對，因為 rawData 只有當前頁面
-                // 簡單標示為 New (實際專案可再優化)
-                stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
-                
-                document.getElementById('previewRoundDisplay').innerText = round;
-                renderPreviewTable();
-                document.getElementById('previewContainer').classList.remove('hidden');
-                document.getElementById('uploadCard').classList.add('hidden');
-                msg.innerText = '';
-            } catch(e) { console.error(e); msg.innerText = '發生錯誤: ' + e.message; }
-        }
-
-        function renderPreviewTable() {
-            document.getElementById('previewCount').innerText = stagedImportData.length;
-            const round = document.getElementById('importRound').value, tbody = document.getElementById('previewBody');
-            tbody.innerHTML = stagedImportData.map(item => {
-                const statusBadge = item._importStatus === 'new' ? `<span class="badge new">新增</span>` : `<span class="badge update">更新 (第${round}次)</span>`;
-                let progress = `[審查] ${item.review||'-'}<br>[辦理] ${item.handling||'-'}`;
-                return `<tr><td>${statusBadge}</td><td style="font-weight:600;color:var(--primary);">${item.number}</td><td>${item.unit}</td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(item.content)}</div></td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(progress)}</div></td></tr>`;
-            }).join('');
-        }
-
-        function cancelImport() { stagedImportData = []; document.getElementById('previewContainer').classList.add('hidden'); document.getElementById('uploadCard').classList.remove('hidden'); document.getElementById('wordInput').value = ''; document.getElementById('importStatus').innerText = ''; }
-        
-        async function confirmImport() {
-            if(!confirm(`確定要匯入 ${stagedImportData.length} 筆資料嗎？`)) return;
-            const round = document.getElementById('importRound').value, date = document.getElementById('importDate').value, cleanData = stagedImportData.map(({ _importStatus, ...item }) => item);
-            try {
-                const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: cleanData, round: round, reviewDate: date, actualReplyDate: '' }) });
-                if(res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); } else { showToast('匯入失敗', 'error'); }
-            } catch(e) { showToast('Error: ' + e.message, 'error'); }
-        }
-        
-        // --- User modal submit & password strength ---
-        document.getElementById('uPwd')?.addEventListener('input', updatePwdStrength);
-        document.getElementById('uPwdConfirm')?.addEventListener('input', updatePwdStrength);
-        function updatePwdStrength() {
-            const p = document.getElementById('uPwd').value || '';
-            const conf = document.getElementById('uPwdConfirm').value || '';
-            let score = 0;
-            if(p.length >= 8) score++;
-            if(/[A-Z]/.test(p)) score++;
-            if(/[0-9]/.test(p)) score++;
-            if(/[^A-Za-z0-9]/.test(p)) score++;
-            const texts = ['弱', '偏弱', '一般', '良好', '強'];
-            document.getElementById('pwdStrength').innerText = `密碼強度: ${texts[Math.min(score,4)]} ${conf && p !== conf ? '(密碼不相符)' : ''}`;
-        }
-
-        // User CRUD
-        async function openUserModal(mode, id) {
-            const m = document.getElementById('userModal'), t = document.getElementById('userModalTitle'), e = document.getElementById('uEmail');
-            if(mode === 'create') {
-                t.innerText = '新增';
-                document.getElementById('targetUserId').value = '';
-                document.getElementById('uName').value = '';
-                e.value = ''; e.disabled = false;
-                document.getElementById('uPwd').value = '';
-                document.getElementById('uPwdConfirm').value = '';
-                document.getElementById('pwdStrength').innerText = '密碼強度: -';
-                document.getElementById('pwdHint').innerText = '';
-                document.getElementById('uRole').value = 'viewer';
-            } else {
-                const u = userList.find(x => x.id === id) || {};
-                t.innerText = '編輯';
-                document.getElementById('targetUserId').value = u.id || '';
-                document.getElementById('uName').value = u.name || '';
-                e.value = u.username || ''; e.disabled = true;
-                document.getElementById('uPwd').value = '';
-                document.getElementById('uPwdConfirm').value = '';
-                document.getElementById('pwdHint').innerText = '(留空不改)';
-                document.getElementById('pwdStrength').innerText = '密碼強度: -';
-                document.getElementById('uRole').value = u.role || 'viewer';
-            }
-            m.classList.add('open');
-        }
-        async function submitUser() {
-            const id = document.getElementById('targetUserId').value, name = document.getElementById('uName').value, email = document.getElementById('uEmail').value, pwd = document.getElementById('uPwd').value, pwdConfirm = document.getElementById('uPwdConfirm').value, role = document.getElementById('uRole').value;
-            if(!id) {
-                if(!email) return showToast('請輸入帳號', 'error');
-                if(!pwd) return showToast('請輸入密碼', 'error');
-                if(pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error');
-                if(pwd.length < 8) return showToast('密碼需至少 8 碼', 'error');
-                const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: email, name, password: pwd, role }) });
-                const j = await res.json();
-                if(res.ok) { showToast('新增成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(1); } else showToast(j.error || '新增失敗','error');
-            } else {
-                const payload = { name, role };
-                if(pwd) {
-                    if(pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error');
-                    if(pwd.length < 8) return showToast('密碼需至少 8 碼', 'error');
-                    payload.password = pwd;
-                }
-                const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                const j = await res.json();
-                if(res.ok) { showToast('更新成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(usersPage); } else showToast(j.error || '更新失敗','error');
-            }
-        }
-        async function deleteUser(id) { if(!confirm('確定?')) return; const res = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('刪除成功'); loadUsersPage(1); } else showToast('刪除失敗','error'); }
-
-        // Profile
-        function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
-        async function submitProfile() {
-            const name = document.getElementById('myProfileName').value, pwd = document.getElementById('myProfilePwd').value;
-            try {
-                const res = await fetch('/api/auth/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password: pwd }) });
-                if(res.ok) { showToast('更新成功，請重新登入'); document.getElementById('profileModal').classList.remove('open'); logout(); } 
-                else { const j = await res.json(); showToast(j.error || '更新失敗', 'error'); }
-            } catch(e) { showToast('更新失敗', 'error'); }
-        }
-        
-        function toggleEditMode(edit) { document.getElementById('viewModeContent').classList.toggle('hidden', edit); document.getElementById('editModeContent').classList.toggle('hidden', !edit); document.getElementById('drawerTitle').innerText = edit ? "編輯事項" : "詳細資料"; if(edit) { document.getElementById('editId').value = currentEditItem.id; document.getElementById('editHeaderNumber').innerText = currentEditItem.number; document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; document.getElementById('editStatus').value = st; document.getElementById('editRound').value = 1; document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); loadRoundData(); document.getElementById('aiBox').style.display = 'none'; document.getElementById('aiPreviewText').innerText = ''; } }
-        function initEditForm() { const s = document.getElementById('editRound'); if(!s || s.options.length > 0) return; for(let i = 1; i <= 20; i++) { const o = document.createElement('option'); o.value = i; o.text = `第 ${i} 次`; s.add(o); } }
-        function openDetail(id, isEdit) { 
-            currentEditItem = currentData.find(d => String(d.id) === String(id)); if(!currentEditItem) return; 
-            document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dYear').textContent = currentEditItem.year; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; 
-            const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self'); 
-            document.getElementById('dStatus').innerHTML = currentEditItem.status && currentEditItem.status !== 'Open' ? `<span class="badge ${st}">${currentEditItem.status}</span>` : '(未設定)'; 
-            let h = ''; for(let i = 1; i <= 20; i++) { const ha = currentEditItem[i === 1 ? 'handling' : `handling${i}`], re = currentEditItem[i === 1 ? 'review' : `review${i}`]; if(ha || re) h += `<div style="padding-left:16px;border-left:2px solid #e5e7eb;margin-left:8px;padding-bottom:20px;position:relative;"><div style="position:absolute;left:-7px;top:0;width:12px;height:12px;border-radius:50%;background:white;border:2px solid var(--primary);"></div><div style="font-size:13px;font-weight:700;margin-bottom:6px;">第 ${i} 次辦理情形</div>${ha?`<div style="background:#f1f5f9;padding:10px;border-radius:6px;font-size:14px;margin-bottom:8px;">${ha}</div>`:''}${re?`<div style="background:#fff;border:1px solid #e2e8f0;padding:10px;border-radius:6px;font-size:14px;">${re}</div>`:''}</div>`; } document.getElementById('dTimeline').innerHTML = h || '<div style="color:#999;">無歷程</div>'; 
-            const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role); const canDelete = ['admin', 'manager'].includes(currentUser.role); document.getElementById('editBtn').classList.toggle('hidden', !canEdit); document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit); 
-        }
-        function logout() { fetch('/api/auth/logout', { method: 'POST' }).then(() => window.location.reload()); }
-        function closeDrawer() { document.getElementById('drawerBackdrop').classList.remove('open'); document.getElementById('detailDrawer').classList.remove('open'); }
-        function initListeners() { document.getElementById('filterKeyword').addEventListener('keyup', (e) => { if(e.key === 'Enter') applyFilters() }); document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer); }
-        function onToggleSidebar() { const panel = document.getElementById('filtersPanel'), backdrop = document.getElementById('filterBackdrop'); if(panel.classList.contains('open')) { panel.classList.remove('open'); backdrop.classList.remove('visible'); setTimeout(() => backdrop.style.display = 'none', 300); } else { backdrop.style.display = 'block'; requestAnimationFrame(() => { panel.classList.add('open'); backdrop.classList.add('visible'); }); } }
-        function populateSelect(id, d, f) { const u = [...new Set(d.map(i => i[f]).filter(Boolean))].sort().reverse(); document.getElementById(id).innerHTML = '<option value="">全部</option>' + u.map(v => `<option value="${v}">${v}</option>`).join(''); }
-        
-        function updateChartsData(stats) { 
-            if(!charts.status || !charts.unit || !charts.trend) return;
-            if (!stats) return;
-
-            // 1. Status Chart
-            const sLabels = stats.status.map(x => x.status).filter(s => s && s !== 'Open');
-            const sData = stats.status.filter(x => x.status && x.status !== 'Open').map(x => parseInt(x.count));
-            charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: ['#ef4444', '#10b981', '#f59e0b'] }] };
-            charts.status.update();
-
-            // 2. Unit Chart
-            const uSorted = stats.unit.sort((a,b) => parseInt(b.count) - parseInt(a.count));
-            charts.unit.data = { labels: uSorted.map(x => x.unit), datasets: [{ label: '案件', data: uSorted.map(x => parseInt(x.count)), backgroundColor: '#0ea5e9', borderRadius: 8 }] };
-            charts.unit.update();
-
-            // 3. Trend Chart (Year)
-            const tSorted = stats.year.sort((a,b) => a.year.localeCompare(b.year));
-            charts.trend.data = { labels: tSorted.map(x => x.year), datasets: [{ label: '開立事項數', data: tSorted.map(x => parseInt(x.count)), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] };
-            charts.trend.update();
-        }
-
-        function initCharts() { 
-            try { 
-                const c1 = document.getElementById('statusChart');
-                const c2 = document.getElementById('unitChart');
-                const c3 = document.getElementById('trendChart');
-                
-                if(c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if(!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#333', font: { weight: 'bold' } } } } }); } 
-                if(c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); } 
-                if(c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } }); } 
-                
-                // Check if global stats are already available and update immediately
-                if(cachedGlobalStats) {
-                    updateChartsData(cachedGlobalStats);
-                }
-            } catch(e) { console.error("Chart Init Error:", e); } 
-        }
-        async function runAiInEdit(btn) { btn.disabled = true; btn.innerText = 'AI 分析中...'; const handlingTxt = document.getElementById('editHandling').value, r = [{ handling: handlingTxt, review: '(待審查)' }]; try { if(!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); const cleanContent = stripHtml(currentEditItem.content); const res = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: cleanContent, rounds: r }) }); const j = await res.json(); if(!res.ok) throw new Error(j.error || '未知錯誤'); if(!j.fulfill) throw new Error('AI 回傳格式錯誤'); const isPass = j.fulfill.includes('Yes') || j.fulfill.includes('是'); document.getElementById('aiResBadge').innerHTML = `<strong style="color:${isPass?'#10b981':'#ef4444'}">[${j.fulfill}]</strong>`; document.getElementById('aiPreviewText').innerText = j.reason; document.getElementById('aiBox').style.display = 'block'; } catch(e) { showToast('AI 失敗: ' + e.message, 'error'); console.error(e); } finally { btn.disabled = false; btn.innerText = '🤖 AI 智能分析'; } }
-        function applyAiSuggestion() { const reason = document.getElementById('aiPreviewText').innerText; if(reason) { const ta = document.getElementById('editReview'); ta.value = ta.value ? (ta.value + "\n" + reason) : reason; document.getElementById('aiBox').style.display = 'none'; } }
-        function toggleAllCheckboxes() { const master = document.getElementById('selectAll'); document.querySelectorAll('.issue-check').forEach(cb => cb.checked = master.checked); updateBatchUI(); }
-        function updateBatchUI() { const checked = document.querySelectorAll('.issue-check:checked'), count = checked.length, container = document.getElementById('batchActionContainer'); if(count > 0) { container.style.display = 'block'; document.getElementById('selectedCountBadge').innerText = `(${count})`; } else { container.style.display = 'none'; } }
-        async function batchDeleteIssues() { const checked = document.querySelectorAll('.issue-check:checked'), ids = Array.from(checked).map(cb => cb.value); if(ids.length === 0) return showToast('請先勾選要刪除的項目', 'error'); if(!confirm(`確定要刪除這 ${ids.length} 筆資料嗎？`)) return; try { const res = await fetch('/api/issues/batch-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); const result = await res.json(); if(result.success) { showToast(`成功刪除 ${ids.length} 筆資料`); loadIssuesPage(1); document.getElementById('selectAll').checked = false; updateBatchUI(); } else { showToast('刪除失敗: ' + result.error, 'error'); } } catch(e) { showToast('連線錯誤', 'error'); } }
-        async function saveEdit() { const id = document.getElementById('editId').value, payload = { status: document.getElementById('editStatus').value, round: document.getElementById('editRound').value, handling: document.getElementById('editHandling').value, review: document.getElementById('editReview').value }; const res = await fetch(`/api/issues/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if(res.ok) { showToast('儲存成功'); await loadIssuesPage(issuesPage); toggleEditMode(false); openDetail(id, false); } else showToast('儲存失敗', 'error'); }
         async function deleteIssue(id) { if(!confirm('確定要刪除此事項嗎？此操作無法復原。')) return; try { const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('已刪除'); await loadIssuesPage(issuesPage); closeDrawer(); } else showToast('刪除失敗','error'); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
         async function deleteIssueFromDrawer() { if(!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
         
