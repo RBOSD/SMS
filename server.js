@@ -319,7 +319,7 @@ app.delete('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => 
     } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
 });
 
-// [Modified] Issues API - 包含統計資訊 (Stats) 供圖表使用
+// [Modified] Issues API - 修正：獨立查詢 Global Stats，不受分頁與搜尋影響
 app.get('/api/issues', checkAuth, async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -334,6 +334,7 @@ app.get('/api/issues', checkAuth, async (req, res) => {
         const allowedSort = { created_at: 'created_at', title: 'title', year: 'year', unit: 'unit', status: 'status' };
         const orderBy = allowedSort[sortField] ? `${allowedSort[sortField]} ${sortDir}` : `created_at ${sortDir}`;
 
+        // 1. 建構查詢條件 (For Table Data)
         let where = [];
         let params = [];
         if (q) {
@@ -354,7 +355,7 @@ app.get('/api/issues', checkAuth, async (req, res) => {
         }
         const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
-        // 1. 取得分頁資料
+        // 2. 執行分頁查詢
         const countRes = await pool.query(`SELECT COUNT(*) FROM issues ${whereSQL}`, params);
         const total = parseInt(countRes.rows[0].count, 10);
         const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -363,25 +364,22 @@ app.get('/api/issues', checkAuth, async (req, res) => {
         const r = await pool.query(`SELECT * FROM issues ${whereSQL} ORDER BY ${orderBy} LIMIT $${params.length+1} OFFSET $${params.length+2}`, params.concat([pageSize, offset]));
         const data = r.rows.map(row => ({ ...(row.raw_data || {}), ...row, id: String(row.id) }));
 
-        // 2. 取得最新資料時間
-        const latestRes = await pool.query('SELECT MAX(created_at) as last_updated FROM issues');
-        const latestCreatedAt = latestRes.rows[0].last_updated;
-
-        // 3. 取得全量統計資料 (for Charts) - 不受分頁影響，但受搜尋條件影響
-        // 注意：若要顯示「所有」開立事項趨勢，不應受 keyword 影響，這裡假設使用者希望看到「當前篩選範圍下」的統計，
-        // 但使用者的需求是「總開立事項不符」，通常意味著 Chart 應該顯示 Global Stats。
-        // 因此這裡我們額外撈一次 Global Stats (無 where 條件)
+        // 3. 執行 Global Stats 查詢 (完全忽略 Where 條件，For Charts)
         const statsStatusRes = await pool.query("SELECT status, COUNT(*) FROM issues GROUP BY status");
         const statsUnitRes = await pool.query("SELECT unit, COUNT(*) FROM issues GROUP BY unit");
         const statsYearRes = await pool.query("SELECT year, COUNT(*) FROM issues GROUP BY year");
         
-        const stats = {
+        const globalStats = {
             status: statsStatusRes.rows,
             unit: statsUnitRes.rows,
             year: statsYearRes.rows
         };
 
-        res.json({ page, pages, total, pageSize, data, latestCreatedAt, stats });
+        // 4. 取得最新資料時間
+        const latestRes = await pool.query('SELECT MAX(created_at) as last_updated FROM issues');
+        const latestCreatedAt = latestRes.rows[0].last_updated;
+
+        res.json({ page, pages, total, pageSize, data, latestCreatedAt, globalStats });
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: e.message });
@@ -431,7 +429,6 @@ app.put('/api/issues/:id', checkAuth, checkEditor, async (req, res) => {
         }
         sql += ` WHERE id=$${params.length+1}`; 
         params.push(id); 
-        // 更新時不再更新 created_at，確保 created_at 只代表「開立」時間
         await pool.query(sql, params); 
         logAction(req.session.userId, 'UPDATE_ISSUE', `更新事項: ${issueTitle}, 回合: ${round}, 狀態: ${status} (ID: ${id})`, req.ip);
         res.json({ success: true });
@@ -476,7 +473,6 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
                 raw['handling'+suffix] = newHandling; 
                 raw['review'+suffix] = newReview; 
                 raw['round'+targetRound+'Date'] = reviewDate;
-                // 只有 INSERT 時才會設定 created_at
                 await client.query('INSERT INTO issues (title, content, status, year, unit, handling, review, raw_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)', 
                     [item.number, newContent, newStatus, item.year, item.unit, (targetRound===1?newHandling:''), (targetRound===1?newReview:''), JSON.stringify(raw)]);
             }
