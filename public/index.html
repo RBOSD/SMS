@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -241,19 +240,6 @@
                         <tbody id="dataBody"></tbody>
                     </table>
                 </div>
-
-                <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:12px;">
-                    <div>每頁</div>
-                    <select id="issuesPageSize" onchange="onIssuesPageSizeChange()" style="margin-right:8px;">
-                        <option value="10">10</option>
-                        <option value="20" selected>20</option>
-                        <option value="50">50</option>
-                    </select>
-                    <button class="btn btn-outline" onclick="issuesPrevPage()">上一頁</button>
-                    <div id="issuesPagerInfo" style="padding:6px 10px;color:#666;"></div>
-                    <button class="btn btn-outline" onclick="issuesNextPage()">下一頁</button>
-                </div>
-
                 <div id="emptyMsg" style="text-align:center;padding:40px;color:#999;display:none;">查無資料</div>
             </div>
 
@@ -288,53 +274,22 @@
                     <button class="admin-tab-btn" onclick="switchAdminTab('actions')">操作歷程</button>
                 </div>
                 
-                <div id="tab-users" class="data-container">
-                    <div style="padding:10px; display:flex; gap:10px; align-items:center;">
-                        <input id="userSearch" class="filter-input" placeholder="搜尋姓名、帳號..." oninput="loadUsersPage(1)">
-                        <select id="usersPageSize" onchange="loadUsersPage(1)">
-                            <option value="10">10</option><option value="20" selected>20</option><option value="50">50</option>
-                        </select>
-                        <div style="margin-left:auto;">
-                            <button class="btn btn-outline" onclick="loadUsersPage(1)">🔍</button>
-                        </div>
-                    </div>
-                    <table class="user-table">
-                        <thead><tr><th style="padding:12px;" onclick="usersSortBy('name')">姓名</th><th onclick="usersSortBy('username')">帳號</th><th onclick="usersSortBy('role')">權限</th><th onclick="usersSortBy('created_at')">註冊時間</th><th>操作</th></tr></thead>
-                        <tbody id="usersTableBody"></tbody>
-                    </table>
-                    <div style="display:flex; justify-content:flex-end; gap:8px; align-items:center; margin-top:8px;">
-                        <button class="btn btn-outline" onclick="usersPrevPage()">上一頁</button>
-                        <div id="usersPagerInfo" style="padding:6px 10px;color:#666;"></div>
-                        <button class="btn btn-outline" onclick="usersNextPage()">下一頁</button>
-                    </div>
-                </div>
+                <div id="tab-users" class="data-container"><table class="user-table"><thead><tr><th style="padding:12px;">姓名</th><th>帳號</th><th>權限</th><th>註冊時間</th><th>操作</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>
                 
                 <div id="tab-logs" class="data-container hidden">
                     <div style="padding:12px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:#fcfcfc;">
-                        <input id="loginSearch" class="filter-input" placeholder="搜尋帳號或 IP" style="width:200px;" oninput="loadLogsPage(1)">
                         <button class="btn btn-outline btn-sm" onclick="exportLogs('login')">📥 匯出 CSV</button>
                         <button class="btn btn-danger btn-sm" onclick="clearLogs('login')">🗑️ 清除紀錄</button>
                     </div>
                     <table class="user-table"><thead><tr><th style="padding:12px;">時間</th><th>帳號</th><th>IP 位址</th></tr></thead><tbody id="logsTableBody"></tbody></table>
-                    <div style="display:flex; justify-content:flex-end; gap:8px; align-items:center; margin-top:8px;">
-                        <button class="btn btn-outline" onclick="logsPrevPage()">上一頁</button>
-                        <div id="logsPagerInfo" style="padding:6px 10px;color:#666;"></div>
-                        <button class="btn btn-outline" onclick="logsNextPage()">下一頁</button>
-                    </div>
                 </div>
                 
                 <div id="tab-actions" class="data-container hidden">
                     <div style="padding:12px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:#fcfcfc;">
-                        <input id="actionSearch" class="filter-input" placeholder="搜尋帳號或操作" style="width:200px;" oninput="loadActionsPage(1)">
                         <button class="btn btn-outline btn-sm" onclick="exportLogs('action')">📥 匯出 CSV</button>
                         <button class="btn btn-danger btn-sm" onclick="clearLogs('action')">🗑️ 清除紀錄</button>
                     </div>
                     <table class="user-table"><thead><tr><th style="padding:12px;">時間</th><th>帳號</th><th>動作</th><th>詳細內容</th></tr></thead><tbody id="actionsTableBody"></tbody></table>
-                    <div style="display:flex; justify-content:flex-end; gap:8px; align-items:center; margin-top:8px;">
-                        <button class="btn btn-outline" onclick="actionsPrevPage()">上一頁</button>
-                        <div id="actionsPagerInfo" style="padding:6px 10px;color:#666;"></div>
-                        <button class="btn btn-outline" onclick="actionsNextPage()">下一頁</button>
-                    </div>
                 </div>
                 
                 <div id="logsLoading" style="display:none; padding:20px; text-align:center; color:#666;">⏳ 載入紀錄中...</div>
@@ -397,31 +352,14 @@
         </div>
     </div>
     
-    <div class="modal-overlay" id="userModal"><div class="modal-box"><h3 style="margin-top:0;" id="userModalTitle">使用者</h3><input type="hidden" id="targetUserId"><div class="form-group"><label>姓名</label><input type="text" id="uName" class="filter-input"></div><div class="form-group"><label>帳號 (Username)</label><input type="text" id="uEmail" class="filter-input"></div><div class="form-group"><label>密碼 <span style="font-weight:400;color:#666;font-size:12px" id="pwdHint"></span></label><input type="password" id="uPwd" class="filter-input"></div><div class="form-group"><label>確認密碼</label><input type="password" id="uPwdConfirm" class="filter-input"></div><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><div id="pwdStrength" style="font-size:13px;color:#666;">密碼強度: -</div></div><div class="form-group"><label>權限</label><select id="uRole" class="filter-select"><option value="admin">系統管理員 (Admin)</option><option value="manager">資料管理者 (Manager)</option><option value="editor">審查人員 (Editor)</option><option value="viewer">檢視人員 (Viewer)</option></select></div><div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%" onclick="submitUser()">送出</button><button class="btn btn-outline" style="width:100%" onclick="document.getElementById('userModal').classList.remove('open')">取消</button></div></div></div>
+    <div class="modal-overlay" id="userModal"><div class="modal-box"><h3 style="margin-top:0;" id="userModalTitle">使用者</h3><input type="hidden" id="targetUserId"><div class="form-group"><label>姓名</label><input type="text" id="uName" class="filter-input"></div><div class="form-group"><label>帳號 (Username)</label><input type="text" id="uEmail" class="filter-input"></div><div class="form-group"><label>密碼 <span style="font-weight:400;color:#666;font-size:12px" id="pwdHint"></span></label><input type="password" id="uPwd" class="filter-input"></div><div class="form-group"><label>權限</label><select id="uRole" class="filter-select"><option value="admin">系統管理員 (Admin)</option><option value="manager">資料管理者 (Manager)</option><option value="editor">審查人員 (Editor)</option><option value="viewer">檢視人員 (Viewer)</option></select></div><div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%" onclick="submitUser()">送出</button><button class="btn btn-outline" style="width:100%" onclick="document.getElementById('userModal').classList.remove('open')">取消</button></div></div></div>
     <div class="modal-overlay" id="profileModal"><div class="modal-box"><h3 style="margin-top:0;">個人設定</h3><div class="form-group"><label>姓名</label><input type="text" id="myProfileName" class="filter-input"></div><div class="form-group"><label>新密碼 <span style="font-weight:400;color:#666;font-size:12px">(若不修改請留空)</span></label><input type="password" id="myProfilePwd" class="filter-input"></div><div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%" onclick="submitProfile()">更新</button><button class="btn btn-outline" style="width:100%" onclick="document.getElementById('profileModal').classList.remove('open')">取消</button></div></div></div>
 
-    <!-- Preview modal -->
-    <div class="modal-overlay" id="previewModal"><div class="modal-box" id="previewBox" style="max-width:800px; width:90%; max-height:80vh; overflow:auto;"><div style="display:flex;justify-content:space-between;align-items:center;"><h3 id="previewTitle">內容預覽</h3><button onclick="closePreview()" style="border:none;background:none;font-size:20px;">&times;</button></div><div id="previewContent" style="margin-top:12px;"></div></div></div>
-
     <script>
-        // 全域狀態
         let rawData = [], currentData = [], currentUser = null, charts = {}, currentEditItem = null, userList = [], sortState = { field: null, dir: 'asc' }, stagedImportData = []; 
         let autoLogoutTimer;
         let currentLogs = { login: [], action: [] };
 
-        // Issues server-side pagination state
-        let issuesPage = 1, issuesPageSize = parseInt(document.getElementById('issuesPageSize')?.value || 20, 10);
-        let issuesTotal = 0, issuesPages = 1;
-
-        // Users pagination state
-        let usersPage = 1, usersPageSize = parseInt(document.getElementById('usersPageSize')?.value || 20, 10);
-        let usersTotal = 0, usersPages = 1, usersSortField = 'id', usersSortDir = 'asc';
-
-        // Logs pagination
-        let logsPage = 1, logsPageSize = 20, logsTotal = 0, logsPages = 1;
-        let actionsPage = 1, actionsPageSize = 20, actionsTotal = 0, actionsPages = 1;
-
-        // 自動登出
         function resetAutoLogout() {
             clearTimeout(autoLogoutTimer);
             autoLogoutTimer = setTimeout(() => {
@@ -440,10 +378,247 @@
             btn.innerHTML = c ? '<span>收合統計圖表</span> <span>▲</span>' : '<span>展開統計圖表</span> <span>▼</span>';
         }
 
-        // --- helper functions 保留你原來的解析與正規化等程式，這裡只取需用到的幾個 util ---
-        function stripHtml(h) { if(!h) return ''; let t = document.createElement("DIV"); t.innerHTML = h; return t.textContent || t.innerText || ""; }
-        function getLatest(i, p) { for(let k = 20; k >= 1; k--) { const key = k === 1 ? p : `${p}${k}`; if(i[key]) return i[key]; } return null; }
-        function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' }; return map[r] || r; }
+        function normalizeCodeString(str) {
+            if(!str) return "";
+            var s = (str.normalize ? str.normalize("NFKC") : str);
+            s = s.replace(/[\u200B-\u200D\uFEFF]/g, "");
+            s = s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g, "-");
+            s = s.replace(/[ \t]+/g, " ").replace(/\s*-\s*/g, "-");
+            return s.trim();
+        }
+
+        function extractNumberFromCell(cell) {
+            if(!cell) return "";
+            var whole = normalizeCodeString(cell.innerText || cell.textContent || "");
+            var mB = whole.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/);
+            if (mB) return (mB[1] || "").toUpperCase();
+            var mA = whole.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/);
+            if (mA) return (mA[1] || "").toUpperCase();
+            return "";
+        }
+
+        function parseItemNumber(numberStr) {
+            var raw = normalizeCodeString(numberStr || "");
+            if(!raw) return null;
+            var m = raw.match(/^(\d{2})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i);
+            if(m) {
+                var yy = parseInt(m[1], 10), rocYear = 100 + yy, org = m[2].toUpperCase(), cat = m[3], div = m[4].toUpperCase(), divSeq = m[5], kind = m[6].toUpperCase(), seq = m[7];
+                return { scheme: "THAS-v1", raw: raw, yearRoc: rocYear, orgCodeRaw: org, inspectionCategoryCode: cat, divisionCode: div, divisionSeq: divSeq, itemKindCode: kind, itemSeq: seq.toString(), period: "" };
+            }
+            m = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d{1,3})$/i);
+            if(m) {
+                var rocYear2 = parseInt(m[1], 10), org2 = m[2].toUpperCase(), cat2 = m[3], period = m[4], div2 = m[5].toUpperCase(), kind2 = m[6].toUpperCase(), seq2 = m[7];
+                return { scheme: "TRC-v2", raw: raw, yearRoc: rocYear2, orgCodeRaw: org2, inspectionCategoryCode: cat2, divisionCode: div2, itemKindCode: kind2, itemSeq: seq2.toString(), period: period };
+            }
+            return null;
+        }
+
+        function canonicalNumber(info) {
+            if(!info) return "";
+            if(info.scheme === "TRC-v2") {
+                var seq = String(parseInt(info.itemSeq, 10));
+                return (info.yearRoc + "-" + info.orgCodeRaw + "-" + info.inspectionCategoryCode + "-" + info.period + "-" + info.divisionCode + "-" + info.itemKindCode + seq).toUpperCase();
+            }
+            if(info.scheme === "THAS-v1") {
+                var yy = String(info.yearRoc - 100);
+                yy = ("0" + yy).slice(-2);
+                var seq2 = String(parseInt(info.itemSeq, 10));
+                seq2 = ("0" + seq2).slice(-2);
+                return (yy + info.orgCodeRaw + info.inspectionCategoryCode + "-" + info.divisionCode + info.divisionSeq + "-" + info.itemKindCode + seq2).toUpperCase();
+            }
+            return (info.raw || "").toUpperCase();
+        }
+
+        var ORG_MAP_THAS = { T:"臺鐵", H:"高鐵", A:"林鐵", S:"糖鐵" };
+        var ORG_MAP_TRCC = { TRC:"臺鐵", HSR:"高鐵", AFR:"林鐵", TSC:"糖鐵" };
+        var ORG_CROSSWALK = { T:"TRC", H:"HSR", A:"AFR", S:"TSC", TRC:"TRC", HSR:"HSR", AFR:"AFR", TSC:"TSC" };
+        var CATEGORY_MAP_1_4 = { "1":"定期檢查", "2":"例行性檢查", "3":"特別檢查", "4":"臨時檢查" };
+        var DIVISION_MAP_THAS = { A:"運務", B:"工務", C:"機務", D:"電務", E:"安全", F:"審核", G:"災防" };
+        var DIVISION_MAP_TRCC = { OP:"運轉", CP:"土木", EM:"機電" };
+        var ISSUE_KIND_MAP = { N:"缺失事項", O:"觀察事項", R:"建議事項" };
+        var FILLED_MARKS = ["■","☑","☒","✔","✅","●","◉","✓"];
+        var EMPTY_MARKS  = ["□","☐","◻","○","◯","◇","△"];
+
+        function normalizeMultiline(s) {
+            s = s || "";
+            return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim();
+        }
+
+        function parseStatusFromResultCell(cell) {
+            if(!cell) return "";
+            var src = normalizeMultiline((cell.innerText || cell.textContent || "") + "\n" + (cell.innerHTML || "").replace(/<[^>]+>/g, ""));
+            if(!src) return "";
+            var allMarks = FILLED_MARKS.concat(EMPTY_MARKS).join("");
+            allMarks = allMarks.replace(/[-\\^$*+?.()|[\]{}]/g, "\\$&");
+            var reFront = new RegExp("([" + allMarks + "])\\s*(?:[:：﹕-]?\\s*)?(解除列管|持續列管|自行列管)", "g");
+            var reBack  = new RegExp("(解除列管|持續列管|自行列管)\\s*(?:[:：﹕-]?\\s*)?([" + allMarks + "])", "g");
+            var hits = [], m;
+            while((m = reFront.exec(src)) !== null) {
+                hits.push({ idx: m.index, label: m[2], mark: m[1], filled: FILLED_MARKS.indexOf(m[1]) >= 0 });
+            }
+            while((m = reBack.exec(src)) !== null) {
+                hits.push({ idx: m.index, label: m[1], mark: m[2], filled: FILLED_MARKS.indexOf(m[2]) >= 0 });
+            }
+            var filled = hits.filter(function(h) { return h.filled; }).sort(function(a, b) { return a.idx - b.idx; });
+            if (filled.length) return filled[filled.length - 1].label;
+            var labels = ["解除列管", "持續列管", "自行列管"];
+            var present = labels.filter(function(l) { return src.indexOf(l) >= 0; });
+            if (present.length === 1) return present[0];
+            return "";
+        }
+
+        function sanitizeContent(html) {
+            if(!html) return "";
+            var s = String(html);
+            s = s.replace(/&lt;\s*\/?\s*p\s*&gt;/gi, "").replace(/<\s*\/?\s*p\s*>/gi, "").replace(/<p>\s*<\/p>/gi, "").replace(/(?:<br\s*\/?>\s*){3,}/gi, "<br><br>").replace(/\n{3,}/g, "\n\n").replace(/(<li>\s*)+/gi, "<li>").replace(/(<\/li>\s*)+/gi, "</li>").replace(/(<ol>\s*)+/gi, "<ol>").replace(/(<\/ol>\s*)+/gi, "</ol>").replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+            return s;
+        }
+
+        function parseFromHTML(html) {
+            var items = [];
+            try {
+                var doc = new DOMParser().parseFromString(html, "text/html");
+                var tables = doc.querySelectorAll("table");
+                tables.forEach(function(table) {
+                    var rows = table.querySelectorAll("tr");
+                    var headerRow = -1, dataStart = -1;
+                    for(var i = 0; i < Math.min(rows.length, 6); i++) {
+                        var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, "");
+                        if((/編號|項次編號|項次/).test(t) && (/觀察事項內容|觀察事項|建議事項內容|建議事項|缺失事項內容|缺失事項|事項內容|內容/).test(t)) {
+                            headerRow = i;
+                            dataStart = i + 1;
+                            break;
+                        }
+                    }
+                    if(headerRow === -1) return;
+                    var headerCells = rows[headerRow].querySelectorAll("td,th");
+                    var columnMap = {};
+                    var reviewCols = [];
+                    headerCells.forEach(function(cell, idx) {
+                        var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, "");
+                        if((/編號|項次編號|項次/).test(text)) columnMap.number = idx;
+                        if((/觀察事項內容|觀察事項|建議事項內容|建議事項|缺失事項內容|缺失事項|事項內容|內容/).test(text)) columnMap.content = idx;
+                        if((/辦理情形|辦理|辦理狀況/).test(text)) columnMap.handling = idx;
+                        var mm = text.match(/^第(\d+)次.*(審查意見|意見審查)$/);
+                        if(mm) reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) });
+                        else if((/(審查意見|意見審查)$/).test(text)) reviewCols.push({ idx: idx, round: 1 });
+                        if((/(審查結果|審查結論|列管結果|列管狀態|列管情形|處置結果|狀態)$/).test(text)) columnMap.result = idx;
+                    });
+                    var hc = headerCells.length;
+                    if(columnMap.number === undefined) columnMap.number = 0;
+                    if(columnMap.content === undefined) columnMap.content = Math.min(1, hc - 1);
+                    if(columnMap.handling === undefined) columnMap.handling = Math.min(2, hc - 1);
+                    if(columnMap.result === undefined) columnMap.result = hc - 1;
+                    for(var r = dataStart; r < rows.length; r++) {
+                        var cells = rows[r].querySelectorAll("td,th");
+                        if(cells.length < 2) continue;
+                        var numText = extractNumberFromCell(cells[columnMap.number]);
+                        var info = parseItemNumber(numText);
+                        if(!info) continue;
+                        var numKey = canonicalNumber(info);
+                        var year = info.yearRoc != null ? String(info.yearRoc) : "";
+                        var orgUnifiedCode = ORG_CROSSWALK[info.orgCodeRaw] || info.orgCodeRaw;
+                        var orgName = ORG_MAP_TRCC[orgUnifiedCode] || ORG_MAP_THAS[info.orgCodeRaw] || "";
+                        var inspectionCategoryName = CATEGORY_MAP_1_4[info.inspectionCategoryCode] || "";
+                        var item = { number: numKey, rawNumber: (info.raw || "").toUpperCase(), scheme: info.scheme, yearRoc: info.yearRoc || "", year: year, orgCodeRaw: info.orgCodeRaw || "", orgUnifiedCode: orgUnifiedCode, orgName: orgName, unit: orgName, inspectionCategoryCode: info.inspectionCategoryCode || "", inspectionCategoryName: inspectionCategoryName, divisionCode: info.divisionCode || "", divisionName: DIVISION_MAP_TRCC[info.divisionCode] || DIVISION_MAP_THAS[info.divisionCode] || "", itemKindCode: info.itemKindCode || "", itemKindName: ISSUE_KIND_MAP[info.itemKindCode] || "", itemSeq: info.itemSeq || "", period: info.period || "", category: ISSUE_KIND_MAP[info.itemKindCode] || CATEGORY_MAP_1_4[info.inspectionCategoryCode] || "", content: "", handling: "", status: "" };
+                        if(cells[columnMap.content]) item.content = sanitizeContent(cells[columnMap.content].innerHTML);
+                        if(cells[columnMap.handling]) item.handling = sanitizeContent(cells[columnMap.handling].innerHTML);
+                        if(item.itemKindCode === "R" || item.itemKindName === "建議事項") item.status = "自行列管";
+                        else if(cells[columnMap.result]) item.status = parseStatusFromResultCell(cells[columnMap.result]) || "";
+                        reviewCols.forEach(function(rc) {
+                            var key = (rc.round === 1 ? "review" : ("review" + rc.round));
+                            item[key] = sanitizeContent(cells[rc.idx] ? cells[rc.idx].innerHTML : "");
+                        });
+                        items.push(item);
+                    }
+                });
+            } catch(e) {
+                console.error("Parse error:", e);
+            }
+            return items;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            if(currentUser) {
+                document.body.style.display = 'flex';
+                initListeners();
+                initEditForm();
+                await loadData();
+                initCharts();
+            }
+        });
+
+        function getRoleName(r) {
+            const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' };
+            return map[r] || r;
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch('/api/issues');
+                const dbData = await res.json();
+                rawData = dbData.map(i => ({ ...i, number: i.number || i.title || '無', year: i.year || '未知', unit: i.unit || '未知' }));
+                document.getElementById('dataTimestamp').innerText = `更新: ${new Date().toLocaleString('zh-TW')}`;
+                populateSelect('filterYear', rawData, 'year');
+                populateSelect('filterUnit', rawData, 'unit');
+                if(sortState.field) {
+                    applyFilters(false);
+                    doSort(sortState.field, sortState.dir);
+                } else {
+                    currentData = rawData;
+                    applyFilters(false);
+                }
+                setTimeout(() => {
+                    applyFilters(true);
+                }, 100);
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                if(data.isLogin) {
+                    currentUser = data;
+                    document.getElementById('headerUserName').innerText = data.name || data.username;
+                    document.getElementById('headerUserRole').innerText = getRoleName(data.role);
+                    if(['admin', 'manager'].includes(data.role)) {
+                        document.getElementById('btn-importView').classList.remove('hidden');
+                        if(data.role === 'admin') {
+                            document.getElementById('btn-usersView').classList.remove('hidden');
+                            loadUsers();
+                        }
+                    }
+                } else window.location.href = '/login.html';
+            } catch(e) {
+                window.location.href = '/login.html';
+            }
+        }
+
+        function onToggleSidebar() {
+            const panel = document.getElementById('filtersPanel');
+            const backdrop = document.getElementById('filterBackdrop');
+            const isDesktop = window.innerWidth > 1024;
+            if(isDesktop) {
+                panel.classList.toggle('collapsed');
+                setTimeout(() => {
+                    if(charts.status) charts.status.resize();
+                    if(charts.unit) charts.unit.resize();
+                    if(charts.trend) charts.trend.resize();
+                }, 300);
+            } else {
+                if(panel.classList.contains('open')) {
+                    panel.classList.remove('open');
+                    backdrop.style.display = 'none';
+                } else {
+                    panel.classList.add('open');
+                    backdrop.style.display = 'block';
+                }
+            }
+        }
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
@@ -462,250 +637,25 @@
             }, 3000);
         }
 
-        // Preview modal
-        function showPreview(html, title) {
-            document.getElementById('previewTitle').innerText = title || '內容預覽';
-            document.getElementById('previewContent').innerHTML = html || '(無內容)';
-            document.getElementById('previewModal').classList.add('open');
+        function formatHtmlToText(html) {
+            if(!html) return "";
+            let temp = html.replace(/<li[^>]*>/gi, "\n• ").replace(/<\/li>/gi, "").replace(/<ul[^>]*>/gi, "").replace(/<\/ul>/gi, "").replace(/<ol[^>]*>/gi, "").replace(/<\/ol>/gi, "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<p[^>]*>/gi, "");
+            let div = document.createElement("div");
+            div.innerHTML = temp;
+            return (div.textContent || div.innerText || "").replace(/\n\s*\n/g, "\n").trim();
         }
-        function closePreview() { document.getElementById('previewModal').classList.remove('open'); }
 
-        // --- 初始化與權限檢查 ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            await checkAuth();
-            if(currentUser) {
-                document.body.style.display = 'flex';
-                initListeners();
-                initEditForm();
-                await loadIssuesPage(1);
-                initCharts();
-                loadUsersPage(1);
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('show');
+        }
+        window.addEventListener('click', function(e) {
+            if(!e.target.closest('.user-menu-container')) {
+                document.getElementById('userDropdown').classList.remove('show');
             }
         });
 
-        async function checkAuth() {
-            try {
-                const res = await fetch('/api/auth/me');
-                const data = await res.json();
-                if(data.isLogin) {
-                    currentUser = data;
-                    document.getElementById('headerUserName').innerText = data.name || data.username;
-                    document.getElementById('headerUserRole').innerText = getRoleName(data.role);
-                    if(['admin', 'manager'].includes(data.role)) {
-                        document.getElementById('btn-importView').classList.remove('hidden');
-                        if(data.role === 'admin') {
-                            document.getElementById('btn-usersView').classList.remove('hidden');
-                        }
-                    }
-                } else window.location.href = '/login.html';
-            } catch(e) {
-                window.location.href = '/login.html';
-            }
-        }
-
-        // --- Issues: 呼叫 server-side 分頁 API ---
-        async function loadIssuesPage(page = 1) {
-            issuesPage = page;
-            issuesPageSize = parseInt(document.getElementById('issuesPageSize').value, 10);
-            const q = document.getElementById('filterKeyword').value || '';
-            const year = document.getElementById('filterYear').value || '';
-            const unit = document.getElementById('filterUnit').value || '';
-            const status = document.getElementById('filterStatus').value || '';
-            // mapping sortState to backend fields
-            let sortField = 'created_at', sortDir = 'desc';
-            if (sortState.field) {
-                if (sortState.field === 'number') sortField = 'title';
-                else if (sortState.field === 'year') sortField = 'year';
-                else if (sortState.field === 'unit') sortField = 'unit';
-                else if (sortState.field === 'status') sortField = 'status';
-                sortDir = sortState.dir || 'asc';
-            }
-            const params = new URLSearchParams({
-                page: issuesPage,
-                pageSize: issuesPageSize,
-                q, year, unit, status, sortField, sortDir
-            });
-            try {
-                const res = await fetch('/api/issues?' + params.toString());
-                if (!res.ok) { showToast('載入資料失敗','error'); return; }
-                const j = await res.json();
-                currentData = j.data || [];
-                issuesTotal = j.total || 0;
-                issuesPages = j.pages || 1;
-                document.getElementById('dataTimestamp').innerText = `更新: ${new Date().toLocaleString('zh-TW')}`;
-                renderStats();
-                updateChartsData();
-                renderTable();
-            } catch (e) {
-                console.error(e);
-                showToast('載入資料錯誤','error');
-            }
-        }
-
-        function applyFilters() {
-            issuesPage = 1;
-            loadIssuesPage(1);
-        }
-        function resetFilters() {
-            document.querySelectorAll('.filter-input,.filter-select').forEach(e => e.value = '');
-            applyFilters();
-        }
-
-        function sortData(field) {
-            if(sortState.field === field) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
-            else {
-                sortState.field = field;
-                sortState.dir = 'asc';
-            }
-            loadIssuesPage(1);
-            updateSortUI();
-        }
-        function updateSortUI() {
-            document.querySelectorAll('th').forEach(th => {
-                th.classList.remove('sort-asc', 'sort-desc');
-                if(th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc');
-            });
-        }
-
-        function renderStats() {
-            document.getElementById('countTotal').innerText = issuesTotal;
-            document.getElementById('countActive').innerText = currentData.filter(d => d.status === '持續列管').length;
-            document.getElementById('countResolved').innerText = currentData.filter(d => ['解除列管', '自行列管'].includes(d.status)).length;
-        }
-
-        function renderTable() {
-            const tbody = document.getElementById('dataBody');
-            tbody.innerHTML = '';
-            if(!currentData || currentData.length === 0) {
-                document.getElementById('emptyMsg').style.display = 'block';
-                document.getElementById('issuesPagerInfo').innerText = `第 ${issuesPage} / ${issuesPages} 頁，共 ${issuesTotal} 筆`;
-                return;
-            }
-            document.getElementById('emptyMsg').style.display = 'none';
-            const canManage = ['admin', 'manager'].includes(currentUser.role);
-            const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role);
-            document.getElementById('batchActionContainer').style.display = 'none';
-            document.getElementById('selectedCountBadge').innerText = '';
-            document.getElementById('selectAll').checked = false;
-            document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
-
-            document.getElementById('issuesPagerInfo').innerText = `第 ${issuesPage} / ${issuesPages} 頁，共 ${issuesTotal} 筆`;
-
-            tbody.innerHTML = currentData.map(item => {
-                let badge = '';
-                if(item.status && item.status !== 'Open') {
-                    const st = item.status === '持續列管' ? 'active' : (item.status === '解除列管' ? 'resolved' : 'self');
-                    badge = `<span class="badge ${st}">${item.status}</span>`;
-                }
-                let updateTxt = '-';
-                const lr = getLatest(item, 'review'),
-                    lh = getLatest(item, 'handling');
-                if(lr) updateTxt = `[審] ${stripHtml(lr).slice(0,80)}`;
-                else if(lh) updateTxt = `[回] ${stripHtml(lh).slice(0,80)}`;
-                let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`;
-                if(item.aiResult && item.aiResult.status === 'done') {
-                    const f = item.aiResult.fulfill || '';
-                    const isYes = f.includes('是') || f.includes('Yes');
-                    aiContent = `<div class="ai-tag ${isYes?'yes':'no'}">${isYes?'✅':'⚠️'} ${f}</div>`;
-                }
-                const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : '';
-                const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
-                const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
-                const snippet = stripHtml(item.content || '').slice(0, 180);
-                const fullHtml = item.content || '';
-                return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="年度">${item.year}</td><td data-label="機構">${item.unit}</td><td data-label="狀態">${badge}</td><td data-label="內容摘要"><div class="text-content">${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新進度"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="操作 / AI"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
-            }).join('');
-        }
-
-        function onIssuesPageSizeChange() {
-            issuesPageSize = parseInt(document.getElementById('issuesPageSize').value, 10);
-            loadIssuesPage(1);
-        }
-        function issuesPrevPage() { if (issuesPage > 1) loadIssuesPage(issuesPage - 1); }
-        function issuesNextPage() { if (issuesPage < issuesPages) loadIssuesPage(issuesPage + 1); }
-
-        // --- Users: 使用 server-side 分頁 API ---
-        async function loadUsersPage(page = 1) {
-            usersPage = page;
-            usersPageSize = parseInt(document.getElementById('usersPageSize').value, 10);
-            const q = document.getElementById('userSearch').value || '';
-            const params = new URLSearchParams({ page: usersPage, pageSize: usersPageSize, q, sortField: usersSortField, sortDir: usersSortDir });
-            try {
-                const res = await fetch('/api/users?' + params.toString());
-                if(!res.ok) { showToast('載入使用者失敗','error'); return; }
-                const j = await res.json();
-                userList = j.data || [];
-                usersTotal = j.total || 0;
-                usersPages = j.pages || 1;
-                renderUsers();
-            } catch(e) {
-                console.error(e);
-                showToast('載入使用者錯誤','error');
-            }
-        }
-        function renderUsers() {
-            document.getElementById('usersTableBody').innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name||'-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id!==currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join('');
-            document.getElementById('usersPagerInfo').innerText = `第 ${usersPage} / ${usersPages} 頁，共 ${usersTotal} 筆`;
-        }
-        function usersPrevPage() { if(usersPage > 1) loadUsersPage(usersPage - 1); }
-        function usersNextPage() { if(usersPage < usersPages) loadUsersPage(usersPage + 1); }
-        function usersSortBy(field) { if(usersSortField === field) usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; else { usersSortField = field; usersSortDir = 'asc'; } loadUsersPage(1); }
-
-        // --- Logs (login) 分頁 ---
-        async function loadLogsPage(page = 1) {
-            logsPage = page;
-            const q = document.getElementById('loginSearch').value || '';
-            const params = new URLSearchParams({ page: logsPage, pageSize: logsPageSize, q });
-            document.getElementById('logsLoading').style.display = 'block';
-            try {
-                const res = await fetch('/api/admin/logs?' + params.toString());
-                if(!res.ok) { showToast('載入登入紀錄失敗','error'); document.getElementById('logsLoading').style.display = 'none'; return; }
-                const j = await res.json();
-                currentLogs.login = j.data || [];
-                logsTotal = j.total || 0;
-                logsPages = j.pages || 1;
-                document.getElementById('logsTableBody').innerHTML = currentLogs.login.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="IP">${l.ip_address||'-'}</td></tr>`).join('');
-                document.getElementById('logsPagerInfo').innerText = `第 ${logsPage} / ${logsPages} 頁，共 ${logsTotal} 筆`;
-            } catch(e) {
-                console.error(e);
-                showToast('載入登入紀錄錯誤','error');
-            } finally { document.getElementById('logsLoading').style.display = 'none'; }
-        }
-        function logsPrevPage(){ if(logsPage>1) loadLogsPage(logsPage-1); }
-        function logsNextPage(){ if(logsPage<logsPages) loadLogsPage(logsPage+1); }
-
-        // --- Actions 分頁 ---
-        async function loadActionsPage(page = 1) {
-            actionsPage = page;
-            const q = document.getElementById('actionSearch').value || '';
-            const params = new URLSearchParams({ page: actionsPage, pageSize: actionsPageSize, q });
-            document.getElementById('logsLoading').style.display = 'block';
-            try {
-                const res = await fetch('/api/admin/action_logs?' + params.toString());
-                if(!res.ok) { showToast('載入操作紀錄失敗','error'); document.getElementById('logsLoading').style.display = 'none'; return; }
-                const j = await res.json();
-                currentLogs.action = j.data || [];
-                actionsTotal = j.total || 0;
-                actionsPages = j.pages || 1;
-                document.getElementById('actionsTableBody').innerHTML = currentLogs.action.map(l => `
-                    <tr>
-                        <td data-label="時間" style="padding:12px;white-space:nowrap;">${new Date(l.created_at).toLocaleString('zh-TW')}</td>
-                        <td data-label="帳號">${l.username}</td>
-                        <td data-label="動作"><span class="badge new">${l.action}</span></td>
-                        <td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td>
-                    </tr>`).join('');
-                document.getElementById('actionsPagerInfo').innerText = `第 ${actionsPage} / ${actionsPages} 頁，共 ${actionsTotal} 筆`;
-            } catch(e) {
-                console.error(e);
-                showToast('載入操作紀錄錯誤','error');
-            } finally { document.getElementById('logsLoading').style.display = 'none'; }
-        }
-        function actionsPrevPage(){ if(actionsPage>1) loadActionsPage(actionsPage-1); }
-        function actionsNextPage(){ if(actionsPage<actionsPages) loadActionsPage(actionsPage+1); }
-
-        // --- 匯出 & 清除紀錄仍呼叫原有 API（DELETE） ---
         function exportLogs(type) {
-            const data = type === 'login' ? currentLogs.login : currentLogs.action;
+            const data = currentLogs[type];
             if(!data || data.length === 0) return showToast('無資料可匯出', 'error');
             let csvContent = '\uFEFF';
             if(type === 'login') {
@@ -736,8 +686,8 @@
                 });
                 if(res.ok) {
                     showToast('紀錄已清空');
-                    if(type === 'login') loadLogsPage(1);
-                    else loadActionsPage(1);
+                    if(type === 'login') loadLogs();
+                    else loadActions();
                 } else {
                     showToast('清除失敗', 'error');
                 }
@@ -746,7 +696,6 @@
             }
         }
 
-        // --- 匯入功能（保持不變） ---
         function checkImportReady() {
             const r = document.getElementById('importRound').value,
                 d = document.getElementById('importDate').value,
@@ -754,7 +703,7 @@
             document.getElementById('wordInput').disabled = !valid;
             document.getElementById('btnParse').disabled = !valid || !document.getElementById('wordInput').files[0];
         }
-        document.getElementById('wordInput')?.addEventListener('change', checkImportReady);
+        document.getElementById('wordInput').addEventListener('change', checkImportReady);
         async function previewWord() {
             const f = document.getElementById('wordInput').files[0],
                 round = document.getElementById('importRound').value,
@@ -764,13 +713,17 @@
             try {
                 const b = await f.arrayBuffer(),
                     r = await mammoth.convertToHtml({ arrayBuffer: b }),
-                    items = parseFromHTML(r.value); // parseFromHTML 請保留於檔案內
+                    items = parseFromHTML(r.value);
                 if(items.length === 0) {
                     msg.innerText = '錯誤：未解析到有效資料，請檢查檔案格式';
                     return;
                 }
+                const dbMap = new Map(rawData.map(d => [d.number, d]));
                 stagedImportData = items.map(item => {
-                    return { ...item, _importStatus: 'new' };
+                    const exists = dbMap.has(item.number);
+                    return { ...item,
+                        _importStatus: exists ? 'update' : 'new'
+                    };
                 });
                 document.getElementById('previewRoundDisplay').innerText = round;
                 renderPreviewTable();
@@ -797,17 +750,26 @@
             if(!confirm(`確定要匯入 ${stagedImportData.length} 筆資料嗎？`)) return;
             const round = document.getElementById('importRound').value,
                 date = document.getElementById('importDate').value,
-                cleanData = stagedImportData.map(({ _importStatus, ...item }) => item);
+                cleanData = stagedImportData.map(({ _importStatus,
+                    ...item
+                }) => item);
             try {
                 const res = await fetch('/api/issues/import', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: cleanData, round: round, reviewDate: date, actualReplyDate: '' })
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        data: cleanData,
+                        round: round,
+                        reviewDate: date,
+                        actualReplyDate: ''
+                    })
                 });
                 if(res.ok) {
                     showToast('匯入成功！');
                     cancelImport();
-                    loadIssuesPage(1);
+                    loadData();
                 } else {
                     showToast('匯入失敗', 'error');
                 }
@@ -815,6 +777,7 @@
                 showToast('Error: ' + e.message, 'error');
             }
         }
+
         function cancelImport() {
             stagedImportData = [];
             document.getElementById('previewContainer').classList.add('hidden');
@@ -823,12 +786,316 @@
             document.getElementById('importStatus').innerText = '';
         }
 
-        // --- Edit / Detail / AI functions: 建議保留你原本的完整實作 --- 
-        // 為避免冗長，在此保留呼叫契約與主要流程；請確保你的原始 index.html 中 parseFromHTML、normalizeCodeString、parseStatusFromResultCell 等 helper 函式一併保留。
+        function applyFilters(shouldRender = true) {
+            const k = document.getElementById('filterKeyword').value.toLowerCase(),
+                y = document.getElementById('filterYear').value,
+                u = document.getElementById('filterUnit').value,
+                s = document.getElementById('filterStatus').value;
+            currentData = rawData.filter(d => (!k || JSON.stringify(d).toLowerCase().includes(k)) && (!y || d.year == y) && (!u || d.unit == u) && (!s || d.status == s));
+            if(sortState.field) doSort(sortState.field, sortState.dir);
+            if(window.innerWidth <= 1024) {
+                const p = document.getElementById('filtersPanel');
+                if(p.style.transform === 'translateX(0px)') toggleFilters();
+            }
+            if(shouldRender) {
+                renderStats();
+                updateChartsData();
+                renderTable();
+            }
+        }
+
+        function sortData(field) {
+            if(sortState.field === field) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+            else {
+                sortState.field = field;
+                sortState.dir = 'asc';
+            }
+            doSort(field, sortState.dir);
+            updateSortUI();
+            renderTable();
+        }
+
+        function doSort(field, dir) {
+            currentData.sort((a, b) => {
+                let valA, valB;
+                if(field === 'latest') {
+                    valA = getLatest(a, 'review') || getLatest(a, 'handling') || '';
+                    valB = getLatest(b, 'review') || getLatest(b, 'handling') || '';
+                } else {
+                    valA = a[field] || '';
+                    valB = b[field] || '';
+                }
+                if(!isNaN(parseFloat(valA)) && !isNaN(parseFloat(valB))) return dir === 'asc' ? valA - valB : valB - valA;
+                return dir === 'asc' ? String(valA).localeCompare(String(valB), "zh-Hant") : String(valB).localeCompare(String(valA), "zh-Hant");
+            });
+        }
+
+        function updateSortUI() {
+            document.querySelectorAll('th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                if(th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc');
+            });
+        }
+
+        function renderStats() {
+            document.getElementById('countTotal').innerText = currentData.length;
+            document.getElementById('countActive').innerText = currentData.filter(d => d.status === '持續列管').length;
+            document.getElementById('countResolved').innerText = currentData.filter(d => ['解除列管', '自行列管'].includes(d.status)).length;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('dataBody');
+            tbody.innerHTML = '';
+            if(currentData.length === 0) {
+                document.getElementById('emptyMsg').style.display = 'block';
+                return;
+            }
+            document.getElementById('emptyMsg').style.display = 'none';
+            const canManage = ['admin', 'manager'].includes(currentUser.role);
+            const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role);
+            document.getElementById('batchActionContainer').style.display = 'none';
+            document.getElementById('selectedCountBadge').innerText = '';
+            document.getElementById('selectAll').checked = false;
+            document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
+            tbody.innerHTML = currentData.slice(0, 100).map(item => {
+                let badge = '';
+                if(item.status && item.status !== 'Open') {
+                    const st = item.status === '持續列管' ? 'active' : (item.status === '解除列管' ? 'resolved' : 'self');
+                    badge = `<span class="badge ${st}">${item.status}</span>`;
+                }
+                let updateTxt = '-';
+                const lr = getLatest(item, 'review'),
+                    lh = getLatest(item, 'handling');
+                if(lr) updateTxt = `[審] ${lr}`;
+                else if(lh) updateTxt = `[回] ${lh}`;
+                let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`;
+                if(item.aiResult && item.aiResult.status === 'done') {
+                    const f = item.aiResult.fulfill || '',
+                        isYes = f.includes('是') || f.includes('Yes');
+                    aiContent = `<div class="ai-tag ${isYes?'yes':'no'}">${isYes?'✅':'⚠️'} ${f}</div>`;
+                }
+                const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : '';
+                const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
+                const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
+                return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="年度">${item.year}</td><td data-label="機構">${item.unit}</td><td data-label="狀態">${badge}</td><td data-label="內容摘要"><div class="text-content">${stripHtml(item.content)}</div></td><td data-label="最新進度"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="操作 / AI"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
+            }).join('');
+        }
+
+        async function loadLogs() {
+            document.getElementById('logsLoading').style.display = 'block';
+            document.getElementById('tab-logs').classList.add('hidden');
+            const res = await fetch('/api/admin/logs');
+            const logs = await res.json();
+            currentLogs.login = logs;
+            document.getElementById('logsTableBody').innerHTML = logs.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="IP">${l.ip_address||'-'}</td></tr>`).join('');
+            document.getElementById('logsLoading').style.display = 'none';
+            document.getElementById('tab-logs').classList.remove('hidden');
+        }
+
+        async function loadActions() {
+            document.getElementById('logsLoading').style.display = 'block';
+            document.getElementById('tab-actions').classList.add('hidden');
+            const res = await fetch('/api/admin/action_logs');
+            const logs = await res.json();
+            currentLogs.action = logs;
+            document.getElementById('actionsTableBody').innerHTML = logs.map(l => `
+                <tr>
+                    <td data-label="時間" style="padding:12px;white-space:nowrap;">${new Date(l.created_at).toLocaleString('zh-TW')}</td>
+                    <td data-label="帳號">${l.username}</td>
+                    <td data-label="動作"><span class="badge new">${l.action}</span></td>
+                    <td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td>
+                </tr>`).join('');
+            document.getElementById('logsLoading').style.display = 'none';
+            document.getElementById('tab-actions').classList.remove('hidden');
+        }
+
+        function switchAdminTab(tab) {
+            document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users');
+            document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs');
+            document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions');
+            if(tab === 'logs') loadLogs();
+            if(tab === 'actions') loadActions();
+        }
+
+        function initCharts() {
+            try {
+                const c1 = document.getElementById('statusChart');
+                const c2 = document.getElementById('unitChart');
+                const c3 = document.getElementById('trendChart');
+                if(c1) {
+                    charts.status = new Chart(c1, {
+                        type: 'doughnut',
+                        plugins: [ChartDataLabels],
+                        data: {
+                            labels: [],
+                            datasets: []
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                },
+                                datalabels: {
+                                    formatter: (v, ctx) => {
+                                        const dataArr = ctx.chart.data.datasets[0].data;
+                                        if(!dataArr || dataArr.length === 0) return '';
+                                        const t = dataArr.reduce((a, b) => a + b, 0);
+                                        return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%';
+                                    },
+                                    color: '#333',
+                                    font: {
+                                        weight: 'bold'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                if(c2) {
+                    charts.unit = new Chart(c2, {
+                        type: 'bar',
+                        data: {
+                            labels: [],
+                            datasets: []
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            }
+                        }
+                    });
+                }
+                if(c3) {
+                    charts.trend = new Chart(c3, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: []
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: '年度案件趨勢'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                if(currentData.length > 0) updateChartsData();
+            } catch(e) {
+                console.error("Chart Init Error:", e);
+            }
+        }
+
+        function updateChartsData() {
+            if(!charts.status || !charts.unit || !charts.trend) return;
+            const s = {};
+            currentData.forEach(d => {
+                if(d.status && d.status !== 'Open' && d.status.trim() !== '') s[d.status] = (s[d.status] || 0) + 1;
+            });
+            const sKeys = Object.keys(s);
+            const sVals = Object.values(s);
+            if(sKeys.length > 0) {
+                charts.status.data = {
+                    labels: sKeys,
+                    datasets: [{
+                        data: sVals,
+                        backgroundColor: ['#ef4444', '#10b981', '#f59e0b']
+                    }]
+                };
+                charts.status.update();
+            }
+            const u = {};
+            currentData.forEach(d => u[d.unit] = (u[d.unit] || 0) + 1);
+            const sorted = Object.entries(u).sort((a, b) => b[1] - a[1]);
+            charts.unit.data = {
+                labels: sorted.map(x => x[0]),
+                datasets: [{
+                    label: '案件',
+                    data: sorted.map(x => x[1]),
+                    backgroundColor: '#0ea5e9',
+                    borderRadius: 4
+                }]
+            };
+            charts.unit.update();
+            const t = {};
+            currentData.forEach(d => {
+                if(d.year && d.year !== '未知') t[d.year] = (t[d.year] || 0) + 1;
+            });
+            const sortedYears = Object.keys(t).sort();
+            charts.trend.data = {
+                labels: sortedYears,
+                datasets: [{
+                    label: '案件數',
+                    data: sortedYears.map(y => t[y]),
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            };
+            charts.trend.update();
+        }
+
+        function loadRoundData() {
+            const r = parseInt(document.getElementById('editRound').value);
+            const s = r === 1 ? '' : r;
+            const rawHandling = currentEditItem['handling' + s] || '';
+            const rawReview = currentEditItem['review' + s] || '';
+            document.getElementById('editHandling').value = formatHtmlToText(rawHandling);
+            document.getElementById('editReview').value = formatHtmlToText(rawReview);
+            const prevBox = document.getElementById('prevReviewBox');
+            const prevText = document.getElementById('prevReviewText');
+            if(r > 1) {
+                const prevS = (r - 1) === 1 ? '' : (r - 1);
+                const prevReviewContent = currentEditItem['review' + prevS];
+                if(prevReviewContent) {
+                    document.getElementById('prevRoundNum').innerText = `第 ${r-1} 次`;
+                    prevText.innerText = formatHtmlToText(prevReviewContent);
+                    prevBox.style.display = 'block';
+                } else {
+                    prevBox.style.display = 'none';
+                }
+            } else {
+                prevBox.style.display = 'none';
+            }
+        }
+
+        function logout() {
+            fetch('/api/auth/logout', {
+                method: 'POST'
+            }).then(() => window.location.reload());
+        }
+
+        function closeDrawer() {
+            document.getElementById('drawerBackdrop').classList.remove('open');
+            document.getElementById('detailDrawer').classList.remove('open');
+        }
 
         function initEditForm() {
             const s = document.getElementById('editRound');
-            if(!s) return;
             if(s.options.length > 0) return;
             for(let i = 1; i <= 20; i++) {
                 const o = document.createElement('option');
@@ -838,32 +1105,90 @@
             }
         }
 
+        function resetFilters() {
+            document.querySelectorAll('.filter-input,.filter-select').forEach(e => e.value = '');
+            applyFilters();
+        }
+        window.exportQueryCSV = function() {
+            let c = '\uFEFF編號,年度,機構,狀態,內容,最新進度\n';
+            currentData.forEach(d => {
+                c += `"${d.number}","${d.year}","${d.unit}","${d.status}","${stripHtml(d.content).replace(/"/g,'""')}","${stripHtml(getLatest(d,'handling')||'').replace(/"/g,'""')}"\n`;
+            });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([c], {
+                type: 'text/csv;charset=utf-8;'
+            }));
+            a.download = 'export.csv';
+            a.click();
+        };
+
         function initListeners() {
-            document.getElementById('filterKeyword')?.addEventListener('keyup', (e) => {
+            document.getElementById('filterKeyword').addEventListener('keyup', (e) => {
                 if(e.key === 'Enter') applyFilters()
             });
-            document.getElementById('drawerBackdrop')?.addEventListener('click', closeDrawer);
+            document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer);
+        }
+        async function deleteIssue(id) {
+            if(!confirm('確定要刪除此事項嗎？此操作無法復原。')) return;
+            try {
+                const res = await fetch(`/api/issues/${id}`, {
+                    method: 'DELETE'
+                });
+                if(res.ok) {
+                    showToast('已刪除');
+                    loadData();
+                    closeDrawer();
+                } else {
+                    showToast('刪除失敗', 'error');
+                }
+            } catch(e) {
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+        async function deleteIssueFromDrawer() {
+            if(!currentEditItem) return;
+            await deleteIssue(currentEditItem.id);
+            closeDrawer();
         }
 
-        async function loadUsers() { loadUsersPage(1); } // 兼容舊呼叫
-
-        // User modal submit & password strength
-        document.getElementById('uPwd')?.addEventListener('input', updatePwdStrength);
-        document.getElementById('uPwdConfirm')?.addEventListener('input', updatePwdStrength);
-
-        function updatePwdStrength() {
-            const p = document.getElementById('uPwd').value || '';
-            const conf = document.getElementById('uPwdConfirm').value || '';
-            let score = 0;
-            if(p.length >= 8) score++;
-            if(/[A-Z]/.test(p)) score++;
-            if(/[0-9]/.test(p)) score++;
-            if(/[^A-Za-z0-9]/.test(p)) score++;
-            const texts = ['弱', '偏弱', '一般', '良好', '強'];
-            document.getElementById('pwdStrength').innerText = `密碼強度: ${texts[Math.min(score,4)]} ${conf && p !== conf ? '(密碼不相符)' : ''}`;
+        function populateSelect(id, d, f) {
+            const u = [...new Set(d.map(i => i[f]).filter(Boolean))].sort().reverse();
+            document.getElementById(id).innerHTML = '<option value="">全部</option>' + u.map(v => `<option value="${v}">${v}</option>`).join('');
         }
 
-        async function openUserModal(mode, id) {
+        function getLatest(i, p) {
+            for(let k = 20; k >= 1; k--) {
+                const key = k === 1 ? p : `${p}${k}`;
+                if(i[key]) return i[key];
+            }
+            return null;
+        }
+
+        function stripHtml(h) {
+            if(!h) return '';
+            let t = document.createElement("DIV");
+            t.innerHTML = h;
+            return t.textContent || t.innerText || "";
+        }
+
+        function toggleFilters() {
+            const p = document.getElementById('filtersPanel'),
+                b = document.getElementById('filterBackdrop');
+            if(p.style.transform === 'translateX(0px)') {
+                p.style.transform = '';
+                b.style.display = 'none';
+            } else {
+                p.style.transform = 'translateX(0px)';
+                b.style.display = 'block';
+            }
+        }
+        async function loadUsers() {
+            const res = await fetch('/api/users');
+            userList = await res.json();
+            document.getElementById('usersTableBody').innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name||'-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id!==currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join('');
+        }
+
+        function openUserModal(mode, id) {
             const m = document.getElementById('userModal'),
                 t = document.getElementById('userModalTitle'),
                 e = document.getElementById('uEmail');
@@ -874,23 +1199,19 @@
                 e.value = '';
                 e.disabled = false;
                 document.getElementById('uPwd').value = '';
-                document.getElementById('uPwdConfirm').value = '';
-                document.getElementById('pwdStrength').innerText = '密碼強度: -';
                 document.getElementById('pwdHint').innerText = '';
                 document.getElementById('uRole').value = 'viewer';
             } else {
-                // 取得單一使用者（可以從目前頁面 userList 找）
-                const u = userList.find(x => x.id === id) || {};
+                const u = userList.find(x => x.id === id);
+                if(!u) return;
                 t.innerText = '編輯';
-                document.getElementById('targetUserId').value = u.id || '';
+                document.getElementById('targetUserId').value = u.id;
                 document.getElementById('uName').value = u.name || '';
-                e.value = u.username || '';
+                e.value = u.username;
                 e.disabled = true;
                 document.getElementById('uPwd').value = '';
-                document.getElementById('uPwdConfirm').value = '';
                 document.getElementById('pwdHint').innerText = '(留空不改)';
-                document.getElementById('pwdStrength').innerText = '密碼強度: -';
-                document.getElementById('uRole').value = u.role || 'viewer';
+                document.getElementById('uRole').value = u.role;
             }
             m.classList.add('open');
         }
@@ -899,46 +1220,48 @@
                 name = document.getElementById('uName').value,
                 email = document.getElementById('uEmail').value,
                 pwd = document.getElementById('uPwd').value,
-                pwdConfirm = document.getElementById('uPwdConfirm').value,
                 role = document.getElementById('uRole').value;
             if(!id) {
                 if(!email) return showToast('請輸入帳號', 'error');
                 if(!pwd) return showToast('請輸入密碼', 'error');
-                if(pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error');
-                if(pwd.length < 8) return showToast('密碼需至少 8 碼', 'error');
-                const res = await fetch('/api/users', {
+                await fetch('/api/users', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: email, name, password: pwd, role })
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: email,
+                        name,
+                        password: pwd,
+                        role
+                    })
                 });
-                const j = await res.json();
-                if(res.ok) { showToast('新增成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(1); }
-                else showToast(j.error || '新增失敗','error');
             } else {
-                const payload = { name, role };
-                if(pwd) {
-                    if(pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error');
-                    if(pwd.length < 8) return showToast('密碼需至少 8 碼', 'error');
-                    payload.password = pwd;
-                }
-                const res = await fetch(`/api/users/${id}`, {
+                await fetch(`/api/users/${id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name,
+                        role,
+                        password: pwd
+                    })
                 });
-                const j = await res.json();
-                if(res.ok) { showToast('更新成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(usersPage); }
-                else showToast(j.error || '更新失敗','error');
             }
+            showToast('帳號儲存成功');
+            document.getElementById('userModal').classList.remove('open');
+            loadUsers();
         }
         async function deleteUser(id) {
-            if(!confirm('確定?')) return;
-            const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
-            if(res.ok) { showToast('刪除成功'); loadUsersPage(1); }
-            else showToast('刪除失敗','error');
+            if(confirm('確定?')) {
+                await fetch(`/api/users/${id}`, {
+                    method: 'DELETE'
+                });
+                loadUsers();
+            }
         }
 
-        // Profile update
         function openProfileModal() {
             document.getElementById('myProfileName').value = currentUser.name || '';
             document.getElementById('myProfilePwd').value = '';
@@ -947,24 +1270,113 @@
         async function submitProfile() {
             const name = document.getElementById('myProfileName').value,
                 pwd = document.getElementById('myProfilePwd').value;
+            const res = await fetch('/api/auth/profile', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name,
+                    password: pwd
+                })
+            });
+            if(res.ok) {
+                showToast('更新成功，請重新登入');
+                document.getElementById('profileModal').classList.remove('open');
+                logout();
+            } else showToast('更新失敗', 'error');
+        }
+        async function runAiInEdit(btn) {
+            btn.disabled = true;
+            btn.innerText = 'AI 分析中...';
+            const handlingTxt = document.getElementById('editHandling').value;
+            const r = [{
+                handling: handlingTxt,
+                review: '(待審查)'
+            }];
             try {
-                const res = await fetch('/api/auth/profile', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, password: pwd })
+                if(!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容');
+                const cleanContent = stripHtml(currentEditItem.content);
+                const res = await fetch('/api/gemini', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: cleanContent,
+                        rounds: r
+                    })
                 });
-                if(res.ok) {
-                    showToast('更新成功，請重新登入');
-                    document.getElementById('profileModal').classList.remove('open');
-                    logout();
-                } else {
-                    const j = await res.json();
-                    showToast(j.error || '更新失敗', 'error');
-                }
-            } catch(e) { showToast('更新失敗', 'error'); }
+                const j = await res.json();
+                if(!res.ok) throw new Error(j.error || '未知錯誤');
+                if(!j.fulfill) throw new Error('AI 回傳格式錯誤');
+                const isPass = j.fulfill.includes('Yes') || j.fulfill.includes('是');
+                document.getElementById('aiResBadge').innerHTML = `<strong style="color:${isPass?'#10b981':'#ef4444'}">[${j.fulfill}]</strong>`;
+                document.getElementById('aiPreviewText').innerText = j.reason;
+                document.getElementById('aiBox').style.display = 'block';
+            } catch(e) {
+                showToast('AI 失敗: ' + e.message, 'error');
+                console.error(e);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '🤖 AI 智能分析';
+            }
         }
 
-        // Edit / AI functions (保留你原來實作) - saveEdit, runAiInEdit, applyAiSuggestion, openDetail, toggleEditMode, deleteIssue
+        function applyAiSuggestion() {
+            const reason = document.getElementById('aiPreviewText').innerText;
+            if(reason) {
+                const ta = document.getElementById('editReview');
+                ta.value = ta.value ? (ta.value + "\n" + reason) : reason;
+                document.getElementById('aiBox').style.display = 'none';
+            }
+        }
+
+        function toggleAllCheckboxes() {
+            const master = document.getElementById('selectAll');
+            document.querySelectorAll('.issue-check').forEach(cb => cb.checked = master.checked);
+            updateBatchUI();
+        }
+
+        function updateBatchUI() {
+            const checked = document.querySelectorAll('.issue-check:checked');
+            const count = checked.length;
+            const container = document.getElementById('batchActionContainer');
+            if(count > 0) {
+                container.style.display = 'block';
+                document.getElementById('selectedCountBadge').innerText = `(${count})`;
+            } else {
+                container.style.display = 'none';
+            }
+        }
+        async function batchDeleteIssues() {
+            const checked = document.querySelectorAll('.issue-check:checked');
+            const ids = Array.from(checked).map(cb => cb.value);
+            if(ids.length === 0) return showToast('請先勾選要刪除的項目', 'error');
+            if(!confirm(`確定要刪除這 ${ids.length} 筆資料嗎？`)) return;
+            try {
+                const res = await fetch('/api/issues/batch-delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ids
+                    })
+                });
+                const result = await res.json();
+                if(result.success) {
+                    showToast(`成功刪除 ${ids.length} 筆資料`);
+                    loadData();
+                    document.getElementById('selectAll').checked = false;
+                    updateBatchUI();
+                } else {
+                    showToast('刪除失敗: ' + result.error, 'error');
+                }
+            } catch(e) {
+                showToast('連線錯誤', 'error');
+            }
+        }
         async function saveEdit() {
             const id = document.getElementById('editId').value,
                 payload = {
@@ -975,66 +1387,22 @@
                 };
             const res = await fetch(`/api/issues/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(payload)
             });
             if(res.ok) {
                 showToast('儲存成功');
-                await loadIssuesPage(issuesPage);
+                await loadData();
                 toggleEditMode(false);
                 openDetail(id, false);
-            } else {
-                showToast('儲存失敗','error');
-            }
+            } else showToast('儲存失敗', 'error');
         }
 
-        async function runAiInEdit(btn) {
-            btn.disabled = true;
-            btn.innerText = 'AI 分析中...';
-            const handlingTxt = document.getElementById('editHandling').value;
-            const r = [{ handling: handlingTxt, review: '(待審查)' }];
-            try {
-                if(!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容');
-                const cleanContent = stripHtml(currentEditItem.content);
-                const res = await fetch('/api/gemini', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content: cleanContent, rounds: r })
-                });
-                const j = await res.json();
-                if(!res.ok) throw new Error(j.error || '未知錯誤');
-                if(!j.fulfill) throw new Error('AI 回傳格式錯誤');
-                const isPass = j.fulfill.includes('Yes') || j.fulfill.includes('是');
-                document.getElementById('aiResBadge').innerHTML = `<strong style="color:${isPass?'#10b981':'#ef4444'}">[${j.fulfill}]</strong>`;
-                document.getElementById('aiPreviewText').innerText = j.reason;
-                document.getElementById('aiBox').style.display = 'block';
-            } catch (e) {
-                showToast('AI 失敗: ' + e.message, 'error');
-                console.error(e);
-            } finally {
-                btn.disabled = false;
-                btn.innerText = '🤖 AI 智能分析';
-            }
-        }
-        function applyAiSuggestion() {
-            const reason = document.getElementById('aiPreviewText').innerText;
-            if(reason) {
-                const ta = document.getElementById('editReview');
-                ta.value = ta.value ? (ta.value + "\n" + reason) : reason;
-                document.getElementById('aiBox').style.display = 'none';
-            }
-        }
-
-        async function openDetail(id, isEdit) {
-            // 從 server 載入單一資料或從現有 currentData 中尋找
-            let item = currentData.find(d => String(d.id) === String(id));
-            if(!item) {
-                // 請求後端單筆（若需要），簡單處理：向 /api/issues?page=... 搜尋 title 或 id（此處我們直接請求整筆資料 via existing list by reloading page 1）
-                await loadIssuesPage(1);
-                item = currentData.find(d => String(d.id) === String(id));
-            }
-            if(!item) return;
-            currentEditItem = item;
+        function openDetail(id, isEdit) {
+            currentEditItem = rawData.find(d => String(d.id) === String(id));
+            if(!currentEditItem) return;
             document.getElementById('dNumber').textContent = currentEditItem.number;
             document.getElementById('dYear').textContent = currentEditItem.year;
             document.getElementById('dUnit').textContent = currentEditItem.unit;
@@ -1076,186 +1444,18 @@
             }
         }
 
-        async function deleteIssue(id) {
-            if(!confirm('確定要刪除此事項嗎？此操作無法復原。')) return;
-            try {
-                const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' });
-                if(res.ok) {
-                    showToast('已刪除');
-                    await loadIssuesPage(issuesPage);
-                    closeDrawer();
-                } else showToast('刪除失敗','error');
-            } catch(e) { showToast('Error: ' + e.message, 'error'); }
-        }
-        async function deleteIssueFromDrawer() { if(!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
-
-        function loadRoundData() {
-            const r = parseInt(document.getElementById('editRound').value);
-            const s = r === 1 ? '' : r;
-            const rawHandling = currentEditItem['handling' + s] || '';
-            const rawReview = currentEditItem['review' + s] || '';
-            document.getElementById('editHandling').value = stripHtml(rawHandling);
-            document.getElementById('editReview').value = stripHtml(rawReview);
-            const prevBox = document.getElementById('prevReviewBox');
-            const prevText = document.getElementById('prevReviewText');
-            if(r > 1) {
-                const prevS = (r - 1) === 1 ? '' : (r - 1);
-                const prevReviewContent = currentEditItem['review' + prevS];
-                if(prevReviewContent) {
-                    document.getElementById('prevRoundNum').innerText = `第 ${r-1} 次`;
-                    prevText.innerText = stripHtml(prevReviewContent);
-                    prevBox.style.display = 'block';
-                } else {
-                    prevBox.style.display = 'none';
-                }
-            } else {
-                prevBox.style.display = 'none';
+        function switchView(id) {
+            document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.sidebar-btn').forEach(e => e.classList.remove('active'));
+            const btn = document.getElementById(`btn-${id}`);
+            if(btn) btn.classList.add('active');
+            document.getElementById('searchFilters').style.display = id === 'searchView' ? 'block' : 'none';
+            if(window.innerWidth <= 1024) {
+                const p = document.getElementById('filtersPanel');
+                if(p.classList.contains('open') || p.style.transform === 'translateX(0px)') onToggleSidebar();
             }
         }
-
-        function toggleUserMenu() {
-            document.getElementById('userDropdown').classList.toggle('show');
-        }
-        window.addEventListener('click', function(e) {
-            if(!e.target.closest('.user-menu-container')) {
-                document.getElementById('userDropdown').classList.remove('show');
-            }
-        });
-
-        function toggleAllCheckboxes() {
-            const master = document.getElementById('selectAll');
-            document.querySelectorAll('.issue-check').forEach(cb => cb.checked = master.checked);
-            updateBatchUI();
-        }
-        function updateBatchUI() {
-            const checked = document.querySelectorAll('.issue-check:checked');
-            const count = checked.length;
-            const container = document.getElementById('batchActionContainer');
-            if(count > 0) {
-                container.style.display = 'block';
-                document.getElementById('selectedCountBadge').innerText = `(${count})`;
-            } else {
-                container.style.display = 'none';
-            }
-        }
-        async function batchDeleteIssues() {
-            const checked = document.querySelectorAll('.issue-check:checked');
-            const ids = Array.from(checked).map(cb => cb.value);
-            if(ids.length === 0) return showToast('請先勾選要刪除的項目', 'error');
-            if(!confirm(`確定要刪除這 ${ids.length} 筆資料嗎？`)) return;
-            try {
-                const res = await fetch('/api/issues/batch-delete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids })
-                });
-                const result = await res.json();
-                if(result.success) {
-                    showToast(`成功刪除 ${ids.length} 筆資料`);
-                    loadIssuesPage(1);
-                    document.getElementById('selectAll').checked = false;
-                    updateBatchUI();
-                } else {
-                    showToast('刪除失敗: ' + result.error, 'error');
-                }
-            } catch(e) {
-                showToast('連線錯誤', 'error');
-            }
-        }
-
-        function toggleFilters() {
-            const p = document.getElementById('filtersPanel'),
-                b = document.getElementById('filterBackdrop');
-            if(p.style.transform === 'translateX(0px)') {
-                p.style.transform = '';
-                b.style.display = 'none';
-            } else {
-                p.style.transform = 'translateX(0px)';
-                b.style.display = 'block';
-            }
-        }
-
-        // Chart initialization and update (保持原樣)
-        function initCharts() {
-            try {
-                const c1 = document.getElementById('statusChart');
-                const c2 = document.getElementById('unitChart');
-                const c3 = document.getElementById('trendChart');
-                if(c1) {
-                    charts.status = new Chart(c1, {
-                        type: 'doughnut',
-                        plugins: [ChartDataLabels],
-                        data: { labels: [], datasets: [] },
-                        options: {
-                            responsive: true, maintainAspectRatio: false,
-                            plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if(!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#333', font: { weight: 'bold' } } }
-                        }
-                    });
-                }
-                if(c2) {
-                    charts.unit = new Chart(c2, {
-                        type: 'bar',
-                        data: { labels: [], datasets: [] },
-                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-                    });
-                }
-                if(c3) {
-                    charts.trend = new Chart(c3, {
-                        type: 'line',
-                        data: { labels: [], datasets: [] },
-                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度案件趨勢' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-                    });
-                }
-            } catch(e) { console.error("Chart Init Error:", e); }
-        }
-
-        function updateChartsData() {
-            if(!charts.status || !charts.unit || !charts.trend) return;
-            const s = {};
-            currentData.forEach(d => { if(d.status && d.status !== 'Open' && d.status.trim() !== '') s[d.status] = (s[d.status] || 0) + 1; });
-            const sKeys = Object.keys(s);
-            const sVals = Object.values(s);
-            if(sKeys.length > 0) {
-                charts.status.data = { labels: sKeys, datasets: [{ data: sVals, backgroundColor: ['#ef4444', '#10b981', '#f59e0b'] }] };
-                charts.status.update();
-            }
-            const u = {};
-            currentData.forEach(d => u[d.unit] = (u[d.unit] || 0) + 1);
-            const sorted = Object.entries(u).sort((a, b) => b[1] - a[1]);
-            charts.unit.data = { labels: sorted.map(x => x[0]), datasets: [{ label: '案件', data: sorted.map(x => x[1]), backgroundColor: '#0ea5e9', borderRadius: 4 }] };
-            charts.unit.update();
-            const t = {};
-            currentData.forEach(d => { if(d.year && d.year !== '未知') t[d.year] = (t[d.year] || 0) + 1; });
-            const sortedYears = Object.keys(t).sort();
-            charts.trend.data = { labels: sortedYears, datasets: [{ label: '案件數', data: sortedYears.map(y => t[y]), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] };
-            charts.trend.update();
-        }
-
-        // small helper for populate select options
-        function populateSelect(id, d, f) {
-            const u = [...new Set(d.map(i => i[f]).filter(Boolean))].sort().reverse();
-            document.getElementById(id).innerHTML = '<option value="">全部</option>' + u.map(v => `<option value="${v}">${v}</option>`).join('');
-        }
-
-        // keep original parseFromHTML and other helpers here in full in your real file
-        // ---- IMPORTANT: 確保你的原始 index.html 中所有解析與正規化 helper（如 parseFromHTML, normalizeCodeString, parseStatusFromResultCell 等）都存在並未被刪除。 ----
-
     </script>
 </body>
 </html>
-```
-
-說明與下一步
-- 已實作的 server-side 分頁 API：
-  - GET /api/issues?page=&pageSize=&q=&year=&unit=&status=&sortField=&sortDir=
-  - GET /api/users?page=&pageSize=&q=&sortField=&sortDir=  （需 admin）
-  - GET /api/admin/logs?page=&pageSize=&q=  （需 admin）
-  - GET /api/admin/action_logs?page=&pageSize=&q=  （需 admin）
-- 前端 index.html 已更新成為呼叫這些分頁 API（issues/users/logs/actions），並在畫面上提供分頁控制器（上一頁/下一頁/每頁數量）。
-- 我保留了原有的大部分前端互動（匯入、AI 分析、編輯、刪除等）呼叫不變，但請在你本地確認 parseFromHTML、normalizeCodeString 等大型 helper 都完整保留在 index.html；若你原來的 index.html 有完整這些函式，請把我上面 index.html 的 <script> 部分與你原始的 helper 合併（我在檔案中已有提示），或告訴我我可以直接把你目前的完整 index.html 合併後回傳完整檔案。
-
-我可以下一步：
-1) 幫你把 index.html 的 script 做最小改動版（只更新 load 與分頁呼叫，並完整保留你原本的所有 helper 函式），把一個完整可執行的 index.html 回傳給你（建議）。  
-2) 或是現在你先把上述 server.js 部署起來，我再根據你現行的 index.html 提供精確的合併補丁。
-
-你要我直接回傳完整合併後的 index.html（包含你原本所有 helper 函式）嗎？如果要，請回覆「請回傳完整合併版 index.html」，我會馬上傳給你。
