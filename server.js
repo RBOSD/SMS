@@ -476,7 +476,7 @@ app.post('/api/gemini', checkAuth, checkEditor, async (req, res) => {
     if (!GEMINI_API_KEY) return res.status(500).json({ error: "No API Key configured" });
     const prompt = `Role: 監理機關審查人員. Task: 針對「開立事項 (Finding)」審查營運機構回報的「辦理情形 (Action)」。 開立事項: ${content} 辦理情形: ${JSON.stringify(rounds)} 請判斷辦理情形是否足以解除列管。 語氣: 中性、冷靜、公務化。 Output Format: JSON ONLY. Example: { "fulfill": "是/否", "reason": "審查意見" }`;
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-Pro:generateContent?key=${GEMINI_API_KEY}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
         const r = await axios.post(url, { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" }});
         let txt = r.data.candidates[0].content.parts[0].text;
         const jsonMatch = txt.match(/{[\s\S]*}/);
