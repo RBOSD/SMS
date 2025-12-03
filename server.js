@@ -319,7 +319,7 @@ app.delete('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => 
     } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
 });
 
-// [Modified] Issues API - 增加 latestCreatedAt 回傳
+// [Modified] Issues API - 包含統計資訊 (Stats) 供圖表使用
 app.get('/api/issues', checkAuth, async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -354,19 +354,34 @@ app.get('/api/issues', checkAuth, async (req, res) => {
         }
         const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
+        // 1. 取得分頁資料
         const countRes = await pool.query(`SELECT COUNT(*) FROM issues ${whereSQL}`, params);
         const total = parseInt(countRes.rows[0].count, 10);
         const pages = Math.max(1, Math.ceil(total / pageSize));
         const offset = (page - 1) * pageSize;
 
-        // 取得最新建立的 Issue 時間 (無論現在的分頁查詢為何，這是全域的最新)
-        const latestRes = await pool.query('SELECT MAX(created_at) as last_updated FROM issues');
-        const latestCreatedAt = latestRes.rows[0].last_updated;
-
         const r = await pool.query(`SELECT * FROM issues ${whereSQL} ORDER BY ${orderBy} LIMIT $${params.length+1} OFFSET $${params.length+2}`, params.concat([pageSize, offset]));
         const data = r.rows.map(row => ({ ...(row.raw_data || {}), ...row, id: String(row.id) }));
 
-        res.json({ page, pages, total, pageSize, data, latestCreatedAt });
+        // 2. 取得最新資料時間
+        const latestRes = await pool.query('SELECT MAX(created_at) as last_updated FROM issues');
+        const latestCreatedAt = latestRes.rows[0].last_updated;
+
+        // 3. 取得全量統計資料 (for Charts) - 不受分頁影響，但受搜尋條件影響
+        // 注意：若要顯示「所有」開立事項趨勢，不應受 keyword 影響，這裡假設使用者希望看到「當前篩選範圍下」的統計，
+        // 但使用者的需求是「總開立事項不符」，通常意味著 Chart 應該顯示 Global Stats。
+        // 因此這裡我們額外撈一次 Global Stats (無 where 條件)
+        const statsStatusRes = await pool.query("SELECT status, COUNT(*) FROM issues GROUP BY status");
+        const statsUnitRes = await pool.query("SELECT unit, COUNT(*) FROM issues GROUP BY unit");
+        const statsYearRes = await pool.query("SELECT year, COUNT(*) FROM issues GROUP BY year");
+        
+        const stats = {
+            status: statsStatusRes.rows,
+            unit: statsUnitRes.rows,
+            year: statsYearRes.rows
+        };
+
+        res.json({ page, pages, total, pageSize, data, latestCreatedAt, stats });
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: e.message });

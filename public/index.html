@@ -16,11 +16,9 @@
         
         /* Header */
         .app-header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 20px; height: var(--header-h); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 30; width: 100%; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; color: var(--text-main); }
+        .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; color: var(--text-main); cursor: pointer; }
         .brand-icon { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 5px rgba(37,99,235,0.2); }
-        .filter-toggle-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: transparent; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 18px; color: var(--text-sub); transition: all 0.2s; }
-        .filter-toggle-btn:hover { background: #f1f5f9; color: var(--primary); border-color: var(--primary); }
-
+        
         /* User Menu */
         .user-menu-container { position: relative; }
         .user-capsule { display: flex; align-items: center; gap: 10px; padding: 6px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 30px; cursor: pointer; transition: all 0.2s; }
@@ -34,10 +32,8 @@
         .dropdown-divider { height: 1px; background: #f1f5f9; margin: 4px 0; }
 
         /* Layout */
-        .app-body { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 60px); position: relative; }
-        .filters-panel { width: 260px; background: var(--bg-card); border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; z-index: 40; height: 100%; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; }
-        .filters-panel.collapsed { width: 0; padding: 0; border-right: none; overflow: hidden; }
-        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px; background: var(--bg-body); scroll-behavior: smooth; position: relative; z-index: 1; }
+        .app-body { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 60px); position: relative; flex-direction: column; }
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 20px; background: var(--bg-body); scroll-behavior: smooth; position: relative; z-index: 1; width: 100%; max-width: 1400px; margin: 0 auto; }
         
         .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); flex-shrink: 0; min-height: 30px; }
         .content-title { font-size: 20px; font-weight: 700; color: var(--text-main); }
@@ -56,21 +52,25 @@
         .charts-grid { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 16px; margin-bottom: 20px; flex-shrink: 0; width: 100%; }
         .chart-card { background: white; border-radius: 12px; padding: 20px; border: 1px solid var(--border); height: 280px; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative; }
         
-        .btn { padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: 0.2s; }
+        /* Search Bar */
+        .search-bar { background: white; padding: 16px; border-radius: 12px; border: 1px solid var(--border); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .search-item { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 140px; }
+        .search-item label { font-size: 12px; font-weight: 600; color: var(--text-sub); }
+        .btn { padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: 0.2s; white-space: nowrap; }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-primary { background: var(--primary); color: white; box-shadow: 0 2px 4px rgba(37,99,235,0.2); }
         .btn-outline { background: white; border: 1px solid var(--border); color: var(--text-main); }
         .btn-danger { background: var(--danger); color: white; }
         .btn-ai { background: #7c3aed; color: white; }
-        .filter-input, .filter-select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; font-size: 14px; transition: border 0.2s; }
+        .filter-input, .filter-select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: #fff; font-size: 14px; transition: border 0.2s; }
         .filter-input:focus, .filter-select:focus { border-color: var(--primary); outline: none; }
+        
+        .nav-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+        .nav-btn { padding: 8px 16px; background: transparent; border: none; font-weight: 600; color: var(--text-sub); cursor: pointer; border-radius: 6px; transition: all 0.2s; }
+        .nav-btn:hover { background: #f1f5f9; color: var(--text-main); }
+        .nav-btn.active { background: #eff6ff; color: var(--primary); }
+
         .hidden { display: none !important; }
-        .sidebar-btn { width: 100%; text-align: left; padding: 12px; background: transparent; border: none; color: var(--text-sub); font-weight: 600; cursor: pointer; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; gap: 10px; }
-        .sidebar-btn:hover { background: #f1f5f9; color: var(--text-main); }
-        .sidebar-btn.active { background: #eff6ff; color: var(--primary); }
-        .admin-tabs { display: flex; gap: 10px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
-        .admin-tab-btn { padding: 10px 16px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; color: #64748b; cursor: pointer; }
-        .admin-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
         
         .data-container { background: white; border-radius: 12px; border: 1px solid var(--border); overflow-x: auto; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         table { width: 100%; border-collapse: collapse; min-width: 1000px; }
@@ -80,12 +80,13 @@
         tr:hover { background: #f8fafc; cursor: pointer; }
         
         /* Pagination Bar Styles */
-        .pagination-bar { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; align-items: center; padding: 8px 0; }
-        .page-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: white; border-radius: 6px; cursor: pointer; color: var(--text-main); font-size: 13px; transition: all 0.2s; }
+        .pagination-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
+        .pagination-bar { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+        .page-btn { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: white; border-radius: 6px; cursor: pointer; color: var(--text-main); font-size: 13px; transition: all 0.2s; }
         .page-btn:hover:not(:disabled) { background: #f1f5f9; border-color: #cbd5e1; color: var(--primary); }
         .page-btn.active { background: var(--primary); border-color: var(--primary); color: white; font-weight: 600; }
         .page-btn:disabled { opacity: 0.5; cursor: not-allowed; background: #f8fafc; }
-        .page-dots { display: flex; align-items: center; justify-content: center; width: 32px; color: var(--text-sub); }
+        .page-dots { display: flex; align-items: center; justify-content: center; width: 30px; color: var(--text-sub); font-size: 12px; }
 
         .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
         .badge.active { background: #fee2e2; color: #991b1b; } .badge.resolved { background: #d1fae5; color: #065f46; } .badge.self { background: #fef3c7; color: #92400e; }
@@ -127,11 +128,12 @@
 
         /* Mobile Optimization */
         @media (max-width: 1024px) { 
-            .filters-panel.collapsed { width: 280px; }
+            .search-bar { flex-direction: column; align-items: stretch; }
+            .search-item { width: 100%; }
+            .pagination-wrapper { flex-direction: column; align-items: center; gap: 10px; }
+            .pagination-bar { justify-content: center; }
             .app-body { display: block; height: auto; overflow: visible; background: #f8fafc; }
             .main-content { height: auto; overflow: visible; padding: 12px; }
-            .filters-panel { position: fixed; top: 60px; left: 0; bottom: 0; width: 85%; max-width: 320px; transform: translateX(-100%); box-shadow: 10px 0 25px rgba(0,0,0,0.15); background: white; z-index: 50; padding: 20px; } 
-            .filters-panel.open { transform: translateX(0); } 
             .stats-bar { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
             .stat-item { padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
             .stat-item:last-child { grid-column: span 2; flex-direction: row; gap: 12px; justify-content: center; }
@@ -167,8 +169,7 @@
     <div id="toast-container"></div>
 
     <header class="app-header">
-        <div class="brand">
-            <button class="filter-toggle-btn" onclick="onToggleSidebar()">☰</button>
+        <div class="brand" onclick="window.location.reload()">
             <div class="brand-icon">🚄</div>
             <div>SMS開立事項查詢與AI審查系統</div>
         </div>
@@ -187,35 +188,35 @@
     </header>
 
     <div class="app-body" id="appBody">
-        <aside class="filters-panel" id="filtersPanel">
-            <div style="font-size:12px;font-weight:700;color:var(--text-sub);text-transform:uppercase;margin-bottom:8px;">功能選單</div>
-            <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')"><span>📊</span> 查詢看板</button>
-            <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')"><span>📥</span> 資料匯入</button>
-            <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')"><span>👥</span> 帳號管理</button>
-            <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;">
-            <div id="searchFilters">
-                <div class="form-group"><label>關鍵字</label><input type="text" id="filterKeyword" class="filter-input"></div>
-                <div class="form-group"><label>年度</label><select id="filterYear" class="filter-select"></select></div>
-                <div class="form-group"><label>機構</label><select id="filterUnit" class="filter-select"></select></div>
-                <div class="form-group"><label>狀態</label><select id="filterStatus" class="filter-select"><option value="">全部</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
-                <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
-                    <button class="btn btn-primary" onclick="applyFilters()">🔍 搜尋</button>
-                    <button class="btn btn-outline" onclick="resetFilters()">🔄 重設</button>
-                </div>
-            </div>
-        </aside>
-        
-        <div id="filterBackdrop" style="position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:35;display:none;" onclick="onToggleSidebar()"></div>
-
         <main class="main-content">
+            
+            <!-- Top Navigation -->
+            <div class="nav-tabs">
+                <button class="nav-btn active" id="btn-searchView" onclick="switchView('searchView')">📊 查詢看板</button>
+                <button class="nav-btn hidden" id="btn-importView" onclick="switchView('importView')">📥 資料匯入</button>
+                <button class="nav-btn hidden" id="btn-usersView" onclick="switchView('usersView')">👥 帳號管理</button>
+            </div>
+
             <div id="searchView" class="view-section active">
+                <!-- Search Bar moved to top -->
+                <div class="search-bar" id="searchFilters">
+                    <div class="search-item" style="flex:2;"><label>關鍵字搜尋</label><input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字..."></div>
+                    <div class="search-item"><label>年度</label><select id="filterYear" class="filter-select"></select></div>
+                    <div class="search-item"><label>機構</label><select id="filterUnit" class="filter-select"></select></div>
+                    <div class="search-item"><label>狀態</label><select id="filterStatus" class="filter-select"><option value="">全部狀態</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
+                    <div style="display:flex; gap:8px; align-items:flex-end;">
+                        <button class="btn btn-primary" onclick="applyFilters()">🔍 搜尋</button>
+                        <button class="btn btn-outline" onclick="resetFilters()">重設</button>
+                    </div>
+                </div>
+
                 <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
                     <button class="dashboard-toggle-btn" onclick="toggleDashboard(this)"><span>收合統計圖表</span> <span>▲</span></button>
                 </div>
 
                 <div id="dashboardSection" class="dashboard-section">
                     <div class="stats-bar">
-                        <div class="stat-item"><div class="stat-val" style="color:#6366f1" id="countTotal">0</div><div class="stat-label">總數</div></div>
+                        <div class="stat-item"><div class="stat-val" style="color:#6366f1" id="countTotal">0</div><div class="stat-label">總開立事項</div></div>
                         <div class="stat-item"><div class="stat-val" style="color:#ef4444" id="countActive">0</div><div class="stat-label">列管中</div></div>
                         <div class="stat-item"><div class="stat-val" style="color:#10b981" id="countResolved">0</div><div class="stat-label">已解除</div></div>
                     </div>
@@ -236,8 +237,11 @@
                     <div style="font-size:12px;color:#666; margin-left: auto;" id="dataTimestamp">...</div>
                 </div>
 
-                <!-- 上方分頁列 -->
-                <div id="issuesPaginationTop" class="pagination-bar"></div>
+                <!-- Pagination Top -->
+                <div class="pagination-wrapper">
+                    <div style="font-size:13px;color:#666;">共 <span id="issuesTotalCount">0</span> 筆資料</div>
+                    <div id="issuesPaginationTop" class="pagination-bar"></div>
+                </div>
 
                 <!-- Issues Table -->
                 <div class="data-container">
@@ -258,18 +262,18 @@
                     </table>
                 </div>
 
-                <!-- 下方分頁列 (含每頁筆數選擇) -->
-                <div style="display:flex; flex-direction:column; align-items:center; margin-top:12px; gap:10px;">
-                    <div id="issuesPaginationBottom" class="pagination-bar"></div>
-                    <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#666;">
-                        <span>每頁顯示</span>
+                <!-- Pagination Bottom -->
+                <div class="pagination-wrapper" style="justify-content:center; margin-top:20px;">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#666; margin-right:auto;">
+                        <span>每頁</span>
                         <select id="issuesPageSize" onchange="onIssuesPageSizeChange()" style="padding:4px; border:1px solid #ddd; border-radius:4px;">
                             <option value="10">10</option>
                             <option value="20" selected>20</option>
                             <option value="50">50</option>
                         </select>
-                        <span>筆，共 <span id="issuesTotalCount">0</span> 筆</span>
                     </div>
+                    <div id="issuesPaginationBottom" class="pagination-bar"></div>
+                    <div style="width:100px;"></div> <!-- spacer for centering -->
                 </div>
 
                 <div id="emptyMsg" style="text-align:center;padding:40px;color:#999;display:none;">查無資料</div>
@@ -322,7 +326,7 @@
                         <thead><tr><th style="padding:12px;" onclick="usersSortBy('name')">姓名</th><th onclick="usersSortBy('username')">帳號</th><th onclick="usersSortBy('role')">權限</th><th onclick="usersSortBy('created_at')">註冊時間</th><th>操作</th></tr></thead>
                         <tbody id="usersTableBody"></tbody>
                     </table>
-                    <div id="usersPaginationBottom" class="pagination-bar"></div>
+                    <div id="usersPaginationBottom" class="pagination-bar" style="padding:10px;"></div>
                 </div>
                 
                 <!-- Login Logs Tab -->
@@ -334,7 +338,7 @@
                     </div>
                     <div id="logsPaginationTop" class="pagination-bar" style="border-bottom:1px solid #eee;"></div>
                     <table class="user-table"><thead><tr><th style="padding:12px;">時間</th><th>帳號</th><th>IP 位址</th></tr></thead><tbody id="logsTableBody"></tbody></table>
-                    <div id="logsPaginationBottom" class="pagination-bar"></div>
+                    <div id="logsPaginationBottom" class="pagination-bar" style="padding:10px;"></div>
                 </div>
                 
                 <!-- Action Logs Tab -->
@@ -346,7 +350,7 @@
                     </div>
                     <div id="actionsPaginationTop" class="pagination-bar" style="border-bottom:1px solid #eee;"></div>
                     <table class="user-table"><thead><tr><th style="padding:12px;">時間</th><th>帳號</th><th>動作</th><th>詳細內容</th></tr></thead><tbody id="actionsTableBody"></tbody></table>
-                    <div id="actionsPaginationBottom" class="pagination-bar"></div>
+                    <div id="actionsPaginationBottom" class="pagination-bar" style="padding:10px;"></div>
                 </div>
                 
                 <div id="logsLoading" style="display:none; padding:20px; text-align:center; color:#666;">⏳ 載入紀錄中...</div>
@@ -451,6 +455,15 @@
             d.classList.toggle('collapsed', !c);
             btn.innerHTML = c ? '<span>收合統計圖表</span> <span>▲</span>' : '<span>展開統計圖表</span> <span>▼</span>';
         }
+        
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('show');
+        }
+        window.addEventListener('click', function(e) {
+            if (!e.target.closest('.user-menu-container')) {
+                document.getElementById('userDropdown').classList.remove('show');
+            }
+        });
 
         // --- Helper functions ---
         function normalizeCodeString(str) { if(!str) return ""; var s = (str.normalize ? str.normalize("NFKC") : str); s = s.replace(/[\u200B-\u200D\uFEFF]/g, ""); s = s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g, "-"); s = s.replace(/[ \t]+/g, " ").replace(/\s*-\s*/g, "-"); return s.trim(); }
@@ -522,27 +535,26 @@
             if (!containerTop && !containerBottom) return;
 
             let html = '';
-            
             // Prev Button
             html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="${onPageChange}(${currentPage - 1})">◀</button>`;
 
-            // Page Numbers
-            let startPage = Math.max(1, currentPage - 2);
-            let endPage = Math.min(totalPages, currentPage + 2);
-
-            if (startPage > 1) {
-                html += `<button class="page-btn" onclick="${onPageChange}(1)">1</button>`;
-                if (startPage > 2) html += `<div class="page-dots">...</div>`;
+            // Page Numbers logic: 1 2 3 ... 10
+            const delta = 2;
+            const range = [];
+            for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+                range.push(i);
             }
 
-            for (let i = startPage; i <= endPage; i++) {
-                html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`;
-            }
+            if (currentPage - delta > 2) range.unshift('...');
+            if (currentPage + delta < totalPages - 1) range.push('...');
 
-            if (endPage < totalPages) {
-                if (endPage < totalPages - 1) html += `<div class="page-dots">...</div>`;
-                html += `<button class="page-btn" onclick="${onPageChange}(${totalPages})">${totalPages}</button>`;
-            }
+            range.unshift(1);
+            if (totalPages > 1) range.push(totalPages);
+
+            range.forEach(i => {
+                if (i === '...') html += `<div class="page-dots">...</div>`;
+                else html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`;
+            });
 
             // Next Button
             html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="${onPageChange}(${currentPage + 1})">▶</button>`;
@@ -576,7 +588,6 @@
                 issuesTotal = j.total || 0;
                 issuesPages = j.pages || 1;
                 
-                // 更新資料庫最新時間 (只顯示開立時間)
                 if (j.latestCreatedAt) {
                     const d = new Date(j.latestCreatedAt);
                     const dateStr = d.toLocaleDateString('zh-TW') + ' ' + d.toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'});
@@ -590,8 +601,11 @@
                      populateSelect('filterUnit', currentData, 'unit');
                 }
                 
-                renderStats();
-                updateChartsData();
+                // Update charts with global stats if available
+                if (j.stats) updateChartsData(j.stats);
+                else updateChartsData(); // fallback
+
+                renderStats(j.stats); // Pass global stats
                 renderTable();
                 renderPagination('issuesPagination', issuesPage, issuesPages, 'loadIssuesPage');
                 document.getElementById('issuesTotalCount').innerText = issuesTotal;
@@ -614,10 +628,20 @@
             });
         }
 
-        function renderStats() {
-            document.getElementById('countTotal').innerText = issuesTotal;
-            document.getElementById('countActive').innerText = currentData.filter(d => d.status === '持續列管').length;
-            document.getElementById('countResolved').innerText = currentData.filter(d => ['解除列管', '自行列管'].includes(d.status)).length;
+        function renderStats(stats) {
+            if (stats) {
+                const total = stats.status.reduce((sum, item) => sum + parseInt(item.count), 0);
+                const active = stats.status.find(s => s.status === '持續列管')?.count || 0;
+                const resolved = stats.status.filter(s => ['解除列管', '自行列管'].includes(s.status)).reduce((sum, s) => sum + parseInt(s.count), 0);
+                document.getElementById('countTotal').innerText = total;
+                document.getElementById('countActive').innerText = active;
+                document.getElementById('countResolved').innerText = resolved;
+            } else {
+                // Fallback to current page if stats not available (shouldn't happen with new backend)
+                document.getElementById('countTotal').innerText = issuesTotal;
+                document.getElementById('countActive').innerText = currentData.filter(d => d.status === '持續列管').length;
+                document.getElementById('countResolved').innerText = currentData.filter(d => ['解除列管', '自行列管'].includes(d.status)).length;
+            }
         }
 
         function renderTable() {
@@ -968,8 +992,34 @@
         function initListeners() { document.getElementById('filterKeyword').addEventListener('keyup', (e) => { if(e.key === 'Enter') applyFilters() }); document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer); }
         function onToggleSidebar() { const panel = document.getElementById('filtersPanel'), backdrop = document.getElementById('filterBackdrop'), isDesktop = window.innerWidth > 1024; if(isDesktop) { panel.classList.toggle('collapsed'); setTimeout(() => { if(charts.status) charts.status.resize(); if(charts.unit) charts.unit.resize(); if(charts.trend) charts.trend.resize(); }, 300); } else { if(panel.classList.contains('open')) { panel.classList.remove('open'); backdrop.style.display = 'none'; } else { panel.classList.add('open'); backdrop.style.display = 'block'; } } }
         function populateSelect(id, d, f) { const u = [...new Set(d.map(i => i[f]).filter(Boolean))].sort().reverse(); document.getElementById(id).innerHTML = '<option value="">全部</option>' + u.map(v => `<option value="${v}">${v}</option>`).join(''); }
-        function updateChartsData() { if(!charts.status || !charts.unit || !charts.trend) return; const s = {}; currentData.forEach(d => { if(d.status && d.status !== 'Open' && d.status.trim() !== '') s[d.status] = (s[d.status] || 0) + 1; }); const sKeys = Object.keys(s), sVals = Object.values(s); if(sKeys.length > 0) { charts.status.data = { labels: sKeys, datasets: [{ data: sVals, backgroundColor: ['#ef4444', '#10b981', '#f59e0b'] }] }; charts.status.update(); } const u = {}; currentData.forEach(d => u[d.unit] = (u[d.unit] || 0) + 1); const sorted = Object.entries(u).sort((a, b) => b[1] - a[1]); charts.unit.data = { labels: sorted.map(x => x[0]), datasets: [{ label: '案件', data: sorted.map(x => x[1]), backgroundColor: '#0ea5e9', borderRadius: 4 }] }; charts.unit.update(); const t = {}; currentData.forEach(d => { if(d.year && d.year !== '未知') t[d.year] = (t[d.year] || 0) + 1; }); const sortedYears = Object.keys(t).sort(); charts.trend.data = { labels: sortedYears, datasets: [{ label: '案件數', data: sortedYears.map(y => t[y]), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] }; charts.trend.update(); }
-        function initCharts() { try { const c1 = document.getElementById('statusChart'), c2 = document.getElementById('unitChart'), c3 = document.getElementById('trendChart'); if(c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if(!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#333', font: { weight: 'bold' } } } } }); } if(c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); } if(c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度案件趨勢' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } }); } } catch(e) { console.error("Chart Init Error:", e); } }
+        
+        function updateChartsData(stats) { 
+            if(!charts.status || !charts.unit || !charts.trend) return;
+            if (!stats) {
+                // Fallback logic if stats not provided (e.g. initial load error)
+                const s = {}; currentData.forEach(d => { if(d.status && d.status !== 'Open') s[d.status] = (s[d.status] || 0) + 1; });
+                // ... (old logic fallback)
+                return;
+            }
+
+            // 1. Status Chart
+            const sLabels = stats.status.map(x => x.status).filter(s => s && s !== 'Open');
+            const sData = stats.status.filter(x => x.status && x.status !== 'Open').map(x => parseInt(x.count));
+            charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: ['#ef4444', '#10b981', '#f59e0b'] }] };
+            charts.status.update();
+
+            // 2. Unit Chart
+            const uSorted = stats.unit.sort((a,b) => parseInt(b.count) - parseInt(a.count));
+            charts.unit.data = { labels: uSorted.map(x => x.unit), datasets: [{ label: '案件', data: uSorted.map(x => parseInt(x.count)), backgroundColor: '#0ea5e9', borderRadius: 4 }] };
+            charts.unit.update();
+
+            // 3. Trend Chart (Year)
+            const tSorted = stats.year.sort((a,b) => a.year.localeCompare(b.year));
+            charts.trend.data = { labels: tSorted.map(x => x.year), datasets: [{ label: '開立事項數', data: tSorted.map(x => parseInt(x.count)), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] };
+            charts.trend.update();
+        }
+
+        function initCharts() { try { const c1 = document.getElementById('statusChart'), c2 = document.getElementById('unitChart'), c3 = document.getElementById('trendChart'); if(c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if(!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#333', font: { weight: 'bold' } } } } }); } if(c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); } if(c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } }); } } catch(e) { console.error("Chart Init Error:", e); } }
         async function runAiInEdit(btn) { btn.disabled = true; btn.innerText = 'AI 分析中...'; const handlingTxt = document.getElementById('editHandling').value, r = [{ handling: handlingTxt, review: '(待審查)' }]; try { if(!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); const cleanContent = stripHtml(currentEditItem.content); const res = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: cleanContent, rounds: r }) }); const j = await res.json(); if(!res.ok) throw new Error(j.error || '未知錯誤'); if(!j.fulfill) throw new Error('AI 回傳格式錯誤'); const isPass = j.fulfill.includes('Yes') || j.fulfill.includes('是'); document.getElementById('aiResBadge').innerHTML = `<strong style="color:${isPass?'#10b981':'#ef4444'}">[${j.fulfill}]</strong>`; document.getElementById('aiPreviewText').innerText = j.reason; document.getElementById('aiBox').style.display = 'block'; } catch(e) { showToast('AI 失敗: ' + e.message, 'error'); console.error(e); } finally { btn.disabled = false; btn.innerText = '🤖 AI 智能分析'; } }
         function applyAiSuggestion() { const reason = document.getElementById('aiPreviewText').innerText; if(reason) { const ta = document.getElementById('editReview'); ta.value = ta.value ? (ta.value + "\n" + reason) : reason; document.getElementById('aiBox').style.display = 'none'; } }
         function toggleAllCheckboxes() { const master = document.getElementById('selectAll'); document.querySelectorAll('.issue-check').forEach(cb => cb.checked = master.checked); updateBatchUI(); }
@@ -978,7 +1028,7 @@
         async function saveEdit() { const id = document.getElementById('editId').value, payload = { status: document.getElementById('editStatus').value, round: document.getElementById('editRound').value, handling: document.getElementById('editHandling').value, review: document.getElementById('editReview').value }; const res = await fetch(`/api/issues/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if(res.ok) { showToast('儲存成功'); await loadIssuesPage(issuesPage); toggleEditMode(false); openDetail(id, false); } else showToast('儲存失敗', 'error'); }
         async function deleteIssue(id) { if(!confirm('確定要刪除此事項嗎？此操作無法復原。')) return; try { const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('已刪除'); await loadIssuesPage(issuesPage); closeDrawer(); } else showToast('刪除失敗','error'); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
         async function deleteIssueFromDrawer() { if(!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
-        function switchView(id) { document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.sidebar-btn').forEach(e => e.classList.remove('active')); const btn = document.getElementById(`btn-${id}`); if(btn) btn.classList.add('active'); document.getElementById('searchFilters').style.display = id === 'searchView' ? 'block' : 'none'; if(window.innerWidth <= 1024) { const p = document.getElementById('filtersPanel'); if(p.classList.contains('open') || p.style.transform === 'translateX(0px)') onToggleSidebar(); } }
+        function switchView(id) { document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.nav-btn').forEach(e => e.classList.remove('active')); const btn = document.getElementById(`btn-${id}`); if(btn) btn.classList.add('active'); }
         function loadRoundData() { const r = parseInt(document.getElementById('editRound').value), s = r === 1 ? '' : r, rawHandling = currentEditItem['handling' + s] || '', rawReview = currentEditItem['review' + s] || ''; document.getElementById('editHandling').value = formatHtmlToText(rawHandling); document.getElementById('editReview').value = formatHtmlToText(rawReview); const prevBox = document.getElementById('prevReviewBox'), prevText = document.getElementById('prevReviewText'); if(r > 1) { const prevS = (r - 1) === 1 ? '' : (r - 1), prevReviewContent = currentEditItem['review' + prevS]; if(prevReviewContent) { document.getElementById('prevRoundNum').innerText = `第 ${r-1} 次`; prevText.innerText = formatHtmlToText(prevReviewContent); prevBox.style.display = 'block'; } else { prevBox.style.display = 'none'; } } else { prevBox.style.display = 'none'; } }
     </script>
 </body>
