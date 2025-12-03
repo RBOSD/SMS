@@ -72,13 +72,21 @@
         .admin-tab-btn { padding: 10px 16px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; color: #64748b; cursor: pointer; }
         .admin-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
         
-        .data-container { background: white; border-radius: 12px; border: 1px solid var(--border); overflow-x: auto; margin-bottom: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .data-container { background: white; border-radius: 12px; border: 1px solid var(--border); overflow-x: auto; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         table { width: 100%; border-collapse: collapse; min-width: 1000px; }
         th { position: sticky; top: 0; background: #f8fafc; padding: 14px 12px; text-align: left; font-size: 13px; color: var(--text-sub); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
         th:hover { background: #e2e8f0; color: var(--primary); }
         td { padding: 14px 12px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; color: #334155; }
         tr:hover { background: #f8fafc; cursor: pointer; }
         
+        /* Pagination Bar Styles */
+        .pagination-bar { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; align-items: center; padding: 8px 0; }
+        .page-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: white; border-radius: 6px; cursor: pointer; color: var(--text-main); font-size: 13px; transition: all 0.2s; }
+        .page-btn:hover:not(:disabled) { background: #f1f5f9; border-color: #cbd5e1; color: var(--primary); }
+        .page-btn.active { background: var(--primary); border-color: var(--primary); color: white; font-weight: 600; }
+        .page-btn:disabled { opacity: 0.5; cursor: not-allowed; background: #f8fafc; }
+        .page-dots { display: flex; align-items: center; justify-content: center; width: 32px; color: var(--text-sub); }
+
         .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
         .badge.active { background: #fee2e2; color: #991b1b; } .badge.resolved { background: #d1fae5; color: #065f46; } .badge.self { background: #fef3c7; color: #92400e; }
         .badge.new { background: #dbeafe; color: #1e40af; } .badge.update { background: #fef3c7; color: #92400e; }
@@ -224,8 +232,12 @@
                             <i style="margin-right:4px">🗑️</i> 批次刪除 <span id="selectedCountBadge"></span>
                         </button>
                     </div>
+                    <!-- 顯示資料庫最新一筆開立事項的時間 -->
                     <div style="font-size:12px;color:#666; margin-left: auto;" id="dataTimestamp">...</div>
                 </div>
+
+                <!-- 上方分頁列 -->
+                <div id="issuesPaginationTop" class="pagination-bar"></div>
 
                 <!-- Issues Table -->
                 <div class="data-container">
@@ -246,17 +258,18 @@
                     </table>
                 </div>
 
-                <!-- Issues Pagination -->
-                <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:12px;">
-                    <div>每頁</div>
-                    <select id="issuesPageSize" onchange="onIssuesPageSizeChange()" style="margin-right:8px;">
-                        <option value="10">10</option>
-                        <option value="20" selected>20</option>
-                        <option value="50">50</option>
-                    </select>
-                    <button class="btn btn-outline" onclick="issuesPrevPage()">上一頁</button>
-                    <div id="issuesPagerInfo" style="padding:6px 10px;color:#666;"></div>
-                    <button class="btn btn-outline" onclick="issuesNextPage()">下一頁</button>
+                <!-- 下方分頁列 (含每頁筆數選擇) -->
+                <div style="display:flex; flex-direction:column; align-items:center; margin-top:12px; gap:10px;">
+                    <div id="issuesPaginationBottom" class="pagination-bar"></div>
+                    <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#666;">
+                        <span>每頁顯示</span>
+                        <select id="issuesPageSize" onchange="onIssuesPageSizeChange()" style="padding:4px; border:1px solid #ddd; border-radius:4px;">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                        </select>
+                        <span>筆，共 <span id="issuesTotalCount">0</span> 筆</span>
+                    </div>
                 </div>
 
                 <div id="emptyMsg" style="text-align:center;padding:40px;color:#999;display:none;">查無資料</div>
@@ -304,15 +317,12 @@
                             <button class="btn btn-outline" onclick="loadUsersPage(1)">🔍</button>
                         </div>
                     </div>
+                    <div id="usersPaginationTop" class="pagination-bar" style="border-bottom:1px solid #eee;"></div>
                     <table class="user-table">
                         <thead><tr><th style="padding:12px;" onclick="usersSortBy('name')">姓名</th><th onclick="usersSortBy('username')">帳號</th><th onclick="usersSortBy('role')">權限</th><th onclick="usersSortBy('created_at')">註冊時間</th><th>操作</th></tr></thead>
                         <tbody id="usersTableBody"></tbody>
                     </table>
-                    <div style="display:flex; justify-content:flex-end; gap:8px; align-items:center; margin-top:8px;">
-                        <button class="btn btn-outline" onclick="usersPrevPage()">上一頁</button>
-                        <div id="usersPagerInfo" style="padding:6px 10px;color:#666;"></div>
-                        <button class="btn btn-outline" onclick="usersNextPage()">下一頁</button>
-                    </div>
+                    <div id="usersPaginationBottom" class="pagination-bar"></div>
                 </div>
                 
                 <!-- Login Logs Tab -->
@@ -322,12 +332,9 @@
                         <button class="btn btn-outline btn-sm" onclick="exportLogs('login')">📥 匯出 CSV</button>
                         <button class="btn btn-danger btn-sm" onclick="clearLogs('login')">🗑️ 清除紀錄</button>
                     </div>
+                    <div id="logsPaginationTop" class="pagination-bar" style="border-bottom:1px solid #eee;"></div>
                     <table class="user-table"><thead><tr><th style="padding:12px;">時間</th><th>帳號</th><th>IP 位址</th></tr></thead><tbody id="logsTableBody"></tbody></table>
-                    <div style="display:flex; justify-content:flex-end; gap:8px; align-items:center; margin-top:8px;">
-                        <button class="btn btn-outline" onclick="logsPrevPage()">上一頁</button>
-                        <div id="logsPagerInfo" style="padding:6px 10px;color:#666;"></div>
-                        <button class="btn btn-outline" onclick="logsNextPage()">下一頁</button>
-                    </div>
+                    <div id="logsPaginationBottom" class="pagination-bar"></div>
                 </div>
                 
                 <!-- Action Logs Tab -->
@@ -337,12 +344,9 @@
                         <button class="btn btn-outline btn-sm" onclick="exportLogs('action')">📥 匯出 CSV</button>
                         <button class="btn btn-danger btn-sm" onclick="clearLogs('action')">🗑️ 清除紀錄</button>
                     </div>
+                    <div id="actionsPaginationTop" class="pagination-bar" style="border-bottom:1px solid #eee;"></div>
                     <table class="user-table"><thead><tr><th style="padding:12px;">時間</th><th>帳號</th><th>動作</th><th>詳細內容</th></tr></thead><tbody id="actionsTableBody"></tbody></table>
-                    <div style="display:flex; justify-content:flex-end; gap:8px; align-items:center; margin-top:8px;">
-                        <button class="btn btn-outline" onclick="actionsPrevPage()">上一頁</button>
-                        <div id="actionsPagerInfo" style="padding:6px 10px;color:#666;"></div>
-                        <button class="btn btn-outline" onclick="actionsNextPage()">下一頁</button>
-                    </div>
+                    <div id="actionsPaginationBottom" class="pagination-bar"></div>
                 </div>
                 
                 <div id="logsLoading" style="display:none; padding:20px; text-align:center; color:#666;">⏳ 載入紀錄中...</div>
@@ -511,6 +515,42 @@
             } catch(e) { window.location.href = '/login.html'; }
         }
 
+        // --- Pagination Logic ---
+        function renderPagination(containerId, currentPage, totalPages, onPageChange) {
+            const containerTop = document.getElementById(containerId + 'Top');
+            const containerBottom = document.getElementById(containerId + 'Bottom');
+            if (!containerTop && !containerBottom) return;
+
+            let html = '';
+            
+            // Prev Button
+            html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="${onPageChange}(${currentPage - 1})">◀</button>`;
+
+            // Page Numbers
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+
+            if (startPage > 1) {
+                html += `<button class="page-btn" onclick="${onPageChange}(1)">1</button>`;
+                if (startPage > 2) html += `<div class="page-dots">...</div>`;
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<div class="page-dots">...</div>`;
+                html += `<button class="page-btn" onclick="${onPageChange}(${totalPages})">${totalPages}</button>`;
+            }
+
+            // Next Button
+            html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="${onPageChange}(${currentPage + 1})">▶</button>`;
+
+            if(containerTop) containerTop.innerHTML = html;
+            if(containerBottom) containerBottom.innerHTML = html;
+        }
+
         // --- Issues: 呼叫 server-side 分頁 API ---
         async function loadIssuesPage(page = 1) {
             issuesPage = page;
@@ -535,9 +575,16 @@
                 currentData = j.data || [];
                 issuesTotal = j.total || 0;
                 issuesPages = j.pages || 1;
-                document.getElementById('dataTimestamp').innerText = `更新: ${new Date().toLocaleString('zh-TW')}`;
                 
-                // 首次載入時填充篩選器 (使用當前資料)
+                // 更新資料庫最新時間 (只顯示開立時間)
+                if (j.latestCreatedAt) {
+                    const d = new Date(j.latestCreatedAt);
+                    const dateStr = d.toLocaleDateString('zh-TW') + ' ' + d.toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'});
+                    document.getElementById('dataTimestamp').innerText = `最新開立事項資料時間：${dateStr}`;
+                } else {
+                    document.getElementById('dataTimestamp').innerText = '';
+                }
+                
                 if(rawData.length === 0 && currentData.length > 0) {
                      populateSelect('filterYear', currentData, 'year'); 
                      populateSelect('filterUnit', currentData, 'unit');
@@ -546,6 +593,8 @@
                 renderStats();
                 updateChartsData();
                 renderTable();
+                renderPagination('issuesPagination', issuesPage, issuesPages, 'loadIssuesPage');
+                document.getElementById('issuesTotalCount').innerText = issuesTotal;
             } catch (e) { console.error(e); showToast('載入資料錯誤','error'); }
         }
 
@@ -576,7 +625,6 @@
             tbody.innerHTML = '';
             if(!currentData || currentData.length === 0) {
                 document.getElementById('emptyMsg').style.display = 'block';
-                document.getElementById('issuesPagerInfo').innerText = `第 ${issuesPage} / ${issuesPages} 頁，共 ${issuesTotal} 筆`;
                 return;
             }
             document.getElementById('emptyMsg').style.display = 'none';
@@ -586,7 +634,6 @@
             document.getElementById('selectedCountBadge').innerText = '';
             document.getElementById('selectAll').checked = false;
             document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
-            document.getElementById('issuesPagerInfo').innerText = `第 ${issuesPage} / ${issuesPages} 頁，共 ${issuesTotal} 筆`;
 
             tbody.innerHTML = currentData.map(item => {
                 let badge = '';
@@ -614,8 +661,6 @@
         }
 
         function onIssuesPageSizeChange() { issuesPageSize = parseInt(document.getElementById('issuesPageSize').value, 10); loadIssuesPage(1); }
-        function issuesPrevPage() { if (issuesPage > 1) loadIssuesPage(issuesPage - 1); }
-        function issuesNextPage() { if (issuesPage < issuesPages) loadIssuesPage(issuesPage + 1); }
 
         // --- Users: 使用 server-side 分頁 API ---
         async function loadUsersPage(page = 1) {
@@ -631,14 +676,12 @@
                 usersTotal = j.total || 0;
                 usersPages = j.pages || 1;
                 renderUsers();
+                renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage');
             } catch(e) { console.error(e); showToast('載入使用者錯誤','error'); }
         }
         function renderUsers() {
             document.getElementById('usersTableBody').innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name||'-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id!==currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join('');
-            document.getElementById('usersPagerInfo').innerText = `第 ${usersPage} / ${usersPages} 頁，共 ${usersTotal} 筆`;
         }
-        function usersPrevPage() { if(usersPage > 1) loadUsersPage(usersPage - 1); }
-        function usersNextPage() { if(usersPage < usersPages) loadUsersPage(usersPage + 1); }
         function usersSortBy(field) { if(usersSortField === field) usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; else { usersSortField = field; usersSortDir = 'asc'; } loadUsersPage(1); }
 
         // --- Logs (login) 分頁 ---
@@ -655,11 +698,9 @@
                 logsTotal = j.total || 0;
                 logsPages = j.pages || 1;
                 document.getElementById('logsTableBody').innerHTML = currentLogs.login.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="IP">${l.ip_address||'-'}</td></tr>`).join('');
-                document.getElementById('logsPagerInfo').innerText = `第 ${logsPage} / ${logsPages} 頁，共 ${logsTotal} 筆`;
+                renderPagination('logsPagination', logsPage, logsPages, 'loadLogsPage');
             } catch(e) { console.error(e); showToast('載入登入紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; }
         }
-        function logsPrevPage(){ if(logsPage>1) loadLogsPage(logsPage-1); }
-        function logsNextPage(){ if(logsPage<logsPages) loadLogsPage(logsPage+1); }
 
         // --- Actions 分頁 ---
         async function loadActionsPage(page = 1) {
@@ -681,11 +722,9 @@
                         <td data-label="動作"><span class="badge new">${l.action}</span></td>
                         <td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td>
                     </tr>`).join('');
-                document.getElementById('actionsPagerInfo').innerText = `第 ${actionsPage} / ${actionsPages} 頁，共 ${actionsTotal} 筆`;
+                renderPagination('actionsPagination', actionsPage, actionsPages, 'loadActionsPage');
             } catch(e) { console.error(e); showToast('載入操作紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; }
         }
-        function actionsPrevPage(){ if(actionsPage>1) loadActionsPage(actionsPage-1); }
-        function actionsNextPage(){ if(actionsPage<actionsPages) loadActionsPage(actionsPage+1); }
 
         // --- 匯出 & 清除紀錄 ---
         function exportLogs(type) {

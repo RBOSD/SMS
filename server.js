@@ -166,7 +166,6 @@ app.put('/api/auth/profile', checkAuth, async (req, res) => {
     }
 });
 
-// [Fixed] Users API
 app.get('/api/users', checkAuth, checkAdmin, async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -320,7 +319,7 @@ app.delete('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => 
     } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
 });
 
-// [Fixed] Issues API
+// [Modified] Issues API - 增加 latestCreatedAt 回傳
 app.get('/api/issues', checkAuth, async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -360,10 +359,14 @@ app.get('/api/issues', checkAuth, async (req, res) => {
         const pages = Math.max(1, Math.ceil(total / pageSize));
         const offset = (page - 1) * pageSize;
 
+        // 取得最新建立的 Issue 時間 (無論現在的分頁查詢為何，這是全域的最新)
+        const latestRes = await pool.query('SELECT MAX(created_at) as last_updated FROM issues');
+        const latestCreatedAt = latestRes.rows[0].last_updated;
+
         const r = await pool.query(`SELECT * FROM issues ${whereSQL} ORDER BY ${orderBy} LIMIT $${params.length+1} OFFSET $${params.length+2}`, params.concat([pageSize, offset]));
         const data = r.rows.map(row => ({ ...(row.raw_data || {}), ...row, id: String(row.id) }));
 
-        res.json({ page, pages, total, pageSize, data });
+        res.json({ page, pages, total, pageSize, data, latestCreatedAt });
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: e.message });
@@ -413,6 +416,7 @@ app.put('/api/issues/:id', checkAuth, checkEditor, async (req, res) => {
         }
         sql += ` WHERE id=$${params.length+1}`; 
         params.push(id); 
+        // 更新時不再更新 created_at，確保 created_at 只代表「開立」時間
         await pool.query(sql, params); 
         logAction(req.session.userId, 'UPDATE_ISSUE', `更新事項: ${issueTitle}, 回合: ${round}, 狀態: ${status} (ID: ${id})`, req.ip);
         res.json({ success: true });
@@ -442,7 +446,7 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
                 raw['round'+targetRound+'Date'] = reviewDate; 
                 raw['round'+targetRound+'ActualDate'] = actualReplyDate; 
                 raw.status = newStatus;
-                let sql = 'UPDATE issues SET status=$1, raw_data=$2, created_at=CURRENT_TIMESTAMP'; 
+                let sql = 'UPDATE issues SET status=$1, raw_data=$2'; 
                 let params = [newStatus, JSON.stringify(raw)];
                 if (targetRound === 1) { 
                     sql += ', content=$3, year=$4, unit=$5, handling=$6, review=$7'; 
@@ -457,6 +461,7 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
                 raw['handling'+suffix] = newHandling; 
                 raw['review'+suffix] = newReview; 
                 raw['round'+targetRound+'Date'] = reviewDate;
+                // 只有 INSERT 時才會設定 created_at
                 await client.query('INSERT INTO issues (title, content, status, year, unit, handling, review, raw_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)', 
                     [item.number, newContent, newStatus, item.year, item.unit, (targetRound===1?newHandling:''), (targetRound===1?newReview:''), JSON.stringify(raw)]);
             }
