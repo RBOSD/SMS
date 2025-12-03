@@ -3,112 +3,207 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-    <title>SMS系統</title>
+    <title>SMS開立事項查詢與AI審查系統</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <style>
-        /* 1. 基礎設定 */
+        /* 1. 基礎設定 - 修正手機滾動 */
         html, body { min-height: 100vh; overflow-x: hidden; margin: 0; padding: 0; }
         body { display: none; font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f8fafc; flex-direction: column; } 
         :root { --primary: #2563eb; --bg-body: #f8fafc; --bg-card: #ffffff; --text-main: #0f172a; --text-sub: #64748b; --border: #e2e8f0; --header-h: 60px; --danger: #ef4444; --success: #10b981; }
         *, *::before, *::after { box-sizing: border-box; }
         
         /* Header */
-        .app-header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 24px; height: var(--header-h); display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 40; width: 100%; }
-        .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; color: var(--text-main); }
-        .brand-icon { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
-        .brand-text { display: block; } /* PC顯示文字 */
-        .filter-toggle-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: #f1f5f9; border-radius: 8px; cursor: pointer; font-size: 20px; border: none; margin-right: 10px; }
+        .app-header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 24px; height: var(--header-h); display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 40; width: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.03); flex-shrink: 0; }
+        .brand { display: flex; align-items: center; gap: 16px; font-weight: 700; font-size: 18px; color: var(--text-main); flex-shrink: 0; }
+        .brand-icon { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 5px rgba(37,99,235,0.2); flex-shrink: 0; }
+        
+        .filter-toggle-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: #f1f5f9; border: 1px solid transparent; border-radius: 8px; cursor: pointer; font-size: 20px; color: var(--text-main); transition: all 0.2s; flex-shrink: 0; }
+        .filter-toggle-btn:hover { background: #e2e8f0; color: var(--primary); }
+        .filter-toggle-btn:active { transform: scale(0.95); }
 
         /* User Menu */
-        .user-menu-container { position: relative; }
-        .user-capsule { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 30px; cursor: pointer; }
-        .user-name { font-weight: 600; font-size: 14px; color: #334155; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .user-role { font-size: 11px; color: #2563eb; background: #dbeafe; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
-        .user-dropdown { position: absolute; top: 130%; right: 0; width: 160px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: none; flex-direction: column; overflow: hidden; z-index: 50; }
+        .user-menu-container { position: relative; max-width: 50%; }
+        .user-capsule { display: flex; align-items: center; gap: 10px; padding: 6px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 30px; cursor: pointer; transition: all 0.2s; max-width: 100%; }
+        .user-capsule:hover { background: #eff6ff; border-color: #bfdbfe; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .user-name { font-weight: 600; font-size: 14px; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+        .user-role { font-size: 11px; color: #2563eb; background: #dbeafe; padding: 2px 8px; border-radius: 10px; font-weight: 600; flex-shrink: 0; }
+        .user-dropdown { position: absolute; top: 130%; right: 0; width: 180px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: none; flex-direction: column; overflow: hidden; z-index: 50; padding: 6px; }
         .user-dropdown.show { display: flex; }
-        .dropdown-item { padding: 12px; font-size: 14px; color: #334155; cursor: pointer; text-align: left; border: none; background: none; width: 100%; }
-        .dropdown-item:hover { background: #f1f5f9; }
+        .dropdown-item { padding: 10px 12px; font-size: 14px; color: #334155; cursor: pointer; transition: background 0.1s; text-align: left; border: none; background: none; width: 100%; border-radius: 8px; }
+        .dropdown-item:hover { background: #f1f5f9; color: var(--primary); }
+        .dropdown-divider { height: 1px; background: #f1f5f9; margin: 4px 0; }
 
         /* Layout */
         .app-body { display: flex; flex: 1; flex-direction: column; position: relative; min-height: calc(100vh - 60px); }
         
         /* Drawer Sidebar */
-        .filters-panel { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; background: white; z-index: 1000; transform: translateX(-100%); transition: transform 0.3s; display: flex; flex-direction: column; padding: 80px 20px 20px; box-shadow: 4px 0 24px rgba(0,0,0,0.1); }
+        .filters-panel { position: fixed; top: 0; left: 0; bottom: 0; width: 280px; background: var(--bg-card); box-shadow: 4px 0 24px rgba(0,0,0,0.1); padding: 80px 20px 20px 20px; z-index: 1000; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; gap: 12px; }
         .filters-panel.open { transform: translateX(0); }
-        #filterBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); z-index: 999; display: none; }
-        #filterBackdrop.visible { display: block; }
-        
-        .sidebar-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
-        .sidebar-btn { width: 100%; padding: 14px 16px; background: none; border: none; font-weight: 600; color: #64748b; text-align: left; cursor: pointer; border-radius: 10px; margin-bottom: 5px; display: flex; gap: 10px; align-items: center; }
-        .sidebar-btn.active { background: #eff6ff; color: var(--primary); }
+        #filterBackdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(2px); z-index: 999; display: none; opacity: 0; transition: opacity 0.3s; }
+        #filterBackdrop.visible { display: block; opacity: 1; }
+
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+        .sidebar-title { font-size: 16px; font-weight: 700; color: var(--text-main); }
+        .sidebar-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-sub); padding: 4px; }
+        .sidebar-close-btn:hover { color: var(--danger); }
 
         /* Main Content */
-        .main-content { flex: 1; padding: 24px; width: 100%; max-width: 100%; overflow-x: hidden; }
-        .main-card { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.02); overflow: hidden; margin-bottom: 20px; }
-        
+        .main-content { flex: 1; display: flex; flex-direction: column; padding: 24px; background: var(--bg-body); width: 100%; max-width: 100%; }
+        .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); flex-shrink: 0; min-height: 30px; }
+        .content-title { font-size: 20px; font-weight: 700; color: var(--text-main); }
+
         /* Dashboard */
-        .dashboard-section { transition: 0.3s; overflow: hidden; max-height: 1000px; margin-bottom: 24px; }
-        .dashboard-section.collapsed { max-height: 0; margin-bottom: 0; opacity: 0; }
-        .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
-        .stat-item { background: white; padding: 20px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
-        .stat-val { font-size: 24px; font-weight: 700; margin-bottom: 5px; }
-        .charts-grid { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 16px; height: 300px; }
-        .chart-card { background: white; padding: 16px; border-radius: 12px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; position: relative; }
+        .dashboard-section { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; max-height: 1000px; opacity: 1; margin-bottom: 24px; flex-shrink: 0; }
+        .dashboard-section.collapsed { max-height: 0; opacity: 0; margin-bottom: 0 !important; }
+        .dashboard-toggle-btn { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; color: var(--text-sub); display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.02); margin-left: auto; }
+        .dashboard-toggle-btn:hover { background: #f8fafc; color: var(--primary); border-color: var(--primary); }
 
-        .integrated-controls { padding: 20px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 15px; }
-        .control-row-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
-        .filter-input, .filter-select { padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; font-size: 14px; }
+        .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; flex-shrink: 0; }
+        .stat-item { background: white; padding: 20px; border-radius: 16px; border: 1px solid var(--border); text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01), 0 2px 4px -1px rgba(0, 0, 0, 0.01); }
+        .stat-val { font-size: 28px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.5px; }
+        .stat-label { font-size: 14px; color: var(--text-sub); font-weight: 500; }
         
-        /* Table */
-        .data-container { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 800px; }
-        th, td { padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 14px; text-align: left; }
-        th { background: #f8fafc; color: #64748b; font-weight: 600; white-space: nowrap; }
-        tr:hover { background: #f8fafc; cursor: pointer; }
-        .badge { padding: 3px 8px; border-radius: 12px; font-size: 12px; display: inline-block; white-space: nowrap; }
-        .badge.active { background: #fee2e2; color: #b91c1c; } .badge.resolved { background: #d1fae5; color: #047857; } .badge.self { background: #fef3c7; color: #92400e; }
-
-        /* Drawer & Modals */
-        .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1001; display: none; }
-        .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 900px; max-width: 100%; background: white; z-index: 1002; transform: translateX(100%); transition: transform 0.3s; display: flex; flex-direction: column; }
-        .drawer.open, .drawer-backdrop.open { transform: translateX(0); display: block; }
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 16px; margin-bottom: 20px; flex-shrink: 0; width: 100%; }
+        .chart-card { background: white; border-radius: 16px; padding: 24px; border: 1px solid var(--border); height: 300px; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01); position: relative; }
         
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: none; justify-content: center; align-items: center; }
-        .modal-overlay.open { display: flex; }
-        .modal-box { background: white; padding: 24px; border-radius: 12px; width: 400px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        /* Main Card */
+        .main-card { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01); overflow: hidden; display: flex; flex-direction: column; flex-shrink: 0; margin-bottom: 20px; }
+        
+        .integrated-controls { padding: 20px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 16px; background: #ffffff; }
+        .control-row-filters { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+        .control-row-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
+        
+        .search-item { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 140px; }
+        .search-item label { font-size: 13px; font-weight: 600; color: var(--text-main); }
 
-        .view-section { display: none; } .view-section.active { display: flex; flex-direction: column; }
-        .hidden { display: none !important; }
-        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; background: #eee; font-size: 13px; }
-        .btn-primary { background: var(--primary); color: white; }
+        .btn { padding: 9px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: 0.2s; white-space: nowrap; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-primary { background: var(--primary); color: white; box-shadow: 0 2px 4px rgba(37,99,235,0.2); }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-outline:hover { background: #f8fafc; border-color: #cbd5e1; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-ai { background: #7c3aed; color: white; }
+        .filter-input, .filter-select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: #f8fafc; font-size: 14px; transition: all 0.2s; color: #334155; }
+        .filter-input:focus, .filter-select:focus { border-color: var(--primary); outline: none; background: white; box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
+        .filter-input::placeholder { color: #94a3b8; }
 
-        /* Mobile CSS */
-        @media (max-width: 768px) {
-            .app-header { padding: 0 16px; }
-            .brand-text { display: none; } /* 隱藏長標題 */
-            .brand::after { content: "SMS"; font-size: 18px; font-weight: 700; color: var(--text-main); }
-            .user-role { display: none; } /* 隱藏角色 */
-            .user-name { max-width: 80px; }
-            .user-capsule { padding: 4px 8px; }
+        .hidden { display: none !important; }
+        
+        .sidebar-btn { width: 100%; text-align: left; padding: 14px 16px; background: transparent; border: none; color: var(--text-sub); font-weight: 600; cursor: pointer; border-radius: 10px; transition: all 0.2s; display: flex; align-items: center; gap: 12px; margin-bottom: 6px; font-size: 15px; }
+        .sidebar-btn:hover { background: #f1f5f9; color: var(--text-main); }
+        .sidebar-btn.active { background: #eff6ff; color: var(--primary); }
+        .sidebar-btn span { font-size: 18px; }
+        
+        .admin-tabs { display: flex; gap: 10px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; overflow-x: auto; }
+        .admin-tab-btn { padding: 10px 16px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; color: #64748b; cursor: pointer; white-space: nowrap; }
+        .admin-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+        
+        .data-container { overflow-x: auto; } 
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th { position: sticky; top: 0; background: #f8fafc; padding: 16px 16px; text-align: left; font-size: 13px; color: var(--text-sub); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+        th:hover { background: #f1f5f9; color: var(--primary); }
+        td { padding: 16px 16px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; color: #334155; line-height: 1.5; }
+        tr:hover { background: #f8fafc; cursor: pointer; }
+        tr:last-child td { border-bottom: none; }
+        
+        .pagination-bar { display: flex; gap: 6px; align-items: center; }
+        .page-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: white; border-radius: 8px; cursor: pointer; color: var(--text-main); font-size: 13px; transition: all 0.2s; }
+        .page-btn:hover:not(:disabled) { background: #f1f5f9; border-color: #cbd5e1; color: var(--primary); }
+        .page-btn.active { background: var(--primary); border-color: var(--primary); color: white; font-weight: 600; }
+        .page-btn:disabled { opacity: 0.5; cursor: not-allowed; background: #f8fafc; }
+        .page-dots { display: flex; align-items: center; justify-content: center; width: 32px; color: var(--text-sub); font-size: 12px; }
+        
+        .page-size-select { padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; background: white; cursor: pointer; color: var(--text-sub); font-weight: 500; }
+        .page-size-select:hover { border-color: #cbd5e1; color: var(--text-main); }
+
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; white-space: nowrap; }
+        .badge.active { background: #fee2e2; color: #991b1b; } .badge.resolved { background: #d1fae5; color: #065f46; } .badge.self { background: #fef3c7; color: #92400e; }
+        .badge.new { background: #dbeafe; color: #1e40af; } .badge.update { background: #fef3c7; color: #92400e; }
+        .ai-tag { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; padding: 2px 8px; border-radius: 4px; border: 1px solid transparent; }
+        .ai-tag.yes { color: #059669; background: #ecfdf5; border-color: #a7f3d0; } .ai-tag.no { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+
+        .drawer-backdrop, .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .drawer-backdrop.open, .modal-overlay.open { display: flex; }
+        
+        .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 900px; max-width: 100vw; background: white; z-index: 101; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; box-shadow: -5px 0 25px rgba(0,0,0,0.15); }
+        .drawer.open { transform: translateX(0); }
+        .drawer-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #fcfcfc; }
+        .drawer-body { flex: 1; overflow-y: auto; padding: 32px; }
+        .modal-box { background: white; padding: 30px; border-radius: 16px; width: 400px; max-width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.15); z-index: 200; }
+        .detail-card { background: white; padding: 24px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.01); }
+        .form-group { margin-bottom: 20px; } .form-group label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px; color: #475569; }
+        .view-section { display: none; width: 100%; height: 100%; flex-direction: column; }
+        .view-section.active { display: flex; }
+
+        #toast-container { position: fixed; top: 80px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .toast { pointer-events: auto; background: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); display: flex; align-items: center; gap: 12px; min-width: 300px; transform: translateX(120%); transition: transform 0.3s; border-left: 4px solid #cbd5e1; }
+        .toast.show { transform: translateX(0); }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        .toast-icon { font-size: 20px; }
+        .toast-content { flex: 1; }
+        .toast-title { font-weight: 700; font-size: 14px; color: var(--text-main); margin-bottom: 2px; }
+        .toast-msg { font-size: 13px; color: var(--text-sub); }
+
+        .review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; height: 100%; }
+        .review-left { border-right: 1px solid #e2e8f0; padding-right: 32px; overflow-y: auto; }
+        .review-right { display: flex; flex-direction: column; overflow-y: auto; }
+        
+        th.sort-asc::after { content: " ▲"; font-size: 10px; margin-left: 4px; color: var(--primary); }
+        th.sort-desc::after { content: " ▼"; font-size: 10px; margin-left: 4px; color: var(--primary); }
+
+        /* Mobile Optimization */
+        @media (max-width: 768px) { 
+            /* Header Optimizations */
+            .brand-text { display: none; } /* Hide full title */
+            .brand::after { content: "SMS"; font-weight: 700; font-size: 18px; color: var(--text-main); }
+            .app-header { padding: 0 12px; }
+            .user-menu-container { max-width: unset; }
+            .user-capsule { padding: 4px 10px; }
+            .user-role { display: none; }
+            .user-name { max-width: 100px; }
+
+            /* Body Optimizations */
+            .app-body { display: block; height: auto; overflow: visible; background: #f8fafc; }
+            .main-content { height: auto; overflow: visible; padding: 16px; width: 100%; }
             
-            .stats-bar { grid-template-columns: 1fr 1fr; } .stat-item:last-child { grid-column: span 2; }
-            .charts-grid { grid-template-columns: 1fr; height: auto; } .chart-card { height: 250px; margin-bottom: 10px; }
+            .stats-bar { grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+            .stat-item { padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+            .stat-item:last-child { grid-column: span 2; flex-direction: row; gap: 12px; justify-content: center; }
+            .charts-grid { grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; } 
+            .chart-card { height: 240px; padding: 16px; }
             
-            /* 卡片式表格 */
-            table, thead, tbody, th, td, tr { display: block; }
-            thead { display: none; }
-            tr { border: 1px solid #eee; margin-bottom: 10px; border-radius: 8px; padding: 10px; position: relative; background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-            td { padding: 4px 0; border: none; display: block; }
-            td[data-label="編號"] { font-size: 16px; font-weight: 700; color: var(--primary); margin-bottom: 5px; }
-            td[data-label="狀態"] { position: absolute; top: 10px; right: 10px; }
-            td[data-label="內容摘要"] { font-size: 13px; color: #333; margin: 5px 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; }
-            td[data-label="操作 / AI"] { margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; display: flex; justify-content: flex-end; gap: 10px; }
-            .manager-col { display: none !important; }
+            .control-row-filters { flex-direction: column; align-items: stretch; }
+            .control-row-actions { flex-direction: column; align-items: stretch; gap: 16px; }
+            .pagination-bar { justify-content: center; }
+            
+            .data-container { overflow: visible; }
+            table, thead, tbody, th, td, tr { display: block; width: 100%; min-width: 0; }
+            thead { display: none; } 
+            tr { background: white; margin-bottom: 12px; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; cursor: pointer; transition: transform 0.1s; }
+            tr:active { transform: scale(0.98); background: #fafafa; }
+            td { padding: 0; border: none; display: block; text-align: left; width: 100%; margin-bottom: 6px; }
+            td[data-label="編號"] { font-size: 16px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; padding-right: 80px; margin-left: 30px; }
+            td[data-label="狀態"] { position: absolute; top: 16px; right: 16px; width: auto; pointer-events: none; }
+            td[data-label="年度"], td[data-label="機構"] { display: inline-block; width: auto; font-size: 12px; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 6px; margin-right: 6px; margin-bottom: 12px; }
+            td[data-label="內容摘要"] { font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+            td[data-label="最新進度"] { font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            td[data-label="操作 / AI"] { margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 12px; }
+            .manager-col { display: block !important; position: absolute; top: 16px; left: 16px; width: auto; }
+            .issue-check { transform: scale(1.3); }
+            .user-table tr { padding-bottom: 40px; }
+            .user-table td[data-label="姓名"] { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+            .user-table td[data-label="帳號"] { font-size: 13px; color: #666; margin-bottom: 8px; }
+            .user-table td[data-label="權限"] { display: inline-block; width: auto; background: #eff6ff; color: var(--primary); padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 8px; }
+            .user-table td[data-label="操作"] { position: absolute; bottom: 16px; right: 16px; width: auto; margin-top: 0; }
+            .drawer { width: 100%; max-width: 100%; top: 0; height: 100%; z-index: 9999; }
+            .review-grid { grid-template-columns: 1fr; gap: 10px; display: block; }
+            .review-left { border-right: none; border-bottom: 1px solid #e2e8f0; padding-right: 0; padding-bottom: 20px; margin-bottom: 20px; max-height: 300px; }
+            #toast-container { left: 20px; right: 20px; top: 80px; width: auto; }
         }
     </style>
 </head>
@@ -117,7 +212,7 @@
 
     <header class="app-header">
         <div class="brand">
-            <button class="filter-toggle-btn" onclick="onToggleSidebar()">☰</button>
+            <button class="filter-toggle-btn" onclick="onToggleSidebar()" title="開啟選單">☰</button>
             <div class="brand-icon">🚄</div>
             <span class="brand-text">SMS開立事項查詢與AI審查系統</span>
         </div>
@@ -125,497 +220,904 @@
             <div class="user-capsule" onclick="toggleUserMenu()">
                 <div class="user-name" id="headerUserName">...</div>
                 <div class="user-role" id="headerUserRole">...</div>
-                <div>▼</div>
+                <div style="font-size:10px; color:#94a3b8;">▼</div>
             </div>
             <div class="user-dropdown" id="userDropdown">
                 <button class="dropdown-item" onclick="openProfileModal()">⚙️ 個人設定</button>
-                <button class="dropdown-item" style="color:red;" onclick="logout()">登出</button>
+                <div class="dropdown-divider"></div>
+                <button class="dropdown-item" style="color:#ef4444;" onclick="logout()">登出系統</button>
             </div>
         </div>
     </header>
 
-    <div class="app-body">
+    <div class="app-body" id="appBody">
         <aside class="filters-panel" id="filtersPanel">
-            <div class="sidebar-header"><div style="font-weight:700;">功能選單</div><button onclick="onToggleSidebar()" style="border:none;background:none;font-size:20px;">×</button></div>
-            <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')">📊 查詢看板</button>
-            <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')">📥 資料匯入</button>
-            <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')">👥 帳號管理</button>
+            <div class="sidebar-header">
+                <div class="sidebar-title">功能選單</div>
+                <button class="sidebar-close-btn" onclick="onToggleSidebar()">×</button>
+            </div>
+            <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')"><span>📊</span> 查詢看板</button>
+            <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')"><span>📥</span> 資料匯入</button>
+            <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')"><span>👥</span> 帳號管理</button>
         </aside>
+        
         <div id="filterBackdrop" onclick="onToggleSidebar()"></div>
 
         <main class="main-content">
-            <!-- 1. 查詢看板 -->
             <div id="searchView" class="view-section active">
-                <div style="text-align:right;margin-bottom:10px;"><button class="btn" onclick="toggleDashboard(this)">收合圖表 ▲</button></div>
+                <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+                    <button class="dashboard-toggle-btn" onclick="toggleDashboard(this)"><span>收合統計圖表</span> <span>▲</span></button>
+                </div>
+
                 <div id="dashboardSection" class="dashboard-section">
                     <div class="stats-bar">
-                        <div class="stat-item"><div class="stat-val" style="color:#6366f1" id="countTotal">0</div><div>總數</div></div>
-                        <div class="stat-item"><div class="stat-val" style="color:#ef4444" id="countActive">0</div><div>列管中</div></div>
-                        <div class="stat-item"><div class="stat-val" style="color:#10b981" id="countResolved">0</div><div>已解除</div></div>
+                        <div class="stat-item"><div class="stat-val" style="color:#6366f1" id="countTotal">0</div><div class="stat-label">總開立事項</div></div>
+                        <div class="stat-item"><div class="stat-val" style="color:#ef4444" id="countActive">0</div><div class="stat-label">列管中</div></div>
+                        <div class="stat-item"><div class="stat-val" style="color:#10b981" id="countResolved">0</div><div class="stat-label">已解除</div></div>
                     </div>
                     <div class="charts-grid">
-                        <div class="chart-card"><canvas id="statusChart"></canvas></div>
-                        <div class="chart-card"><canvas id="unitChart"></canvas></div>
-                        <div class="chart-card"><canvas id="trendChart"></canvas></div>
+                        <div class="chart-card"><div style="height:250px;width:100%;display:flex;justify-content:center;"><canvas id="statusChart"></canvas></div></div>
+                        <div class="chart-card"><div style="height:250px;width:100%;"><canvas id="unitChart"></canvas></div></div>
+                        <div class="chart-card"><div style="height:250px;width:100%;"><canvas id="trendChart"></canvas></div></div>
                     </div>
                 </div>
+
                 <div class="main-card">
                     <div class="integrated-controls">
                         <div class="control-row-filters">
-                            <input id="filterKeyword" class="filter-input" placeholder="關鍵字..." style="flex:1; min-width:150px;">
-                            <select id="filterYear" class="filter-select"><option value="">年度</option></select>
-                            <select id="filterUnit" class="filter-select"><option value="">機構</option></select>
-                            <select id="filterStatus" class="filter-select"><option value="">全部狀態</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option></select>
-                            <button class="btn btn-primary" onclick="loadIssuesPage(1)">搜尋</button>
+                            <div class="search-item" style="flex:2;"><label>關鍵字</label><input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字..."></div>
+                            <div class="search-item"><label>年度</label><select id="filterYear" class="filter-select"></select></div>
+                            <div class="search-item"><label>機構</label><select id="filterUnit" class="filter-select"></select></div>
+                            <div class="search-item"><label>狀態</label><select id="filterStatus" class="filter-select"><option value="">全部狀態</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
+                            <div style="display:flex;gap:8px;align-self:flex-end;">
+                                <button class="btn btn-primary" onclick="applyFilters()">🔍 搜尋</button>
+                                <button class="btn btn-outline" onclick="resetFilters()">重設</button>
+                            </div>
+                        </div>
+                        <div class="control-row-actions">
+                            <div style="display:flex; gap:12px; align-items:center;">
+                                <div id="batchActionContainer" style="display:none;">
+                                    <button class="btn btn-danger btn-sm" onclick="batchDeleteIssues()">
+                                        <i style="margin-right:4px">🗑️</i> 批次刪除 <span id="selectedCountBadge"></span>
+                                    </button>
+                                </div>
+                                <div style="font-size:13px;color:#64748b;display:flex;align-items:center;gap:6px;">
+                                    <span>📅</span> <span id="dataTimestamp">...</span>
+                                </div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                                <div style="font-size:13px; color:#64748b; font-weight:500;">共 <span id="issuesTotalCount" style="color:#0f172a;font-weight:700;">0</span> 筆</div>
+                                <select id="issuesPageSizeTop" class="page-size-select" onchange="onIssuesPageSizeChange(this.value)">
+                                    <option value="10">10 筆/頁</option>
+                                    <option value="20" selected>20 筆/頁</option>
+                                    <option value="50">50 筆/頁</option>
+                                </select>
+                                <div id="issuesPaginationTop" class="pagination-bar"></div>
+                            </div>
                         </div>
                     </div>
+
                     <div class="data-container">
                         <table id="dataTable">
-                            <thead><tr><th>編號</th><th>年度</th><th>機構</th><th>狀態</th><th>內容</th><th>操作</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th style="width:40px; display:none;" class="manager-col"><input type="checkbox" id="selectAll" onclick="toggleAllCheckboxes()"></th>
+                                    <th style="width:130px" onclick="sortData('number')">編號</th>
+                                    <th style="width:70px" onclick="sortData('year')">年度</th>
+                                    <th style="width:80px" onclick="sortData('unit')">機構</th>
+                                    <th style="width:100px" onclick="sortData('status')">狀態</th>
+                                    <th onclick="sortData('content')">內容摘要</th>
+                                    <th onclick="sortData('latest')">最新進度</th>
+                                    <th style="width:150px">操作 / AI</th>
+                                </tr>
+                            </thead>
                             <tbody id="dataBody"></tbody>
                         </table>
                     </div>
-                    <div style="padding:15px;text-align:center;" id="paginationArea"></div>
                 </div>
+
+                <div style="display:flex; justify-content:flex-end; margin-top:24px; align-items:center; gap:12px; padding-right:24px; padding-bottom: 40px;">
+                     <select id="issuesPageSizeBottom" class="page-size-select" onchange="onIssuesPageSizeChange(this.value)">
+                        <option value="10">10 筆/頁</option>
+                        <option value="20" selected>20 筆/頁</option>
+                        <option value="50">50 筆/頁</option>
+                    </select>
+                    <div id="issuesPaginationBottom" class="pagination-bar"></div>
+                </div>
+
+                <div id="emptyMsg" style="text-align:center;padding:40px;color:#999;display:none;">查無資料</div>
             </div>
 
-            <!-- 2. 資料匯入 -->
             <div id="importView" class="view-section">
-                <h2>資料匯入</h2>
-                <div class="main-card" style="padding:20px;">
-                    <div style="margin-bottom:15px;background:#fffde7;padding:10px;border:1px solid #fff9c4;border-radius:6px;font-size:13px;">
-                        請上傳 Word (.docx) 檔案。系統會解析表格中的編號、內容與審查意見。
+                <div class="content-header" style="justify-content: flex-start;"><div class="content-title">📥 資料匯入</div></div>
+                <div class="detail-card" id="uploadCard" style="max-width:800px;">
+                    <div style="margin-bottom:20px; background:#fefce8; border:1px solid #fde047; padding:16px; border-radius:8px; font-size:13px; color:#854d0e; line-height:1.5;">⚠️ <strong>注意：</strong>請務必先設定「審查次數」與「發函日期」，系統才能正確解析並匯入資料。</div>
+                    <div style="display:flex; gap:24px; margin-bottom:24px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">1. 設定本次匯入參數 (必填)</label><div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;"><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">審查次數 (Round)</div><input type="number" id="importRound" class="filter-input" value="1" min="1" max="20" onchange="checkImportReady()"></div><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">發函日期 (例:1130615)</div><input type="text" id="importDate" class="filter-input" placeholder="必填" onkeyup="checkImportReady()"></div></div></div>
+                        <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">2. 選擇 Word 檔案 (.docx)</label><input type="file" id="wordInput" class="filter-input" accept=".docx" disabled style="padding:8px;"></div>
                     </div>
-                    <div style="display:grid; gap:10px; margin-bottom:15px;">
-                        <label>1. 選擇回合與日期</label>
-                        <div style="display:flex; gap:10px;">
-                            <input type="number" id="importRound" class="filter-input" value="1" placeholder="第幾次審查 (ex: 1)">
-                            <input type="text" id="importDate" class="filter-input" placeholder="發函日期 (ex: 1130101)">
-                        </div>
-                        <label>2. 選擇檔案</label>
-                        <input type="file" id="wordInput" accept=".docx" class="filter-input">
+                    <button id="btnParse" class="btn btn-primary" style="width:100%; padding:12px;" onclick="previewWord()" disabled>解析並預覽</button>
+                    <div id="importStatus" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
+                </div>
+                <div id="previewContainer" class="hidden">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
+                        <div style="font-weight:700;font-size:16px;">解析結果預覽 (<span id="previewCount" style="color:var(--primary);">0</span> 筆) - 將寫入第 <span id="previewRoundDisplay" style="color:var(--primary);">1</span> 次審查紀錄</div>
+                        <div style="display:flex;gap:10px;"><button class="btn btn-outline" onclick="cancelImport()">取消</button><button class="btn btn-primary" onclick="confirmImport()">✅ 確認寫入資料庫</button></div>
                     </div>
-                    <button class="btn btn-primary" onclick="previewWord()">解析檔案</button>
-                    
-                    <div id="previewContainer" class="hidden" style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                            <b style="font-size:16px;">預覽結果 (<span id="previewCount">0</span> 筆)</b>
-                            <button class="btn btn-primary" onclick="confirmImport()">確認匯入資料庫</button>
-                        </div>
-                        <div class="data-container">
-                            <table style="width:100%"><thead><tr><th>編號</th><th>機構</th><th>內容摘要</th><th>狀態</th></tr></thead><tbody id="previewBody"></tbody></table>
-                        </div>
-                    </div>
+                    <div class="main-card"><div class="data-container"><table style="width:100%;"><thead><tr><th style="width:80px">操作</th><th style="width:130px">編號</th><th style="width:60px">機構</th><th>內容摘要</th><th style="width:200px">本次匯入進度內容</th></tr></thead><tbody id="previewBody"></tbody></table></div></div>
                 </div>
             </div>
 
-            <!-- 3. 帳號管理 -->
             <div id="usersView" class="view-section">
-                <h2>帳號管理</h2>
-                <div class="admin-tabs" style="display:flex;gap:10px;margin-bottom:15px;overflow-x:auto;">
-                    <button class="btn active" onclick="switchAdminTab('users', this)">帳號列表</button>
-                    <button class="btn" onclick="switchAdminTab('logs', this)">登入紀錄</button>
-                    <button class="btn" onclick="switchAdminTab('actions', this)">操作歷程</button>
+                <div class="content-header" style="justify-content: flex-start; gap: 16px;">
+                    <div class="content-title">👥 帳號與紀錄</div>
+                    <button class="btn btn-primary" onclick="openUserModal('create')">➕ 新增</button>
                 </div>
-                <div id="tab-users" class="main-card" style="padding:15px;">
-                    <button class="btn btn-primary" onclick="openUserModal('create')" style="margin-bottom:15px;">新增使用者</button>
-                    <div class="data-container">
-                        <table><thead><tr><th>帳號</th><th>姓名</th><th>權限</th><th>操作</th></tr></thead><tbody id="usersTableBody"></tbody></table>
+                <div class="admin-tabs">
+                    <button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button>
+                    <button class="admin-tab-btn" onclick="switchAdminTab('logs')">登入紀錄</button>
+                    <button class="admin-tab-btn" onclick="switchAdminTab('actions')">操作歷程</button>
+                </div>
+                
+                <!-- Users Tab -->
+                <div id="tab-users" class="main-card">
+                    <div style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border);">
+                        <input id="userSearch" class="filter-input" placeholder="搜尋姓名、帳號..." style="max-width:300px;" oninput="loadUsersPage(1)">
+                        <select id="usersPageSize" class="page-size-select" onchange="loadUsersPage(1)">
+                            <option value="10">10 筆/頁</option><option value="20" selected>20 筆/頁</option><option value="50">50 筆/頁</option>
+                        </select>
+                        <div style="margin-left:auto;">
+                            <button class="btn btn-outline" onclick="loadUsersPage(1)">🔍</button>
+                        </div>
                     </div>
-                </div>
-                <div id="tab-logs" class="main-card hidden" style="padding:15px;">
-                    <button class="btn btn-danger" onclick="clearLogs('login')" style="margin-bottom:15px;">清空紀錄</button>
+                    <div id="usersPaginationTop" class="pagination-bar" style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
                     <div class="data-container">
-                        <table><thead><tr><th>時間</th><th>帳號</th><th>IP</th></tr></thead><tbody id="logsTableBody"></tbody></table>
+                        <table class="user-table">
+                            <thead><tr><th style="padding:16px;" onclick="usersSortBy('name')">姓名</th><th onclick="usersSortBy('username')">帳號</th><th onclick="usersSortBy('role')">權限</th><th onclick="usersSortBy('created_at')">註冊時間</th><th>操作</th></tr></thead>
+                            <tbody id="usersTableBody"></tbody>
+                        </table>
                     </div>
+                    <div id="usersPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
                 </div>
-                <div id="tab-actions" class="main-card hidden" style="padding:15px;">
-                    <button class="btn btn-danger" onclick="clearLogs('action')" style="margin-bottom:15px;">清空紀錄</button>
+                
+                <!-- Login Logs Tab -->
+                <div id="tab-logs" class="main-card hidden">
+                    <div style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff;">
+                        <input id="loginSearch" class="filter-input" placeholder="搜尋帳號或 IP" style="width:240px;" oninput="loadLogsPage(1)">
+                        <button class="btn btn-outline btn-sm" onclick="exportLogs('login')">📥 匯出 CSV</button>
+                        <button class="btn btn-danger btn-sm" onclick="clearLogs('login')">🗑️ 清除紀錄</button>
+                    </div>
+                    <div id="logsPaginationTop" class="pagination-bar" style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
                     <div class="data-container">
-                        <table><thead><tr><th>時間</th><th>帳號</th><th>動作</th><th>內容</th></tr></thead><tbody id="actionsTableBody"></tbody></table>
+                        <table class="user-table"><thead><tr><th style="padding:16px;">時間</th><th>帳號</th><th>IP 位址</th></tr></thead><tbody id="logsTableBody"></tbody></table>
                     </div>
+                    <div id="logsPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
                 </div>
+                
+                <!-- Action Logs Tab -->
+                <div id="tab-actions" class="main-card hidden">
+                    <div style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff;">
+                        <input id="actionSearch" class="filter-input" placeholder="搜尋帳號或操作" style="width:240px;" oninput="loadActionsPage(1)">
+                        <button class="btn btn-outline btn-sm" onclick="exportLogs('action')">📥 匯出 CSV</button>
+                        <button class="btn btn-danger btn-sm" onclick="clearLogs('action')">🗑️ 清除紀錄</button>
+                    </div>
+                    <div id="actionsPaginationTop" class="pagination-bar" style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
+                    <div class="data-container">
+                        <table class="user-table"><thead><tr><th style="padding:16px;">時間</th><th>帳號</th><th>動作</th><th>詳細內容</th></tr></thead><tbody id="actionsTableBody"></tbody></table>
+                    </div>
+                    <div id="actionsPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
+                </div>
+                
+                <div id="logsLoading" style="display:none; padding:30px; text-align:center; color:#64748b;">⏳ 載入紀錄中...</div>
             </div>
         </main>
     </div>
 
-    <!-- Drawer: Detail/Edit -->
-    <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
+    <!-- Drawer & Modal -->
+    <div class="drawer-backdrop" id="drawerBackdrop"></div>
     <div class="drawer" id="detailDrawer">
-        <div style="padding:20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
-            <b style="font-size:18px;">詳細資料</b>
-            <button onclick="closeDrawer()" style="border:none;background:none;font-size:24px;cursor:pointer;">×</button>
-        </div>
-        <div style="padding:20px;overflow-y:auto;flex:1;" id="drawerContent">
+        <div class="drawer-header"><div style="font-weight:700;font-size:18px;" id="drawerTitle">詳細資料</div><button onclick="closeDrawer()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button></div>
+        <div class="drawer-body">
             <div id="viewModeContent">
-                <div id="dNumber" style="color:var(--primary);font-weight:800;font-size:16px;margin-bottom:5px;"></div>
-                <div style="display:flex;gap:10px;margin-bottom:15px;font-size:13px;color:#666;">
-                    <span id="dUnit"></span> | <span id="dYear"></span>
+                <div class="detail-card">
+                    <div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:8px;text-transform:uppercase;">基本資訊</div>
+                    <div style="margin-bottom:12px;font-weight:700;color:#2563eb;font-size:16px;"><span id="dNumber"></span> <span style="color:#cbd5e1;margin:0 8px;">|</span> <span id="dYear"></span> <span style="color:#cbd5e1;margin:0 8px;">|</span> <span id="dUnit"></span></div>
+                    <div style="margin-bottom:16px;" id="dStatus"></div>
+                    <div style="line-height:1.7;font-size:15px;color:#334155;" id="dContent"></div>
                 </div>
-                <div id="dStatus" style="margin-bottom:15px;"></div>
-                <div id="dContent" style="margin-bottom:20px;line-height:1.6;color:#333;background:#f8fafc;padding:15px;border-radius:8px;"></div>
-                <div style="font-weight:bold;margin-bottom:10px;border-bottom:1px solid #eee;padding-bottom:5px;">歷程紀錄</div>
-                <div id="dTimeline"></div>
-                <button id="editBtn" class="btn btn-primary" style="width:100%;margin-top:20px;padding:12px;" onclick="toggleEditMode(true)">編輯 / 審查</button>
+                <div style="font-weight:700;margin:24px 0 16px;font-size:16px;color:#0f172a;">歷程紀錄</div><div id="dTimeline"></div>
+                <div style="margin-top:30px; display:flex; flex-direction:column; gap:12px;">
+                    <button class="btn btn-primary hidden" id="editBtn" style="width:100%;padding:12px;" onclick="toggleEditMode(true)">✏️ 編輯 / 審查</button>
+                    <button class="btn btn-danger hidden" id="deleteBtnDrawer" style="width:100%;padding:12px;" onclick="deleteIssueFromDrawer()">🗑️ 刪除此項目</button>
+                </div>
             </div>
-            <div id="editModeContent" class="hidden">
+            <div id="editModeContent" class="hidden" style="height:100%;">
                 <input type="hidden" id="editId">
-                <div style="margin-bottom:15px;padding:10px;background:#eff6ff;border-radius:8px;color:#1e40af;font-weight:bold;">
-                    編輯中...
+                <div style="background:#eff6ff; padding:16px; border-radius:12px; margin-bottom:20px; border:1px solid #dbeafe; display:flex; gap:12px; align-items:center;">
+                    <span style="font-weight:bold; color:#1e40af; font-size:16px;" id="editHeaderNumber"></span> 
+                    <span style="color:#cbd5e1;">|</span>
+                    <span style="font-weight:500; color:#334155;" id="editHeaderYear"></span>
+                    <span style="color:#cbd5e1;">|</span>
+                    <span style="font-weight:500; color:#334155;" id="editHeaderUnit"></span>
                 </div>
-                <label style="display:block;margin-bottom:5px;font-weight:bold;">狀態</label>
-                <select id="editStatus" class="filter-select" style="width:100%;margin-bottom:15px;">
-                    <option value="持續列管">持續列管</option>
-                    <option value="解除列管">解除列管</option>
-                    <option value="自行列管">自行列管</option>
-                </select>
-                <label style="display:block;margin-bottom:5px;font-weight:bold;">編輯回合</label>
-                <select id="editRound" class="filter-select" style="width:100%;margin-bottom:15px;" onchange="loadRoundData()"></select>
-                
-                <label style="display:block;margin-bottom:5px;font-weight:bold;">辦理情形</label>
-                <textarea id="editHandling" class="filter-input" style="width:100%;height:120px;margin-bottom:15px;resize:vertical;"></textarea>
-                
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-                    <label style="font-weight:bold;">審查意見</label>
-                    <button class="btn btn-ai" onclick="runAiInEdit(this)" style="padding:4px 10px;font-size:12px;">🤖 AI 智能分析</button>
-                </div>
-                <textarea id="editReview" class="filter-input" style="width:100%;height:120px;margin-bottom:20px;resize:vertical;"></textarea>
-                
-                <div style="display:flex;gap:10px;">
-                    <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="saveEdit()">儲存變更</button>
-                    <button class="btn" style="flex:1;padding:12px;" onclick="toggleEditMode(false)">取消</button>
+                <div class="review-grid">
+                    <div class="review-left">
+                        <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">開立事項內容</div>
+                        <div style="background:#f8fafc;padding:16px;border-radius:12px;font-size:14px;margin-bottom:20px;line-height:1.6;border:1px solid #e2e8f0;" id="editContentDisplay"></div>
+                        <div id="prevReviewBox" style="display:none; margin-bottom:20px;">
+                             <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 上一回合 (<span id="prevRoundNum"></span>) 審查意見參考：</div>
+                             <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;" id="prevReviewText"></div>
+                        </div>
+                        <div class="form-group"><label>編輯回合</label><select id="editRound" class="filter-select" onchange="loadRoundData()"></select></div>
+                        <div class="form-group"><label>機構辦理情形</label><textarea id="editHandling" class="filter-input" rows="10" style="background:#ffffff;line-height:1.5;"></textarea></div>
+                    </div>
+                    <div class="review-right">
+                        <div class="form-group"><label>審查結果</label><select id="editStatus" class="filter-select"><option value="持續列管">🔴 持續列管</option><option value="解除列管">🟢 解除列管</option><option value="自行列管">🟠 自行列管</option></select></div>
+                        <div class="form-group" style="flex:1;display:flex;flex-direction:column;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><label style="margin-bottom:0;">審查意見</label><button class="btn btn-ai" style="padding:4px 10px;font-size:11px;" onclick="runAiInEdit(this)">🤖 AI 智能分析</button></div>
+                            <div id="aiBox" style="background:#f0f9ff;padding:16px;border-radius:8px;border:1px solid #bae6fd;margin-bottom:16px;display:none;">
+                                <div style="font-size:13px;margin-bottom:8px;font-weight:bold;color:#0369a1;">💡 AI 分析建議：</div>
+                                <div id="aiPreviewText" style="background:white; padding:12px; border:1px solid #e0f2fe; border-radius:6px; font-size:14px; margin-bottom:12px; line-height:1.6; color:#334155;"></div>
+                                <div style="display:flex; align-items:center; justify-content:space-between;"><span id="aiResBadge" style="font-size:13px;"></span><button class="btn btn-primary" style="font-size:12px;padding:6px 14px;" onclick="applyAiSuggestion()">⬇️ 帶入此意見</button></div>
+                            </div>
+                            <textarea id="editReview" class="filter-input" style="flex:1;resize:none;line-height:1.5;" placeholder="請輸入審查意見..."></textarea>
+                        </div>
+                        <div style="display:flex;gap:12px;margin-top:auto;"><button class="btn btn-primary" style="flex:1;padding:12px;" onclick="saveEdit()">💾 儲存審查結果</button><button class="btn btn-outline" style="flex:1;padding:12px;" onclick="toggleEditMode(false)">取消</button></div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- User Modal -->
-    <div class="modal-overlay" id="userModal"><div class="modal-box">
-        <h3>使用者資訊</h3>
-        <input type="hidden" id="targetUserId">
-        <input id="uEmail" class="filter-input" style="width:100%;margin-bottom:10px;" placeholder="帳號 (Email/Username)">
-        <input id="uName" class="filter-input" style="width:100%;margin-bottom:10px;" placeholder="姓名">
-        <input id="uPwd" type="password" class="filter-input" style="width:100%;margin-bottom:10px;" placeholder="密碼">
-        <select id="uRole" class="filter-select" style="width:100%;margin-bottom:20px;">
-            <option value="viewer">檢視人員 (Viewer)</option>
-            <option value="editor">審查人員 (Editor)</option>
-            <option value="manager">資料管理者 (Manager)</option>
-            <option value="admin">系統管理員 (Admin)</option>
-        </select>
-        <div style="display:flex;gap:10px;">
-            <button class="btn btn-primary" style="flex:1" onclick="submitUser()">送出</button>
-            <button class="btn" style="flex:1" onclick="document.getElementById('userModal').classList.remove('open')">取消</button>
-        </div>
-    </div></div>
     
-    <!-- Profile Modal -->
-    <div class="modal-overlay" id="profileModal"><div class="modal-box">
-        <h3>個人設定</h3>
-        <input id="myProfileName" class="filter-input" style="width:100%;margin-bottom:10px;" placeholder="姓名">
-        <input id="myProfilePwd" type="password" class="filter-input" style="width:100%;margin-bottom:20px;" placeholder="新密碼 (若不修改請留空)">
-        <div style="display:flex;gap:10px;">
-            <button class="btn btn-primary" style="flex:1" onclick="submitProfile()">更新</button>
-            <button class="btn" style="flex:1" onclick="document.getElementById('profileModal').classList.remove('open')">取消</button>
-        </div>
-    </div></div>
+    <div class="modal-overlay" id="userModal"><div class="modal-box"><h3 style="margin-top:0;" id="userModalTitle">使用者</h3><input type="hidden" id="targetUserId"><div class="form-group"><label>姓名</label><input type="text" id="uName" class="filter-input"></div><div class="form-group"><label>帳號 (Username)</label><input type="text" id="uEmail" class="filter-input"></div><div class="form-group"><label>密碼 <span style="font-weight:400;color:#666;font-size:12px" id="pwdHint"></span></label><input type="password" id="uPwd" class="filter-input"></div><div class="form-group"><label>確認密碼</label><input type="password" id="uPwdConfirm" class="filter-input"></div><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><div id="pwdStrength" style="font-size:13px;color:#666;">密碼強度: -</div></div><div class="form-group"><label>權限</label><select id="uRole" class="filter-select"><option value="admin">系統管理員 (Admin)</option><option value="manager">資料管理者 (Manager)</option><option value="editor">審查人員 (Editor)</option><option value="viewer">檢視人員 (Viewer)</option></select></div><div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%" onclick="submitUser()">送出</button><button class="btn btn-outline" style="width:100%" onclick="document.getElementById('userModal').classList.remove('open')">取消</button></div></div></div>
+    <div class="modal-overlay" id="profileModal"><div class="modal-box"><h3 style="margin-top:0;">個人設定</h3><div class="form-group"><label>姓名</label><input type="text" id="myProfileName" class="filter-input"></div><div class="form-group"><label>新密碼 <span style="font-weight:400;color:#666;font-size:12px">(若不修改請留空)</span></label><input type="password" id="myProfilePwd" class="filter-input"></div><div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%" onclick="submitProfile()">更新</button><button class="btn btn-outline" style="width:100%" onclick="document.getElementById('profileModal').classList.remove('open')">取消</button></div></div></div>
+
+    <!-- Preview modal -->
+    <div class="modal-overlay" id="previewModal"><div class="modal-box" id="previewBox" style="max-width:800px; width:90%; max-height:80vh; overflow:auto;"><div style="display:flex;justify-content:space-between;align-items:center;"><h3 id="previewTitle">內容預覽</h3><button onclick="closePreview()" style="border:none;background:none;font-size:20px;">&times;</button></div><div id="previewContent" style="margin-top:12px;"></div></div></div>
 
     <script>
-        let currentData = [], currentUser = null, currentEditItem = null, charts = {};
-        let stagedImportData = []; // 恢復變數
+        // 全域狀態
+        let rawData = [], currentData = [], currentUser = null, charts = {}, currentEditItem = null, userList = [], sortState = { field: null, dir: 'asc' }, stagedImportData = []; 
+        let autoLogoutTimer;
+        let currentLogs = { login: [], action: [] };
+        // Global stats cache for charts
+        let cachedGlobalStats = null;
 
-        // Helper Functions
-        function stripHtml(h) { if(!h) return ''; let t = document.createElement("DIV"); t.innerHTML = h; return t.textContent || t.innerText || ""; }
+        // Issues server-side pagination state
+        let issuesPage = 1, issuesPageSize = 20;
+        let issuesTotal = 0, issuesPages = 1;
 
-        // Init Charts
-        function initCharts(){
-            const c1 = document.getElementById('statusChart'), c2=document.getElementById('unitChart'), c3=document.getElementById('trendChart');
-            if(c1) charts.status = new Chart(c1, {type:'doughnut', data:{labels:[],datasets:[]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}}});
-            if(c2) charts.unit = new Chart(c2, {type:'bar', data:{labels:[],datasets:[]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}}});
-            if(c3) charts.trend = new Chart(c3, {type:'line', data:{labels:[],datasets:[]}, options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}}});
+        // Users pagination state
+        let usersPage = 1, usersPageSize = 20;
+        let usersTotal = 0, usersPages = 1, usersSortField = 'id', usersSortDir = 'asc';
+
+        // Logs pagination
+        let logsPage = 1, logsPageSize = 20, logsTotal = 0, logsPages = 1;
+        let actionsPage = 1, actionsPageSize = 20, actionsTotal = 0, actionsPages = 1;
+
+        // 自動登出
+        function resetAutoLogout() {
+            clearTimeout(autoLogoutTimer);
+            autoLogoutTimer = setTimeout(() => {
+                alert("您已閒置過久，系統將自動登出。");
+                logout();
+            }, 1800000);
+        }
+        window.onload = resetAutoLogout;
+        document.onmousemove = resetAutoLogout;
+        document.onkeypress = resetAutoLogout;
+
+        function toggleDashboard(btn) {
+            const d = document.getElementById('dashboardSection');
+            const c = d.classList.contains('collapsed');
+            d.classList.toggle('collapsed', !c);
+            btn.innerHTML = c ? '<span>收合統計圖表</span> <span>▲</span>' : '<span>展開統計圖表</span> <span>▼</span>';
         }
         
-        // Main Init
+        function toggleUserMenu() {
+            document.getElementById('userDropdown').classList.toggle('show');
+        }
+        window.addEventListener('click', function(e) {
+            if (!e.target.closest('.user-menu-container')) {
+                document.getElementById('userDropdown').classList.remove('show');
+            }
+        });
+
+        // --- Helper functions (完整還原) ---
+        function normalizeCodeString(str) { if(!str) return ""; var s = (str.normalize ? str.normalize("NFKC") : str); s = s.replace(/[\u200B-\u200D\uFEFF]/g, ""); s = s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g, "-"); s = s.replace(/[ \t]+/g, " ").replace(/\s*-\s*/g, "-"); return s.trim(); }
+        function stripHtml(h) { if(!h) return ''; let t = document.createElement("DIV"); t.innerHTML = h; return t.textContent || t.innerText || ""; }
+        function getLatest(i, p) { for(let k = 20; k >= 1; k--) { const key = k === 1 ? p : `${p}${k}`; if(i[key]) return i[key]; } return null; }
+        function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' }; return map[r] || r; }
+        function extractNumberFromCell(cell) { if(!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); var mB = whole.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/); if (mB) return (mB[1] || "").toUpperCase(); var mA = whole.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/); if (mA) return (mA[1] || "").toUpperCase(); return ""; }
+        function parseItemNumber(numberStr) { var raw = normalizeCodeString(numberStr || ""); if(!raw) return null; var m = raw.match(/^(\d{2})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i); if(m) { var yy = parseInt(m[1], 10), rocYear = 100 + yy, org = m[2].toUpperCase(), cat = m[3], div = m[4].toUpperCase(), divSeq = m[5], kind = m[6].toUpperCase(), seq = m[7]; return { scheme: "THAS-v1", raw: raw, yearRoc: rocYear, orgCodeRaw: org, inspectionCategoryCode: cat, divisionCode: div, divisionSeq: divSeq, itemKindCode: kind, itemSeq: seq.toString(), period: "" }; } m = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d{1,3})$/i); if(m) { var rocYear2 = parseInt(m[1], 10), org2 = m[2].toUpperCase(), cat2 = m[3], period = m[4], div2 = m[5].toUpperCase(), kind2 = m[6].toUpperCase(), seq2 = m[7]; return { scheme: "TRC-v2", raw: raw, yearRoc: rocYear2, orgCodeRaw: org2, inspectionCategoryCode: cat2, divisionCode: div2, itemKindCode: kind2, itemSeq: seq2.toString(), period: period }; } return null; }
+        function canonicalNumber(info) { if(!info) return ""; if(info.scheme === "TRC-v2") { var seq = String(parseInt(info.itemSeq, 10)); return (info.yearRoc + "-" + info.orgCodeRaw + "-" + info.inspectionCategoryCode + "-" + info.period + "-" + info.divisionCode + "-" + info.itemKindCode + seq).toUpperCase(); } if(info.scheme === "THAS-v1") { var yy = String(info.yearRoc - 100); yy = ("0" + yy).slice(-2); var seq2 = String(parseInt(info.itemSeq, 10)); seq2 = ("0" + seq2).slice(-2); return (yy + info.orgCodeRaw + info.inspectionCategoryCode + "-" + info.divisionCode + info.divisionSeq + "-" + info.itemKindCode + seq2).toUpperCase(); } return (info.raw || "").toUpperCase(); }
+        function normalizeMultiline(s) { s = s || ""; return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
+        function sanitizeContent(html) { if(!html) return ""; var s = String(html); s = s.replace(/&lt;\s*\/?\s*p\s*&gt;/gi, "").replace(/<\s*\/?\s*p\s*>/gi, "").replace(/<p>\s*<\/p>/gi, "").replace(/(?:<br\s*\/?>\s*){3,}/gi, "<br><br>").replace(/\n{3,}/g, "\n\n").replace(/(<li>\s*)+/gi, "<li>").replace(/(<\/li>\s*)+/gi, "</li>").replace(/(<ol>\s*)+/gi, "<ol>").replace(/(<\/ol>\s*)+/gi, "</ol>").replace(/[\u200B-\u200D\uFEFF]/g, "").trim(); return s; }
+        var ORG_MAP_THAS = { T:"臺鐵", H:"高鐵", A:"林鐵", S:"糖鐵" }; var ORG_MAP_TRCC = { TRC:"臺鐵", HSR:"高鐵", AFR:"林鐵", TSC:"糖鐵" }; var ORG_CROSSWALK = { T:"TRC", H:"HSR", A:"AFR", S:"TSC", TRC:"TRC", HSR:"HSR", AFR:"AFR", TSC:"TSC" }; var CATEGORY_MAP_1_4 = { "1":"定期檢查", "2":"例行性檢查", "3":"特別檢查", "4":"臨時檢查" }; var DIVISION_MAP_THAS = { A:"運務", B:"工務", C:"機務", D:"電務", E:"安全", F:"審核", G:"災防" }; var DIVISION_MAP_TRCC = { OP:"運轉", CP:"土木", EM:"機電" }; var ISSUE_KIND_MAP = { N:"缺失事項", O:"觀察事項", R:"建議事項" }; var FILLED_MARKS = ["■","☑","☒","✔","✅","●","◉","✓"]; var EMPTY_MARKS  = ["□","☐","◻","○","◯","◇","△"];
+        function parseStatusFromResultCell(cell) { if(!cell) return ""; var src = normalizeMultiline((cell.innerText || cell.textContent || "") + "\n" + (cell.innerHTML || "").replace(/<[^>]+>/g, "")); if(!src) return ""; var allMarks = FILLED_MARKS.concat(EMPTY_MARKS).join(""); allMarks = allMarks.replace(/[-\\^$*+?.()|[\]{}]/g, "\\$&"); var reFront = new RegExp("([" + allMarks + "])\\s*(?:[:：﹕-]?\\s*)?(解除列管|持續列管|自行列管)", "g"); var reBack  = new RegExp("(解除列管|持續列管|自行列管)\\s*(?:[:：﹕-]?\\s*)?([" + allMarks + "])", "g"); var hits = [], m; while((m = reFront.exec(src)) !== null) { hits.push({ idx: m.index, label: m[2], mark: m[1], filled: FILLED_MARKS.indexOf(m[1]) >= 0 }); } while((m = reBack.exec(src)) !== null) { hits.push({ idx: m.index, label: m[1], mark: m[2], filled: FILLED_MARKS.indexOf(m[2]) >= 0 }); } var filled = hits.filter(function(h) { return h.filled; }).sort(function(a, b) { return a.idx - b.idx; }); if (filled.length) return filled[filled.length - 1].label; var labels = ["解除列管", "持續列管", "自行列管"]; var present = labels.filter(function(l) { return src.indexOf(l) >= 0; }); if (present.length === 1) return present[0]; return ""; }
+        function formatHtmlToText(html) { if(!html) return ""; let temp = html.replace(/<li[^>]*>/gi, "\n• ").replace(/<\/li>/gi, "").replace(/<ul[^>]*>/gi, "").replace(/<\/ul>/gi, "").replace(/<ol[^>]*>/gi, "").replace(/<\/ol>/gi, "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<p[^>]*>/gi, ""); let div = document.createElement("div"); div.innerHTML = temp; return (div.textContent || div.innerText || "").replace(/\n\s*\n/g, "\n").trim(); }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const icon = type === 'success' ? '✅' : '⚠️';
+            const title = type === 'success' ? '成功' : '錯誤';
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<div class="toast-icon">${icon}</div><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-msg">${message}</div></div>`;
+            container.appendChild(toast);
+            requestAnimationFrame(() => { toast.classList.add('show'); });
+            setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 3000);
+        }
+
+        // Preview modal
+        function showPreview(html, title) {
+            document.getElementById('previewTitle').innerText = title || '內容預覽';
+            document.getElementById('previewContent').innerHTML = html || '(無內容)';
+            document.getElementById('previewModal').classList.add('open');
+        }
+        function closePreview() { document.getElementById('previewModal').classList.remove('open'); }
+
+        // --- 初始化與權限檢查 ---
         document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            if(currentUser) {
+                document.body.style.display = 'flex';
+                initListeners();
+                initEditForm();
+                initCharts(); // Initialize charts container first
+                await loadIssuesPage(1); // Then load data and update charts
+                loadUsersPage(1);
+            }
+        });
+
+        async function checkAuth() {
             try {
                 const res = await fetch('/api/auth/me');
                 const data = await res.json();
                 if(data.isLogin) {
                     currentUser = data;
-                    document.body.style.display = 'flex';
                     document.getElementById('headerUserName').innerText = data.name || data.username;
-                    document.getElementById('headerUserRole').innerText = data.role;
-                    
-                    // Permission checks
-                    if(['admin','manager'].includes(data.role)) {
+                    document.getElementById('headerUserRole').innerText = getRoleName(data.role);
+                    if(['admin', 'manager'].includes(data.role)) {
                         document.getElementById('btn-importView').classList.remove('hidden');
-                        if(data.role==='admin') document.getElementById('btn-usersView').classList.remove('hidden');
-                    } else {
-                        document.getElementById('editBtn').style.display = 'none'; // Hide edit button for viewers
+                        if(data.role === 'admin') document.getElementById('btn-usersView').classList.remove('hidden');
                     }
+                } else window.location.href = '/login.html';
+            } catch(e) { window.location.href = '/login.html'; }
+        }
 
-                    initCharts();
-                    loadIssuesPage(1);
-                    
-                    // Init Edit Round Options
-                    const s = document.getElementById('editRound');
-                    if(s) {
-                        s.innerHTML = '';
-                        for(let i=1;i<=20;i++) { let o=document.createElement('option'); o.value=i; o.text=`第 ${i} 次`; s.add(o); }
-                    }
-                } else {
-                    window.location.href = '/login.html';
-                }
-            } catch(e) {
-                console.error(e);
-                window.location.href = '/login.html';
-            }
-        });
-
-        // UI Toggles
-        function onToggleSidebar(){ 
-            document.getElementById('filtersPanel').classList.toggle('open'); 
-            document.getElementById('filterBackdrop').classList.toggle('visible'); 
-        }
-        function switchView(id) {
-            document.querySelectorAll('.view-section').forEach(e=>e.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            document.querySelectorAll('.sidebar-btn').forEach(e=>e.classList.remove('active'));
-            document.getElementById('btn-'+id).classList.add('active');
-            // Auto close
-            document.getElementById('filtersPanel').classList.remove('open'); 
-            document.getElementById('filterBackdrop').classList.remove('visible');
-        }
-        function toggleUserMenu(){ document.getElementById('userDropdown').classList.toggle('show'); }
-        function toggleDashboard(btn){ 
-            const d = document.getElementById('dashboardSection');
-            d.classList.toggle('collapsed');
-            btn.innerText = d.classList.contains('collapsed') ? '展開圖表 ▼' : '收合圖表 ▲';
-        }
-        
-        // Issues API
-        async function loadIssuesPage(page) {
-            const q = document.getElementById('filterKeyword').value || '';
-            const y = document.getElementById('filterYear').value || '';
-            const u = document.getElementById('filterUnit').value || '';
-            const s = document.getElementById('filterStatus').value || '';
+        // --- Pagination Logic ---
+        function renderPagination(containerId, currentPage, totalPages, onPageChange) {
+            const containerTop = document.getElementById(containerId + 'Top');
+            const containerBottom = document.getElementById(containerId + 'Bottom');
             
+            let html = '';
+            // Prev Button
+            html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="${onPageChange}(${currentPage - 1})">◀</button>`;
+
+            // Page Numbers logic: 1 2 3 ... 10
+            const delta = 2;
+            const range = [];
+            for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+                range.push(i);
+            }
+
+            if (currentPage - delta > 2) range.unshift('...');
+            if (currentPage + delta < totalPages - 1) range.push('...');
+
+            range.unshift(1);
+            if (totalPages > 1) range.push(totalPages);
+
+            range.forEach(i => {
+                if (i === '...') html += `<div class="page-dots">...</div>`;
+                else html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`;
+            });
+
+            // Next Button
+            html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="${onPageChange}(${currentPage + 1})">▶</button>`;
+
+            if(containerTop) containerTop.innerHTML = html;
+            if(containerBottom) containerBottom.innerHTML = html;
+        }
+
+        // --- Issues: 呼叫 server-side 分頁 API ---
+        async function loadIssuesPage(page = 1) {
+            issuesPage = page;
+            // Sync selectors
+            document.getElementById('issuesPageSizeTop').value = issuesPageSize;
+            document.getElementById('issuesPageSizeBottom').value = issuesPageSize;
+
+            const q = document.getElementById('filterKeyword').value || '';
+            const year = document.getElementById('filterYear').value || '';
+            const unit = document.getElementById('filterUnit').value || '';
+            const status = document.getElementById('filterStatus').value || '';
+            let sortField = 'created_at', sortDir = 'desc';
+            if (sortState.field) {
+                if (sortState.field === 'number') sortField = 'title';
+                else if (sortState.field === 'year') sortField = 'year';
+                else if (sortState.field === 'unit') sortField = 'unit';
+                else if (sortState.field === 'status') sortField = 'status';
+                sortDir = sortState.dir || 'asc';
+            }
+            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, sortField, sortDir });
             try {
-                const res = await fetch(`/api/issues?page=${page}&q=${encodeURIComponent(q)}&year=${y}&unit=${encodeURIComponent(u)}&status=${encodeURIComponent(s)}`);
+                const res = await fetch('/api/issues?' + params.toString());
+                if (!res.ok) { showToast('載入資料失敗','error'); return; }
                 const j = await res.json();
                 currentData = j.data || [];
+                issuesTotal = j.total || 0;
+                issuesPages = j.pages || 1;
                 
-                // Populate Filters only once
-                if(document.getElementById('filterYear').options.length === 1 && j.globalStats) {
-                     [...new Set(j.globalStats.year.map(x=>x.year))].sort().reverse().forEach(v=>{
-                         if(v){ let o=document.createElement('option'); o.value=v; o.text=v; document.getElementById('filterYear').add(o); }
-                     });
-                     [...new Set(j.globalStats.unit.map(x=>x.unit))].sort().forEach(v=>{
-                         if(v){ let o=document.createElement('option'); o.value=v; o.text=v; document.getElementById('filterUnit').add(o); }
-                     });
+                if (j.latestCreatedAt) {
+                    const d = new Date(j.latestCreatedAt);
+                    const dateStr = d.toLocaleDateString('zh-TW') + ' ' + d.toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'});
+                    document.getElementById('dataTimestamp').innerText = `資料庫更新時間：${dateStr}`;
+                } else {
+                    document.getElementById('dataTimestamp').innerText = '';
                 }
                 
-                // Render Table
-                document.getElementById('dataBody').innerHTML = currentData.map(i=> {
-                    let badgeClass = i.status === '解除列管' ? 'resolved' : (i.status === '自行列管' ? 'self' : 'active');
-                    let snippet = stripHtml(i.content).substring(0, 60) + '...';
-                    return `
-                    <tr onclick="openDetail('${i.id}')">
-                        <td data-label="編號">${i.number||i.title}</td>
-                        <td data-label="年度">${i.year}</td>
-                        <td data-label="機構">${i.unit}</td>
-                        <td data-label="狀態"><span class="badge ${badgeClass}">${i.status||'列管中'}</span></td>
-                        <td data-label="內容摘要">${snippet}</td>
-                        <td data-label="操作 / AI">${currentUser.role!=='viewer'?`✏️`:''}</td>
-                    </tr>
-                `}).join('');
-                
-                document.getElementById('paginationArea').innerText = `第 ${j.page} / ${j.pages} 頁 (共 ${j.total} 筆)`;
-
-                // Update Stats & Charts
-                if(j.globalStats) {
-                    const st = j.globalStats.status;
-                    document.getElementById('countTotal').innerText = st.reduce((a,b)=>a+parseInt(b.count),0);
-                    document.getElementById('countActive').innerText = st.find(x=>x.status==='持續列管')?.count || 0;
-                    document.getElementById('countResolved').innerText = st.filter(x=>['解除列管','自行列管'].includes(x.status)).reduce((a,b)=>a+parseInt(b.count),0);
-
-                    charts.status.data = { labels: st.map(x=>x.status), datasets:[{data:st.map(x=>x.count), backgroundColor:['#ef4444','#10b981','#f59e0b']}]}; charts.status.update();
-                    charts.unit.data = { labels: j.globalStats.unit.map(x=>x.unit), datasets:[{label:'案件', data:j.globalStats.unit.map(x=>x.count), backgroundColor:'#3b82f6'}]}; charts.unit.update();
-                    charts.trend.data = { labels: j.globalStats.year.map(x=>x.year).sort(), datasets:[{label:'趨勢', data:j.globalStats.year.sort((a,b)=>a.year.localeCompare(b.year)).map(x=>x.count), borderColor:'#8b5cf6'}]}; charts.trend.update();
+                // Populate filters if empty (first load)
+                if(document.getElementById('filterYear').options.length === 0 && j.globalStats) {
+                     const years = [...new Set(j.globalStats.year.map(x => x.year).filter(Boolean))].sort().reverse();
+                     document.getElementById('filterYear').innerHTML = '<option value="">全部年度</option>' + years.map(v => `<option value="${v}">${v}</option>`).join('');
+                     
+                     const units = [...new Set(j.globalStats.unit.map(x => x.unit).filter(Boolean))].sort();
+                     document.getElementById('filterUnit').innerHTML = '<option value="">全部機構</option>' + units.map(v => `<option value="${v}">${v}</option>`).join('');
                 }
-            } catch(e) { console.error(e); alert('載入失敗'); }
+                
+                // Update charts with GLOBAL stats
+                if (j.globalStats) {
+                    cachedGlobalStats = j.globalStats;
+                    updateChartsData(j.globalStats);
+                    renderStats(j.globalStats);
+                }
+
+                renderTable();
+                renderPagination('issuesPagination', issuesPage, issuesPages, 'loadIssuesPage');
+                document.getElementById('issuesTotalCount').innerText = issuesTotal;
+            } catch (e) { console.error(e); showToast('載入資料錯誤','error'); }
         }
 
-        // Detail & Edit Logic
-        function openDetail(id) {
-            currentEditItem = currentData.find(x=>String(x.id)===String(id));
-            if(!currentEditItem) return;
-            
-            document.getElementById('dNumber').innerText = currentEditItem.number || currentEditItem.title;
-            document.getElementById('dUnit').innerText = currentEditItem.unit;
-            document.getElementById('dYear').innerText = currentEditItem.year + '年';
-            document.getElementById('dStatus').innerHTML = `<span class="badge ${currentEditItem.status === '解除列管' ? 'resolved' : 'active'}">${currentEditItem.status||'列管中'}</span>`;
-            document.getElementById('dContent').innerHTML = currentEditItem.content;
-            
-            let h=''; for(let i=1;i<=20;i++) { 
-                const suffix = i===1?'':i;
-                const ha=currentEditItem['handling'+suffix], re=currentEditItem['review'+suffix];
-                if(ha || re) {
-                    h+=`<div style="margin-bottom:15px;padding-left:15px;border-left:3px solid #ddd;">
-                        <div style="font-weight:bold;color:#555;margin-bottom:5px;">第 ${i} 次辦理情形</div>
-                        <div style="font-size:14px;color:#333;margin-bottom:8px;">${ha||'<span style="color:#ccc">無資料</span>'}</div>
-                        <div style="font-weight:bold;color:#2563eb;margin-bottom:5px;">審查意見</div>
-                        <div style="font-size:14px;color:#333;background:#f1f5f9;padding:8px;border-radius:6px;">${re||'<span style="color:#ccc">無資料</span>'}</div>
-                    </div>`;
-                }
+        function applyFilters() { issuesPage = 1; loadIssuesPage(1); }
+        function resetFilters() { document.querySelectorAll('.filter-input,.filter-select').forEach(e => e.value = ''); applyFilters(); }
+
+        function sortData(field) {
+            if(sortState.field === field) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+            else { sortState.field = field; sortState.dir = 'asc'; }
+            loadIssuesPage(1);
+            updateSortUI();
+        }
+        function updateSortUI() {
+            document.querySelectorAll('th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                if(th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc');
+            });
+        }
+
+        function renderStats(stats) {
+            const s = stats.status;
+            const total = s.reduce((sum, item) => sum + parseInt(item.count), 0);
+            const active = s.find(x => x.status === '持續列管')?.count || 0;
+            const resolved = s.filter(x => ['解除列管', '自行列管'].includes(x.status)).reduce((sum, x) => sum + parseInt(x.count), 0);
+            document.getElementById('countTotal').innerText = total;
+            document.getElementById('countActive').innerText = active;
+            document.getElementById('countResolved').innerText = resolved;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('dataBody');
+            tbody.innerHTML = '';
+            if(!currentData || currentData.length === 0) {
+                document.getElementById('emptyMsg').style.display = 'block';
+                return;
             }
-            document.getElementById('dTimeline').innerHTML = h || '<div style="color:#999">無歷程紀錄</div>';
-            
-            document.getElementById('detailDrawer').classList.add('open');
-            document.getElementById('drawerBackdrop').classList.add('visible');
-            toggleEditMode(false);
+            document.getElementById('emptyMsg').style.display = 'none';
+            const canManage = ['admin', 'manager'].includes(currentUser.role);
+            const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role);
+            document.getElementById('batchActionContainer').style.display = 'none';
+            document.getElementById('selectedCountBadge').innerText = '';
+            document.getElementById('selectAll').checked = false;
+            document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
+
+            tbody.innerHTML = currentData.map(item => {
+                let badge = '';
+                if(item.status && item.status !== 'Open') {
+                    const st = item.status === '持續列管' ? 'active' : (item.status === '解除列管' ? 'resolved' : 'self');
+                    badge = `<span class="badge ${st}">${item.status}</span>`;
+                }
+                let updateTxt = '-';
+                const lr = getLatest(item, 'review'), lh = getLatest(item, 'handling');
+                if(lr) updateTxt = `[審] ${stripHtml(lr).slice(0,80)}`;
+                else if(lh) updateTxt = `[回] ${stripHtml(lh).slice(0,80)}`;
+                let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`;
+                if(item.aiResult && item.aiResult.status === 'done') {
+                    const f = item.aiResult.fulfill || '';
+                    const isYes = f.includes('是') || f.includes('Yes');
+                    aiContent = `<div class="ai-tag ${isYes?'yes':'no'}">${isYes?'✅':'⚠️'} ${f}</div>`;
+                }
+                const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : '';
+                const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
+                const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
+                const snippet = stripHtml(item.content || '').slice(0, 180);
+                const fullHtml = item.content || '';
+                return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="年度">${item.year}</td><td data-label="機構">${item.unit}</td><td data-label="狀態">${badge}</td><td data-label="內容摘要"><div class="text-content">${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新進度"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="操作 / AI"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
+            }).join('');
         }
-        function closeDrawer(){ document.getElementById('detailDrawer').classList.remove('open'); document.getElementById('drawerBackdrop').classList.remove('visible'); }
-        function toggleEditMode(edit){ 
-            document.getElementById('viewModeContent').classList.toggle('hidden', edit); 
-            document.getElementById('editModeContent').classList.toggle('hidden', !edit);
-            if(edit) {
-                document.getElementById('editId').value = currentEditItem.id;
-                document.getElementById('editStatus').value = currentEditItem.status || '持續列管';
-                document.getElementById('editRound').value = 1;
-                loadRoundData();
-            }
+
+        function onIssuesPageSizeChange(val) { 
+            issuesPageSize = parseInt(val, 10); 
+            loadIssuesPage(1); 
         }
-        function loadRoundData() {
-            const r = document.getElementById('editRound').value, s=r==1?'':r;
-            // Strip HTML for textarea editing
-            document.getElementById('editHandling').value = stripHtml(currentEditItem['handling'+s]||'');
-            document.getElementById('editReview').value = stripHtml(currentEditItem['review'+s]||'');
-        }
-        async function saveEdit() {
-            const id=document.getElementById('editId').value;
-            await fetch(`/api/issues/${id}`, {method:'PUT', headers:{'Content-Type':'application/json'}, 
-                body:JSON.stringify({
-                    status:document.getElementById('editStatus').value, 
-                    round:document.getElementById('editRound').value,
-                    handling:document.getElementById('editHandling').value,
-                    review:document.getElementById('editReview').value
-                })});
-            alert('儲存成功'); loadIssuesPage(1); closeDrawer();
-        }
-        async function runAiInEdit(btn) {
-            btn.innerText = '分析中...'; btn.disabled = true;
+
+        // --- Users: 使用 server-side 分頁 API ---
+        async function loadUsersPage(page = 1) {
+            usersPage = page;
+            usersPageSize = parseInt(document.getElementById('usersPageSize').value, 10);
+            const q = document.getElementById('userSearch').value || '';
+            const params = new URLSearchParams({ page: usersPage, pageSize: usersPageSize, q, sortField: usersSortField, sortDir: usersSortDir });
             try {
-                const res = await fetch('/api/gemini', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:stripHtml(currentEditItem.content), rounds:[{handling:document.getElementById('editHandling').value}]})});
+                const res = await fetch('/api/users?' + params.toString());
+                if(!res.ok) { showToast('載入使用者失敗','error'); return; }
                 const j = await res.json();
-                document.getElementById('editReview').value += `\n\n[AI建議: ${j.fulfill}] ${j.reason}`;
-            } catch(e){ alert('AI 分析失敗'); }
-            btn.innerText = '🤖 AI 智能分析'; btn.disabled = false;
+                userList = j.data || [];
+                usersTotal = j.total || 0;
+                usersPages = j.pages || 1;
+                renderUsers();
+                renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage');
+            } catch(e) { console.error(e); showToast('載入使用者錯誤','error'); }
         }
+        function renderUsers() {
+            document.getElementById('usersTableBody').innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name||'-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id!==currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join('');
+        }
+        function usersSortBy(field) { if(usersSortField === field) usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; else { usersSortField = field; usersSortDir = 'asc'; } loadUsersPage(1); }
 
-        // User Admin
-        function switchAdminTab(tab, btn){
-            document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active')); // This might be too broad, but works for tabs in container
-            if(btn) btn.classList.add('active');
-            document.getElementById('tab-users').classList.add('hidden');
-            document.getElementById('tab-logs').classList.add('hidden');
-            document.getElementById('tab-actions').classList.add('hidden');
-            document.getElementById('tab-'+tab).classList.remove('hidden');
-            if(tab==='users') loadUsers();
-            if(tab==='logs') loadLogs('login');
-            if(tab==='actions') loadLogs('action');
-        }
-        async function loadUsers(){
-            const res = await fetch('/api/users'); const j = await res.json();
-            document.getElementById('usersTableBody').innerHTML = j.data.map(u=>`<tr><td data-label="帳號">${u.username}</td><td data-label="姓名">${u.name}</td><td data-label="權限">${u.role}</td><td data-label="操作"><button class="btn btn-danger" onclick="deleteUser(${u.id})">刪</button></td></tr>`).join('');
-        }
-        async function openUserModal(mode){ document.getElementById('userModal').classList.add('open'); }
-        async function submitUser(){ 
-            await fetch('/api/users', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:document.getElementById('uEmail').value, name:document.getElementById('uName').value, password:document.getElementById('uPwd').value, role:document.getElementById('uRole').value})});
-            document.getElementById('userModal').classList.remove('open'); loadUsers();
-        }
-        async function deleteUser(id){ if(confirm('刪除?')) { await fetch(`/api/users/${id}`, {method:'DELETE'}); loadUsers(); } }
-        
-        // Logs
-        async function loadLogs(type){
-            const res = await fetch(`/api/admin/${type==='login'?'logs':'action_logs'}`); const j=await res.json();
-            const tbody = document.getElementById(type==='login'?'logsTableBody':'actionsTableBody');
-            tbody.innerHTML = j.data.map(l=>`<tr><td data-label="時間">${new Date(l.created_at||l.login_time).toLocaleString()}</td><td data-label="帳號">${l.username}</td>${type==='login'?`<td data-label="IP">${l.ip_address}</td>`:`<td data-label="動作">${l.action}</td><td data-label="內容">${l.details}</td>`}</tr>`).join('');
-        }
-        async function clearLogs(type){ if(confirm('清空?')) { await fetch(`/api/admin/${type==='login'?'logs':'action_logs'}`, {method:'DELETE'}); loadLogs(type); }}
-
-        // Profile
-        function openProfileModal(){ document.getElementById('profileModal').classList.add('open'); }
-        async function submitProfile(){ 
-            await fetch('/api/auth/profile', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:document.getElementById('myProfileName').value, password:document.getElementById('myProfilePwd').value})});
-            alert('更新成功，請重新登入'); logout();
-        }
-        function logout(){ fetch('/api/auth/logout', {method:'POST'}).then(()=>window.location.reload()); }
-        
-        // Import Feature (Restore Logic)
-        async function previewWord(){
-            const f = document.getElementById('wordInput').files[0];
-            if(!f) return alert('請先選擇檔案');
+        // --- Logs (login) 分頁 ---
+        async function loadLogsPage(page = 1) {
+            logsPage = page;
+            const q = document.getElementById('loginSearch').value || '';
+            const params = new URLSearchParams({ page: logsPage, pageSize: logsPageSize, q });
+            document.getElementById('logsLoading').style.display = 'block';
             try {
-                const ab = await f.arrayBuffer();
-                const res = await mammoth.convertToHtml({arrayBuffer:ab});
-                // Re-implement parser
-                stagedImportData = parseHTMLtoData(res.value); 
-                document.getElementById('previewCount').innerText = stagedImportData.length;
-                document.getElementById('previewBody').innerHTML = stagedImportData.map(x => `
-                    <tr>
-                        <td>${x.number}</td>
-                        <td>${x.unit}</td>
-                        <td>${stripHtml(x.content).substring(0,30)}...</td>
-                        <td>${x.status||'新事項'}</td>
-                    </tr>
-                `).join('');
-                document.getElementById('previewContainer').classList.remove('hidden');
-            } catch(e) { console.error(e); alert('解析失敗: ' + e.message); }
+                const res = await fetch('/api/admin/logs?' + params.toString());
+                if(!res.ok) { showToast('載入登入紀錄失敗','error'); return; }
+                const j = await res.json();
+                currentLogs.login = j.data || [];
+                logsTotal = j.total || 0;
+                logsPages = j.pages || 1;
+                document.getElementById('logsTableBody').innerHTML = currentLogs.login.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="IP">${l.ip_address||'-'}</td></tr>`).join('');
+                renderPagination('logsPagination', logsPage, logsPages, 'loadLogsPage');
+            } catch(e) { console.error(e); showToast('載入登入紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; }
         }
 
-        function parseHTMLtoData(html) {
-            // Simplified recovery parser - looks for tables
-            let items = [];
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            const tables = doc.querySelectorAll('table');
-            tables.forEach(table => {
-                const rows = table.querySelectorAll('tr');
-                rows.forEach(row => {
-                    const cells = row.querySelectorAll('td');
-                    if(cells.length >= 2) {
-                        const txt = cells[0].innerText.trim();
-                        // Basic heuristic to find finding numbers (e.g., 113-TRA...)
-                        if(txt.match(/\d{2,3}-[A-Z]+-/)) {
-                            items.push({
-                                number: txt,
-                                unit: '自動偵測', 
-                                year: '113', // Default fallback
-                                content: cells[1].innerHTML,
-                                handling: cells[2] ? cells[2].innerHTML : '',
-                                review: cells[3] ? cells[3].innerHTML : '',
-                                status: '持續列管'
-                            });
+        // --- Actions 分頁 ---
+        async function loadActionsPage(page = 1) {
+            actionsPage = page;
+            const q = document.getElementById('actionSearch').value || '';
+            const params = new URLSearchParams({ page: actionsPage, pageSize: actionsPageSize, q });
+            document.getElementById('logsLoading').style.display = 'block';
+            try {
+                const res = await fetch('/api/admin/action_logs?' + params.toString());
+                if(!res.ok) { showToast('載入操作紀錄失敗','error'); return; }
+                const j = await res.json();
+                currentLogs.action = j.data || [];
+                actionsTotal = j.total || 0;
+                actionsPages = j.pages || 1;
+                document.getElementById('actionsTableBody').innerHTML = currentLogs.action.map(l => `
+                    <tr>
+                        <td data-label="時間" style="padding:12px;white-space:nowrap;">${new Date(l.created_at).toLocaleString('zh-TW')}</td>
+                        <td data-label="帳號">${l.username}</td>
+                        <td data-label="動作"><span class="badge new">${l.action}</span></td>
+                        <td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td>
+                    </tr>`).join('');
+                renderPagination('actionsPagination', actionsPage, actionsPages, 'loadActionsPage');
+            } catch(e) { console.error(e); showToast('載入操作紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; }
+        }
+
+        // --- 匯出 & 清除紀錄 ---
+        function exportLogs(type) {
+            const data = type === 'login' ? currentLogs.login : currentLogs.action;
+            if(!data || data.length === 0) return showToast('無資料可匯出', 'error');
+            let csvContent = '\uFEFF';
+            if(type === 'login') {
+                csvContent += "時間,帳號,IP位址\n";
+                data.forEach(row => { csvContent += `"${new Date(row.login_time).toLocaleString('zh-TW')}","${row.username}","${row.ip_address}"\n`; });
+            } else {
+                csvContent += "時間,帳號,動作,詳細內容\n";
+                data.forEach(row => { csvContent += `"${new Date(row.created_at).toLocaleString('zh-TW')}","${row.username}","${row.action}","${(row.details||'').replace(/"/g, '""')}"\n`; });
+            }
+            const link = document.createElement("a");
+            link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })));
+            link.setAttribute("download", `${type}_logs_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        async function clearLogs(type) {
+            if(!confirm(`確定要清空所有「${type === 'login' ? '登入' : '操作'}」紀錄嗎？此動作無法復原！`)) return;
+            const endpoint = type === 'login' ? '/api/admin/logs' : '/api/admin/action_logs';
+            try {
+                const res = await fetch(endpoint, { method: 'DELETE' });
+                if(res.ok) { showToast('紀錄已清空'); if(type === 'login') loadLogsPage(1); else loadActionsPage(1); } 
+                else showToast('清除失敗', 'error');
+            } catch(e) { showToast('Error: ' + e.message, 'error'); }
+        }
+
+        function switchAdminTab(tab) {
+            document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users');
+            document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs');
+            document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions');
+            if(tab === 'logs') loadLogsPage(1);
+            if(tab === 'actions') loadActionsPage(1);
+        }
+
+        // --- Import functions (已完整保留) ---
+        function parseFromHTML(html) {
+            var items = [];
+            try {
+                var doc = new DOMParser().parseFromString(html, "text/html");
+                var tables = doc.querySelectorAll("table");
+                tables.forEach(function(table) {
+                    var rows = table.querySelectorAll("tr");
+                    var headerRow = -1, dataStart = -1;
+                    for(var i = 0; i < Math.min(rows.length, 6); i++) {
+                        var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, "");
+                        if((/編號|項次編號|項次/).test(t) && (/觀察事項內容|觀察事項|建議事項內容|建議事項|缺失事項內容|缺失事項|事項內容|內容/).test(t)) {
+                            headerRow = i;
+                            dataStart = i + 1;
+                            break;
                         }
                     }
+                    if(headerRow === -1) return;
+                    var headerCells = rows[headerRow].querySelectorAll("td,th");
+                    var columnMap = {};
+                    var reviewCols = [];
+                    headerCells.forEach(function(cell, idx) {
+                        var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, "");
+                        if((/編號|項次編號|項次/).test(text)) columnMap.number = idx;
+                        if((/觀察事項內容|觀察事項|建議事項內容|建議事項|缺失事項內容|缺失事項|事項內容|內容/).test(text)) columnMap.content = idx;
+                        if((/辦理情形|辦理|辦理狀況/).test(text)) columnMap.handling = idx;
+                        var mm = text.match(/^第(\d+)次.*(審查意見|意見審查)$/);
+                        if(mm) reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) });
+                        else if((/(審查意見|意見審查)$/).test(text)) reviewCols.push({ idx: idx, round: 1 });
+                        if((/(審查結果|審查結論|列管結果|列管狀態|列管情形|處置結果|狀態)$/).test(text)) columnMap.result = idx;
+                    });
+                    var hc = headerCells.length;
+                    if(columnMap.number === undefined) columnMap.number = 0;
+                    if(columnMap.content === undefined) columnMap.content = Math.min(1, hc - 1);
+                    if(columnMap.handling === undefined) columnMap.handling = Math.min(2, hc - 1);
+                    if(columnMap.result === undefined) columnMap.result = hc - 1;
+                    for(var r = dataStart; r < rows.length; r++) {
+                        var cells = rows[r].querySelectorAll("td,th");
+                        if(cells.length < 2) continue;
+                        var numText = extractNumberFromCell(cells[columnMap.number]);
+                        var info = parseItemNumber(numText);
+                        if(!info) continue;
+                        var numKey = canonicalNumber(info);
+                        var year = info.yearRoc != null ? String(info.yearRoc) : "";
+                        var orgUnifiedCode = ORG_CROSSWALK[info.orgCodeRaw] || info.orgCodeRaw;
+                        var orgName = ORG_MAP_TRCC[orgUnifiedCode] || ORG_MAP_THAS[info.orgCodeRaw] || "";
+                        var inspectionCategoryName = CATEGORY_MAP_1_4[info.inspectionCategoryCode] || "";
+                        var item = { number: numKey, rawNumber: (info.raw || "").toUpperCase(), scheme: info.scheme, yearRoc: info.yearRoc || "", year: year, orgCodeRaw: info.orgCodeRaw || "", orgUnifiedCode: orgUnifiedCode, orgName: orgName, unit: orgName, inspectionCategoryCode: info.inspectionCategoryCode || "", inspectionCategoryName: inspectionCategoryName, divisionCode: info.divisionCode || "", divisionName: DIVISION_MAP_TRCC[info.divisionCode] || DIVISION_MAP_THAS[info.divisionCode] || "", itemKindCode: info.itemKindCode || "", itemKindName: ISSUE_KIND_MAP[info.itemKindCode] || "", itemSeq: info.itemSeq || "", period: info.period || "", category: ISSUE_KIND_MAP[info.itemKindCode] || CATEGORY_MAP_1_4[info.inspectionCategoryCode] || "", content: "", handling: "", status: "" };
+                        if(cells[columnMap.content]) item.content = sanitizeContent(cells[columnMap.content].innerHTML);
+                        if(cells[columnMap.handling]) item.handling = sanitizeContent(cells[columnMap.handling].innerHTML);
+                        if(item.itemKindCode === "R" || item.itemKindName === "建議事項") item.status = "自行列管";
+                        else if(cells[columnMap.result]) item.status = parseStatusFromResultCell(cells[columnMap.result]) || "";
+                        reviewCols.forEach(function(rc) {
+                            var key = (rc.round === 1 ? "review" : ("review" + rc.round));
+                            item[key] = sanitizeContent(cells[rc.idx] ? cells[rc.idx].innerHTML : "");
+                        });
+                        items.push(item);
+                    }
                 });
-            });
-            // If parse failed, return at least one test item so user sees something
-            if(items.length === 0) return [{number:'系統無法自動識別', unit:'未知', content:'請確認 Word 表格格式', year:'113'}];
+            } catch(e) { console.error("Parse error:", e); }
             return items;
         }
 
-        async function confirmImport(){
-            const r = document.getElementById('importRound').value;
-            const d = document.getElementById('importDate').value;
-            await fetch('/api/issues/import', {
-                method:'POST', 
-                headers:{'Content-Type':'application/json'}, 
-                body:JSON.stringify({data:stagedImportData, round:r, reviewDate:d})
-            });
-            alert('匯入成功'); 
-            loadIssuesPage(1);
-            switchView('searchView');
+        function checkImportReady() {
+            const r = document.getElementById('importRound').value, d = document.getElementById('importDate').value, valid = r && r > 0 && d && d.trim().length > 0;
+            document.getElementById('wordInput').disabled = !valid;
+            document.getElementById('btnParse').disabled = !valid || !document.getElementById('wordInput').files[0];
         }
+        document.getElementById('wordInput').addEventListener('change', checkImportReady);
+        
+        async function previewWord() {
+            const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRound').value, msg = document.getElementById('importStatus');
+            if(!f) return showToast('請先選擇檔案', 'error');
+            msg.innerText = '解析中...';
+            try {
+                const b = await f.arrayBuffer(), r = await mammoth.convertToHtml({ arrayBuffer: b }), items = parseFromHTML(r.value);
+                if(items.length === 0) { msg.innerText = '錯誤：未解析到有效資料，請檢查檔案格式'; return; }
+                
+                // 這裡不再依賴 rawData 做比對，因為 rawData 只有當前頁面
+                // 簡單標示為 New (實際專案可再優化)
+                stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
+                
+                document.getElementById('previewRoundDisplay').innerText = round;
+                renderPreviewTable();
+                document.getElementById('previewContainer').classList.remove('hidden');
+                document.getElementById('uploadCard').classList.add('hidden');
+                msg.innerText = '';
+            } catch(e) { console.error(e); msg.innerText = '發生錯誤: ' + e.message; }
+        }
+
+        function renderPreviewTable() {
+            document.getElementById('previewCount').innerText = stagedImportData.length;
+            const round = document.getElementById('importRound').value, tbody = document.getElementById('previewBody');
+            tbody.innerHTML = stagedImportData.map(item => {
+                const statusBadge = item._importStatus === 'new' ? `<span class="badge new">新增</span>` : `<span class="badge update">更新 (第${round}次)</span>`;
+                let progress = `[審查] ${item.review||'-'}<br>[辦理] ${item.handling||'-'}`;
+                return `<tr><td>${statusBadge}</td><td style="font-weight:600;color:var(--primary);">${item.number}</td><td>${item.unit}</td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(item.content)}</div></td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(progress)}</div></td></tr>`;
+            }).join('');
+        }
+
+        function cancelImport() { stagedImportData = []; document.getElementById('previewContainer').classList.add('hidden'); document.getElementById('uploadCard').classList.remove('hidden'); document.getElementById('wordInput').value = ''; document.getElementById('importStatus').innerText = ''; }
+        
+        async function confirmImport() {
+            if(!confirm(`確定要匯入 ${stagedImportData.length} 筆資料嗎？`)) return;
+            const round = document.getElementById('importRound').value, date = document.getElementById('importDate').value, cleanData = stagedImportData.map(({ _importStatus, ...item }) => item);
+            try {
+                const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: cleanData, round: round, reviewDate: date, actualReplyDate: '' }) });
+                if(res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); } else { showToast('匯入失敗', 'error'); }
+            } catch(e) { showToast('Error: ' + e.message, 'error'); }
+        }
+        
+        // --- User modal submit & password strength ---
+        document.getElementById('uPwd')?.addEventListener('input', updatePwdStrength);
+        document.getElementById('uPwdConfirm')?.addEventListener('input', updatePwdStrength);
+        function updatePwdStrength() {
+            const p = document.getElementById('uPwd').value || '';
+            const conf = document.getElementById('uPwdConfirm').value || '';
+            let score = 0;
+            if(p.length >= 8) score++;
+            if(/[A-Z]/.test(p)) score++;
+            if(/[0-9]/.test(p)) score++;
+            if(/[^A-Za-z0-9]/.test(p)) score++;
+            const texts = ['弱', '偏弱', '一般', '良好', '強'];
+            document.getElementById('pwdStrength').innerText = `密碼強度: ${texts[Math.min(score,4)]} ${conf && p !== conf ? '(密碼不相符)' : ''}`;
+        }
+
+        // User CRUD
+        async function openUserModal(mode, id) {
+            const m = document.getElementById('userModal'), t = document.getElementById('userModalTitle'), e = document.getElementById('uEmail');
+            if(mode === 'create') {
+                t.innerText = '新增';
+                document.getElementById('targetUserId').value = '';
+                document.getElementById('uName').value = '';
+                e.value = ''; e.disabled = false;
+                document.getElementById('uPwd').value = '';
+                document.getElementById('uPwdConfirm').value = '';
+                document.getElementById('pwdStrength').innerText = '密碼強度: -';
+                document.getElementById('pwdHint').innerText = '';
+                document.getElementById('uRole').value = 'viewer';
+            } else {
+                const u = userList.find(x => x.id === id) || {};
+                t.innerText = '編輯';
+                document.getElementById('targetUserId').value = u.id || '';
+                document.getElementById('uName').value = u.name || '';
+                e.value = u.username || ''; e.disabled = true;
+                document.getElementById('uPwd').value = '';
+                document.getElementById('uPwdConfirm').value = '';
+                document.getElementById('pwdHint').innerText = '(留空不改)';
+                document.getElementById('pwdStrength').innerText = '密碼強度: -';
+                document.getElementById('uRole').value = u.role || 'viewer';
+            }
+            m.classList.add('open');
+        }
+        async function submitUser() {
+            const id = document.getElementById('targetUserId').value, name = document.getElementById('uName').value, email = document.getElementById('uEmail').value, pwd = document.getElementById('uPwd').value, pwdConfirm = document.getElementById('uPwdConfirm').value, role = document.getElementById('uRole').value;
+            if(!id) {
+                if(!email) return showToast('請輸入帳號', 'error');
+                if(!pwd) return showToast('請輸入密碼', 'error');
+                if(pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error');
+                if(pwd.length < 8) return showToast('密碼需至少 8 碼', 'error');
+                const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: email, name, password: pwd, role }) });
+                const j = await res.json();
+                if(res.ok) { showToast('新增成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(1); } else showToast(j.error || '新增失敗','error');
+            } else {
+                const payload = { name, role };
+                if(pwd) {
+                    if(pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error');
+                    if(pwd.length < 8) return showToast('密碼需至少 8 碼', 'error');
+                    payload.password = pwd;
+                }
+                const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const j = await res.json();
+                if(res.ok) { showToast('更新成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(usersPage); } else showToast(j.error || '更新失敗','error');
+            }
+        }
+        async function deleteUser(id) { if(!confirm('確定?')) return; const res = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('刪除成功'); loadUsersPage(1); } else showToast('刪除失敗','error'); }
+
+        // Profile
+        function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
+        async function submitProfile() {
+            const name = document.getElementById('myProfileName').value, pwd = document.getElementById('myProfilePwd').value;
+            try {
+                const res = await fetch('/api/auth/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password: pwd }) });
+                if(res.ok) { showToast('更新成功，請重新登入'); document.getElementById('profileModal').classList.remove('open'); logout(); } 
+                else { const j = await res.json(); showToast(j.error || '更新失敗', 'error'); }
+            } catch(e) { showToast('更新失敗', 'error'); }
+        }
+        
+        function toggleEditMode(edit) { document.getElementById('viewModeContent').classList.toggle('hidden', edit); document.getElementById('editModeContent').classList.toggle('hidden', !edit); document.getElementById('drawerTitle').innerText = edit ? "編輯事項" : "詳細資料"; if(edit) { document.getElementById('editId').value = currentEditItem.id; document.getElementById('editHeaderNumber').innerText = currentEditItem.number; document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; document.getElementById('editStatus').value = st; document.getElementById('editRound').value = 1; document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); loadRoundData(); document.getElementById('aiBox').style.display = 'none'; document.getElementById('aiPreviewText').innerText = ''; } }
+        function initEditForm() { const s = document.getElementById('editRound'); if(!s || s.options.length > 0) return; for(let i = 1; i <= 20; i++) { const o = document.createElement('option'); o.value = i; o.text = `第 ${i} 次`; s.add(o); } }
+        function openDetail(id, isEdit) { 
+            currentEditItem = currentData.find(d => String(d.id) === String(id)); if(!currentEditItem) return; 
+            document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dYear').textContent = currentEditItem.year; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; 
+            const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self'); 
+            document.getElementById('dStatus').innerHTML = currentEditItem.status && currentEditItem.status !== 'Open' ? `<span class="badge ${st}">${currentEditItem.status}</span>` : '(未設定)'; 
+            let h = ''; for(let i = 1; i <= 20; i++) { const ha = currentEditItem[i === 1 ? 'handling' : `handling${i}`], re = currentEditItem[i === 1 ? 'review' : `review${i}`]; if(ha || re) h += `<div style="padding-left:16px;border-left:2px solid #e5e7eb;margin-left:8px;padding-bottom:20px;position:relative;"><div style="position:absolute;left:-7px;top:0;width:12px;height:12px;border-radius:50%;background:white;border:2px solid var(--primary);"></div><div style="font-size:13px;font-weight:700;margin-bottom:6px;">第 ${i} 次辦理情形</div>${ha?`<div style="background:#f1f5f9;padding:10px;border-radius:6px;font-size:14px;margin-bottom:8px;">${ha}</div>`:''}${re?`<div style="background:#fff;border:1px solid #e2e8f0;padding:10px;border-radius:6px;font-size:14px;">${re}</div>`:''}</div>`; } document.getElementById('dTimeline').innerHTML = h || '<div style="color:#999;">無歷程</div>'; 
+            const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role); const canDelete = ['admin', 'manager'].includes(currentUser.role); document.getElementById('editBtn').classList.toggle('hidden', !canEdit); document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit); 
+        }
+        function logout() { fetch('/api/auth/logout', { method: 'POST' }).then(() => window.location.reload()); }
+        function closeDrawer() { document.getElementById('drawerBackdrop').classList.remove('open'); document.getElementById('detailDrawer').classList.remove('open'); }
+        function initListeners() { document.getElementById('filterKeyword').addEventListener('keyup', (e) => { if(e.key === 'Enter') applyFilters() }); document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer); }
+        function onToggleSidebar() { const panel = document.getElementById('filtersPanel'), backdrop = document.getElementById('filterBackdrop'); if(panel.classList.contains('open')) { panel.classList.remove('open'); backdrop.classList.remove('visible'); setTimeout(() => backdrop.style.display = 'none', 300); } else { backdrop.style.display = 'block'; requestAnimationFrame(() => { panel.classList.add('open'); backdrop.classList.add('visible'); }); } }
+        function populateSelect(id, d, f) { const u = [...new Set(d.map(i => i[f]).filter(Boolean))].sort().reverse(); document.getElementById(id).innerHTML = '<option value="">全部</option>' + u.map(v => `<option value="${v}">${v}</option>`).join(''); }
+        
+        function updateChartsData(stats) { 
+            if(!charts.status || !charts.unit || !charts.trend) return;
+            if (!stats) return;
+
+            // 1. Status Chart
+            const sLabels = stats.status.map(x => x.status).filter(s => s && s !== 'Open');
+            const sData = stats.status.filter(x => x.status && x.status !== 'Open').map(x => parseInt(x.count));
+            charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: ['#ef4444', '#10b981', '#f59e0b'] }] };
+            charts.status.update();
+
+            // 2. Unit Chart
+            const uSorted = stats.unit.sort((a,b) => parseInt(b.count) - parseInt(a.count));
+            charts.unit.data = { labels: uSorted.map(x => x.unit), datasets: [{ label: '案件', data: uSorted.map(x => parseInt(x.count)), backgroundColor: '#0ea5e9', borderRadius: 8 }] };
+            charts.unit.update();
+
+            // 3. Trend Chart (Year)
+            const tSorted = stats.year.sort((a,b) => a.year.localeCompare(b.year));
+            charts.trend.data = { labels: tSorted.map(x => x.year), datasets: [{ label: '開立事項數', data: tSorted.map(x => parseInt(x.count)), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] };
+            charts.trend.update();
+        }
+
+        function initCharts() { 
+            try { 
+                const c1 = document.getElementById('statusChart');
+                const c2 = document.getElementById('unitChart');
+                const c3 = document.getElementById('trendChart');
+                
+                if(c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if(!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#333', font: { weight: 'bold' } } } } }); } 
+                if(c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); } 
+                if(c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } }); } 
+                
+                // Check if global stats are already available and update immediately
+                if(cachedGlobalStats) {
+                    updateChartsData(cachedGlobalStats);
+                }
+            } catch(e) { console.error("Chart Init Error:", e); } 
+        }
+        async function runAiInEdit(btn) { btn.disabled = true; btn.innerText = 'AI 分析中...'; const handlingTxt = document.getElementById('editHandling').value, r = [{ handling: handlingTxt, review: '(待審查)' }]; try { if(!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); const cleanContent = stripHtml(currentEditItem.content); const res = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: cleanContent, rounds: r }) }); const j = await res.json(); if(!res.ok) throw new Error(j.error || '未知錯誤'); if(!j.fulfill) throw new Error('AI 回傳格式錯誤'); const isPass = j.fulfill.includes('Yes') || j.fulfill.includes('是'); document.getElementById('aiResBadge').innerHTML = `<strong style="color:${isPass?'#10b981':'#ef4444'}">[${j.fulfill}]</strong>`; document.getElementById('aiPreviewText').innerText = j.reason; document.getElementById('aiBox').style.display = 'block'; } catch(e) { showToast('AI 失敗: ' + e.message, 'error'); console.error(e); } finally { btn.disabled = false; btn.innerText = '🤖 AI 智能分析'; } }
+        function applyAiSuggestion() { const reason = document.getElementById('aiPreviewText').innerText; if(reason) { const ta = document.getElementById('editReview'); ta.value = ta.value ? (ta.value + "\n" + reason) : reason; document.getElementById('aiBox').style.display = 'none'; } }
+        function toggleAllCheckboxes() { const master = document.getElementById('selectAll'); document.querySelectorAll('.issue-check').forEach(cb => cb.checked = master.checked); updateBatchUI(); }
+        function updateBatchUI() { const checked = document.querySelectorAll('.issue-check:checked'), count = checked.length, container = document.getElementById('batchActionContainer'); if(count > 0) { container.style.display = 'block'; document.getElementById('selectedCountBadge').innerText = `(${count})`; } else { container.style.display = 'none'; } }
+        async function batchDeleteIssues() { const checked = document.querySelectorAll('.issue-check:checked'), ids = Array.from(checked).map(cb => cb.value); if(ids.length === 0) return showToast('請先勾選要刪除的項目', 'error'); if(!confirm(`確定要刪除這 ${ids.length} 筆資料嗎？`)) return; try { const res = await fetch('/api/issues/batch-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); const result = await res.json(); if(result.success) { showToast(`成功刪除 ${ids.length} 筆資料`); loadIssuesPage(1); document.getElementById('selectAll').checked = false; updateBatchUI(); } else { showToast('刪除失敗: ' + result.error, 'error'); } } catch(e) { showToast('連線錯誤', 'error'); } }
+        async function saveEdit() { const id = document.getElementById('editId').value, payload = { status: document.getElementById('editStatus').value, round: document.getElementById('editRound').value, handling: document.getElementById('editHandling').value, review: document.getElementById('editReview').value }; const res = await fetch(`/api/issues/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if(res.ok) { showToast('儲存成功'); await loadIssuesPage(issuesPage); toggleEditMode(false); openDetail(id, false); } else showToast('儲存失敗', 'error'); }
+        async function deleteIssue(id) { if(!confirm('確定要刪除此事項嗎？此操作無法復原。')) return; try { const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('已刪除'); await loadIssuesPage(issuesPage); closeDrawer(); } else showToast('刪除失敗','error'); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
+        async function deleteIssueFromDrawer() { if(!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
+        
+        // Modified switchView to auto-close drawer immediately
+        function switchView(id) { 
+            document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active')); 
+            document.getElementById(id).classList.add('active'); 
+            document.querySelectorAll('.sidebar-btn').forEach(e => e.classList.remove('active')); 
+            const btn = document.getElementById(`btn-${id}`); 
+            if(btn) btn.classList.add('active'); 
+            
+            // Auto close drawer immediately
+            const panel = document.getElementById('filtersPanel');
+            if(panel.classList.contains('open')) {
+                onToggleSidebar();
+            }
+        }
+        
+        function loadRoundData() { const r = parseInt(document.getElementById('editRound').value), s = r === 1 ? '' : r, rawHandling = currentEditItem['handling' + s] || '', rawReview = currentEditItem['review' + s] || ''; document.getElementById('editHandling').value = formatHtmlToText(rawHandling); document.getElementById('editReview').value = formatHtmlToText(rawReview); const prevBox = document.getElementById('prevReviewBox'), prevText = document.getElementById('prevReviewText'); if(r > 1) { const prevS = (r - 1) === 1 ? '' : (r - 1), prevReviewContent = currentEditItem['review' + prevS]; if(prevReviewContent) { document.getElementById('prevRoundNum').innerText = `第 ${r-1} 次`; prevText.innerText = formatHtmlToText(prevReviewContent); prevBox.style.display = 'block'; } else { prevBox.style.display = 'none'; } } else { prevBox.style.display = 'none'; } }
     </script>
 </body>
 </html>
