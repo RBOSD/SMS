@@ -9,38 +9,37 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <style>
-        /* 1. 基礎設定 */
-        html, body { height: 100%; overflow: hidden; }
-        body { display: none; font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f8fafc; margin: 0; flex-direction: column; } 
+        /* 1. 基礎設定 - 修正手機滾動問題 */
+        html, body { min-height: 100vh; overflow-x: hidden; margin: 0; padding: 0; }
+        body { display: none; font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f8fafc; flex-direction: column; } 
         :root { --primary: #2563eb; --bg-body: #f8fafc; --bg-card: #ffffff; --text-main: #0f172a; --text-sub: #64748b; --border: #e2e8f0; --header-h: 60px; --danger: #ef4444; --success: #10b981; }
         *, *::before, *::after { box-sizing: border-box; }
         
         /* Header */
         .app-header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 24px; height: var(--header-h); display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 40; width: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.03); flex-shrink: 0; }
-        .brand { display: flex; align-items: center; gap: 16px; font-weight: 700; font-size: 18px; color: var(--text-main); }
-        .brand-icon { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 5px rgba(37,99,235,0.2); }
+        .brand { display: flex; align-items: center; gap: 16px; font-weight: 700; font-size: 18px; color: var(--text-main); flex-shrink: 0; }
+        .brand-icon { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 5px rgba(37,99,235,0.2); flex-shrink: 0; }
         
-        /* 漢堡選單按鈕樣式優化 */
-        .filter-toggle-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: #f1f5f9; border: 1px solid transparent; border-radius: 8px; cursor: pointer; font-size: 20px; color: var(--text-main); transition: all 0.2s; }
+        .filter-toggle-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: #f1f5f9; border: 1px solid transparent; border-radius: 8px; cursor: pointer; font-size: 20px; color: var(--text-main); transition: all 0.2s; flex-shrink: 0; }
         .filter-toggle-btn:hover { background: #e2e8f0; color: var(--primary); }
         .filter-toggle-btn:active { transform: scale(0.95); }
 
-        /* User Menu */
-        .user-menu-container { position: relative; }
-        .user-capsule { display: flex; align-items: center; gap: 10px; padding: 6px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 30px; cursor: pointer; transition: all 0.2s; }
+        /* User Menu - 修正手機版撐寬問題 */
+        .user-menu-container { position: relative; max-width: 50%; }
+        .user-capsule { display: flex; align-items: center; gap: 10px; padding: 6px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 30px; cursor: pointer; transition: all 0.2s; max-width: 100%; }
         .user-capsule:hover { background: #eff6ff; border-color: #bfdbfe; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        .user-name { font-weight: 600; font-size: 14px; color: #334155; }
-        .user-role { font-size: 11px; color: #2563eb; background: #dbeafe; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+        .user-name { font-weight: 600; font-size: 14px; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+        .user-role { font-size: 11px; color: #2563eb; background: #dbeafe; padding: 2px 8px; border-radius: 10px; font-weight: 600; flex-shrink: 0; }
         .user-dropdown { position: absolute; top: 130%; right: 0; width: 180px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: none; flex-direction: column; overflow: hidden; z-index: 50; padding: 6px; }
         .user-dropdown.show { display: flex; }
         .dropdown-item { padding: 10px 12px; font-size: 14px; color: #334155; cursor: pointer; transition: background 0.1s; text-align: left; border: none; background: none; width: 100%; border-radius: 8px; }
         .dropdown-item:hover { background: #f1f5f9; color: var(--primary); }
         .dropdown-divider { height: 1px; background: #f1f5f9; margin: 4px 0; }
 
-        /* Layout - Modified for Drawer Menu */
-        .app-body { display: flex; flex: 1; overflow: hidden; height: calc(100% - 60px); position: relative; }
+        /* Layout */
+        .app-body { display: flex; flex: 1; flex-direction: column; position: relative; min-height: calc(100vh - 60px); }
         
-        /* Sidebar is now a Drawer */
+        /* Drawer Sidebar */
         .filters-panel { 
             position: fixed; 
             top: 0; 
@@ -49,7 +48,7 @@
             width: 280px; 
             background: var(--bg-card); 
             box-shadow: 4px 0 24px rgba(0,0,0,0.1); 
-            padding: 80px 20px 20px 20px; /* Padding top to clear custom close button if needed, or standard spacing */
+            padding: 80px 20px 20px 20px; 
             z-index: 1000; 
             transform: translateX(-100%); 
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
@@ -59,7 +58,6 @@
         }
         .filters-panel.open { transform: translateX(0); }
         
-        /* Backdrop for Sidebar */
         #filterBackdrop { 
             position: fixed; 
             inset: 0; 
@@ -72,14 +70,13 @@
         }
         #filterBackdrop.visible { display: block; opacity: 1; }
 
-        /* Sidebar specific styles */
         .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
         .sidebar-title { font-size: 16px; font-weight: 700; color: var(--text-main); }
         .sidebar-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-sub); padding: 4px; }
         .sidebar-close-btn:hover { color: var(--danger); }
 
-        /* Main Content - Full Width */
-        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 24px; background: var(--bg-body); scroll-behavior: smooth; position: relative; z-index: 1; width: 100%; }
+        /* Main Content */
+        .main-content { flex: 1; display: flex; flex-direction: column; padding: 24px; background: var(--bg-body); width: 100%; max-width: 100%; }
         
         .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); flex-shrink: 0; min-height: 30px; }
         .content-title { font-size: 20px; font-weight: 700; color: var(--text-main); }
@@ -98,8 +95,8 @@
         .charts-grid { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 16px; margin-bottom: 20px; flex-shrink: 0; width: 100%; }
         .chart-card { background: white; border-radius: 16px; padding: 24px; border: 1px solid var(--border); height: 300px; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01); position: relative; }
         
-        /* Main Card: Integrated Search & Table */
-        .main-card { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01); overflow: hidden; display: flex; flex-direction: column; flex-shrink: 0; }
+        /* Main Card */
+        .main-card { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01); overflow: hidden; display: flex; flex-direction: column; flex-shrink: 0; margin-bottom: 20px; }
         
         .integrated-controls { padding: 20px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 16px; background: #ffffff; }
         .control-row-filters { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
@@ -122,14 +119,13 @@
 
         .hidden { display: none !important; }
         
-        /* Sidebar Buttons in Drawer */
         .sidebar-btn { width: 100%; text-align: left; padding: 14px 16px; background: transparent; border: none; color: var(--text-sub); font-weight: 600; cursor: pointer; border-radius: 10px; transition: all 0.2s; display: flex; align-items: center; gap: 12px; margin-bottom: 6px; font-size: 15px; }
         .sidebar-btn:hover { background: #f1f5f9; color: var(--text-main); }
         .sidebar-btn.active { background: #eff6ff; color: var(--primary); }
         .sidebar-btn span { font-size: 18px; }
         
-        .admin-tabs { display: flex; gap: 10px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
-        .admin-tab-btn { padding: 10px 16px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; color: #64748b; cursor: pointer; }
+        .admin-tabs { display: flex; gap: 10px; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; overflow-x: auto; }
+        .admin-tab-btn { padding: 10px 16px; background: none; border: none; border-bottom: 2px solid transparent; font-weight: 600; color: #64748b; cursor: pointer; white-space: nowrap; }
         .admin-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
         
         .data-container { overflow-x: auto; } 
@@ -140,7 +136,6 @@
         tr:hover { background: #f8fafc; cursor: pointer; }
         tr:last-child td { border-bottom: none; }
         
-        /* Pagination Bar Styles */
         .pagination-bar { display: flex; gap: 6px; align-items: center; }
         .page-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: white; border-radius: 8px; cursor: pointer; color: var(--text-main); font-size: 13px; transition: all 0.2s; }
         .page-btn:hover:not(:disabled) { background: #f1f5f9; border-color: #cbd5e1; color: var(--primary); }
@@ -184,7 +179,6 @@
         .review-left { border-right: 1px solid #e2e8f0; padding-right: 32px; overflow-y: auto; }
         .review-right { display: flex; flex-direction: column; overflow-y: auto; }
         
-        /* 排序箭頭 */
         th.sort-asc::after { content: " ▲"; font-size: 10px; margin-left: 4px; color: var(--primary); }
         th.sort-desc::after { content: " ▼"; font-size: 10px; margin-left: 4px; color: var(--primary); }
 
@@ -253,7 +247,6 @@
     </header>
 
     <div class="app-body" id="appBody">
-        <!-- Sidebar changed to Drawer style -->
         <aside class="filters-panel" id="filtersPanel">
             <div class="sidebar-header">
                 <div class="sidebar-title">功能選單</div>
@@ -286,11 +279,8 @@
                     </div>
                 </div>
 
-                <!-- Integrated Main Card -->
                 <div class="main-card">
-                    <!-- Controls Section -->
                     <div class="integrated-controls">
-                        <!-- Filters Row -->
                         <div class="control-row-filters">
                             <div class="search-item" style="flex:2;"><label>關鍵字</label><input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字..."></div>
                             <div class="search-item"><label>年度</label><select id="filterYear" class="filter-select"></select></div>
@@ -301,7 +291,6 @@
                                 <button class="btn btn-outline" onclick="resetFilters()">重設</button>
                             </div>
                         </div>
-                        <!-- Actions & Pagination Row -->
                         <div class="control-row-actions">
                             <div style="display:flex; gap:12px; align-items:center;">
                                 <div id="batchActionContainer" style="display:none;">
@@ -325,7 +314,6 @@
                         </div>
                     </div>
 
-                    <!-- Issues Table -->
                     <div class="data-container">
                         <table id="dataTable">
                             <thead>
@@ -345,8 +333,7 @@
                     </div>
                 </div>
 
-                <!-- Pagination Bottom -->
-                <div style="display:flex; justify-content:flex-end; margin-top:24px; align-items:center; gap:12px; padding-right:24px;">
+                <div style="display:flex; justify-content:flex-end; margin-top:24px; align-items:center; gap:12px; padding-right:24px; padding-bottom: 40px;">
                      <select id="issuesPageSizeBottom" class="page-size-select" onchange="onIssuesPageSizeChange(this.value)">
                         <option value="10">10 筆/頁</option>
                         <option value="20" selected>20 筆/頁</option>
@@ -1132,22 +1119,18 @@
         async function deleteIssue(id) { if(!confirm('確定要刪除此事項嗎？此操作無法復原。')) return; try { const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('已刪除'); await loadIssuesPage(issuesPage); closeDrawer(); } else showToast('刪除失敗','error'); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
         async function deleteIssueFromDrawer() { if(!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
         
-        // Modified switchView to auto-close drawer
+        // Modified switchView to auto-close drawer immediately
         function switchView(id) { 
             document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active')); 
             document.getElementById(id).classList.add('active'); 
             document.querySelectorAll('.sidebar-btn').forEach(e => e.classList.remove('active')); 
             const btn = document.getElementById(`btn-${id}`); 
             if(btn) btn.classList.add('active'); 
-            document.getElementById('searchFilters').style.display = id === 'searchView' ? 'flex' : 'none'; 
             
-            // Auto close drawer after selection
+            // Auto close drawer immediately
             const panel = document.getElementById('filtersPanel');
-            const backdrop = document.getElementById('filterBackdrop');
             if(panel.classList.contains('open')) {
-                panel.classList.remove('open');
-                backdrop.classList.remove('visible');
-                setTimeout(() => backdrop.style.display = 'none', 300);
+                onToggleSidebar();
             }
         }
         
