@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -9,6 +8,7 @@ const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcrypt');
 const axios = require('axios');
 const rateLimit = require('express-rate-limit');
+require('dotenv').config();
 
 console.log("🚀 Server starting...");
 
@@ -145,16 +145,67 @@ app.get('/api/auth/me', (req, res) => {
     else res.json({ isLogin: false });
 });
 
-const ROLE_MAP = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' };
-app.get('/api/users', checkAuth, checkAdmin, async (req, res) => {
-    const r = await pool.query('SELECT id, username, email, name, role, created_at FROM users ORDER BY id ASC');
-    const data = r.rows.map(u => ({ ...u, role_display: ROLE_MAP[u.role] || u.role }));
-    res.json(data);
+// 新增個人設定更新
+app.put('/api/auth/profile', checkAuth, async (req, res) => {
+    const { name, password } = req.body;
+    try {
+        if (!name && (!password || password.length === 0)) return res.status(400).json({ error: '無更新內容' });
+        if (password && password.length > 0 && password.length < 8) return res.status(400).json({ error: '密碼需至少 8 碼' });
+
+        if (password && password.length > 0) {
+            const hash = await bcrypt.hash(password, 10);
+            await pool.query('UPDATE users SET name=$1, password_hash=$2 WHERE id=$3', [name || req.session.name, hash, req.session.userId]);
+        } else {
+            await pool.query('UPDATE users SET name=$1 WHERE id=$2', [name || req.session.name, req.session.userId]);
+        }
+        req.session.name = name || req.session.name;
+        logAction(req.session.userId, 'UPDATE_PROFILE', `更新個人設定`, req.ip);
+        res.json({ success: true });
+    } catch (e) {
+        console.error("Profile Update Error:", e);
+        res.status(500).json({ error: '更新失敗' });
+    }
 });
 
+const ROLE_MAP = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' };
+
+// 分頁：users（管理後台使用）
+app.get('/api/users', checkAuth, checkAdmin, async (req, res) => {
+    try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        let pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize) || 20));
+        const q = (req.query.q || '').trim();
+        const sortField = req.query.sortField || 'id';
+        const sortDir = (req.query.sortDir === 'desc') ? 'DESC' : 'ASC';
+
+        const allowedSort = { id: 'id', username: 'username', name: 'name', role: 'role', created_at: 'created_at' };
+        const orderBy = allowedSort[sortField] ? `${allowedSort[sortField]} ${sortDir}` : `id ${sortDir}`;
+
+        let where = [];
+        let params = [];
+        if (q) {
+            params.push(`%${q}%`);
+            where.push(`(username ILIKE $${params.length} OR name ILIKE $${params.length} OR email ILIKE $${params.length})`);
+        }
+        const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+        const countRes = await pool.query(`SELECT COUNT(*) FROM users ${whereSQL}`, params);
+        const total = parseInt(countRes.rows[0].count, 10);
+        const pages = Math.max(1, Math.ceil(total / pageSize));
+        const offset = (page - 1) * pageSize;
+
+        const dataRes = await pool.query(`SELECT id, username, email, name, role, created_at FROM users ${whereSQL} ORDER BY ${orderBy} LIMIT $${params.length+1} OFFSET $${params.length+2}`, params.concat([pageSize, offset]));
+        const data = dataRes.rows;
+
+        res.json({ page, pages, total, pageSize, data });
+    } catch (e) { console.error(e); res.status(500).json({ error: '讀取使用者失敗' }); }
+});
+
+// 建立使用者
 app.post('/api/users', checkAuth, checkAdmin, async (req, res) => {
     const { username, name, password, role } = req.body;
     try {
+        if(!password || password.length < 8) return res.status(400).json({ error: '密碼需至少 8 碼' });
         const hash = await bcrypt.hash(password, 10);
         await pool.query(`INSERT INTO users (username, name, password_hash, role) VALUES ($1, $2, $3, $4)`, [username, name, hash, role]);
         logAction(req.session.userId, 'CREATE_USER', `建立使用者: ${username} (${role})`, req.ip);
@@ -165,14 +216,22 @@ app.post('/api/users', checkAuth, checkAdmin, async (req, res) => {
     }
 });
 
+// 更新使用者
 app.put('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
     const { name, role, password } = req.body;
-    let sql = 'UPDATE users SET name=$1, role=$2', params = [name, role];
-    if (password) { sql += ', password_hash=$3'; params.push(await bcrypt.hash(password, 10)); }
-    sql += ` WHERE id=$${params.length+1}`; params.push(req.params.id);
-    await pool.query(sql, params);
-    logAction(req.session.userId, 'UPDATE_USER', `更新使用者 ID: ${req.params.id}`, req.ip);
-    res.json({ success: true });
+    try {
+        if(password && password.length > 0) {
+            if(password.length < 8) return res.status(400).json({ error: '密碼需至少 8 碼' });
+            const hash = await bcrypt.hash(password, 10);
+            await pool.query('UPDATE users SET name=$1, role=$2, password_hash=$3 WHERE id=$4', [name, role, hash, req.params.id]);
+        } else {
+            await pool.query('UPDATE users SET name=$1, role=$2 WHERE id=$3', [name, role, req.params.id]);
+        }
+        logAction(req.session.userId, 'UPDATE_USER', `更新使用者 ID: ${req.params.id}`, req.ip);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: '更新失敗' });
+    }
 });
 
 app.delete('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
@@ -182,21 +241,39 @@ app.delete('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
     res.json({ success: true });
 });
 
-// [API] 讀取登入紀錄 (包含 username)
+// 管理員：取得登入紀錄（支援分頁與搜尋）
 app.get('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        let pageSize = Math.min(500, Math.max(1, parseInt(req.query.pageSize) || 50));
+        const q = (req.query.q || '').trim();
+
+        let where = [];
+        let params = [];
+        if (q) {
+            params.push(`%${q}%`);
+            where.push(`(u.username ILIKE $${params.length} OR l.ip_address ILIKE $${params.length})`);
+        }
+        const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+        const countRes = await pool.query(`SELECT COUNT(*) FROM login_logs l LEFT JOIN users u ON l.user_id = u.id ${whereSQL}`, params);
+        const total = parseInt(countRes.rows[0].count, 10);
+        const pages = Math.max(1, Math.ceil(total / pageSize));
+        const offset = (page - 1) * pageSize;
+
         const r = await pool.query(`
             SELECT l.login_time, l.ip_address, u.username 
             FROM login_logs l
             LEFT JOIN users u ON l.user_id = u.id
-            ORDER BY l.login_time DESC 
-            LIMIT 500
-        `);
-        res.json(r.rows);
-    } catch (e) { res.status(500).json({ error: '無法讀取紀錄' }); }
+            ${whereSQL}
+            ORDER BY l.login_time DESC
+            LIMIT $${params.length+1} OFFSET $${params.length+2}
+        `, params.concat([pageSize, offset]));
+        res.json({ page, pages, total, pageSize, data: r.rows });
+    } catch (e) { console.error(e); res.status(500).json({ error: '無法讀取紀錄' }); }
 });
 
-// [新增] 清空登入紀錄
+// 清空登入紀錄
 app.delete('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     try {
         await pool.query('TRUNCATE TABLE login_logs');
@@ -205,21 +282,39 @@ app.delete('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
 });
 
-// [API] 讀取操作紀錄 (包含 username)
+// 管理員：操作紀錄（分頁）
 app.get('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => {
     try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        let pageSize = Math.min(500, Math.max(1, parseInt(req.query.pageSize) || 50));
+        const q = (req.query.q || '').trim();
+
+        let where = [];
+        let params = [];
+        if (q) {
+            params.push(`%${q}%`);
+            where.push(`(u.username ILIKE $${params.length} OR a.action ILIKE $${params.length} OR a.details ILIKE $${params.length})`);
+        }
+        const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+        const countRes = await pool.query(`SELECT COUNT(*) FROM action_logs a LEFT JOIN users u ON a.user_id = u.id ${whereSQL}`, params);
+        const total = parseInt(countRes.rows[0].count, 10);
+        const pages = Math.max(1, Math.ceil(total / pageSize));
+        const offset = (page - 1) * pageSize;
+
         const r = await pool.query(`
             SELECT a.created_at, a.action, a.details, a.ip_address, u.username 
             FROM action_logs a
             LEFT JOIN users u ON a.user_id = u.id
+            ${whereSQL}
             ORDER BY a.created_at DESC 
-            LIMIT 500
-        `);
-        res.json(r.rows);
-    } catch (e) { res.status(500).json({ error: '無法讀取操作紀錄' }); }
+            LIMIT $${params.length+1} OFFSET $${params.length+2}
+        `, params.concat([pageSize, offset]));
+        res.json({ page, pages, total, pageSize, data: r.rows });
+    } catch (e) { console.error(e); res.status(500).json({ error: '無法讀取操作紀錄' }); }
 });
 
-// [新增] 清空操作紀錄
+// 清空操作紀錄
 app.delete('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => {
     try {
         await pool.query('TRUNCATE TABLE action_logs');
@@ -228,15 +323,60 @@ app.delete('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => 
     } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
 });
 
-// ... (Issues API 與 Gemini API 保持不變，省略以節省空間) ...
-
+// Issues 分頁與篩選 API（server-side pagination）
 app.get('/api/issues', checkAuth, async (req, res) => {
     try {
-        const r = await pool.query('SELECT * FROM issues ORDER BY created_at DESC');
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        let pageSize = Math.min(500, Math.max(1, parseInt(req.query.pageSize) || 20));
+        const q = (req.query.q || '').trim();
+        const year = (req.query.year || '').trim();
+        const unit = (req.query.unit || '').trim();
+        const status = (req.query.status || '').trim();
+        const sortField = req.query.sortField || 'created_at';
+        const sortDir = (req.query.sortDir === 'asc') ? 'ASC' : 'DESC';
+
+        // Allowed sort fields mapping to real columns
+        const allowedSort = { created_at: 'created_at', title: 'title', year: 'year', unit: 'unit', status: 'status' };
+        const orderBy = allowedSort[sortField] ? `${allowedSort[sortField]} ${sortDir}` : `created_at ${sortDir}`;
+
+        let where = [];
+        let params = [];
+        if (q) {
+            params.push(`%${q}%`);
+            where.push(`(title ILIKE $${params.length} OR content ILIKE $${params.length} OR raw_data::text ILIKE $${params.length})`);
+        }
+        if (year) {
+            params.push(year);
+            where.push(`year = $${params.length}`);
+        }
+        if (unit) {
+            params.push(unit);
+            where.push(`unit = $${params.length}`);
+        }
+        if (status) {
+            params.push(status);
+            where.push(`status = $${params.length}`);
+        }
+        const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+        const countRes = await pool.query(`SELECT COUNT(*) FROM issues ${whereSQL}`, params);
+        const total = parseInt(countRes.rows[0].count, 10);
+        const pages = Math.max(1, Math.ceil(total / pageSize));
+        const offset = (page - 1) * pageSize;
+
+        const r = await pool.query(`SELECT * FROM issues ${whereSQL} ORDER BY ${orderBy} LIMIT $${params.length+1} OFFSET $${params.length+2}`, params.concat([pageSize, offset]));
         const data = r.rows.map(row => ({ ...(row.raw_data || {}), ...row, id: String(row.id) }));
-        res.json(data);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+
+        res.json({ page, pages, total, pageSize, data });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: e.message });
+    }
 });
+
+// Batch delete, delete by id, update, import, AI endpoint remain unchanged (same logic as before)
+// 我們保留原本的路由實作，僅省略在此顯示以避免冗長；但在實際檔案中保留原本 /api/issues/:id, /api/issues/batch-delete, /api/issues/import, /api/gemini 等實作
+// 以下複製原本的相關路由（保持功能不變）:
 
 app.post('/api/issues/batch-delete', checkAuth, checkManager, async (req, res) => {
     const { ids } = req.body; 
