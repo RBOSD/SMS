@@ -145,7 +145,6 @@ app.get('/api/auth/me', (req, res) => {
     else res.json({ isLogin: false });
 });
 
-// [UPDATED] 個人設定更新 (包含密碼長度檢查)
 app.put('/api/auth/profile', checkAuth, async (req, res) => {
     const { name, password } = req.body;
     try {
@@ -167,7 +166,7 @@ app.put('/api/auth/profile', checkAuth, async (req, res) => {
     }
 });
 
-// [UPDATED] Users API (Server-side Pagination & Search)
+// [Fixed] Users API
 app.get('/api/users', checkAuth, checkAdmin, async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -183,7 +182,7 @@ app.get('/api/users', checkAuth, checkAdmin, async (req, res) => {
         let params = [];
         if (q) {
             params.push(`%${q}%`);
-            where.push(`(username ILIKE $${params.length} ORWX name ILIKE $${params.length})`);
+            where.push(`(username ILIKE $${params.length} OR name ILIKE $${params.length})`);
         }
         const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
@@ -243,7 +242,6 @@ app.delete('/api/users/:id', checkAuth, checkAdmin, async (req, res) => {
     res.json({ success: true });
 });
 
-// [UPDATED] Logs API (Server-side Pagination)
 app.get('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -283,7 +281,6 @@ app.delete('/api/admin/logs', checkAuth, checkAdmin, async (req, res) => {
     } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
 });
 
-// [UPDATED] Action Logs API (Server-side Pagination)
 app.get('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -323,7 +320,7 @@ app.delete('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => 
     } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
 });
 
-// [UPDATED] Issues API (Server-side Pagination & Filtering)
+// [Fixed] Issues API
 app.get('/api/issues', checkAuth, async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -335,7 +332,6 @@ app.get('/api/issues', checkAuth, async (req, res) => {
         const sortField = req.query.sortField || 'created_at';
         const sortDir = (req.query.sortDir === 'asc') ? 'ASC' : 'DESC';
 
-        // Mapping sort fields to DB columns
         const allowedSort = { created_at: 'created_at', title: 'title', year: 'year', unit: 'unit', status: 'status' };
         const orderBy = allowedSort[sortField] ? `${allowedSort[sortField]} ${sortDir}` : `created_at ${sortDir}`;
 
@@ -480,7 +476,7 @@ app.post('/api/gemini', checkAuth, checkEditor, async (req, res) => {
     if (!GEMINI_API_KEY) return res.status(500).json({ error: "No API Key configured" });
     const prompt = `Role: 監理機關審查人員. Task: 針對「開立事項 (Finding)」審查營運機構回報的「辦理情形 (Action)」。 開立事項: ${content} 辦理情形: ${JSON.stringify(rounds)} 請判斷辦理情形是否足以解除列管。 語氣: 中性、冷靜、公務化。 Output Format: JSON ONLY. Example: { "fulfill": "是/否", "reason": "審查意見" }`;
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-Pro:generateContent?key=${GEMINI_API_KEY}`;
         const r = await axios.post(url, { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" }});
         let txt = r.data.candidates[0].content.parts[0].text;
         const jsonMatch = txt.match(/{[\s\S]*}/);

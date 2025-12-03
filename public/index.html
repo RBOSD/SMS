@@ -550,7 +550,7 @@
         }
 
         function applyFilters() { issuesPage = 1; loadIssuesPage(1); }
-        functionPkresetFilters() { document.querySelectorAll('.filter-input,.filter-select').forEach(e => e.value = ''); applyFilters(); }
+        function resetFilters() { document.querySelectorAll('.filter-input,.filter-select').forEach(e => e.value = ''); applyFilters(); }
 
         function sortData(field) {
             if(sortState.field === field) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
