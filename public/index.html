@@ -126,15 +126,18 @@
         .page-size-select { padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; background: white; cursor: pointer; color: var(--text-sub); font-weight: 500; }
         .page-size-select:hover { border-color: #cbd5e1; color: var(--text-main); }
 
+        /* [Modified] Badges and Tags unified style */
         .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; white-space: nowrap; }
         .badge.active { background: #fee2e2; color: #991b1b; } .badge.resolved { background: #d1fae5; color: #065f46; } .badge.self { background: #fef3c7; color: #92400e; }
         .badge.new { background: #dbeafe; color: #1e40af; } .badge.update { background: #fef3c7; color: #92400e; }
         .ai-tag { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; padding: 2px 8px; border-radius: 4px; border: 1px solid transparent; }
         .ai-tag.yes { color: #059669; background: #ecfdf5; border-color: #a7f3d0; } .ai-tag.no { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
-        .kind-tag { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 2px 6px; margin-right: 6px; border: 1px solid #ddd; color: #555; background: #f8fafc; display: block; width: fit-content; }
-        .kind-tag.N { color: #b91c1c; background: #fef2f2; border-color: #fecaca; } /* 缺失 */
-        .kind-tag.O { color: #c2410c; background: #fff7ed; border-color: #fed7aa; } /* 觀察 */
-        .kind-tag.R { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; } /* 建議 */
+        
+        /* Kind tag now matches Badge style */
+        .kind-tag { font-size: 12px; font-weight: 600; border-radius: 20px; padding: 4px 10px; border: none; color: #555; background: #f8fafc; display: inline-block; width: fit-content; }
+        .kind-tag.N { color: #b91c1c; background: #fef2f2; } /* 缺失 */
+        .kind-tag.O { color: #c2410c; background: #fff7ed; } /* 觀察 */
+        .kind-tag.R { color: #15803d; background: #f0fdf4; } /* 建議 */
 
         .drawer-backdrop, .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
         .drawer-backdrop.open, .modal-overlay.open { display: flex; }
@@ -326,7 +329,7 @@
                                     <th style="width:70px" onclick="sortData('year')">年度</th>
                                     <th style="width:130px" onclick="sortData('number')">編號</th>
                                     <th style="width:80px" onclick="sortData('unit')">機構</th>
-                                    <th style="width:100px" onclick="sortData('status')">狀態與類型</th>
+                                    <th style="width:130px" onclick="sortData('status')">狀態與類型</th>
                                     <th onclick="sortData('content')">事項內容</th>
                                     <th onclick="sortData('latest')">最新辦理/審查情形</th>
                                     <th style="width:150px">管理功能</th>
@@ -780,7 +783,7 @@
         function updateSortUI() { document.querySelectorAll('th').forEach(th => { th.classList.remove('sort-asc', 'sort-desc'); if(th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc'); }); }
         function renderStats(stats) { const s = stats.status; const total = s.reduce((sum, item) => sum + parseInt(item.count), 0); const active = s.find(x => x.status === '持續列管')?.count || 0; const resolved = s.filter(x => ['解除列管', '自行列管'].includes(x.status)).reduce((sum, x) => sum + parseInt(x.count), 0); document.getElementById('countTotal').innerText = total; document.getElementById('countActive').innerText = active; document.getElementById('countResolved').innerText = resolved; }
         
-        // [Modified] Render Table (Double Safe Version)
+        // [Modified] Render Table (Double Safe Version + Improved UI)
         function renderTable() {
             const tbody = document.getElementById('dataBody'); tbody.innerHTML = '';
             if(!currentData || currentData.length === 0) { document.getElementById('emptyMsg').style.display = 'block'; return; }
@@ -816,8 +819,8 @@
                     else if(k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`; 
                     else if(k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
                     
-                    // [Merged] Status and Kind
-                    const statusHtml = `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;">${kindLabel}${badge}</div>`;
+                    // [Improved UI] Side-by-side badges, nice gap, centered alignment
+                    const statusHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${badge}</div>`;
 
                     const snippet = stripHtml(item.content || '').slice(0, 180); 
                     const fullHtml = String(item.content || '');
