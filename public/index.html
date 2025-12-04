@@ -201,9 +201,9 @@
             td[data-label="編號"] { font-size: 16px; font-weight: 700; color: var(--text-main); margin-bottom: 8px; padding-right: 80px; margin-left: 30px; }
             td[data-label="狀態"] { position: absolute; top: 16px; right: 16px; width: auto; pointer-events: none; }
             td[data-label="年度"], td[data-label="機構"] { display: inline-block; width: auto; font-size: 12px; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 6px; margin-right: 6px; margin-bottom: 12px; }
-            td[data-label="內容摘要"] { font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
-            td[data-label="最新進度"] { font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            td[data-label="操作 / AI"] { margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 12px; }
+            td[data-label="事項內容"] { font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+            td[data-label="最新辦理/審查情形"] { font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            td[data-label="功能操作"] { margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 12px; }
             .manager-col { display: block !important; position: absolute; top: 16px; left: 16px; width: auto; }
             .issue-check { transform: scale(1.3); }
             .user-table tr { padding-bottom: 40px; }
@@ -322,13 +322,13 @@
                             <thead>
                                 <tr>
                                     <th style="width:40px; display:none;" class="manager-col"><input type="checkbox" id="selectAll" onclick="toggleAllCheckboxes()"></th>
-                                    <th style="width:130px" onclick="sortData('number')">編號</th>
                                     <th style="width:70px" onclick="sortData('year')">年度</th>
+                                    <th style="width:130px" onclick="sortData('number')">編號</th>
                                     <th style="width:80px" onclick="sortData('unit')">機構</th>
                                     <th style="width:100px" onclick="sortData('status')">狀態</th>
-                                    <th onclick="sortData('content')">內容摘要</th>
-                                    <th onclick="sortData('latest')">最新進度</th>
-                                    <th style="width:150px">操作 / AI</th>
+                                    <th onclick="sortData('content')">事項內容</th>
+                                    <th onclick="sortData('latest')">最新辦理/審查情形</th>
+                                    <th style="width:150px">功能操作</th>
                                 </tr>
                             </thead>
                             <tbody id="dataBody"></tbody>
@@ -698,12 +698,20 @@
             const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '', kind = document.getElementById('filterKind').value || '';
             let sortField = 'created_at', sortDir = 'desc';
             if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
-            // We map 'kind' (frontend) to 'itemKindCode' (backend expected param? or just filter manually in frontend if backend doesn't support). 
-            // Assuming backend supports general search or we pass a new param if modified. 
-            // For now, let's append it to q if it's simple search, or add a specific param if backend supports it.
-            // The current backend api/issues usually takes q, year, unit, status. We'll add itemKindCode to params.
             
-            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, sortField, sortDir });
+            // Fix for search by kind: append to query if backend doesn't support itemKindCode
+            // Assuming backend simple search matches text
+            let finalQ = q;
+            if (kind && !q.includes(kind)) {
+                // Append kind code as text to search if not already present
+                // E.g. searching "N" might match N inside number string
+                // We add a specific search term if q is empty, or just rely on kind param if backend supports it.
+                // But to be safe with simple text search backends:
+                if (!finalQ) finalQ = `-${kind}`; // Try to match the suffix in ID, e.g. -N
+                else finalQ += ` -${kind}`;
+            }
+
+            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q: finalQ, year, unit, status, itemKindCode: kind, sortField, sortDir });
             
             try {
                 const res = await fetch('/api/issues?' + params.toString()); if (!res.ok) { showToast('載入資料失敗','error'); return; }
@@ -736,7 +744,6 @@
                 const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
                 
                 // Type Badge Logic (Smart Detection)
-                // 優先使用 itemKindCode，若無則嘗試從 Number 字串反推
                 let k = item.itemKindCode;
                 if (!k && item.number) {
                     const m = item.number.match(/-([NOR])\d+$/i);
@@ -749,7 +756,7 @@
                 else if(k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
                 
                 const snippet = stripHtml(item.content || '').slice(0, 180); const fullHtml = item.content || '';
-                return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="年度">${item.year}</td><td data-label="機構">${item.unit}</td><td data-label="狀態">${badge}</td><td data-label="內容摘要"><div class="text-content">${kindLabel}${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新進度"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="操作 / AI"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
+                return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="年度">${item.year}</td><td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="機構">${item.unit}</td><td data-label="狀態">${badge}</td><td data-label="事項內容"><div class="text-content">${kindLabel}${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新辦理/審查情形"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="功能操作"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
             }).join('');
         }
         function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }
