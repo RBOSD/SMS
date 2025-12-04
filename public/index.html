@@ -123,6 +123,25 @@
         tr:hover { background: #f8fafc; cursor: pointer; }
         tr:last-child td { border-bottom: none; }
         
+        /* [Updated] Preview Table Styles for better wrapping and layout */
+        .preview-table { table-layout: fixed; width: 100%; min-width: 900px; }
+        .preview-table th:nth-child(1) { width: 60px; } /* Status */
+        .preview-table th:nth-child(2) { width: 140px; } /* Number */
+        .preview-table th:nth-child(3) { width: 80px; } /* Unit */
+        .preview-table th:nth-child(4) { width: 40%; } /* Content */
+        .preview-table th:nth-child(5) { width: 35%; } /* Review */
+        .preview-content-box {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            white-space: normal;
+            word-break: break-word;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #475569;
+        }
+        
         .pagination-bar { display: flex; gap: 6px; align-items: center; }
         .page-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: white; border-radius: 8px; cursor: pointer; color: var(--text-main); font-size: 13px; transition: all 0.2s; }
         .page-btn:hover:not(:disabled) { background: #f1f5f9; border-color: #cbd5e1; color: var(--primary); }
@@ -413,7 +432,7 @@
                             <div style="font-weight:700;font-size:16px;">解析結果預覽 (<span id="previewCount" style="color:var(--primary);">0</span> 筆) <span id="previewModeBadge"></span></div>
                             <div style="display:flex;gap:10px;"><button class="btn btn-outline" onclick="cancelImport()">取消</button><button class="btn btn-primary" onclick="confirmImport()">✅ 確認寫入資料庫</button></div>
                         </div>
-                        <div class="main-card"><div class="data-container"><table style="width:100%;"><thead><tr><th style="width:80px">操作</th><th style="width:130px">編號</th><th style="width:60px">機構</th><th>事項內容</th><th style="width:200px">辦理/審查內容</th></tr></thead><tbody id="previewBody"></tbody></table></div></div>
+                        <div class="main-card"><div class="data-container"><table class="preview-table"><thead><tr><th>操作</th><th>編號</th><th>機構</th><th>事項內容</th><th>辦理/審查內容</th></tr></thead><tbody id="previewBody"></tbody></table></div></div>
                     </div>
                 </div>
 
@@ -1065,7 +1084,22 @@
             if(msgElement) msgElement.innerText = '';
         }
 
-        function renderPreviewTable() { document.getElementById('previewCount').innerText = stagedImportData.length; const round = currentImportMode === 'word' ? document.getElementById('importRound').value : '-'; const tbody = document.getElementById('previewBody'); tbody.innerHTML = stagedImportData.map(item => { const statusBadge = item._importStatus === 'new' ? `<span class="badge new">新增</span>` : `<span class="badge update">更新</span>`; let progress = `[審查] ${item.review||'-'}<br>[辦理] ${item.handling||'-'}`; return `<tr><td>${statusBadge}</td><td style="font-weight:600;color:var(--primary);">${item.number}</td><td>${item.unit}</td><td><div style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;font-size:13px;line-height:1.5;">${stripHtml(item.content)}</div></td><td><div style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;font-size:13px;line-height:1.5;">${stripHtml(progress)}</div></td></tr>`; }).join(''); }
+        // [Updated] Render Preview Table function to use new CSS classes
+        function renderPreviewTable() { 
+            document.getElementById('previewCount').innerText = stagedImportData.length; 
+            const tbody = document.getElementById('previewBody'); 
+            tbody.innerHTML = stagedImportData.map(item => { 
+                const statusBadge = item._importStatus === 'new' ? `<span class="badge new">新增</span>` : `<span class="badge update">更新</span>`; 
+                let progress = `[審查] ${item.review||'-'}<br>[辦理] ${item.handling||'-'}`; 
+                return `<tr>
+                    <td>${statusBadge}</td>
+                    <td style="font-weight:600;color:var(--primary);">${item.number}</td>
+                    <td>${item.unit}</td>
+                    <td><div class="preview-content-box">${stripHtml(item.content)}</div></td>
+                    <td><div class="preview-content-box">${stripHtml(progress)}</div></td>
+                </tr>`; 
+            }).join(''); 
+        }
         
         function cancelImport() { 
             stagedImportData = []; 
@@ -1101,6 +1135,7 @@
         // --- New Data Management Functions ---
         function switchDataTab(tab) { document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); }
         
+        // [Updated] Submit Manual Issue to include auto-parsing
         async function submitManualIssue() {
             const number = document.getElementById('manualNumber').value.trim();
             const year = document.getElementById('manualYear').value.trim();
@@ -1109,14 +1144,20 @@
             const content = document.getElementById('manualContent').value.trim();
             if(!number || !year || !unit || !content) return showToast('請填寫所有必填欄位', 'error');
             
-            let kind = ''; const m = number.match(/-([NOR])\d+$/i); if (m) kind = m[1].toUpperCase();
-            // Manual also needs normalization logic, but here we assume manual inputs are simple or fallback to backend processing
-            // Ideally manual input would have dropdowns for normalized fields. For now we rely on backend or re-parsing.
-            // Since manual entry is rare, we can let backend handle basic normalization if possible or just store raw.
-            // But better to reuse parser logic if possible. Here we just send raw.
+            // Auto-parse info from manual number
+            const info = parseItemNumber(number);
+            const divName = DIVISION_MAP[info.divCode] || '';
+            const inspectName = INSPECTION_MAP[info.inspectCode] || '';
+            const kind = info.kindCode || '';
 
             const payload = {
-                data: [{ number, year, unit, content, status, itemKindCode: kind, scheme: 'MANUAL' }],
+                data: [{ 
+                    number, year, unit, content, status, 
+                    itemKindCode: kind, 
+                    divisionName: divName,
+                    inspectionCategoryName: inspectName,
+                    scheme: 'MANUAL' 
+                }],
                 round: 1, reviewDate: '', actualReplyDate: ''
             };
 
@@ -1126,6 +1167,7 @@
             } catch(e) { showToast('Error: ' + e.message, 'error'); }
         }
 
+        // [Updated] Export function to include new columns
         async function exportAllIssues() {
             try {
                 const exportScope = document.querySelector('input[name="exportScope"]:checked').value;
@@ -1143,15 +1185,20 @@
                 }
 
                 let csvContent = '\uFEFF'; const clean = (t) => `"${String(t||'').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
+                
+                // CSV Header
+                const baseHeader = "編號,年度,機構,分組,檢查種類,類型,狀態,事項內容";
+                
                 if (exportScope === 'latest') {
-                    csvContent += "編號,年度,機構,狀態,事項內容,最新辦理情形,最新審查意見\n";
+                    csvContent += baseHeader + ",最新辦理情形,最新審查意見\n";
                     data.forEach(item => {
                         let latestH = '', latestR = '';
                         for(let i=20; i>=1; i--) { if(!latestH && (item[i===1?'handling':`handling${i}`])) latestH = item[i===1?'handling':`handling${i}`]; if(!latestR && (item[i===1?'review':`review${i}`])) latestR = item[i===1?'review':`review${i}`]; }
-                        csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.status)},${clean(item.content)},${clean(latestH)},${clean(latestR)}\n`;
+                        
+                        csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(latestH)},${clean(latestR)}\n`;
                     });
                 } else {
-                    csvContent += "編號,年度,機構,狀態,事項內容,完整辦理情形歷程,完整審查意見歷程\n";
+                    csvContent += baseHeader + ",完整辦理情形歷程,完整審查意見歷程\n";
                     data.forEach(item => {
                         let fullH = [], fullR = [];
                         for(let i=1; i<=20; i++) {
@@ -1160,7 +1207,8 @@
                         }
                         const joinedH = fullH.length > 0 ? fullH.join("\n-------------------\n") : "";
                         const joinedR = fullR.length > 0 ? fullR.join("\n-------------------\n") : "";
-                        csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.status)},${clean(item.content)},${clean(joinedH)},${clean(joinedR)}\n`;
+                        
+                        csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(joinedH)},${clean(joinedR)}\n`;
                     });
                 }
                 const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory'; link.setAttribute("download", `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0,10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('CSV 匯出完成');
