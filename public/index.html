@@ -696,23 +696,52 @@
                     const text = await f.text();
                     const json = JSON.parse(text);
                     const items = Array.isArray(json) ? json : (json.data || []);
-                    const mapped = items.map(i => ({ ...i, review: i.review || i['審查意見'] || '', handling: i.handling || i['辦理情形'] || '', content: i.content || i['內容'] || i['事項內容'] || i['內容摘要'] || '', number: i.number || i['編號'] || '', unit: i.unit || i['機構'] || '', year: i.year || i['年度'] || '', status: i.status || i['狀態'] || '持續列管' }));
+                    const mapped = items.map(i => ({ 
+                        ...i, 
+                        review: i.review || i['審查意見'] || '', 
+                        handling: i.handling || i['辦理情形'] || '', 
+                        content: i.content || i['內容'] || i['事項內容'] || i['內容摘要'] || '', 
+                        number: i.number || i['編號'] || '', 
+                        unit: i.unit || i['機構'] || '', 
+                        year: i.year || i['年度'] || '', 
+                        status: i.status || i['狀態'] || '持續列管' 
+                    }));
                     processParsedItems(mapped, 0, msg);
                 } else if (ext === 'csv') {
                     Papa.parse(f, {
-                        header: true, skipEmptyLines: true, encoding: "UTF-8",
+                        header: true,
+                        skipEmptyLines: true,
+                        encoding: "UTF-8", 
                         complete: function(results) {
-                            if(results.errors.length) { msg.innerText = 'CSV 解析錯誤'; return; }
-                            const mapped = results.data.map(i => ({ 
-                                number: i['編號'] || i.number || '', 
-                                year: i['年度'] || i.year || '', 
-                                unit: i['機構'] || i.unit || '', 
-                                content: i['內容'] || i['事項內容'] || i['內容摘要'] || i.content || '', 
-                                status: i['狀態'] || i.status || '持續列管',
-                                handling: i['辦理情形'] || i['最新辦理情形'] || i.handling || '',
-                                review: i['審查意見'] || i['最新審查意見'] || i.review || ''
-                            }));
-                            processParsedItems(mapped, 0, msg);
+                            try {
+                                if(results.errors.length && results.data.length === 0) {
+                                    msg.innerText = 'CSV 解析錯誤: ' + JSON.stringify(results.errors);
+                                    return;
+                                }
+                                const mapped = results.data.map(i => ({ 
+                                    number: i['編號'] || i.number || '', 
+                                    year: i['年度'] || i.year || '', 
+                                    unit: i['機構'] || i.unit || '', 
+                                    content: i['內容'] || i['事項內容'] || i['內容摘要'] || i.content || '', 
+                                    status: i['狀態'] || i.status || '持續列管',
+                                    handling: i['辦理情形'] || i['最新辦理情形'] || i.handling || '',
+                                    review: i['審查意見'] || i['最新審查意見'] || i.review || ''
+                                }));
+                                
+                                // Check for potential encoding issues (all fields undefined/empty)
+                                const validRows = mapped.filter(r => r.number || r.content);
+                                if (validRows.length === 0) {
+                                    msg.innerText = '錯誤：未解析到有效資料，請檢查 CSV 編碼 (建議使用 UTF-8) 或確認欄位名稱。';
+                                    return;
+                                }
+                                processParsedItems(mapped, 0, msg);
+                            } catch (err) {
+                                console.error(err);
+                                msg.innerText = 'CSV 處理錯誤: ' + err.message;
+                            }
+                        },
+                        error: function(err) {
+                            msg.innerText = 'CSV 讀取失敗: ' + err.message;
                         }
                     });
                 } else { throw new Error('不支援的檔案格式 (僅限 JSON 或 CSV)'); }
