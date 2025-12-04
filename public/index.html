@@ -698,19 +698,24 @@
         const FILLED_MARKS = ["■","☑","☒","✔","✅","●","◉","✓"]; var EMPTY_MARKS  = ["□","☐","◻","○","◯","◇","△"];
 
         function parseItemNumber(numberStr) { 
-            var raw = normalizeCodeString(numberStr || ""); 
+            var raw = normalizeCodeString(numberStr || "");
             if(!raw) return null; 
-            
+
+            // [Sanitization Step] Remove ALL extraneous characters before parsing
+            // Remove chinese chars, parentheses, brackets, spaces, newlines
+            // Keep only: letters, numbers, hyphens
+            var cleanRaw = raw.replace(/[^a-zA-Z0-9\-]/g, "");
+
             // [Improved Regex] Supports standard format and short format more robustly
             // e.g., 113-TRC-1-1130101-OP-N01
             // e.g., 112T1-A01-N01
 
             // Pattern A (Long): 113-TRC-1-xxxxx-OP-N01
             // Captures: Year, Org, Inspect, (ignore date), Div, Kind
-            var mLong = raw.match(/^(\d{3})-([A-Z]{3,4})-([0-9])-(\d+)-([A-Z]{2,4})-([NOR])(\d+)$/i);
+            var mLong = cleanRaw.match(/^(\d{3})-([A-Z]{3,4})-([0-9])-(\d+)-([A-Z]{2,4})-([NOR])(\d+)$/i);
             if(mLong) {
                 return { 
-                    raw: raw, 
+                    raw: mLong[0], // Use the matched clean string as raw
                     yearRoc: parseInt(mLong[1], 10), 
                     orgCode: mLong[2].toUpperCase(), 
                     inspectCode: mLong[3], 
@@ -721,12 +726,12 @@
 
             // Pattern B (Short): 112T1-A01-N01
             // Captures: Year, Org(1char), Inspect, Div, Kind
-            var mShort = raw.match(/^(\d{2,3})([A-Z])([0-9])-([A-Z])(\d{2})-([NOR])(\d{2})$/i); 
+            var mShort = cleanRaw.match(/^(\d{2,3})([A-Z])([0-9])-([A-Z])(\d{2})-([NOR])(\d{2})$/i); 
             if(mShort) { 
                 var yy = parseInt(mShort[1], 10);
                 var rocYear = (yy < 1000) ? (yy + (yy < 100 ? 100 : 0)) : (yy - 1911);
                 return { 
-                    raw: raw, 
+                    raw: mShort[0], // Use the matched clean string as raw
                     yearRoc: rocYear, 
                     orgCode: mShort[2].toUpperCase(), 
                     inspectCode: mShort[3], 
@@ -736,12 +741,14 @@
             }
             
             // Fallback: Just try to find Year and Kind, leave others empty (better than failing)
-            var mLoose = raw.match(/(\d{2,3}).*([NOR])\d+/i);
+            // [Cleanup] If falling back, we grab the "ID-like" substring from the cleanRaw
+            var mLoose = cleanRaw.match(/(\d{2,3}).*([NOR])\d+/i);
             if(mLoose) {
-                 return { raw: raw, yearRoc: parseInt(mLoose[1],10), orgCode: "?", inspectCode: "?", divCode: "?", kindCode: mLoose[2].toUpperCase() };
+                 return { raw: mLoose[0], yearRoc: parseInt(mLoose[1],10), orgCode: "?", inspectCode: "?", divCode: "?", kindCode: mLoose[2].toUpperCase() };
             }
             
-            return { raw: raw, yearRoc: "", orgCode: "", inspectCode: "", divCode: "", kindCode: "" }; 
+            // If it's really weird but not empty, return the clean version at least
+            return { raw: cleanRaw, yearRoc: "", orgCode: "", inspectCode: "", divCode: "", kindCode: "" }; 
         }
 
         function normalizeMultiline(s) { s = String(s || ""); return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
