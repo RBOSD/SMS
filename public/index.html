@@ -203,7 +203,7 @@
             td[data-label="年度"], td[data-label="機構"] { display: inline-block; width: auto; font-size: 12px; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 6px; margin-right: 6px; margin-bottom: 12px; }
             td[data-label="事項內容"] { font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
             td[data-label="最新辦理/審查情形"] { font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            td[data-label="功能操作"] { margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 12px; }
+            td[data-label="管理功能"] { margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 12px; }
             .manager-col { display: block !important; position: absolute; top: 16px; left: 16px; width: auto; }
             .issue-check { transform: scale(1.3); }
             .user-table tr { padding-bottom: 40px; }
@@ -287,6 +287,7 @@
                             <div class="search-item" style="flex:2;"><label>關鍵字</label><input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字..."></div>
                             <div class="search-item"><label>年度</label><select id="filterYear" class="filter-select"></select></div>
                             <div class="search-item"><label>機構</label><select id="filterUnit" class="filter-select"></select></div>
+                            <div class="search-item"><label>分組</label><select id="filterDivision" class="filter-select"><option value="">全部分組</option><option value="運務">運務 (A)</option><option value="工務">工務 (B)</option><option value="機務">機務 (C)</option><option value="電務">電務 (D)</option><option value="運轉">運轉 (OP)</option><option value="土木">土木 (CP)</option><option value="機電">機電 (EM)</option></select></div>
                             <div class="search-item"><label>狀態</label><select id="filterStatus" class="filter-select"><option value="">全部狀態</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
                              <div class="search-item"><label>類型</label><select id="filterKind" class="filter-select"><option value="">全部類型</option><option value="N">缺失事項</option><option value="O">觀察事項</option><option value="R">建議事項</option></select></div>
                             <div style="display:flex;gap:8px;align-self:flex-end;">
@@ -328,7 +329,7 @@
                                     <th style="width:100px" onclick="sortData('status')">狀態</th>
                                     <th onclick="sortData('content')">事項內容</th>
                                     <th onclick="sortData('latest')">最新辦理/審查情形</th>
-                                    <th style="width:150px">功能操作</th>
+                                    <th style="width:150px">管理功能</th>
                                 </tr>
                             </thead>
                             <tbody id="dataBody"></tbody>
@@ -389,7 +390,7 @@
                             <div style="font-weight:700;font-size:16px;">解析結果預覽 (<span id="previewCount" style="color:var(--primary);">0</span> 筆) <span id="previewModeBadge"></span></div>
                             <div style="display:flex;gap:10px;"><button class="btn btn-outline" onclick="cancelImport()">取消</button><button class="btn btn-primary" onclick="confirmImport()">✅ 確認寫入資料庫</button></div>
                         </div>
-                        <div class="main-card"><div class="data-container"><table style="width:100%;"><thead><tr><th style="width:80px">操作</th><th style="width:130px">編號</th><th style="width:60px">機構</th><th>內容摘要</th><th style="width:200px">匯入內容預覽</th></tr></thead><tbody id="previewBody"></tbody></table></div></div>
+                        <div class="main-card"><div class="data-container"><table style="width:100%;"><thead><tr><th style="width:80px">操作</th><th style="width:130px">編號</th><th style="width:60px">機構</th><th>事項內容</th><th style="width:200px">匯入內容預覽</th></tr></thead><tbody id="previewBody"></tbody></table></div></div>
                     </div>
                 </div>
 
@@ -638,12 +639,35 @@
         function stripHtml(h) { if(!h) return ''; let t = document.createElement("DIV"); t.innerHTML = h; return t.textContent || t.innerText || ""; }
         function getLatest(i, p) { for(let k = 20; k >= 1; k--) { const key = k === 1 ? p : `${p}${k}`; if(i[key]) return i[key]; } return null; }
         function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' }; return map[r] || r; }
-        function extractNumberFromCell(cell) { if(!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); var mB = whole.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/); if (mB) return (mB[1] || "").toUpperCase(); var mA = whole.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/); if (mA) return (mA[1] || "").toUpperCase(); return ""; }
-        function parseItemNumber(numberStr) { var raw = normalizeCodeString(numberStr || ""); if(!raw) return null; var m = raw.match(/^(\d{2})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i); if(m) { var yy = parseInt(m[1], 10), rocYear = 100 + yy, org = m[2].toUpperCase(), cat = m[3], div = m[4].toUpperCase(), divSeq = m[5], kind = m[6].toUpperCase(), seq = m[7]; return { scheme: "THAS-v1", raw: raw, yearRoc: rocYear, orgCodeRaw: org, inspectionCategoryCode: cat, divisionCode: div, divisionSeq: divSeq, itemKindCode: kind, itemSeq: seq.toString(), period: "" }; } m = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d{1,3})$/i); if(m) { var rocYear2 = parseInt(m[1], 10), org2 = m[2].toUpperCase(), cat2 = m[3], period = m[4], div2 = m[5].toUpperCase(), kind2 = m[6].toUpperCase(), seq2 = m[7]; return { scheme: "TRC-v2", raw: raw, yearRoc: rocYear2, orgCodeRaw: org, inspectionCategoryCode: cat2, divisionCode: div2, itemKindCode: kind2, itemSeq: seq2.toString(), period: period }; } return null; }
-        function canonicalNumber(info) { if(!info) return ""; if(info.scheme === "TRC-v2") { var seq = String(parseInt(info.itemSeq, 10)); return (info.yearRoc + "-" + info.orgCodeRaw + "-" + info.inspectionCategoryCode + "-" + info.period + "-" + info.divisionCode + "-" + info.itemKindCode + seq).toUpperCase(); } if(info.scheme === "THAS-v1") { var yy = String(info.yearRoc - 100); yy = ("0" + yy).slice(-2); var seq2 = String(parseInt(info.itemSeq, 10)); seq2 = ("0" + seq2).slice(-2); return (yy + info.orgCodeRaw + info.inspectionCategoryCode + "-" + info.divisionCode + info.divisionSeq + "-" + info.itemKindCode + seq2).toUpperCase(); } return (info.raw || "").toUpperCase(); }
+        function extractNumberFromCell(cell) { if(!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); return whole.trim(); }
+        
+        // [Updated] Map & Parser
+        const ORG_MAP = { "T": "臺鐵", "H": "高鐵", "A": "林鐵", "S": "糖鐵", "TRC": "臺鐵", "HSR": "高鐵", "AFR": "林鐵", "TSC": "糖鐵" };
+        const INSPECTION_MAP = { "1": "定期檢查", "2": "例行性檢查", "3": "特別檢查", "4": "臨時檢查" };
+        const DIVISION_MAP = { "A": "運務", "B": "工務", "C": "機務", "D": "電務", "E": "安全", "F": "審核", "G": "災防", "OP": "運轉", "CP": "土木", "EM": "機電" };
+        const KIND_MAP = { "N": "缺失事項", "O": "觀察事項", "R": "建議事項" };
+        const FILLED_MARKS = ["■","☑","☒","✔","✅","●","◉","✓"]; var EMPTY_MARKS  = ["□","☐","◻","○","◯","◇","△"];
+
+        function parseItemNumber(numberStr) { 
+            var raw = normalizeCodeString(numberStr || ""); 
+            if(!raw) return null; 
+            // Pattern 1: THAS (112T1-A01-N01)
+            var mOld = raw.match(/^(\d{2,3})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i); 
+            if(mOld) { 
+                var yy = parseInt(mOld[1], 10);
+                var rocYear = (yy < 1000) ? (yy + (yy < 100 ? 100 : 0)) : (yy - 1911);
+                return { raw: raw, yearRoc: rocYear, orgCode: mOld[2].toUpperCase(), inspectCode: mOld[3], divCode: mOld[4].toUpperCase(), kindCode: mOld[6].toUpperCase() }; 
+            } 
+            // Pattern 2: TRC (113-TRC-1-1130101-OP-N01)
+            var mNew = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d+)$/i); 
+            if(mNew) { 
+                return { raw: raw, yearRoc: parseInt(mNew[1], 10), orgCode: mNew[2].toUpperCase(), inspectCode: mNew[3], divCode: mNew[5].toUpperCase(), kindCode: mNew[6].toUpperCase() }; 
+            } 
+            return null; 
+        }
+
         function normalizeMultiline(s) { s = s || ""; return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
         function sanitizeContent(html) { if(!html) return ""; var s = String(html); s = s.replace(/&lt;\s*\/?\s*p\s*&gt;/gi, "").replace(/<\s*\/?\s*p\s*>/gi, "").replace(/<p>\s*<\/p>/gi, "").replace(/(?:<br\s*\/?>\s*){3,}/gi, "<br><br>").replace(/\n{3,}/g, "\n\n").replace(/(<li>\s*)+/gi, "<li>").replace(/(<\/li>\s*)+/gi, "</li>").replace(/(<ol>\s*)+/gi, "<ol>").replace(/(<\/ol>\s*)+/gi, "</ol>").replace(/[\u200B-\u200D\uFEFF]/g, "").trim(); return s; }
-        var ORG_MAP_THAS = { T:"臺鐵", H:"高鐵", A:"林鐵", S:"糖鐵" }; var ORG_MAP_TRCC = { TRC:"臺鐵", HSR:"高鐵", AFR:"林鐵", TSC:"糖鐵" }; var ORG_CROSSWALK = { T:"TRC", H:"HSR", A:"AFR", S:"TSC", TRC:"TRC", HSR:"HSR", AFR:"AFR", TSC:"TSC" }; var CATEGORY_MAP_1_4 = { "1":"定期檢查", "2":"例行性檢查", "3":"特別檢查", "4":"臨時檢查" }; var DIVISION_MAP_THAS = { A:"運務", B:"工務", C:"機務", D:"電務", E:"安全", F:"審核", G:"災防" }; var DIVISION_MAP_TRCC = { OP:"運轉", CP:"土木", EM:"機電" }; var ISSUE_KIND_MAP = { N:"缺失事項", O:"觀察事項", R:"建議事項" }; var FILLED_MARKS = ["■","☑","☒","✔","✅","●","◉","✓"]; var EMPTY_MARKS  = ["□","☐","◻","○","◯","◇","△"];
         function parseStatusFromResultCell(cell) { if(!cell) return ""; var src = normalizeMultiline((cell.innerText || cell.textContent || "") + "\n" + (cell.innerHTML || "").replace(/<[^>]+>/g, "")); if(!src) return ""; var allMarks = FILLED_MARKS.concat(EMPTY_MARKS).join(""); allMarks = allMarks.replace(/[-\\^$*+?.()|[\]{}]/g, "\\$&"); var reFront = new RegExp("([" + allMarks + "])\\s*(?:[:：﹕-]?\\s*)?(解除列管|持續列管|自行列管)", "g"); var reBack  = new RegExp("(解除列管|持續列管|自行列管)\\s*(?:[:：﹕-]?\\s*)?([" + allMarks + "])", "g"); var hits = [], m; while((m = reFront.exec(src)) !== null) { hits.push({ idx: m.index, label: m[2], mark: m[1], filled: FILLED_MARKS.indexOf(m[1]) >= 0 }); } while((m = reBack.exec(src)) !== null) { hits.push({ idx: m.index, label: m[1], mark: m[2], filled: FILLED_MARKS.indexOf(m[2]) >= 0 }); } var filled = hits.filter(function(h) { return h.filled; }).sort(function(a, b) { return a.idx - b.idx; }); if (filled.length) return filled[filled.length - 1].label; var labels = ["解除列管", "持續列管", "自行列管"]; var present = labels.filter(function(l) { return src.indexOf(l) >= 0; }); if (present.length === 1) return present[0]; return ""; }
         function formatHtmlToText(html) { if(!html) return ""; let temp = html.replace(/<li[^>]*>/gi, "\n• ").replace(/<\/li>/gi, "").replace(/<ul[^>]*>/gi, "").replace(/<\/ul>/gi, "").replace(/<ol[^>]*>/gi, "").replace(/<\/ol>/gi, "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<p[^>]*>/gi, ""); let div = document.createElement("div"); div.innerHTML = temp; return (div.textContent || div.innerText || "").replace(/\n\s*\n/g, "\n").trim(); }
 
@@ -696,22 +720,14 @@
         async function loadIssuesPage(page = 1) {
             issuesPage = page; document.getElementById('issuesPageSizeTop').value = issuesPageSize; document.getElementById('issuesPageSizeBottom').value = issuesPageSize;
             const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '', kind = document.getElementById('filterKind').value || '';
+            
+            // [Modified] 新增分組搜尋
+            const division = document.getElementById('filterDivision') ? document.getElementById('filterDivision').value : '';
+            
             let sortField = 'created_at', sortDir = 'desc';
             if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
             
-            // Fix for search by kind: append to query if backend doesn't support itemKindCode
-            // Assuming backend simple search matches text
-            let finalQ = q;
-            if (kind && !q.includes(kind)) {
-                // Append kind code as text to search if not already present
-                // E.g. searching "N" might match N inside number string
-                // We add a specific search term if q is empty, or just rely on kind param if backend supports it.
-                // But to be safe with simple text search backends:
-                if (!finalQ) finalQ = `-${kind}`; // Try to match the suffix in ID, e.g. -N
-                else finalQ += ` -${kind}`;
-            }
-
-            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q: finalQ, year, unit, status, itemKindCode: kind, sortField, sortDir });
+            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, sortField, sortDir });
             
             try {
                 const res = await fetch('/api/issues?' + params.toString()); if (!res.ok) { showToast('載入資料失敗','error'); return; }
@@ -743,20 +759,13 @@
                 const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
                 const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
                 
-                // Type Badge Logic (Smart Detection)
+                // Type Badge Logic
                 let k = item.itemKindCode;
-                if (!k && item.number) {
-                    const m = item.number.match(/-([NOR])\d+$/i);
-                    if (m) k = m[1].toUpperCase();
-                }
-                
-                let kindLabel = '';
-                if(k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
-                else if(k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
-                else if(k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
+                if (!k && item.number) { const m = item.number.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
+                let kindLabel = ''; if(k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`; else if(k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`; else if(k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
                 
                 const snippet = stripHtml(item.content || '').slice(0, 180); const fullHtml = item.content || '';
-                return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="年度">${item.year}</td><td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="機構">${item.unit}</td><td data-label="狀態">${badge}</td><td data-label="事項內容"><div class="text-content">${kindLabel}${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新辦理/審查情形"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="功能操作"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
+                return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="年度">${item.year}</td><td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="機構">${item.unit}</td><td data-label="狀態">${badge}</td><td data-label="事項內容"><div class="text-content">${kindLabel}${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新辦理/審查情形"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="管理功能"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
             }).join('');
         }
         function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }
@@ -773,8 +782,9 @@
 
         function switchAdminTab(tab) { document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users'); document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs'); document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions'); if(tab === 'logs') loadLogsPage(1); if(tab === 'actions') loadActionsPage(1); }
 
+        // [Modified] HTML Parser to handle dual coding system
         function parseFromHTML(html) {
-            var items = []; try { var doc = new DOMParser().parseFromString(html, "text/html"); var tables = doc.querySelectorAll("table"); tables.forEach(function(table) { var rows = table.querySelectorAll("tr"); var headerRow = -1, dataStart = -1; for(var i = 0; i < Math.min(rows.length, 6); i++) { var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, ""); if((/編號|項次編號|項次/).test(t) && (/觀察事項內容|觀察事項|建議事項內容|建議事項|缺失事項內容|缺失事項|事項內容|內容/).test(t)) { headerRow = i; dataStart = i + 1; break; } } if(headerRow === -1) return; var headerCells = rows[headerRow].querySelectorAll("td,th"); var columnMap = {}; var reviewCols = []; headerCells.forEach(function(cell, idx) { var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, ""); if((/編號|項次編號|項次/).test(text)) columnMap.number = idx; if((/觀察事項內容|觀察事項|建議事項內容|建議事項|缺失事項內容|缺失事項|事項內容|內容/).test(text)) columnMap.content = idx; if((/辦理情形|辦理|辦理狀況/).test(text)) columnMap.handling = idx; var mm = text.match(/^第(\d+)次.*(審查意見|意見審查)$/); if(mm) reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) }); else if((/(審查意見|意見審查)$/).test(text)) reviewCols.push({ idx: idx, round: 1 }); if((/(審查結果|審查結論|列管結果|列管狀態|列管情形|處置結果|狀態)$/).test(text)) columnMap.result = idx; }); var hc = headerCells.length; if(columnMap.number === undefined) columnMap.number = 0; if(columnMap.content === undefined) columnMap.content = Math.min(1, hc - 1); if(columnMap.handling === undefined) columnMap.handling = Math.min(2, hc - 1); if(columnMap.result === undefined) columnMap.result = hc - 1; for(var r = dataStart; r < rows.length; r++) { var cells = rows[r].querySelectorAll("td,th"); if(cells.length < 2) continue; var numText = extractNumberFromCell(cells[columnMap.number]); var info = parseItemNumber(numText); if(!info) continue; var numKey = canonicalNumber(info); var year = info.yearRoc != null ? String(info.yearRoc) : ""; var orgUnifiedCode = ORG_CROSSWALK[info.orgCodeRaw] || info.orgCodeRaw; var orgName = ORG_MAP_TRCC[orgUnifiedCode] || ORG_MAP_THAS[info.orgCodeRaw] || ""; var inspectionCategoryName = CATEGORY_MAP_1_4[info.inspectionCategoryCode] || ""; var item = { number: numKey, rawNumber: (info.raw || "").toUpperCase(), scheme: info.scheme, yearRoc: info.yearRoc || "", year: year, orgCodeRaw: info.orgCodeRaw || "", orgUnifiedCode: orgUnifiedCode, orgName: orgName, unit: orgName, inspectionCategoryCode: info.inspectionCategoryCode || "", inspectionCategoryName: inspectionCategoryName, divisionCode: info.divisionCode || "", divisionName: DIVISION_MAP_TRCC[info.divisionCode] || DIVISION_MAP_THAS[info.divisionCode] || "", itemKindCode: info.itemKindCode || "", itemKindName: ISSUE_KIND_MAP[info.itemKindCode] || "", itemSeq: info.itemSeq || "", period: info.period || "", category: ISSUE_KIND_MAP[info.itemKindCode] || CATEGORY_MAP_1_4[info.inspectionCategoryCode] || "", content: "", handling: "", status: "" }; if(cells[columnMap.content]) item.content = sanitizeContent(cells[columnMap.content].innerHTML); if(cells[columnMap.handling]) item.handling = sanitizeContent(cells[columnMap.handling].innerHTML); if(item.itemKindCode === "R" || item.itemKindName === "建議事項") item.status = "自行列管"; else if(cells[columnMap.result]) item.status = parseStatusFromResultCell(cells[columnMap.result]) || ""; reviewCols.forEach(function(rc) { var key = (rc.round === 1 ? "review" : ("review" + rc.round)); item[key] = sanitizeContent(cells[rc.idx] ? cells[rc.idx].innerHTML : ""); }); items.push(item); } }); } catch(e) { console.error("Parse error:", e); } return items;
+            var items = []; try { var doc = new DOMParser().parseFromString(html, "text/html"); var tables = doc.querySelectorAll("table"); tables.forEach(function(table) { var rows = table.querySelectorAll("tr"); var headerRow = -1, dataStart = -1; for(var i = 0; i < Math.min(rows.length, 6); i++) { var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, ""); if((/編號|項次編號/).test(t) && (/內容/).test(t)) { headerRow = i; dataStart = i + 1; break; } } if(headerRow === -1) return; var headerCells = rows[headerRow].querySelectorAll("td,th"); var col = {}; var reviewCols = []; headerCells.forEach(function(cell, idx) { var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, ""); if((/編號|項次編號/).test(text)) col.number = idx; if((/內容/).test(text)) col.content = idx; if((/辦理情形/).test(text)) col.handling = idx; if((/結果|狀態/).test(text)) col.result = idx; var mm = text.match(/^第(\d+)次.*(審查意見|意見審查)$/); if(mm) reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) }); else if((/(審查意見|意見審查)$/).test(text)) reviewCols.push({ idx: idx, round: 1 }); }); if(col.number === undefined) col.number = 0; if(col.content === undefined) col.content = 1; for(var r = dataStart; r < rows.length; r++) { var cells = rows[r].querySelectorAll("td,th"); if(cells.length < 2) continue; var numText = extractNumberFromCell(cells[col.number]); var info = parseItemNumber(numText); if(!info) continue; var unitName = ORG_MAP[info.orgCode] || info.orgCode; var inspectName = INSPECTION_MAP[info.inspectCode] || info.inspectCode; var divName = DIVISION_MAP[info.divCode] || info.divCode; var kindName = KIND_MAP[info.kindCode] || "其他"; var item = { number: info.raw.toUpperCase(), year: String(info.yearRoc), unit: unitName, itemKindCode: info.kindCode, category: kindName, inspectionCategoryName: inspectName, divisionName: divName, content: "", handling: "", status: "持續列管" }; if(cells[col.content]) item.content = sanitizeContent(cells[col.content].innerHTML); if(cells[col.handling]) item.handling = sanitizeContent(cells[col.handling].innerHTML); if(info.kindCode === "R") item.status = "自行列管"; else if(cells[col.result]) item.status = parseStatusFromResultCell(cells[col.result]) || "持續列管"; reviewCols.forEach(function(rc) { var key = (rc.round === 1 ? "review" : ("review" + rc.round)); item[key] = sanitizeContent(cells[rc.idx] ? cells[rc.idx].innerHTML : ""); }); items.push(item); } }); } catch(e) { console.error("Parse error:", e); } return items;
         }
 
         function checkImportReady() { const r = document.getElementById('importRound').value, d = document.getElementById('importDate').value, valid = r && r > 0 && d && d.trim().length > 0; document.getElementById('wordInput').disabled = !valid; document.getElementById('btnParseWord').disabled = !valid || !document.getElementById('wordInput').files[0]; }
@@ -797,17 +807,13 @@
         function parseHistoryField(text) {
             if (!text || typeof text !== 'string') return {};
             const chunks = {};
-            // Find all occurrences of [第X次]
             const matches = [...text.matchAll(/\[第(\d+)次\]/g)];
             if (matches.length === 0) return {};
-            
             matches.forEach((m, i) => {
                 const round = parseInt(m[1], 10);
                 const start = m.index + m[0].length;
-                // End is the start of the next tag, or end of string
                 const end = (i + 1 < matches.length) ? matches[i+1].index : text.length;
                 let content = text.substring(start, end).trim();
-                // Clean up potential separator lines (like ------ or ------)
                 content = content.replace(/^-+\s*|\s*-+$/g, '');
                 if(content) chunks[round] = content;
             });
@@ -832,7 +838,6 @@
                     const json = JSON.parse(text);
                     const rawItems = Array.isArray(json) ? json : (json.data || []);
                     items = rawItems.map(i => {
-                        // 1. Basic Fields
                         const newItem = { 
                             number: i.number || i['編號'] || '', 
                             year: i.year || i['年度'] || '', 
@@ -840,30 +845,27 @@
                             content: i.content || i['內容'] || i['事項內容'] || i['內容摘要'] || '', 
                             status: i.status || i['狀態'] || '持續列管',
                             handling: i.handling || i['辦理情形'] || i['最新辦理情形'] || '',
-                            review: i.review || i['審查意見'] || i['最新審查意見'] || ''
+                            review: i.review || i['審查意見'] || i['最新審查意見'] || '',
+                            // Backup might contain these
+                            itemKindCode: i.itemKindCode,
+                            category: i.category,
+                            divisionName: i.division, // map back to divisionName for consistency
+                            inspectionCategoryName: i.inspection_category
                         };
                         
-                        // 2. Explicit History Fields (handling1..20)
                         for(let k=1; k<=20; k++) {
                             if(i[`handling${k}`]) newItem[`handling${k}`] = i[`handling${k}`];
                             if(i[`review${k}`]) newItem[`review${k}`] = i[`review${k}`];
                         }
 
-                        // 3. Smart Parse Logic (Problem 1) - Apply to potential combined fields
                         const potentialHandling = i['完整辦理情形歷程'] || i.fullHandling || i.handling || i['辦理情形'] || '';
                         const potentialReview = i['完整審查意見歷程'] || i.fullReview || i.review || i['審查意見'] || '';
 
                         const hChunks = parseHistoryField(potentialHandling);
                         const rChunks = parseHistoryField(potentialReview);
 
-                        Object.keys(hChunks).forEach(r => {
-                            const key = parseInt(r) === 1 ? 'handling' : `handling${r}`;
-                            newItem[key] = hChunks[r];
-                        });
-                        Object.keys(rChunks).forEach(r => {
-                            const key = parseInt(r) === 1 ? 'review' : `review${r}`;
-                            newItem[key] = rChunks[r];
-                        });
+                        Object.keys(hChunks).forEach(r => { const key = parseInt(r) === 1 ? 'handling' : `handling${r}`; newItem[key] = hChunks[r]; });
+                        Object.keys(rChunks).forEach(r => { const key = parseInt(r) === 1 ? 'review' : `review${r}`; newItem[key] = rChunks[r]; });
                         
                         return newItem;
                     });
@@ -876,9 +878,7 @@
                         complete: function(results) {
                             const msgInside = document.getElementById('importStatusBackup');
                             try {
-                                if(results.errors.length && results.data.length === 0) {
-                                    if(msgInside) msgInside.innerText = 'CSV 解析錯誤: ' + JSON.stringify(results.errors); else alert('CSV 解析錯誤'); return;
-                                }
+                                if(results.errors.length && results.data.length === 0) { if(msgInside) msgInside.innerText = 'CSV 解析錯誤'; return; }
                                 const mapped = results.data.map(i => {
                                     let item = { 
                                         number: i['編號'] || i.number || '', 
@@ -889,16 +889,12 @@
                                         handling: i['最新辦理情形'] || i['辦理情形'] || i.handling || '',
                                         review: i['最新審查意見'] || i['審查意見'] || i.review || ''
                                     };
-
                                     const fullH = i['完整辦理情形歷程'] || i.handling || '';
                                     const fullR = i['完整審查意見歷程'] || i.review || '';
-                                    
                                     const hChunks = parseHistoryField(fullH);
                                     const rChunks = parseHistoryField(fullR);
-
                                     Object.keys(hChunks).forEach(r => { const key = parseInt(r) === 1 ? 'handling' : `handling${r}`; item[key] = hChunks[r]; });
                                     Object.keys(rChunks).forEach(r => { const key = parseInt(r) === 1 ? 'review' : `review${r}`; item[key] = rChunks[r]; });
-
                                     return item;
                                 });
                                 const validRows = mapped.filter(r => r.number || r.content);
@@ -912,9 +908,7 @@
         }
 
         function processParsedItems(items, round, msgElement) {
-            if (msgElement && items.length === 0) { 
-                msgElement.innerText = '錯誤：未解析到有效資料'; return; 
-            }
+            if (msgElement && items.length === 0) { msgElement.innerText = '錯誤：未解析到有效資料'; return; }
             stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
             
             if (currentImportMode === 'word') {
@@ -926,7 +920,6 @@
                 document.getElementById('uploadCardWord').classList.add('hidden');
                 document.getElementById('uploadCardBackup').classList.add('hidden');
             }
-            
             renderPreviewTable();
             document.getElementById('previewContainer').classList.remove('hidden'); 
             if(msgElement) msgElement.innerText = '';
@@ -938,13 +931,7 @@
             stagedImportData = []; 
             document.getElementById('previewContainer').classList.add('hidden'); 
             document.getElementById('uploadCardWord').classList.remove('hidden'); 
-            
-            // Only show backup card if user is admin
-            if (currentUser && currentUser.role === 'admin') {
-                 document.getElementById('uploadCardBackup').classList.remove('hidden');
-            }
-            
-            // Reset inputs
+            if (currentUser && currentUser.role === 'admin') { document.getElementById('uploadCardBackup').classList.remove('hidden'); }
             document.getElementById('wordInput').value = ''; 
             document.getElementById('backupInput').value = '';
             document.getElementById('importStatusWord').innerText = ''; 
@@ -954,10 +941,7 @@
         async function confirmImport() { 
             const count = stagedImportData.length;
             const isBackup = currentImportMode === 'backup';
-            const msg = isBackup 
-                ? `⚠️ 警告：即將進行「災難復原」，這將覆蓋或新增 ${count} 筆資料。\n確定要執行嗎？` 
-                : `確定要匯入 ${count} 筆資料嗎？`;
-
+            const msg = isBackup ? `⚠️ 警告：即將進行「災難復原」，這將覆蓋或新增 ${count} 筆資料。\n確定要執行嗎？` : `確定要匯入 ${count} 筆資料嗎？`;
             if(!confirm(msg)) return; 
             
             const round = isBackup ? 0 : document.getElementById('importRound').value;
@@ -970,16 +954,8 @@
                     headers: { 'Content-Type': 'application/json' }, 
                     body: JSON.stringify({ data: cleanData, round: round, reviewDate: date, actualReplyDate: '', mode: currentImportMode }) 
                 }); 
-                if(res.ok) { 
-                    showToast('匯入成功！'); 
-                    cancelImport(); 
-                    loadIssuesPage(1); 
-                } else { 
-                    showToast('匯入失敗', 'error'); 
-                } 
-            } catch(e) { 
-                showToast('Error: ' + e.message, 'error'); 
-            } 
+                if(res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); } else { showToast('匯入失敗', 'error'); } 
+            } catch(e) { showToast('Error: ' + e.message, 'error'); } 
         }
         
         // --- New Data Management Functions ---
@@ -993,24 +969,20 @@
             const content = document.getElementById('manualContent').value.trim();
             if(!number || !year || !unit || !content) return showToast('請填寫所有必填欄位', 'error');
             
+            let kind = ''; const m = number.match(/-([NOR])\d+$/i); if (m) kind = m[1].toUpperCase();
+            // Manual also needs normalization logic, but here we assume manual inputs are simple or fallback to backend processing
+            // Ideally manual input would have dropdowns for normalized fields. For now we rely on backend or re-parsing.
+            // Since manual entry is rare, we can let backend handle basic normalization if possible or just store raw.
+            // But better to reuse parser logic if possible. Here we just send raw.
+
             const payload = {
-                data: [{ number, year, unit, content, status, category: '', itemKindCode: '', scheme: 'MANUAL' }],
+                data: [{ number, year, unit, content, status, itemKindCode: kind, scheme: 'MANUAL' }],
                 round: 1, reviewDate: '', actualReplyDate: ''
             };
 
             try {
                 const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if(res.ok) {
-                    showToast('新增成功');
-                    // Clear form
-                    document.getElementById('manualNumber').value = '';
-                    document.getElementById('manualYear').value = '';
-                    document.getElementById('manualUnit').value = '';
-                    document.getElementById('manualContent').value = '';
-                    loadIssuesPage(1); // Refresh background list
-                } else {
-                    showToast('新增失敗', 'error');
-                }
+                if(res.ok) { showToast('新增成功'); document.getElementById('manualNumber').value = ''; document.getElementById('manualYear').value = ''; document.getElementById('manualUnit').value = ''; document.getElementById('manualContent').value = ''; loadIssuesPage(1); } else { showToast('新增失敗', 'error'); }
             } catch(e) { showToast('Error: ' + e.message, 'error'); }
         }
 
@@ -1018,76 +990,41 @@
             try {
                 const exportScope = document.querySelector('input[name="exportScope"]:checked').value;
                 const exportFormat = document.querySelector('input[name="exportFormat"]:checked').value;
-                
                 showToast('準備匯出中，請稍候...');
-                
                 const res = await fetch('/api/issues?page=1&pageSize=10000&sortField=created_at&sortDir=desc');
                 if(!res.ok) throw new Error('取得資料失敗');
                 const json = await res.json();
                 const data = json.data || [];
-                
                 if(data.length === 0) return showToast('無資料可匯出', 'error');
 
-                // Handle JSON Export
                 if (exportFormat === 'json') {
                     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                    const link = document.createElement("a");
-                    link.href = URL.createObjectURL(blob);
-                    link.download = `SMS_Backup_${new Date().toISOString().slice(0,10)}.json`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    showToast('JSON 匯出完成');
-                    return;
+                    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `SMS_Backup_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('JSON 匯出完成'); return;
                 }
 
-                // Handle CSV Export
-                let csvContent = '\uFEFF'; // BOM
-                const clean = (t) => `"${(t||'').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
-
+                let csvContent = '\uFEFF'; const clean = (t) => `"${(t||'').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
                 if (exportScope === 'latest') {
-                    csvContent += "編號,年度,機構,狀態,內容摘要,最新辦理情形,最新審查意見\n";
+                    csvContent += "編號,年度,機構,狀態,事項內容,最新辦理情形,最新審查意見\n";
                     data.forEach(item => {
                         let latestH = '', latestR = '';
-                        // Find latest non-empty
-                        for(let i=20; i>=1; i--) {
-                            if(!latestH && (item[i===1?'handling':`handling${i}`])) latestH = item[i===1?'handling':`handling${i}`];
-                            if(!latestR && (item[i===1?'review':`review${i}`])) latestR = item[i===1?'review':`review${i}`];
-                        }
+                        for(let i=20; i>=1; i--) { if(!latestH && (item[i===1?'handling':`handling${i}`])) latestH = item[i===1?'handling':`handling${i}`]; if(!latestR && (item[i===1?'review':`review${i}`])) latestR = item[i===1?'review':`review${i}`]; }
                         csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.status)},${clean(item.content)},${clean(latestH)},${clean(latestR)}\n`;
                     });
                 } else {
-                    // Full history
-                    csvContent += "編號,年度,機構,狀態,內容摘要,完整辦理情形歷程,完整審查意見歷程\n";
+                    csvContent += "編號,年度,機構,狀態,事項內容,完整辦理情形歷程,完整審查意見歷程\n";
                     data.forEach(item => {
                         let fullH = [], fullR = [];
                         for(let i=1; i<=20; i++) {
-                            const keyH = i===1 ? 'handling' : `handling${i}`;
-                            const keyR = i===1 ? 'review' : `review${i}`;
-                            const valH = item[keyH], valR = item[keyR];
-                            
-                            if(valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`);
-                            if(valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`);
+                            const valH = item[i===1?'handling':`handling${i}`], valR = item[i===1?'review':`review${i}`];
+                            if(valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`); if(valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`);
                         }
-                        // Join with newline for cell content
                         const joinedH = fullH.length > 0 ? fullH.join("\n-------------------\n") : "";
                         const joinedR = fullR.length > 0 ? fullR.join("\n-------------------\n") : "";
-                        
                         csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.status)},${clean(item.content)},${clean(joinedH)},${clean(joinedR)}\n`;
                     });
                 }
-
-                const link = document.createElement("a");
-                link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })));
-                const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory';
-                link.setAttribute("download", `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0,10)}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showToast('CSV 匯出完成');
-            } catch(e) {
-                showToast('匯出失敗: ' + e.message, 'error');
-            }
+                const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory'; link.setAttribute("download", `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0,10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('CSV 匯出完成');
+            } catch(e) { showToast('匯出失敗: ' + e.message, 'error'); }
         }
 
         // --- User modal submit & password strength ---
@@ -1136,21 +1073,11 @@
         function updateChartsData(stats) { 
             if(!charts.status || !charts.unit || !charts.trend) return;
             if (!stats) return;
-            // Color mapping table
-            const colorMap = {
-                '持續列管': '#ef4444', // Red
-                '解除列管': '#10b981', // Green
-                '自行列管': '#f59e0b'  // Orange
-            };
-            
+            const colorMap = { '持續列管': '#ef4444', '解除列管': '#10b981', '自行列管': '#f59e0b' };
             const sLabels = stats.status.map(x => x.status).filter(s => s && s !== 'Open');
             const sData = stats.status.filter(x => x.status && x.status !== 'Open').map(x => parseInt(x.count));
-            // Generate colors based on labels
-            const sColors = sLabels.map(label => colorMap[label] || '#cbd5e1'); // Default gray if not found
-            
-            charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: sColors }] }; 
-            charts.status.update();
-            
+            const sColors = sLabels.map(label => colorMap[label] || '#cbd5e1'); 
+            charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: sColors }] }; charts.status.update();
             const uSorted = stats.unit.sort((a,b) => parseInt(b.count) - parseInt(a.count)); charts.unit.data = { labels: uSorted.map(x => x.unit), datasets: [{ label: '案件', data: uSorted.map(x => parseInt(x.count)), backgroundColor: '#0ea5e9', borderRadius: 8 }] }; charts.unit.update();
             const tSorted = stats.year.sort((a,b) => a.year.localeCompare(b.year)); charts.trend.data = { labels: tSorted.map(x => x.year), datasets: [{ label: '開立事項數', data: tSorted.map(x => parseInt(x.count)), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] }; charts.trend.update();
         }
