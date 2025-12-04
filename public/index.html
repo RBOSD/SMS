@@ -701,21 +701,41 @@
             var raw = normalizeCodeString(numberStr || ""); 
             if(!raw) return null; 
             
-            // Pattern 1: THAS (112T1-A01-N01)
-            var mOld = raw.match(/^(\d{2,3})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i); 
-            if(mOld) { 
-                var yy = parseInt(mOld[1], 10);
-                var rocYear = (yy < 1000) ? (yy + (yy < 100 ? 100 : 0)) : (yy - 1911);
-                return { raw: raw, yearRoc: rocYear, orgCode: mOld[2].toUpperCase(), inspectCode: mOld[3], divCode: mOld[4].toUpperCase(), kindCode: mOld[6].toUpperCase() }; 
-            } 
-            // Pattern 2: TRC (113-TRC-1-1130101-OP-N01)
-            var mNew = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d+)$/i); 
-            if(mNew) { 
-                return { raw: raw, yearRoc: parseInt(mNew[1], 10), orgCode: mNew[2].toUpperCase(), inspectCode: mNew[3], divCode: mNew[5].toUpperCase(), kindCode: mNew[6].toUpperCase() }; 
+            // [Improved Regex] Supports standard format and short format more robustly
+            // e.g., 113-TRC-1-1130101-OP-N01
+            // e.g., 112T1-A01-N01
+
+            // Pattern A (Long): 113-TRC-1-xxxxx-OP-N01
+            // Captures: Year, Org, Inspect, (ignore date), Div, Kind
+            var mLong = raw.match(/^(\d{3})-([A-Z]{3,4})-([0-9])-(\d+)-([A-Z]{2,4})-([NOR])(\d+)$/i);
+            if(mLong) {
+                return { 
+                    raw: raw, 
+                    yearRoc: parseInt(mLong[1], 10), 
+                    orgCode: mLong[2].toUpperCase(), 
+                    inspectCode: mLong[3], 
+                    divCode: mLong[5].toUpperCase(), 
+                    kindCode: mLong[6].toUpperCase() 
+                };
             }
-            // [Fixed] Fallback: Returns a "best effort" object instead of null if it remotely looks like an ID
-            // Try to extract just Year and Type if possible, otherwise return raw
-            // E.g. "113年度-機務-N01" or just "N01"
+
+            // Pattern B (Short): 112T1-A01-N01
+            // Captures: Year, Org(1char), Inspect, Div, Kind
+            var mShort = raw.match(/^(\d{2,3})([A-Z])([0-9])-([A-Z])(\d{2})-([NOR])(\d{2})$/i); 
+            if(mShort) { 
+                var yy = parseInt(mShort[1], 10);
+                var rocYear = (yy < 1000) ? (yy + (yy < 100 ? 100 : 0)) : (yy - 1911);
+                return { 
+                    raw: raw, 
+                    yearRoc: rocYear, 
+                    orgCode: mShort[2].toUpperCase(), 
+                    inspectCode: mShort[3], 
+                    divCode: mShort[4].toUpperCase(), 
+                    kindCode: mShort[6].toUpperCase() 
+                }; 
+            }
+            
+            // Fallback: Just try to find Year and Kind, leave others empty (better than failing)
             var mLoose = raw.match(/(\d{2,3}).*([NOR])\d+/i);
             if(mLoose) {
                  return { raw: raw, yearRoc: parseInt(mLoose[1],10), orgCode: "?", inspectCode: "?", divCode: "?", kindCode: mLoose[2].toUpperCase() };
