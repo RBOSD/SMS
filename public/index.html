@@ -702,6 +702,27 @@
             } catch(e) { console.error(e); msg.innerText = 'Word 解析錯誤: ' + e.message; }
         }
 
+        // New robust parsing function shared by JSON and CSV
+        function parseHistoryField(text) {
+            if (!text || typeof text !== 'string') return {};
+            const chunks = {};
+            // Find all occurrences of [第X次]
+            const matches = [...text.matchAll(/\[第(\d+)次\]/g)];
+            if (matches.length === 0) return {};
+            
+            matches.forEach((m, i) => {
+                const round = parseInt(m[1], 10);
+                const start = m.index + m[0].length;
+                // End is the start of the next tag, or end of string
+                const end = (i + 1 < matches.length) ? matches[i+1].index : text.length;
+                let content = text.substring(start, end).trim();
+                // Clean up potential separator lines (like ------ or ------)
+                content = content.replace(/^-+\s*|\s*-+$/g, '');
+                if(content) chunks[round] = content;
+            });
+            return chunks;
+        }
+
         async function previewBackup() {
             const f = document.getElementById('backupInput').files[0];
             const msg = document.getElementById('importStatusBackup');
@@ -714,11 +735,12 @@
             const ext = f.name.split('.').pop().toLowerCase();
             
             try {
+                let items = [];
                 if (ext === 'json') {
                     const text = await f.text();
                     const json = JSON.parse(text);
-                    const items = Array.isArray(json) ? json : (json.data || []);
-                    const mapped = items.map(i => {
+                    const rawItems = Array.isArray(json) ? json : (json.data || []);
+                    items = rawItems.map(i => {
                         // 1. Basic Fields
                         const newItem = { 
                             number: i.number || i['編號'] || '', 
@@ -736,38 +758,25 @@
                             if(i[`review${k}`]) newItem[`review${k}`] = i[`review${k}`];
                         }
 
-                        // 3. "Problem 1" Logic: Parse Combined History Strings if present
-                        // Supports keys from CSV export or common naming
-                        const fullH = i['完整辦理情形歷程'] || i.fullHandling || '';
-                        const fullR = i['完整審查意見歷程'] || i.fullReview || '';
+                        // 3. Smart Parse Logic (Problem 1) - Apply to potential combined fields
+                        const potentialHandling = i['完整辦理情形歷程'] || i.fullHandling || i.handling || i['辦理情形'] || '';
+                        const potentialReview = i['完整審查意見歷程'] || i.fullReview || i.review || i['審查意見'] || '';
 
-                        if(fullH) {
-                            const parts = fullH.split(/\n-+\n/);
-                            parts.forEach(part => {
-                                const m = part.match(/^\s*\[第(\d+)次\]\s*([\s\S]*)$/);
-                                if(m) {
-                                    const r = parseInt(m[1], 10);
-                                    const key = r === 1 ? 'handling' : `handling${r}`;
-                                    newItem[key] = m[2].trim();
-                                }
-                            });
-                        }
+                        const hChunks = parseHistoryField(potentialHandling);
+                        const rChunks = parseHistoryField(potentialReview);
 
-                        if(fullR) {
-                            const parts = fullR.split(/\n-+\n/);
-                            parts.forEach(part => {
-                                const m = part.match(/^\s*\[第(\d+)次\]\s*([\s\S]*)$/);
-                                if(m) {
-                                    const r = parseInt(m[1], 10);
-                                    const key = r === 1 ? 'review' : `review${r}`;
-                                    newItem[key] = m[2].trim();
-                                }
-                            });
-                        }
+                        Object.keys(hChunks).forEach(r => {
+                            const key = parseInt(r) === 1 ? 'handling' : `handling${r}`;
+                            newItem[key] = hChunks[r];
+                        });
+                        Object.keys(rChunks).forEach(r => {
+                            const key = parseInt(r) === 1 ? 'review' : `review${r}`;
+                            newItem[key] = rChunks[r];
+                        });
                         
                         return newItem;
                     });
-                    processParsedItems(mapped, 0, msg);
+                    processParsedItems(items, 0, msg);
                 } else if (ext === 'csv') {
                     Papa.parse(f, {
                         header: true,
@@ -775,14 +784,10 @@
                         encoding: "UTF-8", 
                         complete: function(results) {
                             const msgInside = document.getElementById('importStatusBackup');
-                            
                             try {
                                 if(results.errors.length && results.data.length === 0) {
-                                    if(msgInside) msgInside.innerText = 'CSV 解析錯誤: ' + JSON.stringify(results.errors);
-                                    else alert('CSV 解析錯誤: ' + JSON.stringify(results.errors));
-                                    return;
+                                    if(msgInside) msgInside.innerText = 'CSV 解析錯誤: ' + JSON.stringify(results.errors); else alert('CSV 解析錯誤'); return;
                                 }
-                                
                                 const mapped = results.data.map(i => {
                                     let item = { 
                                         number: i['編號'] || i.number || '', 
@@ -794,55 +799,21 @@
                                         review: i['最新審查意見'] || i['審查意見'] || i.review || ''
                                     };
 
-                                    // 智慧解析: 完整歷程 (Full History Parsing)
-                                    // 格式: [第X次] 內容...
-                                    const fullH = i['完整辦理情形歷程'] || '';
-                                    const fullR = i['完整審查意見歷程'] || '';
+                                    const fullH = i['完整辦理情形歷程'] || i.handling || '';
+                                    const fullR = i['完整審查意見歷程'] || i.review || '';
                                     
-                                    if(fullH) {
-                                        const parts = fullH.split(/\n-+\n/); // 分隔線
-                                        parts.forEach(part => {
-                                            const m = part.match(/^\s*\[第(\d+)次\]\s*([\s\S]*)$/);
-                                            if(m) {
-                                                const r = parseInt(m[1], 10);
-                                                const key = r === 1 ? 'handling' : `handling${r}`;
-                                                item[key] = m[2].trim(); // 只存內容，去除[第X次]
-                                            }
-                                        });
-                                    }
+                                    const hChunks = parseHistoryField(fullH);
+                                    const rChunks = parseHistoryField(fullR);
 
-                                    if(fullR) {
-                                        const parts = fullR.split(/\n-+\n/);
-                                        parts.forEach(part => {
-                                            const m = part.match(/^\s*\[第(\d+)次\]\s*([\s\S]*)$/);
-                                            if(m) {
-                                                const r = parseInt(m[1], 10);
-                                                const key = r === 1 ? 'review' : `review${r}`;
-                                                item[key] = m[2].trim(); // 只存內容
-                                            }
-                                        });
-                                    }
+                                    Object.keys(hChunks).forEach(r => { const key = parseInt(r) === 1 ? 'handling' : `handling${r}`; item[key] = hChunks[r]; });
+                                    Object.keys(rChunks).forEach(r => { const key = parseInt(r) === 1 ? 'review' : `review${r}`; item[key] = rChunks[r]; });
+
                                     return item;
                                 });
-                                
                                 const validRows = mapped.filter(r => r.number || r.content);
-                                if (validRows.length === 0) {
-                                    const errMsg = '錯誤：未解析到有效資料，請檢查 CSV 編碼 (建議使用 UTF-8) 或確認欄位名稱。';
-                                    if(msgInside) msgInside.innerText = errMsg;
-                                    else alert(errMsg);
-                                    return;
-                                }
+                                if (validRows.length === 0) { if(msgInside) msgInside.innerText = '錯誤：未解析到有效資料'; return; }
                                 processParsedItems(mapped, 0, msgInside);
-                            } catch (err) {
-                                console.error(err);
-                                if(msgInside) msgInside.innerText = 'CSV 處理錯誤: ' + err.message;
-                                else alert('CSV 處理錯誤: ' + err.message);
-                            }
-                        },
-                        error: function(err) {
-                            const msgInside = document.getElementById('importStatusBackup');
-                            if(msgInside) msgInside.innerText = 'CSV 讀取失敗: ' + err.message;
-                            else alert('CSV 讀取失敗: ' + err.message);
+                            } catch (err) { console.error(err); if(msgInside) msgInside.innerText = 'CSV 處理錯誤: ' + err.message; }
                         }
                     });
                 } else { throw new Error('不支援的檔案格式 (僅限 JSON 或 CSV)'); }
