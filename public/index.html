@@ -348,23 +348,39 @@
                     <button class="admin-tab-btn" onclick="switchDataTab('export')">📤 資料匯出</button>
                 </div>
 
-                <!-- Tab 1: Import -->
+                <!-- Tab 1: Import (Split into two parts) -->
                 <div id="tab-data-import">
-                    <div class="detail-card" id="uploadCard" style="max-width:800px;">
-                        <div style="margin-bottom:20px; background:#fefce8; border:1px solid #fde047; padding:16px; border-radius:8px; font-size:13px; color:#854d0e; line-height:1.5;">⚠️ <strong>注意：</strong>請務必先設定「審查次數」與「發函日期」，系統才能正確解析並匯入資料。</div>
+                    <!-- Part A: Word Import -->
+                    <div class="detail-card" id="uploadCardWord" style="max-width:800px; margin-bottom:30px;">
+                        <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#0369a1;">📝 例行作業區 (Word 解析)</div>
+                        <div style="margin-bottom:20px; background:#f0f9ff; border:1px solid #bae6fd; padding:16px; border-radius:8px; font-size:13px; color:#0369a1; line-height:1.5;">用於新增新的審查紀錄。請先設定本次審查的次數與發函日期，再選擇 Word 檔。</div>
                         <div style="display:flex; gap:24px; margin-bottom:24px; flex-wrap:wrap;">
-                            <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">1. 設定本次匯入參數 (必填)</label><div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;"><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">審查次數 (Round)</div><input type="number" id="importRound" class="filter-input" value="1" min="1" max="20" onchange="checkImportReady()"></div><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">發函日期 (例:1130615)</div><input type="text" id="importDate" class="filter-input" placeholder="必填" onkeyup="checkImportReady()"></div></div></div>
-                            <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">2. 選擇檔案 (.docx, .json, .csv)</label><input type="file" id="wordInput" class="filter-input" accept=".docx, .json, .csv" disabled style="padding:8px;"></div>
+                            <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">1. 設定匯入參數 (必填)</label><div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;"><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">審查次數 (Round)</div><input type="number" id="importRound" class="filter-input" value="1" min="1" max="20" onchange="checkImportReady()"></div><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">發函日期 (例:1130615)</div><input type="text" id="importDate" class="filter-input" placeholder="必填" onkeyup="checkImportReady()"></div></div></div>
+                            <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">2. 選擇 Word 檔案 (.docx)</label><input type="file" id="wordInput" class="filter-input" accept=".docx" disabled style="padding:8px;"></div>
                         </div>
-                        <button id="btnParse" class="btn btn-primary" style="width:100%; padding:12px;" onclick="previewImportFile()" disabled>解析並預覽</button>
-                        <div id="importStatus" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
+                        <button id="btnParseWord" class="btn btn-primary" style="width:100%; padding:12px;" onclick="previewWord()" disabled>解析並預覽 Word</button>
+                        <div id="importStatusWord" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
                     </div>
+
+                    <!-- Part B: Disaster Recovery (JSON/CSV) -->
+                    <div class="detail-card" id="uploadCardBackup" style="max-width:800px;">
+                        <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#b91c1c;">🚑 資料救援區 (CSV/JSON 還原)</div>
+                        <div style="margin-bottom:20px; background:#fef2f2; border:1px solid #fecaca; padding:16px; border-radius:8px; font-size:13px; color:#b91c1c; line-height:1.5;">用於資料庫清空後的災難復原。直接將備份檔還原至資料庫，<strong>不需要</strong>設定審查次數。</div>
+                        <div style="margin-bottom:24px;">
+                            <label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">選擇備份檔案 (.json, .csv)</label>
+                            <input type="file" id="backupInput" class="filter-input" accept=".json, .csv" style="padding:8px;">
+                        </div>
+                        <button id="btnParseBackup" class="btn btn-danger" style="width:100%; padding:12px;" onclick="previewBackup()">解析並還原備份資料</button>
+                        <div id="importStatusBackup" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
+                    </div>
+
+                    <!-- Preview Modal Container (Shared) -->
                     <div id="previewContainer" class="hidden">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
-                            <div style="font-weight:700;font-size:16px;">解析結果預覽 (<span id="previewCount" style="color:var(--primary);">0</span> 筆) - 將寫入第 <span id="previewRoundDisplay" style="color:var(--primary);">1</span> 次審查紀錄</div>
+                            <div style="font-weight:700;font-size:16px;">解析結果預覽 (<span id="previewCount" style="color:var(--primary);">0</span> 筆) <span id="previewModeBadge"></span></div>
                             <div style="display:flex;gap:10px;"><button class="btn btn-outline" onclick="cancelImport()">取消</button><button class="btn btn-primary" onclick="confirmImport()">✅ 確認寫入資料庫</button></div>
                         </div>
-                        <div class="main-card"><div class="data-container"><table style="width:100%;"><thead><tr><th style="width:80px">操作</th><th style="width:130px">編號</th><th style="width:60px">機構</th><th>內容摘要</th><th style="width:200px">本次匯入進度內容</th></tr></thead><tbody id="previewBody"></tbody></table></div></div>
+                        <div class="main-card"><div class="data-container"><table style="width:100%;"><thead><tr><th style="width:80px">操作</th><th style="width:130px">編號</th><th style="width:60px">機構</th><th>內容摘要</th><th style="width:200px">匯入內容預覽</th></tr></thead><tbody id="previewBody"></tbody></table></div></div>
                     </div>
                 </div>
 
@@ -541,6 +557,8 @@
         let usersPage = 1, usersPageSize = 20, usersTotal = 0, usersPages = 1, usersSortField = 'id', usersSortDir = 'asc';
         let logsPage = 1, logsPageSize = 20, logsTotal = 0, logsPages = 1;
         let actionsPage = 1, actionsPageSize = 20, actionsTotal = 0, actionsPages = 1;
+        // Current import mode: 'word' (uses param) or 'backup' (ignores param)
+        let currentImportMode = 'word'; 
 
         function resetAutoLogout() { clearTimeout(autoLogoutTimer); autoLogoutTimer = setTimeout(() => { alert("您已閒置過久，系統將自動登出。"); logout(); }, 1800000); }
         window.onload = resetAutoLogout; document.onmousemove = resetAutoLogout; document.onkeypress = resetAutoLogout;
@@ -651,25 +669,35 @@
             var items = []; try { var doc = new DOMParser().parseFromString(html, "text/html"); var tables = doc.querySelectorAll("table"); tables.forEach(function(table) { var rows = table.querySelectorAll("tr"); var headerRow = -1, dataStart = -1; for(var i = 0; i < Math.min(rows.length, 6); i++) { var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, ""); if((/編號|項次編號|項次/).test(t) && (/觀察事項內容|觀察事項|建議事項內容|建議事項|缺失事項內容|缺失事項|事項內容|內容/).test(t)) { headerRow = i; dataStart = i + 1; break; } } if(headerRow === -1) return; var headerCells = rows[headerRow].querySelectorAll("td,th"); var columnMap = {}; var reviewCols = []; headerCells.forEach(function(cell, idx) { var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, ""); if((/編號|項次編號|項次/).test(text)) columnMap.number = idx; if((/觀察事項內容|觀察事項|建議事項內容|建議事項|缺失事項內容|缺失事項|事項內容|內容/).test(text)) columnMap.content = idx; if((/辦理情形|辦理|辦理狀況/).test(text)) columnMap.handling = idx; var mm = text.match(/^第(\d+)次.*(審查意見|意見審查)$/); if(mm) reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) }); else if((/(審查意見|意見審查)$/).test(text)) reviewCols.push({ idx: idx, round: 1 }); if((/(審查結果|審查結論|列管結果|列管狀態|列管情形|處置結果|狀態)$/).test(text)) columnMap.result = idx; }); var hc = headerCells.length; if(columnMap.number === undefined) columnMap.number = 0; if(columnMap.content === undefined) columnMap.content = Math.min(1, hc - 1); if(columnMap.handling === undefined) columnMap.handling = Math.min(2, hc - 1); if(columnMap.result === undefined) columnMap.result = hc - 1; for(var r = dataStart; r < rows.length; r++) { var cells = rows[r].querySelectorAll("td,th"); if(cells.length < 2) continue; var numText = extractNumberFromCell(cells[columnMap.number]); var info = parseItemNumber(numText); if(!info) continue; var numKey = canonicalNumber(info); var year = info.yearRoc != null ? String(info.yearRoc) : ""; var orgUnifiedCode = ORG_CROSSWALK[info.orgCodeRaw] || info.orgCodeRaw; var orgName = ORG_MAP_TRCC[orgUnifiedCode] || ORG_MAP_THAS[info.orgCodeRaw] || ""; var inspectionCategoryName = CATEGORY_MAP_1_4[info.inspectionCategoryCode] || ""; var item = { number: numKey, rawNumber: (info.raw || "").toUpperCase(), scheme: info.scheme, yearRoc: info.yearRoc || "", year: year, orgCodeRaw: info.orgCodeRaw || "", orgUnifiedCode: orgUnifiedCode, orgName: orgName, unit: orgName, inspectionCategoryCode: info.inspectionCategoryCode || "", inspectionCategoryName: inspectionCategoryName, divisionCode: info.divisionCode || "", divisionName: DIVISION_MAP_TRCC[info.divisionCode] || DIVISION_MAP_THAS[info.divisionCode] || "", itemKindCode: info.itemKindCode || "", itemKindName: ISSUE_KIND_MAP[info.itemKindCode] || "", itemSeq: info.itemSeq || "", period: info.period || "", category: ISSUE_KIND_MAP[info.itemKindCode] || CATEGORY_MAP_1_4[info.inspectionCategoryCode] || "", content: "", handling: "", status: "" }; if(cells[columnMap.content]) item.content = sanitizeContent(cells[columnMap.content].innerHTML); if(cells[columnMap.handling]) item.handling = sanitizeContent(cells[columnMap.handling].innerHTML); if(item.itemKindCode === "R" || item.itemKindName === "建議事項") item.status = "自行列管"; else if(cells[columnMap.result]) item.status = parseStatusFromResultCell(cells[columnMap.result]) || ""; reviewCols.forEach(function(rc) { var key = (rc.round === 1 ? "review" : ("review" + rc.round)); item[key] = sanitizeContent(cells[rc.idx] ? cells[rc.idx].innerHTML : ""); }); items.push(item); } }); } catch(e) { console.error("Parse error:", e); } return items;
         }
 
-        function checkImportReady() { const r = document.getElementById('importRound').value, d = document.getElementById('importDate').value, valid = r && r > 0 && d && d.trim().length > 0; document.getElementById('wordInput').disabled = !valid; document.getElementById('btnParse').disabled = !valid || !document.getElementById('wordInput').files[0]; }
+        function checkImportReady() { const r = document.getElementById('importRound').value, d = document.getElementById('importDate').value, valid = r && r > 0 && d && d.trim().length > 0; document.getElementById('wordInput').disabled = !valid; document.getElementById('btnParseWord').disabled = !valid || !document.getElementById('wordInput').files[0]; }
         document.getElementById('wordInput').addEventListener('change', checkImportReady);
         
-        async function previewImportFile() {
-            const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRound').value, msg = document.getElementById('importStatus'); if(!f) return showToast('請先選擇檔案', 'error'); msg.innerText = '解析中...';
+        async function previewWord() {
+            const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRound').value, msg = document.getElementById('importStatusWord'); 
+            if(!f) return showToast('請先選擇 Word 檔案', 'error'); 
+            msg.innerText = 'Word 解析中...';
+            currentImportMode = 'word';
+            try {
+                const b = await f.arrayBuffer();
+                const r = await mammoth.convertToHtml({ arrayBuffer: b });
+                const items = parseFromHTML(r.value);
+                processParsedItems(items, round, msg);
+            } catch(e) { console.error(e); msg.innerText = 'Word 解析錯誤: ' + e.message; }
+        }
+
+        async function previewBackup() {
+            const f = document.getElementById('backupInput').files[0], msg = document.getElementById('importStatusBackup');
+            if(!f) return showToast('請先選擇備份檔案', 'error');
+            msg.innerText = '備份檔解析中...';
+            currentImportMode = 'backup';
             const ext = f.name.split('.').pop().toLowerCase();
             try {
-                if (ext === 'docx') {
-                    const b = await f.arrayBuffer();
-                    const r = await mammoth.convertToHtml({ arrayBuffer: b });
-                    const items = parseFromHTML(r.value);
-                    processParsedItems(items);
-                } else if (ext === 'json') {
+                if (ext === 'json') {
                     const text = await f.text();
                     const json = JSON.parse(text);
                     const items = Array.isArray(json) ? json : (json.data || []);
-                    // Map fields if necessary
                     const mapped = items.map(i => ({ ...i, review: i.review || i['審查意見'] || '', handling: i.handling || i['辦理情形'] || '', content: i.content || i['內容'] || i['事項內容'] || i['內容摘要'] || '', number: i.number || i['編號'] || '', unit: i.unit || i['機構'] || '', year: i.year || i['年度'] || '', status: i.status || i['狀態'] || '持續列管' }));
-                    processParsedItems(mapped);
+                    processParsedItems(mapped, 0, msg);
                 } else if (ext === 'csv') {
                     Papa.parse(f, {
                         header: true, skipEmptyLines: true, encoding: "UTF-8",
@@ -684,26 +712,79 @@
                                 handling: i['辦理情形'] || i['最新辦理情形'] || i.handling || '',
                                 review: i['審查意見'] || i['最新審查意見'] || i.review || ''
                             }));
-                            processParsedItems(mapped);
+                            processParsedItems(mapped, 0, msg);
                         }
                     });
-                } else { throw new Error('不支援的檔案格式'); }
-            } catch(e) { console.error(e); msg.innerText = '發生錯誤: ' + e.message; }
+                } else { throw new Error('不支援的檔案格式 (僅限 JSON 或 CSV)'); }
+            } catch(e) { console.error(e); msg.innerText = '解析錯誤: ' + e.message; }
         }
 
-        function processParsedItems(items) {
-            const round = document.getElementById('importRound').value;
-            if(items.length === 0) { document.getElementById('importStatus').innerText = '錯誤：未解析到有效資料'; return; }
+        function processParsedItems(items, round, msgElement) {
+            if(items.length === 0) { msgElement.innerText = '錯誤：未解析到有效資料'; return; }
             stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
-            document.getElementById('previewRoundDisplay').innerText = round; renderPreviewTable();
-            document.getElementById('previewContainer').classList.remove('hidden'); document.getElementById('uploadCard').classList.add('hidden');
-            document.getElementById('importStatus').innerText = '';
+            
+            if (currentImportMode === 'word') {
+                document.getElementById('previewRoundDisplay').innerText = round;
+                document.getElementById('previewModeBadge').innerHTML = `<span class="badge new">Word 匯入 (第 ${round} 次)</span>`;
+                document.getElementById('uploadCardWord').classList.add('hidden');
+                document.getElementById('uploadCardBackup').classList.add('hidden');
+            } else {
+                document.getElementById('previewRoundDisplay').innerText = '-';
+                document.getElementById('previewModeBadge').innerHTML = `<span class="badge active">⚠️ 災難復原模式</span>`;
+                document.getElementById('uploadCardWord').classList.add('hidden');
+                document.getElementById('uploadCardBackup').classList.add('hidden');
+            }
+            
+            renderPreviewTable();
+            document.getElementById('previewContainer').classList.remove('hidden'); 
+            msgElement.innerText = '';
         }
 
-        function renderPreviewTable() { document.getElementById('previewCount').innerText = stagedImportData.length; const round = document.getElementById('importRound').value, tbody = document.getElementById('previewBody'); tbody.innerHTML = stagedImportData.map(item => { const statusBadge = item._importStatus === 'new' ? `<span class="badge new">新增</span>` : `<span class="badge update">更新 (第${round}次)</span>`; let progress = `[審查] ${item.review||'-'}<br>[辦理] ${item.handling||'-'}`; return `<tr><td>${statusBadge}</td><td style="font-weight:600;color:var(--primary);">${item.number}</td><td>${item.unit}</td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(item.content)}</div></td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(progress)}</div></td></tr>`; }).join(''); }
-        function cancelImport() { stagedImportData = []; document.getElementById('previewContainer').classList.add('hidden'); document.getElementById('uploadCard').classList.remove('hidden'); document.getElementById('wordInput').value = ''; document.getElementById('importStatus').innerText = ''; }
+        function renderPreviewTable() { document.getElementById('previewCount').innerText = stagedImportData.length; const round = currentImportMode === 'word' ? document.getElementById('importRound').value : '-'; const tbody = document.getElementById('previewBody'); tbody.innerHTML = stagedImportData.map(item => { const statusBadge = item._importStatus === 'new' ? `<span class="badge new">新增</span>` : `<span class="badge update">更新</span>`; let progress = `[審查] ${item.review||'-'}<br>[辦理] ${item.handling||'-'}`; return `<tr><td>${statusBadge}</td><td style="font-weight:600;color:var(--primary);">${item.number}</td><td>${item.unit}</td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(item.content)}</div></td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(progress)}</div></td></tr>`; }).join(''); }
         
-        async function confirmImport() { if(!confirm(`確定要匯入 ${stagedImportData.length} 筆資料嗎？`)) return; const round = document.getElementById('importRound').value, date = document.getElementById('importDate').value, cleanData = stagedImportData.map(({ _importStatus, ...item }) => item); try { const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: cleanData, round: round, reviewDate: date, actualReplyDate: '' }) }); if(res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); } else { showToast('匯入失敗', 'error'); } } catch(e) { showToast('Error: ' + e.message, 'error'); } }
+        function cancelImport() { 
+            stagedImportData = []; 
+            document.getElementById('previewContainer').classList.add('hidden'); 
+            document.getElementById('uploadCardWord').classList.remove('hidden'); 
+            document.getElementById('uploadCardBackup').classList.remove('hidden');
+            
+            // Reset inputs
+            document.getElementById('wordInput').value = ''; 
+            document.getElementById('backupInput').value = '';
+            document.getElementById('importStatusWord').innerText = ''; 
+            document.getElementById('importStatusBackup').innerText = ''; 
+        }
+        
+        async function confirmImport() { 
+            const count = stagedImportData.length;
+            const isBackup = currentImportMode === 'backup';
+            const msg = isBackup 
+                ? `⚠️ 警告：即將進行「災難復原」，這將覆蓋或新增 ${count} 筆資料。\n確定要執行嗎？` 
+                : `確定要匯入 ${count} 筆資料嗎？`;
+
+            if(!confirm(msg)) return; 
+            
+            const round = isBackup ? 0 : document.getElementById('importRound').value;
+            const date = isBackup ? '' : document.getElementById('importDate').value;
+            const cleanData = stagedImportData.map(({ _importStatus, ...item }) => item); 
+            
+            try { 
+                const res = await fetch('/api/issues/import', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ data: cleanData, round: round, reviewDate: date, actualReplyDate: '', mode: currentImportMode }) 
+                }); 
+                if(res.ok) { 
+                    showToast('匯入成功！'); 
+                    cancelImport(); 
+                    loadIssuesPage(1); 
+                } else { 
+                    showToast('匯入失敗', 'error'); 
+                } 
+            } catch(e) { 
+                showToast('Error: ' + e.message, 'error'); 
+            } 
+        }
         
         // --- New Data Management Functions ---
         function switchDataTab(tab) { document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); }
