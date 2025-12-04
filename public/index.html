@@ -92,6 +92,10 @@
         .filter-input, .filter-select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: #f8fafc; font-size: 14px; transition: all 0.2s; color: #334155; }
         .filter-input:focus, .filter-select:focus { border-color: var(--primary); outline: none; background: white; box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
         .filter-input::placeholder { color: #94a3b8; }
+        
+        .pwd-wrapper { position: relative; width: 100%; }
+        .pwd-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #94a3b8; border: none; background: none; font-size: 16px; }
+        .pwd-toggle:hover { color: var(--primary); }
 
         .hidden { display: none !important; }
         
@@ -127,6 +131,10 @@
         .badge.new { background: #dbeafe; color: #1e40af; } .badge.update { background: #fef3c7; color: #92400e; }
         .ai-tag { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; padding: 2px 8px; border-radius: 4px; border: 1px solid transparent; }
         .ai-tag.yes { color: #059669; background: #ecfdf5; border-color: #a7f3d0; } .ai-tag.no { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+        .kind-tag { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 2px 6px; margin-right: 6px; border: 1px solid #ddd; color: #555; background: #f8fafc; }
+        .kind-tag.N { color: #b91c1c; background: #fef2f2; border-color: #fecaca; } /* 缺失 */
+        .kind-tag.O { color: #c2410c; background: #fff7ed; border-color: #fed7aa; } /* 觀察 */
+        .kind-tag.R { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; } /* 建議 */
 
         .drawer-backdrop, .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
         .drawer-backdrop.open, .modal-overlay.open { display: flex; }
@@ -280,6 +288,7 @@
                             <div class="search-item"><label>年度</label><select id="filterYear" class="filter-select"></select></div>
                             <div class="search-item"><label>機構</label><select id="filterUnit" class="filter-select"></select></div>
                             <div class="search-item"><label>狀態</label><select id="filterStatus" class="filter-select"><option value="">全部狀態</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
+                             <div class="search-item"><label>類型</label><select id="filterKind" class="filter-select"><option value="">全部類型</option><option value="N">缺失事項</option><option value="O">觀察事項</option><option value="R">建議事項</option></select></div>
                             <div style="display:flex;gap:8px;align-self:flex-end;">
                                 <button class="btn btn-primary" onclick="applyFilters()">🔍 搜尋</button>
                                 <button class="btn btn-outline" onclick="resetFilters()">重設</button>
@@ -362,9 +371,9 @@
                         <div id="importStatusWord" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
                     </div>
 
-                    <!-- Part B: Backup Import -->
-                    <div class="detail-card" id="uploadCardBackup" style="max-width:800px;">
-                        <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#b91c1c;">🚑 資料救援區 (還原備份)</div>
+                    <!-- Part B: Backup Import (Restricted to Admin) -->
+                    <div class="detail-card hidden" id="uploadCardBackup" style="max-width:800px;">
+                        <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#b91c1c;">🚑 資料救援區 (還原備份) [Admin Only]</div>
                         <div style="margin-bottom:20px; background:#fef2f2; border:1px solid #fecaca; padding:16px; border-radius:8px; font-size:13px; color:#b91c1c; line-height:1.5;">用於資料庫清空後的災難復原。支援 CSV 或 JSON 格式。</div>
                         <div style="margin-bottom:24px;">
                             <label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">選擇備份檔案 (.csv, .json)</label>
@@ -426,7 +435,7 @@
                                 <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
                                     <input type="radio" name="exportFormat" value="csv" checked> CSV (Excel)
                                 </label>
-                                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                                <label id="exportJsonOption" style="cursor:pointer; display:none; align-items:center; gap:8px;">
                                     <input type="radio" name="exportFormat" value="json"> JSON (備份用)
                                 </label>
                             </div>
@@ -558,8 +567,46 @@
         </div>
     </div>
     
-    <div class="modal-overlay" id="userModal"><div class="modal-box"><h3 style="margin-top:0;" id="userModalTitle">使用者</h3><input type="hidden" id="targetUserId"><div class="form-group"><label>姓名</label><input type="text" id="uName" class="filter-input"></div><div class="form-group"><label>帳號 (Username)</label><input type="text" id="uEmail" class="filter-input"></div><div class="form-group"><label>密碼 <span style="font-weight:400;color:#666;font-size:12px" id="pwdHint"></span></label><input type="password" id="uPwd" class="filter-input"></div><div class="form-group"><label>確認密碼</label><input type="password" id="uPwdConfirm" class="filter-input"></div><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><div id="pwdStrength" style="font-size:13px;color:#666;">密碼強度: -</div></div><div class="form-group"><label>權限</label><select id="uRole" class="filter-select"><option value="admin">系統管理員 (Admin)</option><option value="manager">資料管理者 (Manager)</option><option value="editor">審查人員 (Editor)</option><option value="viewer">檢視人員 (Viewer)</option></select></div><div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%" onclick="submitUser()">送出</button><button class="btn btn-outline" style="width:100%" onclick="document.getElementById('userModal').classList.remove('open')">取消</button></div></div></div>
-    <div class="modal-overlay" id="profileModal"><div class="modal-box"><h3 style="margin-top:0;">個人設定</h3><div class="form-group"><label>姓名</label><input type="text" id="myProfileName" class="filter-input"></div><div class="form-group"><label>新密碼 <span style="font-weight:400;color:#666;font-size:12px">(若不修改請留空)</span></label><input type="password" id="myProfilePwd" class="filter-input"></div><div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%" onclick="submitProfile()">更新</button><button class="btn btn-outline" style="width:100%" onclick="document.getElementById('profileModal').classList.remove('open')">取消</button></div></div></div>
+    <div class="modal-overlay" id="userModal">
+        <div class="modal-box">
+            <h3 style="margin-top:0;" id="userModalTitle">使用者</h3>
+            <input type="hidden" id="targetUserId">
+            <div class="form-group"><label>姓名</label><input type="text" id="uName" class="filter-input"></div>
+            <div class="form-group"><label>帳號 (Username)</label><input type="text" id="uEmail" class="filter-input"></div>
+            <div class="form-group">
+                <label>密碼 <span style="font-weight:400;color:#666;font-size:12px" id="pwdHint"></span></label>
+                <div class="pwd-wrapper">
+                    <input type="password" id="uPwd" class="filter-input">
+                    <button class="pwd-toggle" onclick="togglePwdVisibility('uPwd', this)">👁️</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>確認密碼</label>
+                <div class="pwd-wrapper">
+                    <input type="password" id="uPwdConfirm" class="filter-input">
+                    <button class="pwd-toggle" onclick="togglePwdVisibility('uPwdConfirm', this)">👁️</button>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><div id="pwdStrength" style="font-size:13px;color:#666;">密碼強度: -</div></div>
+            <div class="form-group"><label>權限</label><select id="uRole" class="filter-select"><option value="admin">系統管理員 (Admin)</option><option value="manager">資料管理者 (Manager)</option><option value="editor">審查人員 (Editor)</option><option value="viewer">檢視人員 (Viewer)</option></select></div>
+            <div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%" onclick="submitUser()">送出</button><button class="btn btn-outline" style="width:100%" onclick="document.getElementById('userModal').classList.remove('open')">取消</button></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal-box">
+            <h3 style="margin-top:0;">個人設定</h3>
+            <div class="form-group"><label>姓名</label><input type="text" id="myProfileName" class="filter-input"></div>
+            <div class="form-group">
+                <label>新密碼 <span style="font-weight:400;color:#666;font-size:12px">(若不修改請留空)</span></label>
+                <div class="pwd-wrapper">
+                    <input type="password" id="myProfilePwd" class="filter-input">
+                    <button class="pwd-toggle" onclick="togglePwdVisibility('myProfilePwd', this)">👁️</button>
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%" onclick="submitProfile()">更新</button><button class="btn btn-outline" style="width:100%" onclick="document.getElementById('profileModal').classList.remove('open')">取消</button></div>
+        </div>
+    </div>
 
     <!-- Preview modal -->
     <div class="modal-overlay" id="previewModal"><div class="modal-box" id="previewBox" style="max-width:800px; width:90%; max-height:80vh; overflow:auto;"><div style="display:flex;justify-content:space-between;align-items:center;"><h3 id="previewTitle">內容預覽</h3><button onclick="closePreview()" style="border:none;background:none;font-size:20px;">&times;</button></div><div id="previewContent" style="margin-top:12px;"></div></div></div>
@@ -583,6 +630,8 @@
         function toggleDashboard(btn) { const d = document.getElementById('dashboardSection'); const c = d.classList.contains('collapsed'); d.classList.toggle('collapsed', !c); btn.innerHTML = c ? '<span>收合統計圖表</span> <span>▲</span>' : '<span>展開統計圖表</span> <span>▼</span>'; }
         function toggleUserMenu() { document.getElementById('userDropdown').classList.toggle('show'); }
         window.addEventListener('click', function(e) { if (!e.target.closest('.user-menu-container')) { document.getElementById('userDropdown').classList.remove('show'); } });
+        
+        function togglePwdVisibility(inputId, btn) { const input = document.getElementById(inputId); if(input.type === 'password') { input.type = 'text'; btn.innerText = '🚫'; } else { input.type = 'password'; btn.innerText = '👁️'; } }
 
         // --- Helper functions ---
         function normalizeCodeString(str) { if(!str) return ""; var s = (str.normalize ? str.normalize("NFKC") : str); s = s.replace(/[\u200B-\u200D\uFEFF]/g, ""); s = s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g, "-"); s = s.replace(/[ \t]+/g, " ").replace(/\s*-\s*/g, "-"); return s.trim(); }
@@ -615,7 +664,22 @@
 
         document.addEventListener('DOMContentLoaded', async () => { await checkAuth(); if(currentUser) { document.body.style.display = 'flex'; initListeners(); initEditForm(); initCharts(); await loadIssuesPage(1); loadUsersPage(1); } });
 
-        async function checkAuth() { try { const res = await fetch('/api/auth/me'); const data = await res.json(); if(data.isLogin) { currentUser = data; document.getElementById('headerUserName').innerText = data.name || data.username; document.getElementById('headerUserRole').innerText = getRoleName(data.role); if(['admin', 'manager'].includes(data.role)) { document.getElementById('btn-importView').classList.remove('hidden'); if(data.role === 'admin') document.getElementById('btn-usersView').classList.remove('hidden'); } } else window.location.href = '/login.html'; } catch(e) { window.location.href = '/login.html'; } }
+        async function checkAuth() { 
+            try { 
+                const res = await fetch('/api/auth/me'); const data = await res.json(); 
+                if(data.isLogin) { 
+                    currentUser = data; document.getElementById('headerUserName').innerText = data.name || data.username; document.getElementById('headerUserRole').innerText = getRoleName(data.role); 
+                    if(['admin', 'manager'].includes(data.role)) { 
+                        document.getElementById('btn-importView').classList.remove('hidden'); 
+                        if(data.role === 'admin') {
+                             document.getElementById('btn-usersView').classList.remove('hidden');
+                             document.getElementById('uploadCardBackup').classList.remove('hidden'); // Admin sees backup import
+                             document.getElementById('exportJsonOption').style.display = 'flex'; // Admin sees JSON export
+                        }
+                    } 
+                } else window.location.href = '/login.html'; 
+            } catch(e) { window.location.href = '/login.html'; } 
+        }
 
         function renderPagination(containerId, currentPage, totalPages, onPageChange) {
             const containerTop = document.getElementById(containerId + 'Top'); const containerBottom = document.getElementById(containerId + 'Bottom'); let html = '';
@@ -631,10 +695,16 @@
 
         async function loadIssuesPage(page = 1) {
             issuesPage = page; document.getElementById('issuesPageSizeTop').value = issuesPageSize; document.getElementById('issuesPageSizeBottom').value = issuesPageSize;
-            const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '';
+            const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '', kind = document.getElementById('filterKind').value || '';
             let sortField = 'created_at', sortDir = 'desc';
             if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
-            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, sortField, sortDir });
+            // We map 'kind' (frontend) to 'itemKindCode' (backend expected param? or just filter manually in frontend if backend doesn't support). 
+            // Assuming backend supports general search or we pass a new param if modified. 
+            // For now, let's append it to q if it's simple search, or add a specific param if backend supports it.
+            // The current backend api/issues usually takes q, year, unit, status. We'll add itemKindCode to params.
+            
+            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, sortField, sortDir });
+            
             try {
                 const res = await fetch('/api/issues?' + params.toString()); if (!res.ok) { showToast('載入資料失敗','error'); return; }
                 const j = await res.json(); currentData = j.data || []; issuesTotal = j.total || 0; issuesPages = j.pages || 1;
@@ -664,8 +734,15 @@
                 const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : '';
                 const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
                 const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
+                
+                // Type Badge Logic
+                let kindLabel = '';
+                if(item.itemKindCode === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
+                else if(item.itemKindCode === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
+                else if(item.itemKindCode === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
+                
                 const snippet = stripHtml(item.content || '').slice(0, 180); const fullHtml = item.content || '';
-                return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="年度">${item.year}</td><td data-label="機構">${item.unit}</td><td data-label="狀態">${badge}</td><td data-label="內容摘要"><div class="text-content">${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新進度"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="操作 / AI"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
+                return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="年度">${item.year}</td><td data-label="機構">${item.unit}</td><td data-label="狀態">${badge}</td><td data-label="內容摘要"><div class="text-content">${kindLabel}${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新進度"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="操作 / AI"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
             }).join('');
         }
         function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }
@@ -847,7 +924,11 @@
             stagedImportData = []; 
             document.getElementById('previewContainer').classList.add('hidden'); 
             document.getElementById('uploadCardWord').classList.remove('hidden'); 
-            document.getElementById('uploadCardBackup').classList.remove('hidden');
+            
+            // Only show backup card if user is admin
+            if (currentUser && currentUser.role === 'admin') {
+                 document.getElementById('uploadCardBackup').classList.remove('hidden');
+            }
             
             // Reset inputs
             document.getElementById('wordInput').value = ''; 
