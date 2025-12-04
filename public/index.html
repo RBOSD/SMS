@@ -735,11 +735,18 @@
                 const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
                 const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
                 
-                // Type Badge Logic
+                // Type Badge Logic (Smart Detection)
+                // 優先使用 itemKindCode，若無則嘗試從 Number 字串反推
+                let k = item.itemKindCode;
+                if (!k && item.number) {
+                    const m = item.number.match(/-([NOR])\d+$/i);
+                    if (m) k = m[1].toUpperCase();
+                }
+                
                 let kindLabel = '';
-                if(item.itemKindCode === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
-                else if(item.itemKindCode === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
-                else if(item.itemKindCode === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
+                if(k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
+                else if(k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
+                else if(k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
                 
                 const snippet = stripHtml(item.content || '').slice(0, 180); const fullHtml = item.content || '';
                 return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="年度">${item.year}</td><td data-label="機構">${item.unit}</td><td data-label="狀態">${badge}</td><td data-label="內容摘要"><div class="text-content">${kindLabel}${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新進度"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="操作 / AI"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
