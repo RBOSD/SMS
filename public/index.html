@@ -769,12 +769,10 @@
             stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
             
             if (currentImportMode === 'word') {
-                document.getElementById('previewRoundDisplay').innerText = round;
                 document.getElementById('previewModeBadge').innerHTML = `<span class="badge new">Word 匯入 (第 ${round} 次)</span>`;
                 document.getElementById('uploadCardWord').classList.add('hidden');
                 document.getElementById('uploadCardBackup').classList.add('hidden');
             } else {
-                document.getElementById('previewRoundDisplay').innerText = '-';
                 document.getElementById('previewModeBadge').innerHTML = `<span class="badge active">⚠️ 災難復原模式</span>`;
                 document.getElementById('uploadCardWord').classList.add('hidden');
                 document.getElementById('uploadCardBackup').classList.add('hidden');
