@@ -700,6 +700,7 @@
         function parseItemNumber(numberStr) { 
             var raw = normalizeCodeString(numberStr || ""); 
             if(!raw) return null; 
+            
             // Pattern 1: THAS (112T1-A01-N01)
             var mOld = raw.match(/^(\d{2,3})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i); 
             if(mOld) { 
@@ -711,8 +712,16 @@
             var mNew = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d+)$/i); 
             if(mNew) { 
                 return { raw: raw, yearRoc: parseInt(mNew[1], 10), orgCode: mNew[2].toUpperCase(), inspectCode: mNew[3], divCode: mNew[5].toUpperCase(), kindCode: mNew[6].toUpperCase() }; 
-            } 
-            return null; 
+            }
+            // [Fixed] Fallback: Returns a "best effort" object instead of null if it remotely looks like an ID
+            // Try to extract just Year and Type if possible, otherwise return raw
+            // E.g. "113年度-機務-N01" or just "N01"
+            var mLoose = raw.match(/(\d{2,3}).*([NOR])\d+/i);
+            if(mLoose) {
+                 return { raw: raw, yearRoc: parseInt(mLoose[1],10), orgCode: "?", inspectCode: "?", divCode: "?", kindCode: mLoose[2].toUpperCase() };
+            }
+            
+            return { raw: raw, yearRoc: "", orgCode: "", inspectCode: "", divCode: "", kindCode: "" }; 
         }
 
         function normalizeMultiline(s) { s = String(s || ""); return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
@@ -879,9 +888,16 @@
 
         function switchAdminTab(tab) { document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users'); document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs'); document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions'); if(tab === 'logs') loadLogsPage(1); if(tab === 'actions') loadActionsPage(1); }
 
-        // [Modified] HTML Parser to handle dual coding system
+        // [Modified] HTML Parser (Restored to be lenient)
         function parseFromHTML(html) {
-            var items = []; try { var doc = new DOMParser().parseFromString(html, "text/html"); var tables = doc.querySelectorAll("table"); tables.forEach(function(table) { var rows = table.querySelectorAll("tr"); var headerRow = -1, dataStart = -1; for(var i = 0; i < Math.min(rows.length, 6); i++) { var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, ""); if((/編號|項次編號/).test(t) && (/內容/).test(t)) { headerRow = i; dataStart = i + 1; break; } } if(headerRow === -1) return; var headerCells = rows[headerRow].querySelectorAll("td,th"); var col = {}; var reviewCols = []; headerCells.forEach(function(cell, idx) { var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, ""); if((/編號|項次編號/).test(text)) col.number = idx; if((/內容/).test(text)) col.content = idx; if((/辦理情形/).test(text)) col.handling = idx; if((/結果|狀態/).test(text)) col.result = idx; var mm = text.match(/^第(\d+)次.*(審查意見|意見審查)$/); if(mm) reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) }); else if((/(審查意見|意見審查)$/).test(text)) reviewCols.push({ idx: idx, round: 1 }); }); if(col.number === undefined) col.number = 0; if(col.content === undefined) col.content = 1; for(var r = dataStart; r < rows.length; r++) { var cells = rows[r].querySelectorAll("td,th"); if(cells.length < 2) continue; var numText = extractNumberFromCell(cells[col.number]); var info = parseItemNumber(numText); if(!info) continue; var unitName = ORG_MAP[info.orgCode] || info.orgCode; var inspectName = INSPECTION_MAP[info.inspectCode] || info.inspectCode; var divName = DIVISION_MAP[info.divCode] || info.divCode; var kindName = KIND_MAP[info.kindCode] || "其他"; var item = { number: info.raw.toUpperCase(), year: String(info.yearRoc), unit: unitName, itemKindCode: info.kindCode, category: kindName, inspectionCategoryName: inspectName, divisionName: divName, content: "", handling: "", status: "持續列管" }; if(cells[col.content]) item.content = sanitizeContent(cells[col.content].innerHTML); if(cells[col.handling]) item.handling = sanitizeContent(cells[col.handling].innerHTML); if(info.kindCode === "R") item.status = "自行列管"; else if(cells[col.result]) item.status = parseStatusFromResultCell(cells[col.result]) || "持續列管"; reviewCols.forEach(function(rc) { var key = (rc.round === 1 ? "review" : ("review" + rc.round)); item[key] = sanitizeContent(cells[rc.idx] ? cells[rc.idx].innerHTML : ""); }); items.push(item); } }); } catch(e) { console.error("Parse error:", e); } return items;
+            var items = []; try { var doc = new DOMParser().parseFromString(html, "text/html"); var tables = doc.querySelectorAll("table"); tables.forEach(function(table) { var rows = table.querySelectorAll("tr"); var headerRow = -1, dataStart = -1; for(var i = 0; i < Math.min(rows.length, 6); i++) { var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, ""); if((/編號|項次編號/).test(t) && (/內容/).test(t)) { headerRow = i; dataStart = i + 1; break; } } if(headerRow === -1) return; var headerCells = rows[headerRow].querySelectorAll("td,th"); var col = {}; var reviewCols = []; headerCells.forEach(function(cell, idx) { var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, ""); if((/編號|項次編號/).test(text)) col.number = idx; if((/內容/).test(text)) col.content = idx; if((/辦理情形/).test(text)) col.handling = idx; if((/結果|狀態/).test(text)) col.result = idx; var mm = text.match(/^第(\d+)次.*(審查意見|意見審查)$/); if(mm) reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) }); else if((/(審查意見|意見審查)$/).test(text)) reviewCols.push({ idx: idx, round: 1 }); }); if(col.number === undefined) col.number = 0; if(col.content === undefined) col.content = 1; for(var r = dataStart; r < rows.length; r++) { var cells = rows[r].querySelectorAll("td,th"); if(cells.length < 2) continue; var numText = extractNumberFromCell(cells[col.number]); 
+            // [Fixed] Don't drop row if strict parse fails. Use best effort.
+            var info = parseItemNumber(numText); 
+            var unitName = ORG_MAP[info.orgCode] || info.orgCode || ""; 
+            var inspectName = INSPECTION_MAP[info.inspectCode] || info.inspectCode || ""; 
+            var divName = DIVISION_MAP[info.divCode] || info.divCode || ""; 
+            var kindName = KIND_MAP[info.kindCode] || "其他"; 
+            var item = { number: info.raw.toUpperCase(), year: String(info.yearRoc), unit: unitName, itemKindCode: info.kindCode, category: kindName, inspectionCategoryName: inspectName, divisionName: divName, content: "", handling: "", status: "持續列管" }; if(cells[col.content]) item.content = sanitizeContent(cells[col.content].innerHTML); if(cells[col.handling]) item.handling = sanitizeContent(cells[col.handling].innerHTML); if(info.kindCode === "R") item.status = "自行列管"; else if(cells[col.result]) item.status = parseStatusFromResultCell(cells[col.result]) || "持續列管"; reviewCols.forEach(function(rc) { var key = (rc.round === 1 ? "review" : ("review" + rc.round)); item[key] = sanitizeContent(cells[rc.idx] ? cells[rc.idx].innerHTML : ""); }); items.push(item); } }); } catch(e) { console.error("Parse error:", e); } return items;
         }
 
         function checkImportReady() { const r = document.getElementById('importRound').value, d = document.getElementById('importDate').value, valid = r && r > 0 && d && d.trim().length > 0; document.getElementById('wordInput').disabled = !valid; document.getElementById('btnParseWord').disabled = !valid || !document.getElementById('wordInput').files[0]; }
