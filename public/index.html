@@ -74,8 +74,12 @@
         /* Main Card */
         .main-card { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01); overflow: hidden; display: flex; flex-direction: column; flex-shrink: 0; margin-bottom: 20px; }
         
+        /* Filters Optimization */
         .integrated-controls { padding: 20px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 16px; background: #ffffff; }
-        .control-row-filters { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+        .filter-primary-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+        .filter-advanced-row { display: none; gap: 16px; flex-wrap: wrap; align-items: flex-end; padding-top: 12px; margin-top: 4px; border-top: 1px dashed #e2e8f0; }
+        .filter-advanced-row.show { display: flex; }
+        
         .control-row-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
         
         .search-item { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 140px; }
@@ -89,6 +93,9 @@
         .btn-outline:hover { background: #f8fafc; border-color: #cbd5e1; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-ai { background: #7c3aed; color: white; }
+        .btn-link { background: none; border: none; color: var(--primary); padding: 0; cursor: pointer; font-size: 13px; text-decoration: none; }
+        .btn-link:hover { text-decoration: underline; }
+
         .filter-input, .filter-select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: #f8fafc; font-size: 14px; transition: all 0.2s; color: #334155; }
         .filter-input:focus, .filter-select:focus { border-color: var(--primary); outline: none; background: white; box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
         .filter-input::placeholder { color: #94a3b8; }
@@ -191,7 +198,9 @@
             .charts-grid { grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; } 
             .chart-card { height: 240px; padding: 16px; }
             
-            .control-row-filters { flex-direction: column; align-items: stretch; }
+            /* Optimized Filters for Mobile */
+            .filter-primary-row { flex-direction: column; align-items: stretch; }
+            .filter-advanced-row { flex-direction: column; align-items: stretch; }
             .control-row-actions { flex-direction: column; align-items: stretch; gap: 16px; }
             .pagination-bar { justify-content: center; }
             
@@ -286,18 +295,29 @@
 
                 <div class="main-card">
                     <div class="integrated-controls">
-                        <div class="control-row-filters">
+                        <!-- Optimized Filter Layout -->
+                        <div class="filter-primary-row">
                             <div class="search-item" style="flex:2;"><label>關鍵字</label><input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字..."></div>
                             <div class="search-item"><label>年度</label><select id="filterYear" class="filter-select"></select></div>
                             <div class="search-item"><label>機構</label><select id="filterUnit" class="filter-select"></select></div>
-                            <div class="search-item"><label>分組</label><select id="filterDivision" class="filter-select"><option value="">全部分組</option><option value="運務">運務 (A)</option><option value="工務">工務 (B)</option><option value="機務">機務 (C)</option><option value="電務">電務 (D)</option><option value="運轉">運轉 (OP)</option><option value="土木">土木 (CP)</option><option value="機電">機電 (EM)</option></select></div>
                             <div class="search-item"><label>狀態</label><select id="filterStatus" class="filter-select"><option value="">全部狀態</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
-                             <div class="search-item"><label>類型</label><select id="filterKind" class="filter-select"><option value="">全部類型</option><option value="N">缺失事項</option><option value="O">觀察事項</option><option value="R">建議事項</option></select></div>
                             <div style="display:flex;gap:8px;align-self:flex-end;">
                                 <button class="btn btn-primary" onclick="applyFilters()">🔍 搜尋</button>
                                 <button class="btn btn-outline" onclick="resetFilters()">重設</button>
                             </div>
                         </div>
+                        
+                        <!-- Advanced Filters Toggle -->
+                        <div style="display:flex; justify-content:flex-start; padding-top:8px;">
+                            <button type="button" class="btn-link" onclick="toggleAdvancedFilters(this)">⬇️ 顯示更多篩選條件</button>
+                        </div>
+
+                        <div id="advancedFilters" class="filter-advanced-row">
+                            <div class="search-item"><label>檢查種類</label><select id="filterInspection" class="filter-select"><option value="">全部檢查種類</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option></select></div>
+                            <div class="search-item"><label>類型</label><select id="filterKind" class="filter-select"><option value="">全部類型</option><option value="N">缺失事項</option><option value="O">觀察事項</option><option value="R">建議事項</option></select></div>
+                            <div class="search-item"><label>分組</label><select id="filterDivision" class="filter-select"><option value="">全部分組</option><option value="運務">運務 (A)</option><option value="工務">工務 (B)</option><option value="機務">機務 (C)</option><option value="電務">電務 (D)</option><option value="運轉">運轉 (OP)</option><option value="土木">土木 (CP)</option><option value="機電">機電 (EM)</option></select></div>
+                        </div>
+
                         <div class="control-row-actions">
                             <div style="display:flex; gap:12px; align-items:center;">
                                 <div id="batchActionContainer" style="display:none;">
@@ -636,6 +656,19 @@
         window.addEventListener('click', function(e) { if (!e.target.closest('.user-menu-container')) { document.getElementById('userDropdown').classList.remove('show'); } });
         
         function togglePwdVisibility(inputId, btn) { const input = document.getElementById(inputId); if(input.type === 'password') { input.type = 'text'; btn.innerText = '🚫'; } else { input.type = 'password'; btn.innerText = '👁️'; } }
+        
+        // [New] Toggle Advanced Filters
+        function toggleAdvancedFilters(btn) {
+            const panel = document.getElementById('advancedFilters');
+            const isShown = panel.classList.contains('show');
+            if (isShown) {
+                panel.classList.remove('show');
+                btn.innerText = '⬇️ 顯示更多篩選條件';
+            } else {
+                panel.classList.add('show');
+                btn.innerText = '⬆️ 收合篩選條件';
+            }
+        }
 
         // --- Helper functions (Safe Versions) ---
         function normalizeCodeString(str) { 
@@ -751,14 +784,13 @@
         async function loadIssuesPage(page = 1) {
             issuesPage = page; document.getElementById('issuesPageSizeTop').value = issuesPageSize; document.getElementById('issuesPageSizeBottom').value = issuesPageSize;
             const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '', kind = document.getElementById('filterKind').value || '';
-            
-            // [Modified] 新增分組搜尋
             const division = document.getElementById('filterDivision') ? document.getElementById('filterDivision').value : '';
+            const inspection = document.getElementById('filterInspection') ? document.getElementById('filterInspection').value : '';
             
             let sortField = 'created_at', sortDir = 'desc';
             if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
             
-            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, sortField, sortDir });
+            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, sortField, sortDir });
             
             try {
                 const res = await fetch('/api/issues?' + params.toString()); 
