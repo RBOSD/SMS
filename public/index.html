@@ -634,9 +634,22 @@
         
         function togglePwdVisibility(inputId, btn) { const input = document.getElementById(inputId); if(input.type === 'password') { input.type = 'text'; btn.innerText = '🚫'; } else { input.type = 'password'; btn.innerText = '👁️'; } }
 
-        // --- Helper functions ---
-        function normalizeCodeString(str) { if(!str) return ""; var s = (str.normalize ? str.normalize("NFKC") : str); s = s.replace(/[\u200B-\u200D\uFEFF]/g, ""); s = s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g, "-"); s = s.replace(/[ \t]+/g, " ").replace(/\s*-\s*/g, "-"); return s.trim(); }
-        function stripHtml(h) { if(!h) return ''; let t = document.createElement("DIV"); t.innerHTML = h; return t.textContent || t.innerText || ""; }
+        // --- Helper functions (Safe Versions) ---
+        function normalizeCodeString(str) { 
+            if(!str) return ""; 
+            var s = String(str); 
+            s = (s.normalize ? s.normalize("NFKC") : s); 
+            s = s.replace(/[\u200B-\u200D\uFEFF]/g, ""); 
+            s = s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g, "-"); 
+            s = s.replace(/[ \t]+/g, " ").replace(/\s*-\s*/g, "-"); 
+            return s.trim(); 
+        }
+        function stripHtml(h) { 
+            if(!h) return ''; 
+            let t = document.createElement("DIV"); 
+            t.innerHTML = String(h); 
+            return t.textContent || t.innerText || ""; 
+        }
         function getLatest(i, p) { for(let k = 20; k >= 1; k--) { const key = k === 1 ? p : `${p}${k}`; if(i[key]) return i[key]; } return null; }
         function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' }; return map[r] || r; }
         function extractNumberFromCell(cell) { if(!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); return whole.trim(); }
@@ -666,10 +679,10 @@
             return null; 
         }
 
-        function normalizeMultiline(s) { s = s || ""; return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
+        function normalizeMultiline(s) { s = String(s || ""); return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
         function sanitizeContent(html) { if(!html) return ""; var s = String(html); s = s.replace(/&lt;\s*\/?\s*p\s*&gt;/gi, "").replace(/<\s*\/?\s*p\s*>/gi, "").replace(/<p>\s*<\/p>/gi, "").replace(/(?:<br\s*\/?>\s*){3,}/gi, "<br><br>").replace(/\n{3,}/g, "\n\n").replace(/(<li>\s*)+/gi, "<li>").replace(/(<\/li>\s*)+/gi, "</li>").replace(/(<ol>\s*)+/gi, "<ol>").replace(/(<\/ol>\s*)+/gi, "</ol>").replace(/[\u200B-\u200D\uFEFF]/g, "").trim(); return s; }
         function parseStatusFromResultCell(cell) { if(!cell) return ""; var src = normalizeMultiline((cell.innerText || cell.textContent || "") + "\n" + (cell.innerHTML || "").replace(/<[^>]+>/g, "")); if(!src) return ""; var allMarks = FILLED_MARKS.concat(EMPTY_MARKS).join(""); allMarks = allMarks.replace(/[-\\^$*+?.()|[\]{}]/g, "\\$&"); var reFront = new RegExp("([" + allMarks + "])\\s*(?:[:：﹕-]?\\s*)?(解除列管|持續列管|自行列管)", "g"); var reBack  = new RegExp("(解除列管|持續列管|自行列管)\\s*(?:[:：﹕-]?\\s*)?([" + allMarks + "])", "g"); var hits = [], m; while((m = reFront.exec(src)) !== null) { hits.push({ idx: m.index, label: m[2], mark: m[1], filled: FILLED_MARKS.indexOf(m[1]) >= 0 }); } while((m = reBack.exec(src)) !== null) { hits.push({ idx: m.index, label: m[1], mark: m[2], filled: FILLED_MARKS.indexOf(m[2]) >= 0 }); } var filled = hits.filter(function(h) { return h.filled; }).sort(function(a, b) { return a.idx - b.idx; }); if (filled.length) return filled[filled.length - 1].label; var labels = ["解除列管", "持續列管", "自行列管"]; var present = labels.filter(function(l) { return src.indexOf(l) >= 0; }); if (present.length === 1) return present[0]; return ""; }
-        function formatHtmlToText(html) { if(!html) return ""; let temp = html.replace(/<li[^>]*>/gi, "\n• ").replace(/<\/li>/gi, "").replace(/<ul[^>]*>/gi, "").replace(/<\/ul>/gi, "").replace(/<ol[^>]*>/gi, "").replace(/<\/ol>/gi, "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<p[^>]*>/gi, ""); let div = document.createElement("div"); div.innerHTML = temp; return (div.textContent || div.innerText || "").replace(/\n\s*\n/g, "\n").trim(); }
+        function formatHtmlToText(html) { if(!html) return ""; let temp = String(html).replace(/<li[^>]*>/gi, "\n• ").replace(/<\/li>/gi, "").replace(/<ul[^>]*>/gi, "").replace(/<\/ul>/gi, "").replace(/<ol[^>]*>/gi, "").replace(/<\/ol>/gi, "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<p[^>]*>/gi, ""); let div = document.createElement("div"); div.innerHTML = temp; return (div.textContent || div.innerText || "").replace(/\n\s*\n/g, "\n").trim(); }
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
@@ -686,13 +699,28 @@
         function showPreview(html, title) { document.getElementById('previewTitle').innerText = title || '內容預覽'; document.getElementById('previewContent').innerHTML = html || '(無內容)'; document.getElementById('previewModal').classList.add('open'); }
         function closePreview() { document.getElementById('previewModal').classList.remove('open'); }
 
-        document.addEventListener('DOMContentLoaded', async () => { await checkAuth(); if(currentUser) { document.body.style.display = 'flex'; initListeners(); initEditForm(); initCharts(); await loadIssuesPage(1); loadUsersPage(1); } });
+        document.addEventListener('DOMContentLoaded', async () => { 
+            console.log("App init...");
+            await checkAuth(); 
+            if(currentUser) { 
+                document.body.style.display = 'flex'; 
+                initListeners(); 
+                initEditForm(); 
+                initCharts(); 
+                await loadIssuesPage(1); 
+                loadUsersPage(1); 
+            } 
+        });
 
         async function checkAuth() { 
             try { 
                 const res = await fetch('/api/auth/me'); const data = await res.json(); 
                 if(data.isLogin) { 
-                    currentUser = data; document.getElementById('headerUserName').innerText = data.name || data.username; document.getElementById('headerUserRole').innerText = getRoleName(data.role); 
+                    currentUser = data; 
+                    const nameEl = document.getElementById('headerUserName');
+                    const roleEl = document.getElementById('headerUserRole');
+                    if(nameEl) nameEl.innerText = data.name || data.username; 
+                    if(roleEl) roleEl.innerText = getRoleName(data.role); 
                     if(['admin', 'manager'].includes(data.role)) { 
                         document.getElementById('btn-importView').classList.remove('hidden'); 
                         if(data.role === 'admin') {
@@ -752,20 +780,27 @@
         function updateSortUI() { document.querySelectorAll('th').forEach(th => { th.classList.remove('sort-asc', 'sort-desc'); if(th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc'); }); }
         function renderStats(stats) { const s = stats.status; const total = s.reduce((sum, item) => sum + parseInt(item.count), 0); const active = s.find(x => x.status === '持續列管')?.count || 0; const resolved = s.filter(x => ['解除列管', '自行列管'].includes(x.status)).reduce((sum, x) => sum + parseInt(x.count), 0); document.getElementById('countTotal').innerText = total; document.getElementById('countActive').innerText = active; document.getElementById('countResolved').innerText = resolved; }
         
-        // [Modified] Render Table (Safe Version)
+        // [Modified] Render Table (Double Safe Version)
         function renderTable() {
             const tbody = document.getElementById('dataBody'); tbody.innerHTML = '';
             if(!currentData || currentData.length === 0) { document.getElementById('emptyMsg').style.display = 'block'; return; }
             document.getElementById('emptyMsg').style.display = 'none';
-            const canManage = ['admin', 'manager'].includes(currentUser.role); const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role);
+            const canManage = currentUser && ['admin', 'manager'].includes(currentUser.role); 
+            const canEdit = currentUser && ['admin', 'manager', 'editor'].includes(currentUser.role);
             document.getElementById('batchActionContainer').style.display = 'none'; document.getElementById('selectedCountBadge').innerText = ''; document.getElementById('selectAll').checked = false;
             document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
             
-            try {
-                tbody.innerHTML = currentData.map(item => {
-                    let badge = ''; if(item.status && item.status !== 'Open') { const st = item.status === '持續列管' ? 'active' : (item.status === '解除列管' ? 'resolved' : 'self'); badge = `<span class="badge ${st}">${item.status}</span>`; }
+            let html = '';
+            currentData.forEach(item => {
+                try {
+                    let badge = ''; 
+                    const st = String(item.status || 'Open');
+                    if(st !== 'Open') { 
+                        const stClass = st === '持續列管' ? 'active' : (st === '解除列管' ? 'resolved' : 'self'); 
+                        badge = `<span class="badge ${stClass}">${st}</span>`; 
+                    }
                     let updateTxt = '-'; const lr = getLatest(item, 'review'), lh = getLatest(item, 'handling'); if(lr) updateTxt = `[審] ${stripHtml(lr).slice(0,80)}`; else if(lh) updateTxt = `[回] ${stripHtml(lh).slice(0,80)}`;
-                    let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if(item.aiResult && item.aiResult.status === 'done') { const f = item.aiResult.fulfill || ''; const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes?'yes':'no'}">${isYes?'✅':'⚠️'} ${f}</div>`; }
+                    let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if(item.aiResult && item.aiResult.status === 'done') { const f = String(item.aiResult.fulfill || ''); const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes?'yes':'no'}">${isYes?'✅':'⚠️'} ${f}</div>`; }
                     const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : '';
                     const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
                     const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
@@ -784,14 +819,15 @@
                     // [Merged] Status and Kind
                     const statusHtml = `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;">${kindLabel}${badge}</div>`;
 
-                    const snippet = stripHtml(item.content || '').slice(0, 180); const fullHtml = item.content || '';
-                    return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="年度">${item.year}</td><td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="機構">${item.unit}</td><td data-label="狀態與類型">${statusHtml}</td><td data-label="事項內容"><div class="text-content">${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新辦理/審查情形"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="管理功能"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
-                }).join('');
-            } catch(err) {
-                console.error("Render Table Error:", err);
-                document.getElementById('emptyMsg').innerText = "資料渲染錯誤，請查看 Console";
-                document.getElementById('emptyMsg').style.display = "block";
-            }
+                    const snippet = stripHtml(item.content || '').slice(0, 180); 
+                    const fullHtml = String(item.content || '');
+                    
+                    html += `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="年度">${item.year}</td><td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="機構">${item.unit}</td><td data-label="狀態與類型">${statusHtml}</td><td data-label="事項內容"><div class="text-content">${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新辦理/審查情形"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="管理功能"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
+                } catch(err) {
+                    console.error("Skipping bad row:", item, err);
+                }
+            });
+            tbody.innerHTML = html;
         }
 
         function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }
@@ -1028,7 +1064,7 @@
                     const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `SMS_Backup_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('JSON 匯出完成'); return;
                 }
 
-                let csvContent = '\uFEFF'; const clean = (t) => `"${(t||'').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
+                let csvContent = '\uFEFF'; const clean = (t) => `"${String(t||'').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
                 if (exportScope === 'latest') {
                     csvContent += "編號,年度,機構,狀態,事項內容,最新辦理情形,最新審查意見\n";
                     data.forEach(item => {
@@ -1068,6 +1104,66 @@
         
         function toggleEditMode(edit) { document.getElementById('viewModeContent').classList.toggle('hidden', edit); document.getElementById('editModeContent').classList.toggle('hidden', !edit); document.getElementById('drawerTitle').innerText = edit ? "編輯事項" : "詳細資料"; if(edit) { document.getElementById('editId').value = currentEditItem.id; document.getElementById('editHeaderNumber').innerText = currentEditItem.number; document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; document.getElementById('editStatus').value = st; document.getElementById('editRound').value = 1; document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); loadRoundData(); document.getElementById('aiBox').style.display = 'none'; document.getElementById('aiPreviewText').innerText = ''; } }
         function initEditForm() { const s = document.getElementById('editRound'); if(!s || s.options.length > 0) return; for(let i = 1; i <= 20; i++) { const o = document.createElement('option'); o.value = i; o.text = `第 ${i} 次`; s.add(o); } }
+        function openDetail(id, isEdit) { 
+            currentEditItem = currentData.find(d => String(d.id) === String(id)); if(!currentEditItem) return; 
+            document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dYear').textContent = currentEditItem.year; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; 
+            const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self'); 
+            document.getElementById('dStatus').innerHTML = currentEditItem.status && currentEditItem.status !== 'Open' ? `<span class="badge ${st}">${currentEditItem.status}</span>` : '(未設定)'; 
+            let h = ''; 
+            let firstRecord = true;
+            for(let i = 20; i >= 1; i--) { 
+                const ha = currentEditItem[i === 1 ? 'handling' : `handling${i}`], re = currentEditItem[i === 1 ? 'review' : `review${i}`]; 
+                if(ha || re) {
+                    const latestBadge = firstRecord ? '<span class="badge new" style="margin-left:8px;font-size:11px;">最新</span>' : '';
+                    h += `<div style="padding-left:16px;border-left:2px solid #e5e7eb;margin-left:8px;padding-bottom:20px;position:relative;">
+                        <div style="position:absolute;left:-7px;top:0;width:12px;height:12px;border-radius:50%;background:${firstRecord?'var(--primary)':'#fff'};border:2px solid var(--primary);"></div>
+                        <div style="font-size:13px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;">第 ${i} 次辦理情形${latestBadge}</div>
+                        ${ha?`<div style="background:#f1f5f9;padding:10px;border-radius:6px;font-size:14px;margin-bottom:8px;">${ha}</div>`:''}
+                        ${re?`<div style="background:#fff;border:1px solid #e2e8f0;padding:10px;border-radius:6px;font-size:14px;">${re}</div>`:''}
+                    </div>`;
+                    firstRecord = false;
+                }
+            } 
+            document.getElementById('dTimeline').innerHTML = h || '<div style="color:#999;">無歷程</div>'; 
+            const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role); const canDelete = ['admin', 'manager'].includes(currentUser.role); document.getElementById('editBtn').classList.toggle('hidden', !canEdit); document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit); 
+        }
+        function logout() { fetch('/api/auth/logout', { method: 'POST' }).then(() => window.location.reload()); }
+        function closeDrawer() { document.getElementById('drawerBackdrop').classList.remove('open'); document.getElementById('detailDrawer').classList.remove('open'); }
+        function initListeners() { document.getElementById('filterKeyword').addEventListener('keyup', (e) => { if(e.key === 'Enter') applyFilters() }); document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer); }
+        function onToggleSidebar() { const panel = document.getElementById('filtersPanel'), backdrop = document.getElementById('filterBackdrop'); if(panel.classList.contains('open')) { panel.classList.remove('open'); backdrop.classList.remove('visible'); setTimeout(() => backdrop.style.display = 'none', 300); } else { backdrop.style.display = 'block'; requestAnimationFrame(() => { panel.classList.add('open'); backdrop.classList.add('visible'); }); } }
+        
+        function updateChartsData(stats) { 
+            if(!charts.status || !charts.unit || !charts.trend) return;
+            if (!stats) return;
+            const colorMap = { '持續列管': '#ef4444', '解除列管': '#10b981', '自行列管': '#f59e0b' };
+            const sLabels = stats.status.map(x => x.status).filter(s => s && s !== 'Open');
+            const sData = stats.status.filter(x => x.status && x.status !== 'Open').map(x => parseInt(x.count));
+            const sColors = sLabels.map(label => colorMap[label] || '#cbd5e1'); 
+            charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: sColors }] }; charts.status.update();
+            const uSorted = stats.unit.sort((a,b) => parseInt(b.count) - parseInt(a.count)); charts.unit.data = { labels: uSorted.map(x => x.unit), datasets: [{ label: '案件', data: uSorted.map(x => parseInt(x.count)), backgroundColor: '#0ea5e9', borderRadius: 8 }] }; charts.unit.update();
+            const tSorted = stats.year.sort((a,b) => a.year.localeCompare(b.year)); charts.trend.data = { labels: tSorted.map(x => x.year), datasets: [{ label: '開立事項數', data: tSorted.map(x => parseInt(x.count)), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] }; charts.trend.update();
+        }
+
+        function initCharts() { 
+            try { 
+                const c1 = document.getElementById('statusChart'), c2 = document.getElementById('unitChart'), c3 = document.getElementById('trendChart');
+                if(c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if(!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#333', font: { weight: 'bold' } } } } }); } 
+                if(c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); } 
+                if(c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } }); } 
+                if(cachedGlobalStats) updateChartsData(cachedGlobalStats);
+            } catch(e) { console.error("Chart Init Error:", e); } 
+        }
+        async function runAiInEdit(btn) { btn.disabled = true; btn.innerText = 'AI 分析中...'; const handlingTxt = document.getElementById('editHandling').value, r = [{ handling: handlingTxt, review: '(待審查)' }]; try { if(!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); const cleanContent = stripHtml(currentEditItem.content); const res = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: cleanContent, rounds: r }) }); const j = await res.json(); if(!res.ok) throw new Error(j.error || '未知錯誤'); if(!j.fulfill) throw new Error('AI 回傳格式錯誤'); const isPass = j.fulfill.includes('Yes') || j.fulfill.includes('是'); document.getElementById('aiResBadge').innerHTML = `<strong style="color:${isPass?'#10b981':'#ef4444'}">[${j.fulfill}]</strong>`; document.getElementById('aiPreviewText').innerText = j.reason; document.getElementById('aiBox').style.display = 'block'; } catch(e) { showToast('AI 失敗: ' + e.message, 'error'); console.error(e); } finally { btn.disabled = false; btn.innerText = '🤖 AI 智能分析'; } }
+        function applyAiSuggestion() { const reason = document.getElementById('aiPreviewText').innerText; if(reason) { const ta = document.getElementById('editReview'); ta.value = ta.value ? (ta.value + "\n" + reason) : reason; document.getElementById('aiBox').style.display = 'none'; } }
+        function toggleAllCheckboxes() { const master = document.getElementById('selectAll'); document.querySelectorAll('.issue-check').forEach(cb => cb.checked = master.checked); updateBatchUI(); }
+        function updateBatchUI() { const checked = document.querySelectorAll('.issue-check:checked'), count = checked.length, container = document.getElementById('batchActionContainer'); if(count > 0) { container.style.display = 'block'; document.getElementById('selectedCountBadge').innerText = `(${count})`; } else { container.style.display = 'none'; } }
+        async function batchDeleteIssues() { const checked = document.querySelectorAll('.issue-check:checked'), ids = Array.from(checked).map(cb => cb.value); if(ids.length === 0) return showToast('請先勾選要刪除的項目', 'error'); if(!confirm(`確定要刪除這 ${ids.length} 筆資料嗎？`)) return; try { const res = await fetch('/api/issues/batch-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); const result = await res.json(); if(result.success) { showToast(`成功刪除 ${ids.length} 筆資料`); loadIssuesPage(1); document.getElementById('selectAll').checked = false; updateBatchUI(); } else { showToast('刪除失敗: ' + result.error, 'error'); } } catch(e) { showToast('連線錯誤', 'error'); } }
+        async function saveEdit() { const id = document.getElementById('editId').value, payload = { status: document.getElementById('editStatus').value, round: document.getElementById('editRound').value, handling: document.getElementById('editHandling').value, review: document.getElementById('editReview').value }; const res = await fetch(`/api/issues/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if(res.ok) { showToast('儲存成功'); await loadIssuesPage(issuesPage); toggleEditMode(false); openDetail(id, false); } else showToast('儲存失敗', 'error'); }
+        async function deleteIssue(id) { if(!confirm('確定要刪除此事項嗎？此操作無法復原。')) return; try { const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('已刪除'); await loadIssuesPage(issuesPage); closeDrawer(); } else showToast('刪除失敗','error'); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
+        async function deleteIssueFromDrawer() { if(!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
+        
+        function switchView(id) { document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.sidebar-btn').forEach(e => e.classList.remove('active')); const btn = document.getElementById(`btn-${id}`); if(btn) btn.classList.add('active'); const panel = document.getElementById('filtersPanel'); if(panel.classList.contains('open')) { onToggleSidebar(); } }
+        function loadRoundData() { const r = parseInt(document.getElementById('editRound').value), s = r === 1 ? '' : r, rawHandling = currentEditItem['handling' + s] || '', rawReview = currentEditItem['review' + s] || ''; document.getElementById('editHandling').value = formatHtmlToText(rawHandling); document.getElementById('editReview').value = formatHtmlToText(rawReview); const prevBox = document.getElementById('prevReviewBox'), prevText = document.getElementById('prevReviewText'); if(r > 1) { const prevS = (r - 1) === 1 ? '' : (r - 1), prevReviewContent = currentEditItem['review' + prevS]; if(prevReviewContent) { document.getElementById('prevRoundNum').innerText = `第 ${r-1} 次`; prevText.innerText = formatHtmlToText(prevReviewContent); prevBox.style.display = 'block'; } else { prevBox.style.display = 'none'; } } else { prevBox.style.display = 'none'; } }
     </script>
 </body>
 </html>
