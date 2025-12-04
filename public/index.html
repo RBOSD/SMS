@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         /* 1. 基礎設定 */
         html, body { min-height: 100vh; overflow-x: hidden; margin: 0; padding: 0; }
@@ -342,7 +343,7 @@
                 <div class="content-header" style="justify-content: flex-start;"><div class="content-title">📂 資料管理</div></div>
                 
                 <div class="admin-tabs">
-                    <button class="admin-tab-btn active" onclick="switchDataTab('import')">📥 批次匯入 (Word)</button>
+                    <button class="admin-tab-btn active" onclick="switchDataTab('import')">📥 批次匯入</button>
                     <button class="admin-tab-btn" onclick="switchDataTab('manual')">✍️ 手動新增</button>
                     <button class="admin-tab-btn" onclick="switchDataTab('export')">📤 資料匯出</button>
                 </div>
@@ -353,9 +354,9 @@
                         <div style="margin-bottom:20px; background:#fefce8; border:1px solid #fde047; padding:16px; border-radius:8px; font-size:13px; color:#854d0e; line-height:1.5;">⚠️ <strong>注意：</strong>請務必先設定「審查次數」與「發函日期」，系統才能正確解析並匯入資料。</div>
                         <div style="display:flex; gap:24px; margin-bottom:24px; flex-wrap:wrap;">
                             <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">1. 設定本次匯入參數 (必填)</label><div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;"><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">審查次數 (Round)</div><input type="number" id="importRound" class="filter-input" value="1" min="1" max="20" onchange="checkImportReady()"></div><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">發函日期 (例:1130615)</div><input type="text" id="importDate" class="filter-input" placeholder="必填" onkeyup="checkImportReady()"></div></div></div>
-                            <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">2. 選擇 Word 檔案 (.docx)</label><input type="file" id="wordInput" class="filter-input" accept=".docx" disabled style="padding:8px;"></div>
+                            <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">2. 選擇檔案 (.docx, .json, .csv)</label><input type="file" id="wordInput" class="filter-input" accept=".docx, .json, .csv" disabled style="padding:8px;"></div>
                         </div>
-                        <button id="btnParse" class="btn btn-primary" style="width:100%; padding:12px;" onclick="previewWord()" disabled>解析並預覽</button>
+                        <button id="btnParse" class="btn btn-primary" style="width:100%; padding:12px;" onclick="previewImportFile()" disabled>解析並預覽</button>
                         <div id="importStatus" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
                     </div>
                     <div id="previewContainer" class="hidden">
@@ -379,7 +380,7 @@
                             <div class="form-group"><label>機構 (必填)</label><input type="text" id="manualUnit" class="filter-input" placeholder="例如: 臺鐵"></div>
                             <div class="form-group"><label>初始狀態</label><select id="manualStatus" class="filter-select"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
                         </div>
-                        <div class="form-group"><label>內容摘要 (必填)</label><textarea id="manualContent" class="filter-input" rows="6" style="resize:vertical;"></textarea></div>
+                        <div class="form-group"><label>事項內容 (必填)</label><textarea id="manualContent" class="filter-input" rows="6" style="resize:vertical;"></textarea></div>
                         <button class="btn btn-primary" style="width:100%; padding:12px;" onclick="submitManualIssue()">💾 新增事項</button>
                     </div>
                 </div>
@@ -653,9 +654,52 @@
         function checkImportReady() { const r = document.getElementById('importRound').value, d = document.getElementById('importDate').value, valid = r && r > 0 && d && d.trim().length > 0; document.getElementById('wordInput').disabled = !valid; document.getElementById('btnParse').disabled = !valid || !document.getElementById('wordInput').files[0]; }
         document.getElementById('wordInput').addEventListener('change', checkImportReady);
         
-        async function previewWord() {
-            const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRound').value, msg = document.getElementById('importStatus'); if(!f) return showToast('請先選擇檔案', 'error'); msg.innerText = '解析中...'; try { const b = await f.arrayBuffer(), r = await mammoth.convertToHtml({ arrayBuffer: b }), items = parseFromHTML(r.value); if(items.length === 0) { msg.innerText = '錯誤：未解析到有效資料，請檢查檔案格式'; return; } stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' })); document.getElementById('previewRoundDisplay').innerText = round; renderPreviewTable(); document.getElementById('previewContainer').classList.remove('hidden'); document.getElementById('uploadCard').classList.add('hidden'); msg.innerText = ''; } catch(e) { console.error(e); msg.innerText = '發生錯誤: ' + e.message; }
+        async function previewImportFile() {
+            const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRound').value, msg = document.getElementById('importStatus'); if(!f) return showToast('請先選擇檔案', 'error'); msg.innerText = '解析中...';
+            const ext = f.name.split('.').pop().toLowerCase();
+            try {
+                if (ext === 'docx') {
+                    const b = await f.arrayBuffer();
+                    const r = await mammoth.convertToHtml({ arrayBuffer: b });
+                    const items = parseFromHTML(r.value);
+                    processParsedItems(items);
+                } else if (ext === 'json') {
+                    const text = await f.text();
+                    const json = JSON.parse(text);
+                    const items = Array.isArray(json) ? json : (json.data || []);
+                    // Map fields if necessary
+                    const mapped = items.map(i => ({ ...i, review: i.review || i['審查意見'] || '', handling: i.handling || i['辦理情形'] || '', content: i.content || i['內容'] || i['事項內容'] || i['內容摘要'] || '', number: i.number || i['編號'] || '', unit: i.unit || i['機構'] || '', year: i.year || i['年度'] || '', status: i.status || i['狀態'] || '持續列管' }));
+                    processParsedItems(mapped);
+                } else if (ext === 'csv') {
+                    Papa.parse(f, {
+                        header: true, skipEmptyLines: true, encoding: "UTF-8",
+                        complete: function(results) {
+                            if(results.errors.length) { msg.innerText = 'CSV 解析錯誤'; return; }
+                            const mapped = results.data.map(i => ({ 
+                                number: i['編號'] || i.number || '', 
+                                year: i['年度'] || i.year || '', 
+                                unit: i['機構'] || i.unit || '', 
+                                content: i['內容'] || i['事項內容'] || i['內容摘要'] || i.content || '', 
+                                status: i['狀態'] || i.status || '持續列管',
+                                handling: i['辦理情形'] || i['最新辦理情形'] || i.handling || '',
+                                review: i['審查意見'] || i['最新審查意見'] || i.review || ''
+                            }));
+                            processParsedItems(mapped);
+                        }
+                    });
+                } else { throw new Error('不支援的檔案格式'); }
+            } catch(e) { console.error(e); msg.innerText = '發生錯誤: ' + e.message; }
         }
+
+        function processParsedItems(items) {
+            const round = document.getElementById('importRound').value;
+            if(items.length === 0) { document.getElementById('importStatus').innerText = '錯誤：未解析到有效資料'; return; }
+            stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
+            document.getElementById('previewRoundDisplay').innerText = round; renderPreviewTable();
+            document.getElementById('previewContainer').classList.remove('hidden'); document.getElementById('uploadCard').classList.add('hidden');
+            document.getElementById('importStatus').innerText = '';
+        }
+
         function renderPreviewTable() { document.getElementById('previewCount').innerText = stagedImportData.length; const round = document.getElementById('importRound').value, tbody = document.getElementById('previewBody'); tbody.innerHTML = stagedImportData.map(item => { const statusBadge = item._importStatus === 'new' ? `<span class="badge new">新增</span>` : `<span class="badge update">更新 (第${round}次)</span>`; let progress = `[審查] ${item.review||'-'}<br>[辦理] ${item.handling||'-'}`; return `<tr><td>${statusBadge}</td><td style="font-weight:600;color:var(--primary);">${item.number}</td><td>${item.unit}</td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(item.content)}</div></td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(progress)}</div></td></tr>`; }).join(''); }
         function cancelImport() { stagedImportData = []; document.getElementById('previewContainer').classList.add('hidden'); document.getElementById('uploadCard').classList.remove('hidden'); document.getElementById('wordInput').value = ''; document.getElementById('importStatus').innerText = ''; }
         
