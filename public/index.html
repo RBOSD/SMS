@@ -17,7 +17,8 @@
         
         /* Header */
         .app-header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 24px; height: var(--header-h); display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 40; width: 100%; box-shadow: 0 1px 2px rgba(0,0,0,0.03); flex-shrink: 0; }
-        .brand { display: flex; align-items: center; gap: 16px; font-weight: 700; font-size: 18px; color: var(--text-main); flex-shrink: 0; }
+        .brand { display: flex; align-items: center; gap: 16px; font-weight: 700; font-size: 18px; color: var(--text-main); flex-shrink: 0; cursor: pointer; transition: opacity 0.2s; }
+        .brand:hover { opacity: 0.8; }
         .brand-icon { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 5px rgba(37,99,235,0.2); flex-shrink: 0; }
         
         .filter-toggle-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: #f1f5f9; border: 1px solid transparent; border-radius: 8px; cursor: pointer; font-size: 20px; color: var(--text-main); transition: all 0.2s; flex-shrink: 0; }
@@ -220,8 +221,8 @@
     <div id="toast-container"></div>
 
     <header class="app-header">
-        <div class="brand">
-            <button class="filter-toggle-btn" onclick="onToggleSidebar()" title="開啟選單">☰</button>
+        <div class="brand" onclick="switchView('searchView')" title="回到查詢看板">
+            <button class="filter-toggle-btn" onclick="event.stopPropagation();onToggleSidebar()" title="開啟選單">☰</button>
             <div class="brand-icon">🚄</div>
             <div class="brand-title">SMS開立事項查詢與AI審查系統</div>
         </div>
@@ -246,7 +247,7 @@
                 <button class="sidebar-close-btn" onclick="onToggleSidebar()">×</button>
             </div>
             <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')"><span>📊</span> 查詢看板</button>
-            <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')"><span>📥</span> 資料匯入</button>
+            <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')"><span>📂</span> 資料管理</button>
             <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')"><span>👥</span> 帳號管理</button>
         </aside>
         
@@ -338,22 +339,59 @@
             </div>
 
             <div id="importView" class="view-section">
-                <div class="content-header" style="justify-content: flex-start;"><div class="content-title">📥 資料匯入</div></div>
-                <div class="detail-card" id="uploadCard" style="max-width:800px;">
-                    <div style="margin-bottom:20px; background:#fefce8; border:1px solid #fde047; padding:16px; border-radius:8px; font-size:13px; color:#854d0e; line-height:1.5;">⚠️ <strong>注意：</strong>請務必先設定「審查次數」與「發函日期」，系統才能正確解析並匯入資料。</div>
-                    <div style="display:flex; gap:24px; margin-bottom:24px; flex-wrap:wrap;">
-                        <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">1. 設定本次匯入參數 (必填)</label><div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;"><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">審查次數 (Round)</div><input type="number" id="importRound" class="filter-input" value="1" min="1" max="20" onchange="checkImportReady()"></div><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">發函日期 (例:1130615)</div><input type="text" id="importDate" class="filter-input" placeholder="必填" onkeyup="checkImportReady()"></div></div></div>
-                        <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">2. 選擇 Word 檔案 (.docx)</label><input type="file" id="wordInput" class="filter-input" accept=".docx" disabled style="padding:8px;"></div>
-                    </div>
-                    <button id="btnParse" class="btn btn-primary" style="width:100%; padding:12px;" onclick="previewWord()" disabled>解析並預覽</button>
-                    <div id="importStatus" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
+                <div class="content-header" style="justify-content: flex-start;"><div class="content-title">📂 資料管理</div></div>
+                
+                <div class="admin-tabs">
+                    <button class="admin-tab-btn active" onclick="switchDataTab('import')">📥 批次匯入 (Word)</button>
+                    <button class="admin-tab-btn" onclick="switchDataTab('manual')">✍️ 手動新增</button>
+                    <button class="admin-tab-btn" onclick="switchDataTab('export')">📤 資料匯出</button>
                 </div>
-                <div id="previewContainer" class="hidden">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
-                        <div style="font-weight:700;font-size:16px;">解析結果預覽 (<span id="previewCount" style="color:var(--primary);">0</span> 筆) - 將寫入第 <span id="previewRoundDisplay" style="color:var(--primary);">1</span> 次審查紀錄</div>
-                        <div style="display:flex;gap:10px;"><button class="btn btn-outline" onclick="cancelImport()">取消</button><button class="btn btn-primary" onclick="confirmImport()">✅ 確認寫入資料庫</button></div>
+
+                <!-- Tab 1: Import -->
+                <div id="tab-data-import">
+                    <div class="detail-card" id="uploadCard" style="max-width:800px;">
+                        <div style="margin-bottom:20px; background:#fefce8; border:1px solid #fde047; padding:16px; border-radius:8px; font-size:13px; color:#854d0e; line-height:1.5;">⚠️ <strong>注意：</strong>請務必先設定「審查次數」與「發函日期」，系統才能正確解析並匯入資料。</div>
+                        <div style="display:flex; gap:24px; margin-bottom:24px; flex-wrap:wrap;">
+                            <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">1. 設定本次匯入參數 (必填)</label><div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;"><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">審查次數 (Round)</div><input type="number" id="importRound" class="filter-input" value="1" min="1" max="20" onchange="checkImportReady()"></div><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">發函日期 (例:1130615)</div><input type="text" id="importDate" class="filter-input" placeholder="必填" onkeyup="checkImportReady()"></div></div></div>
+                            <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">2. 選擇 Word 檔案 (.docx)</label><input type="file" id="wordInput" class="filter-input" accept=".docx" disabled style="padding:8px;"></div>
+                        </div>
+                        <button id="btnParse" class="btn btn-primary" style="width:100%; padding:12px;" onclick="previewWord()" disabled>解析並預覽</button>
+                        <div id="importStatus" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
                     </div>
-                    <div class="main-card"><div class="data-container"><table style="width:100%;"><thead><tr><th style="width:80px">操作</th><th style="width:130px">編號</th><th style="width:60px">機構</th><th>內容摘要</th><th style="width:200px">本次匯入進度內容</th></tr></thead><tbody id="previewBody"></tbody></table></div></div>
+                    <div id="previewContainer" class="hidden">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
+                            <div style="font-weight:700;font-size:16px;">解析結果預覽 (<span id="previewCount" style="color:var(--primary);">0</span> 筆) - 將寫入第 <span id="previewRoundDisplay" style="color:var(--primary);">1</span> 次審查紀錄</div>
+                            <div style="display:flex;gap:10px;"><button class="btn btn-outline" onclick="cancelImport()">取消</button><button class="btn btn-primary" onclick="confirmImport()">✅ 確認寫入資料庫</button></div>
+                        </div>
+                        <div class="main-card"><div class="data-container"><table style="width:100%;"><thead><tr><th style="width:80px">操作</th><th style="width:130px">編號</th><th style="width:60px">機構</th><th>內容摘要</th><th style="width:200px">本次匯入進度內容</th></tr></thead><tbody id="previewBody"></tbody></table></div></div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Manual Entry -->
+                <div id="tab-data-manual" class="hidden">
+                    <div class="detail-card" style="max-width:800px;">
+                        <div style="margin-bottom:20px;font-size:14px;color:#475569;">手動新增單筆開立事項至資料庫。</div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                            <div class="form-group"><label>事項編號 (必填)</label><input type="text" id="manualNumber" class="filter-input" placeholder="例如: 113-TRA-1-A01-N01"></div>
+                            <div class="form-group"><label>年度 (必填)</label><input type="number" id="manualYear" class="filter-input" placeholder="例如: 113"></div>
+                        </div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                            <div class="form-group"><label>機構 (必填)</label><input type="text" id="manualUnit" class="filter-input" placeholder="例如: 臺鐵"></div>
+                            <div class="form-group"><label>初始狀態</label><select id="manualStatus" class="filter-select"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
+                        </div>
+                        <div class="form-group"><label>內容摘要 (必填)</label><textarea id="manualContent" class="filter-input" rows="6" style="resize:vertical;"></textarea></div>
+                        <button class="btn btn-primary" style="width:100%; padding:12px;" onclick="submitManualIssue()">💾 新增事項</button>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Export -->
+                <div id="tab-data-export" class="hidden">
+                    <div class="detail-card" style="max-width:800px; text-align:center; padding:40px;">
+                        <div style="font-size:40px; margin-bottom:16px;">📤</div>
+                        <h3 style="margin-top:0; color:#334155;">匯出所有資料</h3>
+                        <p style="color:#64748b; margin-bottom:24px;">將系統中所有開立事項匯出為 CSV 格式檔案（可使用 Excel 開啟）。<br>匯出內容包含編號、年度、機構、狀態及內容摘要。</p>
+                        <button class="btn btn-primary" onclick="exportAllIssues()">下載 CSV 檔案</button>
+                    </div>
                 </div>
             </div>
 
@@ -615,6 +653,78 @@
         
         async function confirmImport() { if(!confirm(`確定要匯入 ${stagedImportData.length} 筆資料嗎？`)) return; const round = document.getElementById('importRound').value, date = document.getElementById('importDate').value, cleanData = stagedImportData.map(({ _importStatus, ...item }) => item); try { const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: cleanData, round: round, reviewDate: date, actualReplyDate: '' }) }); if(res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); } else { showToast('匯入失敗', 'error'); } } catch(e) { showToast('Error: ' + e.message, 'error'); } }
         
+        // --- New Data Management Functions ---
+        function switchDataTab(tab) { document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); }
+        
+        async function submitManualIssue() {
+            const number = document.getElementById('manualNumber').value.trim();
+            const year = document.getElementById('manualYear').value.trim();
+            const unit = document.getElementById('manualUnit').value.trim();
+            const status = document.getElementById('manualStatus').value;
+            const content = document.getElementById('manualContent').value.trim();
+            if(!number || !year || !unit || !content) return showToast('請填寫所有必填欄位', 'error');
+            
+            const payload = {
+                data: [{ number, year, unit, content, status, category: '', itemKindCode: '', scheme: 'MANUAL' }],
+                round: 1, reviewDate: '', actualReplyDate: ''
+            };
+
+            try {
+                const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if(res.ok) {
+                    showToast('新增成功');
+                    // Clear form
+                    document.getElementById('manualNumber').value = '';
+                    document.getElementById('manualYear').value = '';
+                    document.getElementById('manualUnit').value = '';
+                    document.getElementById('manualContent').value = '';
+                    loadIssuesPage(1); // Refresh background list
+                } else {
+                    showToast('新增失敗', 'error');
+                }
+            } catch(e) { showToast('Error: ' + e.message, 'error'); }
+        }
+
+        async function exportAllIssues() {
+            try {
+                showToast('準備匯出中，請稍候...');
+                // Fetch all data with a large pageSize
+                const res = await fetch('/api/issues?page=1&pageSize=10000&sortField=created_at&sortDir=desc');
+                if(!res.ok) throw new Error('取得資料失敗');
+                const json = await res.json();
+                const data = json.data || [];
+                
+                if(data.length === 0) return showToast('無資料可匯出', 'error');
+
+                let csvContent = '\uFEFF'; // BOM
+                csvContent += "編號,年度,機構,狀態,內容摘要,最新辦理情形,最新審查意見\n";
+                
+                data.forEach(item => {
+                    // Extract latest updates
+                    let latestH = '', latestR = '';
+                    for(let i=20; i>=1; i--) {
+                        if(!latestH && (item[i===1?'handling':`handling${i}`])) latestH = item[i===1?'handling':`handling${i}`];
+                        if(!latestR && (item[i===1?'review':`review${i}`])) latestR = item[i===1?'review':`review${i}`];
+                    }
+                    
+                    // Clean text for CSV (remove newlines, double quotes)
+                    const clean = (t) => `"${(t||'').replace(/"/g, '""').replace(/<[^>]*>/g, '')}"`;
+                    
+                    csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.status)},${clean(item.content)},${clean(latestH)},${clean(latestR)}\n`;
+                });
+
+                const link = document.createElement("a");
+                link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })));
+                link.setAttribute("download", `SMS_Issues_Export_${new Date().toISOString().slice(0,10)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast('匯出完成');
+            } catch(e) {
+                showToast('匯出失敗: ' + e.message, 'error');
+            }
+        }
+
         // --- User modal submit & password strength ---
         document.getElementById('uPwd')?.addEventListener('input', updatePwdStrength); document.getElementById('uPwdConfirm')?.addEventListener('input', updatePwdStrength);
         function updatePwdStrength() { const p = document.getElementById('uPwd').value || ''; const conf = document.getElementById('uPwdConfirm').value || ''; let score = 0; if(p.length >= 8) score++; if(/[A-Z]/.test(p)) score++; if(/[0-9]/.test(p)) score++; if(/[^A-Za-z0-9]/.test(p)) score++; const texts = ['弱', '偏弱', '一般', '良好', '強']; document.getElementById('pwdStrength').innerText = `密碼強度: ${texts[Math.min(score,4)]} ${conf && p !== conf ? '(密碼不相符)' : ''}`; }
