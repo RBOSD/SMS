@@ -348,7 +348,7 @@
                     <button class="admin-tab-btn" onclick="switchDataTab('export')">📤 資料匯出</button>
                 </div>
 
-                <!-- Tab 1: Import (Split into two parts) -->
+                <!-- Tab 1: Import -->
                 <div id="tab-data-import">
                     <!-- Part A: Word Import -->
                     <div class="detail-card" id="uploadCardWord" style="max-width:800px; margin-bottom:30px;">
@@ -362,13 +362,13 @@
                         <div id="importStatusWord" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
                     </div>
 
-                    <!-- Part B: Disaster Recovery (JSON/CSV) -->
+                    <!-- Part B: Backup Import -->
                     <div class="detail-card" id="uploadCardBackup" style="max-width:800px;">
-                        <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#b91c1c;">🚑 資料救援區 (CSV/JSON 還原)</div>
-                        <div style="margin-bottom:20px; background:#fef2f2; border:1px solid #fecaca; padding:16px; border-radius:8px; font-size:13px; color:#b91c1c; line-height:1.5;">用於資料庫清空後的災難復原。直接將備份檔還原至資料庫，<strong>不需要</strong>設定審查次數。</div>
+                        <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#b91c1c;">🚑 資料救援區 (還原備份)</div>
+                        <div style="margin-bottom:20px; background:#fef2f2; border:1px solid #fecaca; padding:16px; border-radius:8px; font-size:13px; color:#b91c1c; line-height:1.5;">用於資料庫清空後的災難復原。支援 CSV 或 JSON 格式。</div>
                         <div style="margin-bottom:24px;">
-                            <label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">選擇備份檔案 (.json, .csv)</label>
-                            <input type="file" id="backupInput" class="filter-input" accept=".json, .csv" style="padding:8px;">
+                            <label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">選擇備份檔案 (.csv, .json)</label>
+                            <input type="file" id="backupInput" class="filter-input" accept=".csv, .json" style="padding:8px;">
                         </div>
                         <button id="btnParseBackup" class="btn btn-danger" style="width:100%; padding:12px;" onclick="previewBackup()">解析並還原備份資料</button>
                         <div id="importStatusBackup" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
@@ -406,16 +406,33 @@
                     <div class="detail-card" style="max-width:800px; text-align:center; padding:40px;">
                         <div style="font-size:40px; margin-bottom:16px;">📤</div>
                         <h3 style="margin-top:0; color:#334155;">匯出所有資料</h3>
-                        <p style="color:#64748b; margin-bottom:24px;">將系統中所有開立事項匯出為 CSV 格式檔案（可使用 Excel 開啟）。<br>匯出內容包含編號、年度、機構、狀態及內容摘要。</p>
-                        <div style="display:flex; justify-content:center; gap:20px; margin-bottom:24px;">
-                            <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-                                <input type="radio" name="exportType" value="latest" checked> 僅匯出最新進度
-                            </label>
-                            <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-                                <input type="radio" name="exportType" value="full"> 匯出完整歷程 (包含所有回應與審查)
-                            </label>
+                        <p style="color:#64748b; margin-bottom:24px;">將系統中所有開立事項匯出。<br>CSV 適合 Excel 編輯，JSON 適合系統備份與還原。</p>
+                        
+                        <div style="margin-bottom:24px; display:flex; flex-direction:column; gap:12px; align-items:center;">
+                            <div style="font-weight:600; color:#475569; font-size:13px; margin-bottom:4px;">1. 選擇匯出內容</div>
+                            <div style="display:flex; gap:20px;">
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                                    <input type="radio" name="exportScope" value="latest" checked> 僅匯出最新進度
+                                </label>
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                                    <input type="radio" name="exportScope" value="full"> 匯出完整歷程
+                                </label>
+                            </div>
                         </div>
-                        <button class="btn btn-primary" onclick="exportAllIssues()">下載 CSV 檔案</button>
+
+                        <div style="margin-bottom:30px; display:flex; flex-direction:column; gap:12px; align-items:center;">
+                            <div style="font-weight:600; color:#475569; font-size:13px; margin-bottom:4px;">2. 選擇檔案格式</div>
+                            <div style="display:flex; gap:20px;">
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                                    <input type="radio" name="exportFormat" value="csv" checked> CSV (Excel)
+                                </label>
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                                    <input type="radio" name="exportFormat" value="json"> JSON (備份用)
+                                </label>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="exportAllIssues()">執行匯出</button>
                     </div>
                 </div>
             </div>
@@ -701,16 +718,25 @@
                     const text = await f.text();
                     const json = JSON.parse(text);
                     const items = Array.isArray(json) ? json : (json.data || []);
-                    const mapped = items.map(i => ({ 
-                        ...i, 
-                        review: i.review || i['審查意見'] || i['最新審查意見'] || '', 
-                        handling: i.handling || i['辦理情形'] || i['最新辦理情形'] || '', 
-                        content: i.content || i['內容'] || i['事項內容'] || i['內容摘要'] || '', 
-                        number: i.number || i['編號'] || '', 
-                        unit: i.unit || i['機構'] || '', 
-                        year: i.year || i['年度'] || '', 
-                        status: i.status || i['狀態'] || '持續列管' 
-                    }));
+                    // JSON 處理: 映射欄位
+                    const mapped = items.map(i => {
+                        const newItem = { 
+                            ...i, 
+                            review: i.review || i['審查意見'] || i['最新審查意見'] || '', 
+                            handling: i.handling || i['辦理情形'] || i['最新辦理情形'] || '', 
+                            content: i.content || i['內容'] || i['事項內容'] || i['內容摘要'] || '', 
+                            number: i.number || i['編號'] || '', 
+                            unit: i.unit || i['機構'] || '', 
+                            year: i.year || i['年度'] || '', 
+                            status: i.status || i['狀態'] || '持續列管' 
+                        };
+                        // 保留歷史紀錄欄位 (handling1...20, review1...20)
+                        for(let k=1; k<=20; k++) {
+                            if(i[`handling${k}`]) newItem[`handling${k}`] = i[`handling${k}`];
+                            if(i[`review${k}`]) newItem[`review${k}`] = i[`review${k}`];
+                        }
+                        return newItem;
+                    });
                     processParsedItems(mapped, 0, msg);
                 } else if (ext === 'csv') {
                     Papa.parse(f, {
@@ -727,16 +753,47 @@
                                     return;
                                 }
                                 
-                                const mapped = results.data.map(i => ({ 
-                                    number: i['編號'] || i.number || '', 
-                                    year: i['年度'] || i.year || '', 
-                                    unit: i['機構'] || i.unit || '', 
-                                    content: i['內容'] || i['事項內容'] || i['內容摘要'] || i.content || '', 
-                                    status: i['狀態'] || i.status || '持續列管',
-                                    // 修正欄位對應：優先使用匯出檔的中文欄位
-                                    handling: i['最新辦理情形'] || i['辦理情形'] || i.handling || i['完整辦理情形歷程'] || '',
-                                    review: i['最新審查意見'] || i['審查意見'] || i.review || i['完整審查意見歷程'] || ''
-                                }));
+                                const mapped = results.data.map(i => {
+                                    let item = { 
+                                        number: i['編號'] || i.number || '', 
+                                        year: i['年度'] || i.year || '', 
+                                        unit: i['機構'] || i.unit || '', 
+                                        content: i['內容'] || i['事項內容'] || i['內容摘要'] || i.content || '', 
+                                        status: i['狀態'] || i.status || '持續列管',
+                                        handling: i['最新辦理情形'] || i['辦理情形'] || i.handling || '',
+                                        review: i['最新審查意見'] || i['審查意見'] || i.review || ''
+                                    };
+
+                                    // 智慧解析: 完整歷程 (Full History Parsing)
+                                    // 格式: [第X次] 內容...
+                                    const fullH = i['完整辦理情形歷程'] || '';
+                                    const fullR = i['完整審查意見歷程'] || '';
+                                    
+                                    if(fullH) {
+                                        const parts = fullH.split(/\n-+\n/); // 分隔線
+                                        parts.forEach(part => {
+                                            const m = part.match(/^\s*\[第(\d+)次\]\s*([\s\S]*)$/);
+                                            if(m) {
+                                                const r = parseInt(m[1], 10);
+                                                const key = r === 1 ? 'handling' : `handling${r}`;
+                                                item[key] = m[2].trim(); // 只存內容，去除[第X次]
+                                            }
+                                        });
+                                    }
+
+                                    if(fullR) {
+                                        const parts = fullR.split(/\n-+\n/);
+                                        parts.forEach(part => {
+                                            const m = part.match(/^\s*\[第(\d+)次\]\s*([\s\S]*)$/);
+                                            if(m) {
+                                                const r = parseInt(m[1], 10);
+                                                const key = r === 1 ? 'review' : `review${r}`;
+                                                item[key] = m[2].trim(); // 只存內容
+                                            }
+                                        });
+                                    }
+                                    return item;
+                                });
                                 
                                 const validRows = mapped.filter(r => r.number || r.content);
                                 if (validRows.length === 0) {
@@ -863,7 +920,9 @@
 
         async function exportAllIssues() {
             try {
-                const exportType = document.querySelector('input[name="exportType"]:checked').value;
+                const exportScope = document.querySelector('input[name="exportScope"]:checked').value;
+                const exportFormat = document.querySelector('input[name="exportFormat"]:checked').value;
+                
                 showToast('準備匯出中，請稍候...');
                 
                 const res = await fetch('/api/issues?page=1&pageSize=10000&sortField=created_at&sortDir=desc');
@@ -873,12 +932,24 @@
                 
                 if(data.length === 0) return showToast('無資料可匯出', 'error');
 
+                // Handle JSON Export
+                if (exportFormat === 'json') {
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `SMS_Backup_${new Date().toISOString().slice(0,10)}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('JSON 匯出完成');
+                    return;
+                }
+
+                // Handle CSV Export
                 let csvContent = '\uFEFF'; // BOM
-                
-                // Clean text for CSV
                 const clean = (t) => `"${(t||'').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
 
-                if (exportType === 'latest') {
+                if (exportScope === 'latest') {
                     csvContent += "編號,年度,機構,狀態,內容摘要,最新辦理情形,最新審查意見\n";
                     data.forEach(item => {
                         let latestH = '', latestR = '';
@@ -912,12 +983,12 @@
 
                 const link = document.createElement("a");
                 link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })));
-                const typeLabel = exportType === 'latest' ? 'Latest' : 'FullHistory';
+                const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory';
                 link.setAttribute("download", `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0,10)}.csv`);
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                showToast('匯出完成');
+                showToast('CSV 匯出完成');
             } catch(e) {
                 showToast('匯出失敗: ' + e.message, 'error');
             }
