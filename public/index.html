@@ -332,8 +332,8 @@
 
                         <div id="advancedFilters" class="filter-advanced-row">
                             <div class="search-item"><label>檢查種類</label><select id="filterInspection" class="filter-select"><option value="">全部檢查種類</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option></select></div>
-                            <div class="search-item"><label>類型</label><select id="filterKind" class="filter-select"><option value="">全部類型</option><option value="N">缺失事項</option><option value="O">觀察事項</option><option value="R">建議事項</option></select></div>
-                            <div class="search-item"><label>分組</label><select id="filterDivision" class="filter-select"><option value="">全部分組</option><option value="運務">運務 (A)</option><option value="工務">工務 (B)</option><option value="機務">機務 (C)</option><option value="電務">電務 (D)</option><option value="運轉">運轉 (OP)</option><option value="土木">土木 (CP)</option><option value="機電">機電 (EM)</option></select></div>
+                            <div class="search-item"><label>開立類型</label><select id="filterKind" class="filter-select"><option value="">全部類型</option><option value="N">缺失事項</option><option value="O">觀察事項</option><option value="R">建議事項</option></select></div>
+                            <div class="search-item"><label>分組</label><select id="filterDivision" class="filter-select"><option value="">全部分組</option><option value="運務">運務 (A)</option><option value="工務">工務 (B)</option><option value="機務">機務 (C)</option><option value="電務">電務 (D)</option><option value="安全">安全 (E)</option><option value="審核">審核 (F)</option><option value="災防">災防 (G)</option><option value="運轉">運轉 (OP)</option><option value="土木">土木 (CP)</option><option value="機電">機電 (EM)</option></select></div>
                         </div>
 
                         <div class="control-row-actions">
@@ -445,11 +445,11 @@
                         </div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                             <div class="form-group"><label>機構 (必填)</label><input type="text" id="manualUnit" class="filter-input" placeholder="自動帶入"></div>
-                            <div class="form-group"><label>分組</label><select id="manualDivision" class="filter-select"><option value="">(自動帶入)</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option></select></div>
+                            <div class="form-group"><label>分組</label><select id="manualDivision" class="filter-select"><option value="">(自動帶入)</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="安全">安全</option><option value="審核">審核</option><option value="災防">災防</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option></select></div>
                         </div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                             <div class="form-group"><label>檢查種類</label><select id="manualInspection" class="filter-select"><option value="">(自動帶入)</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option></select></div>
-                            <div class="form-group"><label>事項類型</label><select id="manualKind" class="filter-select"><option value="">(自動帶入)</option><option value="N">缺失事項</option><option value="O">觀察事項</option><option value="R">建議事項</option></select></div>
+                            <div class="form-group"><label>開立類型</label><select id="manualKind" class="filter-select"><option value="">(自動帶入)</option><option value="N">缺失事項</option><option value="O">觀察事項</option><option value="R">建議事項</option></select></div>
                         </div>
                         <div class="form-group"><label>初始狀態</label><select id="manualStatus" class="filter-select"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
                         <div class="form-group"><label>事項內容 (必填)</label><textarea id="manualContent" class="filter-input" rows="6" style="resize:vertical;"></textarea></div>
@@ -716,6 +716,7 @@
         // [Updated] Map & Parser
         const ORG_MAP = { "T": "臺鐵", "H": "高鐵", "A": "林鐵", "S": "糖鐵", "TRC": "臺鐵", "HSR": "高鐵", "AFR": "林鐵", "TSC": "糖鐵" };
         const INSPECTION_MAP = { "1": "定期檢查", "2": "例行性檢查", "3": "特別檢查", "4": "臨時檢查" };
+        // [Verified] Division Map includes all requested codes
         const DIVISION_MAP = { "A": "運務", "B": "工務", "C": "機務", "D": "電務", "E": "安全", "F": "審核", "G": "災防", "OP": "運轉", "CP": "土木", "EM": "機電" };
         const KIND_MAP = { "N": "缺失事項", "O": "觀察事項", "R": "建議事項" };
         const FILLED_MARKS = ["■","☑","☒","✔","✅","●","◉","✓"]; var EMPTY_MARKS  = ["□","☐","◻","○","◯","◇","△"];
