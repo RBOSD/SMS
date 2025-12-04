@@ -687,11 +687,10 @@
 
         async function previewBackup() {
             const f = document.getElementById('backupInput').files[0];
-            // Ensure we get the correct element or fallback to a safe no-op function
             const msg = document.getElementById('importStatusBackup');
-            if (!msg) { console.error("Element 'importStatusBackup' not found"); return; }
-
+            
             if(!f) return showToast('請先選擇備份檔案', 'error');
+            if (!msg) { alert("系統錯誤：找不到狀態顯示區域"); return; }
             
             msg.innerText = '備份檔解析中...';
             currentImportMode = 'backup';
@@ -704,8 +703,8 @@
                     const items = Array.isArray(json) ? json : (json.data || []);
                     const mapped = items.map(i => ({ 
                         ...i, 
-                        review: i.review || i['審查意見'] || '', 
-                        handling: i.handling || i['辦理情形'] || '', 
+                        review: i.review || i['審查意見'] || i['最新審查意見'] || '', 
+                        handling: i.handling || i['辦理情形'] || i['最新辦理情形'] || '', 
                         content: i.content || i['內容'] || i['事項內容'] || i['內容摘要'] || '', 
                         number: i.number || i['編號'] || '', 
                         unit: i.unit || i['機構'] || '', 
@@ -719,39 +718,44 @@
                         skipEmptyLines: true,
                         encoding: "UTF-8", 
                         complete: function(results) {
-                            // Double check msg existence inside callback
-                            const msgInCallback = document.getElementById('importStatusBackup');
-                            if (!msgInCallback) return;
-
+                            const msgInside = document.getElementById('importStatusBackup');
+                            
                             try {
                                 if(results.errors.length && results.data.length === 0) {
-                                    msgInCallback.innerText = 'CSV 解析錯誤: ' + JSON.stringify(results.errors);
+                                    if(msgInside) msgInside.innerText = 'CSV 解析錯誤: ' + JSON.stringify(results.errors);
+                                    else alert('CSV 解析錯誤: ' + JSON.stringify(results.errors));
                                     return;
                                 }
+                                
                                 const mapped = results.data.map(i => ({ 
                                     number: i['編號'] || i.number || '', 
                                     year: i['年度'] || i.year || '', 
                                     unit: i['機構'] || i.unit || '', 
                                     content: i['內容'] || i['事項內容'] || i['內容摘要'] || i.content || '', 
                                     status: i['狀態'] || i.status || '持續列管',
-                                    handling: i['辦理情形'] || i['最新辦理情形'] || i.handling || '',
-                                    review: i['審查意見'] || i['最新審查意見'] || i.review || ''
+                                    // 修正欄位對應：優先使用匯出檔的中文欄位
+                                    handling: i['最新辦理情形'] || i['辦理情形'] || i.handling || i['完整辦理情形歷程'] || '',
+                                    review: i['最新審查意見'] || i['審查意見'] || i.review || i['完整審查意見歷程'] || ''
                                 }));
                                 
                                 const validRows = mapped.filter(r => r.number || r.content);
                                 if (validRows.length === 0) {
-                                    msgInCallback.innerText = '錯誤：未解析到有效資料，請檢查 CSV 編碼 (建議使用 UTF-8) 或確認欄位名稱。';
+                                    const errMsg = '錯誤：未解析到有效資料，請檢查 CSV 編碼 (建議使用 UTF-8) 或確認欄位名稱。';
+                                    if(msgInside) msgInside.innerText = errMsg;
+                                    else alert(errMsg);
                                     return;
                                 }
-                                processParsedItems(mapped, 0, msgInCallback);
+                                processParsedItems(mapped, 0, msgInside);
                             } catch (err) {
                                 console.error(err);
-                                msgInCallback.innerText = 'CSV 處理錯誤: ' + err.message;
+                                if(msgInside) msgInside.innerText = 'CSV 處理錯誤: ' + err.message;
+                                else alert('CSV 處理錯誤: ' + err.message);
                             }
                         },
                         error: function(err) {
-                            const msgInError = document.getElementById('importStatusBackup');
-                            if(msgInError) msgInError.innerText = 'CSV 讀取失敗: ' + err.message;
+                            const msgInside = document.getElementById('importStatusBackup');
+                            if(msgInside) msgInside.innerText = 'CSV 讀取失敗: ' + err.message;
+                            else alert('CSV 讀取失敗: ' + err.message);
                         }
                     });
                 } else { throw new Error('不支援的檔案格式 (僅限 JSON 或 CSV)'); }
@@ -759,7 +763,6 @@
         }
 
         function processParsedItems(items, round, msgElement) {
-            // Safety check for msgElement
             if (msgElement && items.length === 0) { 
                 msgElement.innerText = '錯誤：未解析到有效資料'; return; 
             }
