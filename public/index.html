@@ -573,7 +573,7 @@
         function getLatest(i, p) { for(let k = 20; k >= 1; k--) { const key = k === 1 ? p : `${p}${k}`; if(i[key]) return i[key]; } return null; }
         function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' }; return map[r] || r; }
         function extractNumberFromCell(cell) { if(!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); var mB = whole.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/); if (mB) return (mB[1] || "").toUpperCase(); var mA = whole.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/); if (mA) return (mA[1] || "").toUpperCase(); return ""; }
-        function parseItemNumber(numberStr) { var raw = normalizeCodeString(numberStr || ""); if(!raw) return null; var m = raw.match(/^(\d{2})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i); if(m) { var yy = parseInt(m[1], 10), rocYear = 100 + yy, org = m[2].toUpperCase(), cat = m[3], div = m[4].toUpperCase(), divSeq = m[5], kind = m[6].toUpperCase(), seq = m[7]; return { scheme: "THAS-v1", raw: raw, yearRoc: rocYear, orgCodeRaw: org, inspectionCategoryCode: cat, divisionCode: div, divisionSeq: divSeq, itemKindCode: kind, itemSeq: seq.toString(), period: "" }; } m = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d{1,3})$/i); if(m) { var rocYear2 = parseInt(m[1], 10), org2 = m[2].toUpperCase(), cat2 = m[3], period = m[4], div2 = m[5].toUpperCase(), kind2 = m[6].toUpperCase(), seq2 = m[7]; return { scheme: "TRC-v2", raw: raw, yearRoc: rocYear2, orgCodeRaw: org2, inspectionCategoryCode: cat2, divisionCode: div2, itemKindCode: kind2, itemSeq: seq2.toString(), period: period }; } return null; }
+        function parseItemNumber(numberStr) { var raw = normalizeCodeString(numberStr || ""); if(!raw) return null; var m = raw.match(/^(\d{2})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i); if(m) { var yy = parseInt(m[1], 10), rocYear = 100 + yy, org = m[2].toUpperCase(), cat = m[3], div = m[4].toUpperCase(), divSeq = m[5], kind = m[6].toUpperCase(), seq = m[7]; return { scheme: "THAS-v1", raw: raw, yearRoc: rocYear, orgCodeRaw: org, inspectionCategoryCode: cat, divisionCode: div, divisionSeq: divSeq, itemKindCode: kind, itemSeq: seq.toString(), period: "" }; } m = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d{1,3})$/i); if(m) { var rocYear2 = parseInt(m[1], 10), org2 = m[2].toUpperCase(), cat2 = m[3], period = m[4], div2 = m[5].toUpperCase(), kind2 = m[6].toUpperCase(), seq2 = m[7]; return { scheme: "TRC-v2", raw: raw, yearRoc: rocYear2, orgCodeRaw: org, inspectionCategoryCode: cat2, divisionCode: div2, itemKindCode: kind2, itemSeq: seq2.toString(), period: period }; } return null; }
         function canonicalNumber(info) { if(!info) return ""; if(info.scheme === "TRC-v2") { var seq = String(parseInt(info.itemSeq, 10)); return (info.yearRoc + "-" + info.orgCodeRaw + "-" + info.inspectionCategoryCode + "-" + info.period + "-" + info.divisionCode + "-" + info.itemKindCode + seq).toUpperCase(); } if(info.scheme === "THAS-v1") { var yy = String(info.yearRoc - 100); yy = ("0" + yy).slice(-2); var seq2 = String(parseInt(info.itemSeq, 10)); seq2 = ("0" + seq2).slice(-2); return (yy + info.orgCodeRaw + info.inspectionCategoryCode + "-" + info.divisionCode + info.divisionSeq + "-" + info.itemKindCode + seq2).toUpperCase(); } return (info.raw || "").toUpperCase(); }
         function normalizeMultiline(s) { s = s || ""; return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
         function sanitizeContent(html) { if(!html) return ""; var s = String(html); s = s.replace(/&lt;\s*\/?\s*p\s*&gt;/gi, "").replace(/<\s*\/?\s*p\s*>/gi, "").replace(/<p>\s*<\/p>/gi, "").replace(/(?:<br\s*\/?>\s*){3,}/gi, "<br><br>").replace(/\n{3,}/g, "\n\n").replace(/(<li>\s*)+/gi, "<li>").replace(/(<\/li>\s*)+/gi, "</li>").replace(/(<ol>\s*)+/gi, "<ol>").replace(/(<\/ol>\s*)+/gi, "</ol>").replace(/[\u200B-\u200D\uFEFF]/g, "").trim(); return s; }
@@ -686,11 +686,17 @@
         }
 
         async function previewBackup() {
-            const f = document.getElementById('backupInput').files[0], msg = document.getElementById('importStatusBackup');
+            const f = document.getElementById('backupInput').files[0];
+            // Ensure we get the correct element or fallback to a safe no-op function
+            const msg = document.getElementById('importStatusBackup');
+            if (!msg) { console.error("Element 'importStatusBackup' not found"); return; }
+
             if(!f) return showToast('請先選擇備份檔案', 'error');
+            
             msg.innerText = '備份檔解析中...';
             currentImportMode = 'backup';
             const ext = f.name.split('.').pop().toLowerCase();
+            
             try {
                 if (ext === 'json') {
                     const text = await f.text();
@@ -713,9 +719,13 @@
                         skipEmptyLines: true,
                         encoding: "UTF-8", 
                         complete: function(results) {
+                            // Double check msg existence inside callback
+                            const msgInCallback = document.getElementById('importStatusBackup');
+                            if (!msgInCallback) return;
+
                             try {
                                 if(results.errors.length && results.data.length === 0) {
-                                    msg.innerText = 'CSV 解析錯誤: ' + JSON.stringify(results.errors);
+                                    msgInCallback.innerText = 'CSV 解析錯誤: ' + JSON.stringify(results.errors);
                                     return;
                                 }
                                 const mapped = results.data.map(i => ({ 
@@ -728,20 +738,20 @@
                                     review: i['審查意見'] || i['最新審查意見'] || i.review || ''
                                 }));
                                 
-                                // Check for potential encoding issues (all fields undefined/empty)
                                 const validRows = mapped.filter(r => r.number || r.content);
                                 if (validRows.length === 0) {
-                                    msg.innerText = '錯誤：未解析到有效資料，請檢查 CSV 編碼 (建議使用 UTF-8) 或確認欄位名稱。';
+                                    msgInCallback.innerText = '錯誤：未解析到有效資料，請檢查 CSV 編碼 (建議使用 UTF-8) 或確認欄位名稱。';
                                     return;
                                 }
-                                processParsedItems(mapped, 0, msg);
+                                processParsedItems(mapped, 0, msgInCallback);
                             } catch (err) {
                                 console.error(err);
-                                msg.innerText = 'CSV 處理錯誤: ' + err.message;
+                                msgInCallback.innerText = 'CSV 處理錯誤: ' + err.message;
                             }
                         },
                         error: function(err) {
-                            msg.innerText = 'CSV 讀取失敗: ' + err.message;
+                            const msgInError = document.getElementById('importStatusBackup');
+                            if(msgInError) msgInError.innerText = 'CSV 讀取失敗: ' + err.message;
                         }
                     });
                 } else { throw new Error('不支援的檔案格式 (僅限 JSON 或 CSV)'); }
@@ -749,7 +759,10 @@
         }
 
         function processParsedItems(items, round, msgElement) {
-            if(items.length === 0) { msgElement.innerText = '錯誤：未解析到有效資料'; return; }
+            // Safety check for msgElement
+            if (msgElement && items.length === 0) { 
+                msgElement.innerText = '錯誤：未解析到有效資料'; return; 
+            }
             stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
             
             if (currentImportMode === 'word') {
@@ -766,7 +779,7 @@
             
             renderPreviewTable();
             document.getElementById('previewContainer').classList.remove('hidden'); 
-            msgElement.innerText = '';
+            if(msgElement) msgElement.innerText = '';
         }
 
         function renderPreviewTable() { document.getElementById('previewCount').innerText = stagedImportData.length; const round = currentImportMode === 'word' ? document.getElementById('importRound').value : '-'; const tbody = document.getElementById('previewBody'); tbody.innerHTML = stagedImportData.map(item => { const statusBadge = item._importStatus === 'new' ? `<span class="badge new">新增</span>` : `<span class="badge update">更新</span>`; let progress = `[審查] ${item.review||'-'}<br>[辦理] ${item.handling||'-'}`; return `<tr><td>${statusBadge}</td><td style="font-weight:600;color:var(--primary);">${item.number}</td><td>${item.unit}</td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(item.content)}</div></td><td><div style="max-height:60px;overflow:hidden;font-size:13px;">${stripHtml(progress)}</div></td></tr>`; }).join(''); }
