@@ -123,7 +123,6 @@
         tr:hover { background: #f8fafc; cursor: pointer; }
         tr:last-child td { border-bottom: none; }
         
-        /* [Updated] Preview Table Styles for better wrapping and layout */
         .preview-table { table-layout: fixed; width: 100%; min-width: 900px; }
         .preview-table th:nth-child(1) { width: 60px; } /* Status */
         .preview-table th:nth-child(2) { width: 140px; } /* Number */
@@ -439,13 +438,13 @@
                 <!-- Tab 2: Manual Entry -->
                 <div id="tab-data-manual" class="hidden">
                     <div class="detail-card" style="max-width:800px;">
-                        <div style="margin-bottom:20px;font-size:14px;color:#475569;">手動新增單筆開立事項至資料庫。</div>
+                        <div style="margin-bottom:20px;font-size:14px;color:#475569;">手動新增單筆開立事項至資料庫。<br><span style="color:var(--primary);">💡 提示：輸入編號後，系統會自動帶入年度與機構。</span></div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-                            <div class="form-group"><label>事項編號 (必填)</label><input type="text" id="manualNumber" class="filter-input" placeholder="例如: 113-TRA-1-A01-N01"></div>
-                            <div class="form-group"><label>年度 (必填)</label><input type="number" id="manualYear" class="filter-input" placeholder="例如: 113"></div>
+                            <div class="form-group"><label>事項編號 (必填)</label><input type="text" id="manualNumber" class="filter-input" placeholder="例如: 113-TRA-1-A01-N01" oninput="autoFillFromNumber()"></div>
+                            <div class="form-group"><label>年度 (必填)</label><input type="number" id="manualYear" class="filter-input" placeholder="自動帶入"></div>
                         </div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-                            <div class="form-group"><label>機構 (必填)</label><input type="text" id="manualUnit" class="filter-input" placeholder="例如: 臺鐵"></div>
+                            <div class="form-group"><label>機構 (必填)</label><input type="text" id="manualUnit" class="filter-input" placeholder="自動帶入"></div>
                             <div class="form-group"><label>初始狀態</label><select id="manualStatus" class="filter-select"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
                         </div>
                         <div class="form-group"><label>事項內容 (必填)</label><textarea id="manualContent" class="filter-input" rows="6" style="resize:vertical;"></textarea></div>
@@ -1135,6 +1134,19 @@
         // --- New Data Management Functions ---
         function switchDataTab(tab) { document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); }
         
+        // [New] Auto-fill function
+        function autoFillFromNumber() {
+            const val = document.getElementById('manualNumber').value;
+            const info = parseItemNumber(val);
+            if(info) {
+                if(info.yearRoc) document.getElementById('manualYear').value = info.yearRoc;
+                if(info.orgCode) {
+                    const name = ORG_MAP[info.orgCode] || info.orgCode;
+                    if(name && name !== '?') document.getElementById('manualUnit').value = name;
+                }
+            }
+        }
+
         // [Updated] Submit Manual Issue to include auto-parsing
         async function submitManualIssue() {
             const number = document.getElementById('manualNumber').value.trim();
