@@ -69,7 +69,7 @@
         .stat-label { font-size: 14px; color: var(--text-sub); font-weight: 500; }
         
         .charts-grid { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 16px; margin-bottom: 20px; flex-shrink: 0; width: 100%; }
-        .chart-card { background: white; border-radius: 16px; padding: 24px; border: 1px solid var(--border); height: 300px; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01); position: relative; }
+        .chart-card { background: white; border-radius: 16px; padding: 24px; border: 1px solid var(--border); height: 300px; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01), 0 2px 4px -1px rgba(0, 0, 0, 0.01); position: relative; }
         
         /* Main Card */
         .main-card { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01); overflow: hidden; display: flex; flex-direction: column; flex-shrink: 0; margin-bottom: 20px; }
@@ -438,15 +438,20 @@
                 <!-- Tab 2: Manual Entry -->
                 <div id="tab-data-manual" class="hidden">
                     <div class="detail-card" style="max-width:800px;">
-                        <div style="margin-bottom:20px;font-size:14px;color:#475569;">手動新增單筆開立事項至資料庫。<br><span style="color:var(--primary);">💡 提示：輸入編號後，系統會自動帶入年度與機構。</span></div>
+                        <div style="margin-bottom:20px;font-size:14px;color:#475569;">手動新增單筆開立事項至資料庫。<br><span style="color:var(--primary);">💡 提示：輸入編號後，系統會自動帶入年度、機構、分組與種類資訊。</span></div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                             <div class="form-group"><label>事項編號 (必填)</label><input type="text" id="manualNumber" class="filter-input" placeholder="例如: 113-TRA-1-A01-N01" oninput="autoFillFromNumber()"></div>
                             <div class="form-group"><label>年度 (必填)</label><input type="number" id="manualYear" class="filter-input" placeholder="自動帶入"></div>
                         </div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                             <div class="form-group"><label>機構 (必填)</label><input type="text" id="manualUnit" class="filter-input" placeholder="自動帶入"></div>
-                            <div class="form-group"><label>初始狀態</label><select id="manualStatus" class="filter-select"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
+                            <div class="form-group"><label>分組</label><select id="manualDivision" class="filter-select"><option value="">(自動帶入)</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option></select></div>
                         </div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                            <div class="form-group"><label>檢查種類</label><select id="manualInspection" class="filter-select"><option value="">(自動帶入)</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option></select></div>
+                            <div class="form-group"><label>事項類型</label><select id="manualKind" class="filter-select"><option value="">(自動帶入)</option><option value="N">缺失事項</option><option value="O">觀察事項</option><option value="R">建議事項</option></select></div>
+                        </div>
+                        <div class="form-group"><label>初始狀態</label><select id="manualStatus" class="filter-select"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
                         <div class="form-group"><label>事項內容 (必填)</label><textarea id="manualContent" class="filter-input" rows="6" style="resize:vertical;"></textarea></div>
                         <button class="btn btn-primary" style="width:100%; padding:12px;" onclick="submitManualIssue()">💾 新增事項</button>
                     </div>
@@ -1144,6 +1149,17 @@
                     const name = ORG_MAP[info.orgCode] || info.orgCode;
                     if(name && name !== '?') document.getElementById('manualUnit').value = name;
                 }
+                if(info.divCode) {
+                    const divName = DIVISION_MAP[info.divCode];
+                    if(divName) document.getElementById('manualDivision').value = divName;
+                }
+                if(info.inspectCode) {
+                    const inspectName = INSPECTION_MAP[info.inspectCode];
+                    if(inspectName) document.getElementById('manualInspection').value = inspectName;
+                }
+                if(info.kindCode) {
+                    document.getElementById('manualKind').value = info.kindCode;
+                }
             }
         }
 
@@ -1152,22 +1168,21 @@
             const number = document.getElementById('manualNumber').value.trim();
             const year = document.getElementById('manualYear').value.trim();
             const unit = document.getElementById('manualUnit').value.trim();
+            // Get manual overrides
+            const division = document.getElementById('manualDivision').value;
+            const inspection = document.getElementById('manualInspection').value;
+            const kind = document.getElementById('manualKind').value;
+            
             const status = document.getElementById('manualStatus').value;
             const content = document.getElementById('manualContent').value.trim();
             if(!number || !year || !unit || !content) return showToast('請填寫所有必填欄位', 'error');
             
-            // Auto-parse info from manual number
-            const info = parseItemNumber(number);
-            const divName = DIVISION_MAP[info.divCode] || '';
-            const inspectName = INSPECTION_MAP[info.inspectCode] || '';
-            const kind = info.kindCode || '';
-
             const payload = {
                 data: [{ 
                     number, year, unit, content, status, 
                     itemKindCode: kind, 
-                    divisionName: divName,
-                    inspectionCategoryName: inspectName,
+                    divisionName: division,
+                    inspectionCategoryName: inspection,
                     scheme: 'MANUAL' 
                 }],
                 round: 1, reviewDate: '', actualReplyDate: ''
@@ -1175,7 +1190,18 @@
 
             try {
                 const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if(res.ok) { showToast('新增成功'); document.getElementById('manualNumber').value = ''; document.getElementById('manualYear').value = ''; document.getElementById('manualUnit').value = ''; document.getElementById('manualContent').value = ''; loadIssuesPage(1); } else { showToast('新增失敗', 'error'); }
+                if(res.ok) { 
+                    showToast('新增成功'); 
+                    // Clear all inputs
+                    document.getElementById('manualNumber').value = ''; 
+                    document.getElementById('manualYear').value = ''; 
+                    document.getElementById('manualUnit').value = ''; 
+                    document.getElementById('manualDivision').value = '';
+                    document.getElementById('manualInspection').value = '';
+                    document.getElementById('manualKind').value = '';
+                    document.getElementById('manualContent').value = ''; 
+                    loadIssuesPage(1); 
+                } else { showToast('新增失敗', 'error'); }
             } catch(e) { showToast('Error: ' + e.message, 'error'); }
         }
 
