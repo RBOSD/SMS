@@ -457,8 +457,7 @@
                              <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 上一回合 (<span id="prevRoundNum"></span>) 審查意見參考：</div>
                              <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;" id="prevReviewText"></div>
                         </div>
-                        <!-- 審查次數 -->
-                        <div class="form-group"><label>審查次數</label><select id="editRound" class="filter-select" onchange="loadRoundData()"></select></div>
+                        <div class="form-group"><label>第幾次審查</label><select id="editRound" class="filter-select" onchange="loadRoundData()"></select></div>
                         <div class="form-group" style="flex:1;display:flex;flex-direction:column;"><label>機構辦理情形</label><textarea id="editHandling" class="filter-input" rows="10" style="background:#ffffff;line-height:1.5;flex:1;min-height:200px;resize:vertical;"></textarea></div>
                     </div>
                     <div class="review-right">
@@ -638,7 +637,6 @@
             document.getElementById('dStatus').innerHTML = currentEditItem.status && currentEditItem.status !== 'Open' ? `<span class="badge ${st}">${currentEditItem.status}</span>` : '(未設定)'; 
             let h = ''; 
             let firstRecord = true;
-            // Reverse order: start from 20 down to 1
             for(let i = 20; i >= 1; i--) { 
                 const ha = currentEditItem[i === 1 ? 'handling' : `handling${i}`], re = currentEditItem[i === 1 ? 'review' : `review${i}`]; 
                 if(ha || re) {
@@ -663,7 +661,21 @@
         function updateChartsData(stats) { 
             if(!charts.status || !charts.unit || !charts.trend) return;
             if (!stats) return;
-            const sLabels = stats.status.map(x => x.status).filter(s => s && s !== 'Open'); const sData = stats.status.filter(x => x.status && x.status !== 'Open').map(x => parseInt(x.count)); charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: ['#ef4444', '#10b981', '#f59e0b'] }] }; charts.status.update();
+            // Color mapping table
+            const colorMap = {
+                '持續列管': '#ef4444', // Red
+                '解除列管': '#10b981', // Green
+                '自行列管': '#f59e0b'  // Orange
+            };
+            
+            const sLabels = stats.status.map(x => x.status).filter(s => s && s !== 'Open');
+            const sData = stats.status.filter(x => x.status && x.status !== 'Open').map(x => parseInt(x.count));
+            // Generate colors based on labels
+            const sColors = sLabels.map(label => colorMap[label] || '#cbd5e1'); // Default gray if not found
+            
+            charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: sColors }] }; 
+            charts.status.update();
+            
             const uSorted = stats.unit.sort((a,b) => parseInt(b.count) - parseInt(a.count)); charts.unit.data = { labels: uSorted.map(x => x.unit), datasets: [{ label: '案件', data: uSorted.map(x => parseInt(x.count)), backgroundColor: '#0ea5e9', borderRadius: 8 }] }; charts.unit.update();
             const tSorted = stats.year.sort((a,b) => a.year.localeCompare(b.year)); charts.trend.data = { labels: tSorted.map(x => x.year), datasets: [{ label: '開立事項數', data: tSorted.map(x => parseInt(x.count)), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] }; charts.trend.update();
         }
