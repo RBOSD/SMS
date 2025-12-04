@@ -730,13 +730,20 @@
             const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, sortField, sortDir });
             
             try {
-                const res = await fetch('/api/issues?' + params.toString()); if (!res.ok) { showToast('載入資料失敗','error'); return; }
+                const res = await fetch('/api/issues?' + params.toString()); 
+                // [Safe Guard] Error handling
+                if (!res.ok) { 
+                    const errJson = await res.json().catch(()=>({}));
+                    console.error("Server Error:", errJson);
+                    showToast('載入資料失敗: ' + (errJson.error || res.statusText), 'error'); 
+                    return; 
+                }
                 const j = await res.json(); currentData = j.data || []; issuesTotal = j.total || 0; issuesPages = j.pages || 1;
                 if (j.latestCreatedAt) { const d = new Date(j.latestCreatedAt); document.getElementById('dataTimestamp').innerText = `資料庫更新時間：${d.toLocaleDateString('zh-TW')} ${d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`; } else { document.getElementById('dataTimestamp').innerText = ''; }
                 if(document.getElementById('filterYear').options.length === 0 && j.globalStats) { const years = [...new Set(j.globalStats.year.map(x => x.year).filter(Boolean))].sort().reverse(); document.getElementById('filterYear').innerHTML = '<option value="">全部年度</option>' + years.map(v => `<option value="${v}">${v}</option>`).join(''); const units = [...new Set(j.globalStats.unit.map(x => x.unit).filter(Boolean))].sort(); document.getElementById('filterUnit').innerHTML = '<option value="">全部機構</option>' + units.map(v => `<option value="${v}">${v}</option>`).join(''); }
                 if (j.globalStats) { cachedGlobalStats = j.globalStats; updateChartsData(j.globalStats); renderStats(j.globalStats); }
                 renderTable(); renderPagination('issuesPagination', issuesPage, issuesPages, 'loadIssuesPage'); document.getElementById('issuesTotalCount').innerText = issuesTotal;
-            } catch (e) { console.error(e); showToast('載入資料錯誤','error'); }
+            } catch (e) { console.error(e); showToast('載入資料錯誤 (請檢查 Console)','error'); }
         }
 
         function applyFilters() { issuesPage = 1; loadIssuesPage(1); }
@@ -745,7 +752,7 @@
         function updateSortUI() { document.querySelectorAll('th').forEach(th => { th.classList.remove('sort-asc', 'sort-desc'); if(th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc'); }); }
         function renderStats(stats) { const s = stats.status; const total = s.reduce((sum, item) => sum + parseInt(item.count), 0); const active = s.find(x => x.status === '持續列管')?.count || 0; const resolved = s.filter(x => ['解除列管', '自行列管'].includes(x.status)).reduce((sum, x) => sum + parseInt(x.count), 0); document.getElementById('countTotal').innerText = total; document.getElementById('countActive').innerText = active; document.getElementById('countResolved').innerText = resolved; }
         
-        // [Modified] Render Table to merge Kind and Status
+        // [Modified] Render Table (Safe Version)
         function renderTable() {
             const tbody = document.getElementById('dataBody'); tbody.innerHTML = '';
             if(!currentData || currentData.length === 0) { document.getElementById('emptyMsg').style.display = 'block'; return; }
@@ -753,28 +760,38 @@
             const canManage = ['admin', 'manager'].includes(currentUser.role); const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role);
             document.getElementById('batchActionContainer').style.display = 'none'; document.getElementById('selectedCountBadge').innerText = ''; document.getElementById('selectAll').checked = false;
             document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
-            tbody.innerHTML = currentData.map(item => {
-                let badge = ''; if(item.status && item.status !== 'Open') { const st = item.status === '持續列管' ? 'active' : (item.status === '解除列管' ? 'resolved' : 'self'); badge = `<span class="badge ${st}">${item.status}</span>`; }
-                let updateTxt = '-'; const lr = getLatest(item, 'review'), lh = getLatest(item, 'handling'); if(lr) updateTxt = `[審] ${stripHtml(lr).slice(0,80)}`; else if(lh) updateTxt = `[回] ${stripHtml(lh).slice(0,80)}`;
-                let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if(item.aiResult && item.aiResult.status === 'done') { const f = item.aiResult.fulfill || ''; const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes?'yes':'no'}">${isYes?'✅':'⚠️'} ${f}</div>`; }
-                const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : '';
-                const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
-                const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
-                
-                // Type Badge Logic
-                let k = item.itemKindCode;
-                if (!k && item.number) { const m = item.number.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
-                let kindLabel = ''; 
-                if(k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`; 
-                else if(k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`; 
-                else if(k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
-                
-                // [New] Merge Status and Kind
-                const statusHtml = `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;">${kindLabel}${badge}</div>`;
+            
+            try {
+                tbody.innerHTML = currentData.map(item => {
+                    let badge = ''; if(item.status && item.status !== 'Open') { const st = item.status === '持續列管' ? 'active' : (item.status === '解除列管' ? 'resolved' : 'self'); badge = `<span class="badge ${st}">${item.status}</span>`; }
+                    let updateTxt = '-'; const lr = getLatest(item, 'review'), lh = getLatest(item, 'handling'); if(lr) updateTxt = `[審] ${stripHtml(lr).slice(0,80)}`; else if(lh) updateTxt = `[回] ${stripHtml(lh).slice(0,80)}`;
+                    let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if(item.aiResult && item.aiResult.status === 'done') { const f = item.aiResult.fulfill || ''; const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes?'yes':'no'}">${isYes?'✅':'⚠️'} ${f}</div>`; }
+                    const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : '';
+                    const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
+                    const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
+                    
+                    // [Safe] Type Badge Logic
+                    let k = item.itemKindCode;
+                    // Ensure item.number is a string before calling match
+                    const numStr = String(item.number || '');
+                    if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
+                    
+                    let kindLabel = ''; 
+                    if(k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`; 
+                    else if(k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`; 
+                    else if(k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
+                    
+                    // [Merged] Status and Kind
+                    const statusHtml = `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;">${kindLabel}${badge}</div>`;
 
-                const snippet = stripHtml(item.content || '').slice(0, 180); const fullHtml = item.content || '';
-                return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="年度">${item.year}</td><td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="機構">${item.unit}</td><td data-label="狀態與類型">${statusHtml}</td><td data-label="事項內容"><div class="text-content">${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新辦理/審查情形"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="管理功能"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
-            }).join('');
+                    const snippet = stripHtml(item.content || '').slice(0, 180); const fullHtml = item.content || '';
+                    return `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="年度">${item.year}</td><td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="機構">${item.unit}</td><td data-label="狀態與類型">${statusHtml}</td><td data-label="事項內容"><div class="text-content">${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新辦理/審查情形"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="管理功能"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
+                }).join('');
+            } catch(err) {
+                console.error("Render Table Error:", err);
+                document.getElementById('emptyMsg').innerText = "資料渲染錯誤，請查看 Console";
+                document.getElementById('emptyMsg').style.display = "block";
+            }
         }
 
         function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }

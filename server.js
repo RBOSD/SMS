@@ -71,7 +71,7 @@ async function initDB() {
     let client;
     try {
         client = await pool.connect();
-        console.log("✅ Database connected.");
+        console.log("✅ Database connected. Checking Schema...");
 
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (
@@ -80,7 +80,7 @@ async function initDB() {
                 name VARCHAR(50), 
                 password_hash VARCHAR(255) NOT NULL, 
                 role VARCHAR(20) DEFAULT 'viewer', 
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
                 email VARCHAR(255) UNIQUE
             );
         `);
@@ -100,7 +100,6 @@ async function initDB() {
         `);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_action_logs_time ON action_logs(created_at DESC);`);
 
-        // [Modified] 建立完整欄位的 issues 表格
         await client.query(`
             CREATE TABLE IF NOT EXISTS issues (
                 id SERIAL PRIMARY KEY, 
@@ -109,29 +108,35 @@ async function initDB() {
                 status VARCHAR(50), 
                 year VARCHAR(20), 
                 unit VARCHAR(50), 
-                category VARCHAR(50),             -- 事項類型 (缺失/觀察...)
-                inspection_category VARCHAR(50),  -- 檢查種類 (定期/特別...)
-                division VARCHAR(50),             -- 分組 (運務/工務...)
+                category VARCHAR(50), 
+                inspection_category VARCHAR(50), 
+                division VARCHAR(50), 
                 handling TEXT, 
                 review TEXT, 
                 raw_data JSONB, 
                 created_by VARCHAR(50), 
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-                item_kind VARCHAR(10)             -- 代碼 (N/O/R)
+                item_kind VARCHAR(10)
             );
         `);
         
-        // [Modified] 確保舊資料庫自動補上這些欄位
-        await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS item_kind VARCHAR(10);`);
-        await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS category VARCHAR(50);`);
-        await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS inspection_category VARCHAR(50);`);
-        await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS division VARCHAR(50);`);
-        
-        // 建立索引以加速搜尋
-        await client.query(`CREATE INDEX IF NOT EXISTS idx_issues_item_kind ON issues(item_kind);`);
-        await client.query(`CREATE INDEX IF NOT EXISTS idx_issues_division ON issues(division);`);
+        // [Safe Migration] 逐一檢查並新增欄位，避免因單一失敗導致全部失敗
+        const cols = [
+            'ALTER TABLE issues ADD COLUMN IF NOT EXISTS item_kind VARCHAR(10);',
+            'ALTER TABLE issues ADD COLUMN IF NOT EXISTS category VARCHAR(50);',
+            'ALTER TABLE issues ADD COLUMN IF NOT EXISTS inspection_category VARCHAR(50);',
+            'ALTER TABLE issues ADD COLUMN IF NOT EXISTS division VARCHAR(50);'
+        ];
 
-        console.log("✅ Tables ready.");
+        for (const sql of cols) {
+            try { await client.query(sql); } catch (e) { console.error(`Migration Warning (${sql}):`, e.message); }
+        }
+        
+        // 建立索引
+        try { await client.query(`CREATE INDEX IF NOT EXISTS idx_issues_item_kind ON issues(item_kind);`); } catch(e){}
+        try { await client.query(`CREATE INDEX IF NOT EXISTS idx_issues_division ON issues(division);`); } catch(e){}
+
+        console.log("✅ Tables & Schema ready.");
     } catch (err) { console.error("InitDB Error:", err); } 
     finally { if (client) client.release(); }
 }
@@ -158,9 +163,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             if (ip === '::1') ip = '127.0.0.1';
             if (ip.includes(',')) ip = ip.split(',')[0].trim();
 
-            pool.query('INSERT INTO login_logs (user_id, ip_address) VALUES ($1, $2)', [user.id, ip])
-                .catch(err => console.error("Login Log Error:", err.message));
-            
+            pool.query('INSERT INTO login_logs (user_id, ip_address) VALUES ($1, $2)', [user.id, ip]).catch(console.error);
             res.json({ success: true });
         } else {
             res.status(401).json({ error: '帳號或密碼錯誤' });
@@ -348,7 +351,7 @@ app.delete('/api/admin/action_logs', checkAuth, checkAdmin, async (req, res) => 
     } catch (e) { res.status(500).json({ error: '無法清空紀錄' }); }
 });
 
-// [Modified] Issues API - 支援 itemKindCode, division, inspection_category 搜尋
+// [Modified] Issues API - 強化參數處理，防止 500 錯誤
 app.get('/api/issues', checkAuth, async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -359,7 +362,6 @@ app.get('/api/issues', checkAuth, async (req, res) => {
         const unit = (req.query.unit || '').trim();
         const status = (req.query.status || '').trim();
         const itemKindCode = (req.query.itemKindCode || req.query.kind || '').trim();
-        // [Modified] 新增進階搜尋參數
         const division = (req.query.division || '').trim();
         const inspectionCategory = (req.query.inspectionCategory || '').trim();
         
@@ -369,26 +371,23 @@ app.get('/api/issues', checkAuth, async (req, res) => {
         const allowedSort = { created_at: 'created_at', title: 'title', year: 'year', unit: 'unit', status: 'status' };
         const orderBy = allowedSort[sortField] ? `${allowedSort[sortField]} ${sortDir}` : `created_at ${sortDir}`;
 
-        // 1. 建構查詢條件
         let where = [];
         let params = [];
+        
         if (q) {
             params.push(`%${q}%`);
-            // 擴大關鍵字搜尋範圍，包含標題、內容、分組、檢查種類
+            // 使用 ::text 轉型防止特定欄位為 NULL 時報錯 (雖然 Postgres 的 ILIKE 處理 NULL 是回傳 NULL)
             where.push(`(title ILIKE $${params.length} OR content ILIKE $${params.length} OR division ILIKE $${params.length} OR inspection_category ILIKE $${params.length} OR raw_data::text ILIKE $${params.length})`);
         }
         if (year) { params.push(year); where.push(`year = $${params.length}`); }
         if (unit) { params.push(unit); where.push(`unit = $${params.length}`); }
         if (status) { params.push(status); where.push(`status = $${params.length}`); }
         if (itemKindCode) { params.push(itemKindCode); where.push(`item_kind = $${params.length}`); }
-        
-        // [Modified] 處理新欄位篩選
         if (division) { params.push(division); where.push(`division = $${params.length}`); }
         if (inspectionCategory) { params.push(inspectionCategory); where.push(`inspection_category = $${params.length}`); }
 
         const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
-        // 2. 執行分頁查詢
         const countRes = await pool.query(`SELECT COUNT(*) FROM issues ${whereSQL}`, params);
         const total = parseInt(countRes.rows[0].count, 10);
         const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -403,7 +402,6 @@ app.get('/api/issues', checkAuth, async (req, res) => {
             itemKindCode: row.item_kind 
         }));
 
-        // 3. 執行 Global Stats 查詢
         const statsStatusRes = await pool.query("SELECT status, COUNT(*) FROM issues GROUP BY status");
         const statsUnitRes = await pool.query("SELECT unit, COUNT(*) FROM issues GROUP BY unit");
         const statsYearRes = await pool.query("SELECT year, COUNT(*) FROM issues GROUP BY year");
@@ -414,14 +412,13 @@ app.get('/api/issues', checkAuth, async (req, res) => {
             year: statsYearRes.rows
         };
 
-        // 4. 取得最新資料時間
         const latestRes = await pool.query('SELECT MAX(created_at) as last_updated FROM issues');
-        const latestCreatedAt = latestRes.rows[0].last_updated;
+        const latestCreatedAt = latestRes.rows[0]?.last_updated || null;
 
         res.json({ page, pages, total, pageSize, data, latestCreatedAt, globalStats });
     } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: e.message });
+        console.error("GET /issues Error:", e);
+        res.status(500).json({ error: "Database Error: " + e.message });
     }
 });
 
@@ -474,7 +471,6 @@ app.put('/api/issues/:id', checkAuth, checkEditor, async (req, res) => {
     } catch (e) { res.status(500).json({ error: '更新失敗' }); }
 });
 
-// [Modified] Import API: 接收前端解析的正規化資料，並寫入對應欄位
 app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
     const { data, round, reviewDate, actualReplyDate } = req.body; 
     const targetRound = parseInt(round || 1); 
@@ -485,17 +481,14 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
         let countNew = 0, countUpdate = 0;
         for (const item of data) {
             const check = await client.query('SELECT id, raw_data FROM issues WHERE title = $1', [item.number]);
-            
             const newHandling = item.handling || ''; 
             const newReview = item.review || ''; 
             const newStatus = item.status || ''; 
             const newContent = item.content || '';
-            
-            // 接收正規化後的資料
             const newItemKind = item.itemKindCode || ''; 
-            const newCategory = item.category || ''; // 缺失事項...
-            const newInspectionCategory = item.inspectionCategoryName || ''; // 定期檢查...
-            const newDivision = item.divisionName || ''; // 運務...
+            const newCategory = item.category || ''; 
+            const newInspectionCategory = item.inspectionCategoryName || ''; 
+            const newDivision = item.divisionName || ''; 
 
             if (check.rows.length > 0) {
                 countUpdate++;
@@ -506,19 +499,14 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
                 raw['round'+targetRound+'Date'] = reviewDate; 
                 raw['round'+targetRound+'ActualDate'] = actualReplyDate; 
                 raw.status = newStatus;
-                // Update raw backup
                 raw.itemKindCode = newItemKind || raw.itemKindCode;
                 
                 let sql = 'UPDATE issues SET status=$1, raw_data=$2'; 
                 let params = [newStatus, JSON.stringify(raw)];
-                
                 let paramIdx = 3;
                 if (targetRound === 1) { 
-                    // 更新基本資料
                     sql += `, content=$${paramIdx++}, year=$${paramIdx++}, unit=$${paramIdx++}, handling=$${paramIdx++}, review=$${paramIdx++}`; 
                     params.push(newContent, item.year, item.unit, newHandling, newReview); 
-                    
-                    // 更新正規化分類 (僅在第一回合或明確匯入時更新)
                     if (newCategory) { sql += `, category=$${paramIdx++}`; params.push(newCategory); }
                     if (newInspectionCategory) { sql += `, inspection_category=$${paramIdx++}`; params.push(newInspectionCategory); }
                     if (newDivision) { sql += `, division=$${paramIdx++}`; params.push(newDivision); }
@@ -527,7 +515,6 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
                     sql += `, item_kind=$${paramIdx++}`;
                     params.push(newItemKind);
                 }
-
                 sql += ` WHERE id=$${paramIdx}`; 
                 params.push(existing.id); 
                 await client.query(sql, params);
@@ -538,8 +525,6 @@ app.post('/api/issues/import', checkAuth, checkManager, async (req, res) => {
                 raw['review'+suffix] = newReview; 
                 raw['round'+targetRound+'Date'] = reviewDate;
                 raw.itemKindCode = newItemKind;
-
-                // Insert 包含所有正規化欄位
                 await client.query(
                     `INSERT INTO issues 
                     (title, content, status, year, unit, handling, review, raw_data, item_kind, category, inspection_category, division) 
