@@ -177,12 +177,12 @@
         .view-section { display: none; width: 100%; height: 100%; flex-direction: column; }
         .view-section.active { display: flex; }
         
-        /* NEW: 重新設計的詳細資料樣式 */
-        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; padding-bottom: 24px; }
-        .info-item { display: flex; flex-direction: column; gap: 4px; }
-        .info-label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-        .info-value { font-size: 14px; font-weight: 500; color: #334155; line-height: 1.4; }
-        .info-header-main { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        /* NEW: Single Row Metadata */
+        .detail-header-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; margin-bottom: 16px; font-size: 14px; color: #334155; line-height: 1.6; }
+        .detail-header-row .separator { color: #cbd5e1; font-size: 12px; margin: 0 2px; }
+        .detail-number { font-family: 'Inter', monospace; font-weight: 600; color: #0f172a; }
+        .detail-unit-badge { background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 12px; }
+        
         .content-text { font-size: 15px; line-height: 1.8; color: #1e293b; background: #fafafa; padding: 20px; border-radius: 8px; border-left: 4px solid #cbd5e1; }
         
         .timeline-line { position: absolute; left: 20px; top: 24px; bottom: 0; width: 2px; background: #e2e8f0; }
@@ -673,30 +673,18 @@
         <div class="drawer-header"><div style="font-weight:700;font-size:18px;" id="drawerTitle">詳細資料</div><button onclick="closeDrawer()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button></div>
         <div class="drawer-body">
             <div id="viewModeContent">
-                <!-- NEW: 美化後的詳細資料區塊 -->
+                <!-- NEW: 單行資訊條設計 -->
                 <div class="detail-card">
-                    <!-- Header: Number & Tags -->
-                    <div class="info-header-main">
-                        <span id="dNumber"></span>
+                    <div class="detail-header-row">
+                        <span class="detail-unit-badge" id="dUnit"></span>
+                        <span class="detail-number" id="dNumber"></span>
                         <span id="dStatus"></span>
-                        <span class="badge" id="dYear" style="background:#f1f5f9; color:#475569;"></span>
-                        <span class="badge" id="dUnit" style="background:#f1f5f9; color:#475569;"></span>
-                    </div>
-
-                    <!-- Grid Layout for Info -->
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label">檢查計畫名稱</span>
-                            <span class="info-value" id="dPlanName">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">初次發函日期</span>
-                            <span class="info-value" id="dIssueDate">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">分組 / 類型</span>
-                            <span class="info-value" id="dCategoryInfo">-</span>
-                        </div>
+                        <span class="separator">|</span>
+                        <span style="font-weight:500;" id="dPlanName"></span>
+                        <span class="separator">|</span>
+                        <span style="color:#64748b;">發函: <span id="dIssueDate" style="color:#334155;font-weight:500;"></span></span>
+                        <span class="separator">|</span>
+                        <span style="color:#64748b;font-size:13px;" id="dCategoryInfo"></span>
                     </div>
 
                     <div style="margin-bottom: 8px; font-size:12px; font-weight:600; color:#64748b; text-transform:uppercase;">事項內容</div>
@@ -1622,7 +1610,7 @@
         
         function openDetail(id, isEdit) { 
             currentEditItem = currentData.find(d => String(d.id) === String(id)); if(!currentEditItem) return; 
-            document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dYear').textContent = currentEditItem.year + " 年"; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; 
+            document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; 
             
             // Plan Info
             document.getElementById('dPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)';
