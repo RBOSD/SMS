@@ -1,37 +1,31 @@
 const express = require('express');
-const { Pool } = require('pg'); // 使用 pg 套件
+const { Pool } = require('pg'); 
 const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
-require('dotenv').config(); // 避免本地開發報錯
-
-// 若有需要 AI 功能請保留，否則可註解
-// const { GoogleGenerativeAI } = require("@google/generative-ai");
+require('dotenv').config(); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 初始化 PostgreSQL 連線池
-// Render 會自動注入 DATABASE_URL，本地開發請在 .env 設定
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Middleware (保留第 17 版的大容量設定)
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(session({
-    secret: 'sms-secret-key-merged-v17',
+    secret: 'sms-secret-key-pg-fix',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24小時
+    cookie: { maxAge: 24 * 60 * 60 * 1000 } 
 }));
 
-// 權限檢查 Middleware
 const requireAuth = (req, res, next) => {
     if (req.session && req.session.user) {
         next();
@@ -40,13 +34,13 @@ const requireAuth = (req, res, next) => {
     }
 };
 
-// --- 資料庫初始化與遷移 (Migration) ---
+// 資料庫初始化與遷移
 async function initDB() {
     const client = await pool.connect();
     try {
-        console.log('Connected to PostgreSQL database.');
+        console.log('Connected to PostgreSQL database. Starting schema check...');
 
-        // 1. 建立主表 (轉換為 Postgres 語法)
+        // 1. 建立主表
         await client.query(`CREATE TABLE IF NOT EXISTS issues (
             id SERIAL PRIMARY KEY,
             number TEXT UNIQUE,
@@ -60,8 +54,8 @@ async function initDB() {
             category TEXT,
             handling TEXT,
             review TEXT,
-            plan_name TEXT,  -- 預先定義新欄位
-            issue_date TEXT, -- 預先定義新欄位
+            plan_name TEXT, 
+            issue_date TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
@@ -87,19 +81,16 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // 4. 自動遷移：確保所有日期欄位都存在 (無痛升級)
+        // 4. 自動遷移
         const newColumns = [];
-        // 確保 2~20 回合的 handling/review 存在
         for (let i = 2; i <= 20; i++) {
             newColumns.push({ name: `handling${i}`, type: 'TEXT' });
             newColumns.push({ name: `review${i}`, type: 'TEXT' });
         }
-        // 確保 1~20 回合的日期欄位存在
         for (let i = 1; i <= 20; i++) {
             newColumns.push({ name: `reply_date_r${i}`, type: 'TEXT' });
             newColumns.push({ name: `response_date_r${i}`, type: 'TEXT' });
         }
-        // 確保 Plan Info 存在 (雖上面 CREATE 有寫，但為了舊 DB 相容再檢查一次)
         newColumns.push({ name: 'plan_name', type: 'TEXT' });
         newColumns.push({ name: 'issue_date', type: 'TEXT' });
 
@@ -107,30 +98,30 @@ async function initDB() {
             try {
                 await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
             } catch (e) {
-                // 忽略錯誤 (代表欄位已存在)
+                // 忽略錯誤
             }
         }
 
-        // 5. 建立預設 Admin (防止無法登入)
+        // 5. 建立預設 Admin
         const userRes = await client.query("SELECT count(*) as count FROM users");
         if (parseInt(userRes.rows[0].count) === 0) {
             const hash = bcrypt.hashSync('admin123', 10);
             await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
                 ['admin', hash, '系統管理員', 'admin']);
-            console.log("Default admin created (admin / admin123).");
+            console.log("Default admin created.");
         }
+        
+        console.log('Database initialization completed.');
 
     } catch (err) {
         console.error('Init DB Error:', err);
+        throw err; // 拋出錯誤讓啟動流程知道失敗了
     } finally {
         client.release();
     }
 }
 
-// 啟動初始化
-initDB();
-
-// Log 輔助函式
+// Log 輔助
 async function logAction(username, action, details, req) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     try {
@@ -139,24 +130,20 @@ async function logAction(username, action, details, req) {
     } catch (e) { console.error("Log error:", e); }
 }
 
+// --- API Routes ---
 
-// --- API Routes (合併第 17 版邏輯與 Postgres 語法) ---
-
-// 1. 登入 (修復 bcrypt 錯誤)
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
         const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
         const user = result.rows[0];
         
-        // [關鍵修復]：如果找不到使用者，或使用者密碼欄位損毀(null)，直接回傳錯誤，防止 bcrypt 崩潰
         if (!user || !user.password) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         if (bcrypt.compareSync(password, user.password)) {
             req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name };
-            // 這裡異步寫 Log，不等待
             logAction(user.username, 'LOGIN', 'User logged in', req).catch(()=>{});
             res.json({ success: true, user: req.session.user });
         } else {
@@ -164,7 +151,7 @@ app.post('/api/auth/login', async (req, res) => {
         }
     } catch (e) {
         console.error("Login Error:", e);
-        res.status(500).json({ error: 'System error during login' });
+        res.status(500).json({ error: 'System error' });
     }
 });
 
@@ -192,7 +179,6 @@ app.put('/api/auth/profile', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 2. 事項查詢 (保留第 17 版的篩選與統計邏輯)
 app.get('/api/issues', requireAuth, async (req, res) => {
     const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, sortField, sortDir } = req.query;
     const limit = parseInt(pageSize);
@@ -200,7 +186,7 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     
     let where = ["1=1"];
     let params = [];
-    let idx = 1; // Postgres 參數計數器 ($1, $2...)
+    let idx = 1;
 
     if (q) {
         where.push(`(number LIKE $${idx} OR content LIKE $${idx} OR handling LIKE $${idx} OR review LIKE $${idx} OR plan_name LIKE $${idx})`);
@@ -214,25 +200,20 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     if (inspectionCategory) { where.push(`inspection_category_name = $${idx}`); params.push(inspectionCategory); idx++; }
 
     let orderBy = "created_at DESC";
-    const validCols = ['year', 'number', 'unit', 'status', 'created_at']; // 簡易白名單
+    const validCols = ['year', 'number', 'unit', 'status', 'created_at'];
     if (sortField && validCols.includes(sortField)) {
         orderBy = `${sortField} ${sortDir === 'asc' ? 'ASC' : 'DESC'}`;
     }
 
     try {
-        // 1. 查總數
         const countRes = await pool.query(`SELECT count(*) FROM issues WHERE ${where.join(" AND ")}`, params);
         const total = parseInt(countRes.rows[0].count);
         
-        // 2. 查資料
         const dataRes = await pool.query(`SELECT * FROM issues WHERE ${where.join(" AND ")} ORDER BY ${orderBy} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
         
-        // 3. 查統計 (為了前端圖表)
         const sRes = await pool.query("SELECT status, count(*) as count FROM issues GROUP BY status");
         const uRes = await pool.query("SELECT unit, count(*) as count FROM issues GROUP BY unit");
         const yRes = await pool.query("SELECT year, count(*) as count FROM issues GROUP BY year");
-
-        // 4. 查最後更新時間
         const tRes = await pool.query("SELECT max(created_at) as latest, max(updated_at) as updated FROM issues");
         const latestTime = tRes.rows[0] ? (tRes.rows[0].updated || tRes.rows[0].latest) : null;
 
@@ -252,7 +233,6 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 3. 單筆更新 (包含新日期欄位)
 app.put('/api/issues/:id', requireAuth, async (req, res) => {
     const { status, round, handling, review, replyDate, responseDate } = req.body;
     const id = req.params.id;
@@ -271,7 +251,6 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 4. 刪除
 app.delete('/api/issues/:id', requireAuth, async (req, res) => {
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
     try {
@@ -280,19 +259,16 @@ app.delete('/api/issues/:id', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 5. 批次刪除 (第 17 版功能)
 app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
     const { ids } = req.body;
     try {
-        // Postgres 使用 ANY($1) 來處理陣列 IN 查詢
         await pool.query("DELETE FROM issues WHERE id = ANY($1)", [ids]);
         logAction(req.session.user.username, 'BATCH_DELETE', `Deleted ${ids.length} items`, req);
         res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 6. 匯入 (整合新欄位 plan_name, issue_date)
 app.post('/api/issues/import', requireAuth, async (req, res) => {
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
     const { data, round, reviewDate } = req.body;
@@ -306,13 +282,9 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
             const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
             
             if (check.rows.length > 0) {
-                // Update
                 const hCol = r===1 ? 'handling' : `handling${r}`;
                 const rCol = r===1 ? 'review' : `review${r}`;
                 const respCol = `response_date_r${r}`;
-                
-                // 注意：匯入時 reviewDate 視為該次審查的函復日期
-                // 使用 COALESCE 確保不覆蓋已有的 plan_name
                 await client.query(
                     `UPDATE issues SET status=$1, ${hCol}=$2, ${rCol}=$3, ${respCol}=$4, plan_name=COALESCE($5, plan_name), updated_at=CURRENT_TIMESTAMP WHERE number=$6`,
                     [
@@ -323,8 +295,6 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                     ]
                 );
             } else {
-                // Insert
-                // 只有在新增時才寫入 issue_date
                 await client.query(
                     `INSERT INTO issues (
                         number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
@@ -353,8 +323,7 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
     }
 });
 
-// --- User Management (Postgres Version) ---
-
+// User Management
 app.get('/api/users', requireAuth, async (req, res) => {
     if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
@@ -363,7 +332,6 @@ app.get('/api/users', requireAuth, async (req, res) => {
     
     let where = ["1=1"], params = [], idx = 1;
     if(q) { where.push(`(username LIKE $${idx} OR name LIKE $${idx})`); params.push(`%${q}%`); idx++; }
-    
     const order = `${sortField} ${sortDir==='desc'?'DESC':'ASC'}`;
     
     try {
@@ -408,7 +376,6 @@ app.delete('/api/users/:id', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Logs
 app.get('/api/admin/logs', requireAuth, async (req, res) => {
     if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
     try {
@@ -436,3 +403,19 @@ app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
     await pool.query("DELETE FROM logs WHERE action!='LOGIN'");
     res.json({success:true});
 });
+
+
+// --- 關鍵修正：等待 DB 就緒才啟動 Server ---
+async function startServer() {
+    try {
+        await initDB();
+        app.listen(PORT, () => {
+            console.log(`Server running on http://localhost:${PORT}`);
+        });
+    } catch (e) {
+        console.error("Server start failed:", e);
+        process.exit(1);
+    }
+}
+
+startServer();
