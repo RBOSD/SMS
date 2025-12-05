@@ -416,7 +416,7 @@
                     <div class="detail-card" id="uploadCardWord" style="max-width:800px; margin-bottom:30px;">
                         <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#0369a1;">📝 例行作業區 (Word 解析)</div>
                         <div style="margin-bottom:20px; background:#f0f9ff; border:1px solid #bae6fd; padding:16px; border-radius:8px; font-size:13px; color:#0369a1; line-height:1.5;">
-                            <p style="margin:0 0 8px 0;">用於新增新的審查紀錄。Word 檔內可能無日期資訊，請在此處統一設定。</p>
+                            <p style="margin:0 0 8px 0;">用於新增新的審查紀錄。請選擇審查次數，系統將自動顯示對應的日期欄位。</p>
                         </div>
                         
                         <!-- Global Settings for Import -->
@@ -425,7 +425,7 @@
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:12px;">
                                 <div>
                                     <div style="font-size:12px;color:#64748b;margin-bottom:4px;">審查次數 (Round)</div>
-                                    <input type="number" id="importRound" class="filter-input" value="1" min="1" max="20" onchange="checkImportReady()">
+                                    <input type="number" id="importRound" class="filter-input" value="1" min="1" max="20" onchange="onImportRoundChange()">
                                 </div>
                                 <div>
                                     <div style="font-size:12px;color:#64748b;margin-bottom:4px;">檢查計畫名稱 (例如: 113年度上半年定期檢查)</div>
@@ -433,10 +433,22 @@
                                     <input type="text" id="importPlanName" list="planOptionsList" class="filter-input" placeholder="選填 (會套用到所有項目)">
                                 </div>
                             </div>
-                            <div style="display:grid; grid-template-columns: 1fr; gap:16px;">
-                                <div>
-                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">初次發函日期 (例如: 1130615) - 僅第1次審查時需要</div>
-                                    <input type="text" id="importDate" class="filter-input" placeholder="若是第1次匯入，建議填寫" onkeyup="checkImportReady()">
+                            
+                            <!-- [修改] 日期欄位區塊，根據 Round 動態顯示 -->
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                                <div id="importDateGroup" style="display:block;">
+                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">初次發函日期 (例如: 1130615)</div>
+                                    <input type="text" id="importIssueDate" class="filter-input" placeholder="第1次匯入時建議填寫" onkeyup="checkImportReady()">
+                                </div>
+                                <div id="importReviewDateGroup" style="display:none; grid-column: span 2; grid-template-columns: 1fr 1fr; gap:16px;">
+                                     <div>
+                                        <div style="font-size:12px;color:#64748b;margin-bottom:4px;">機構回復日期 (例如: 1130601)</div>
+                                        <input type="text" id="importReplyDate" class="filter-input" placeholder="本次審查的機構回復日">
+                                     </div>
+                                     <div>
+                                        <div style="font-size:12px;color:#64748b;margin-bottom:4px;">本次函復日期 (例如: 1130615)</div>
+                                        <input type="text" id="importResponseDate" class="filter-input" placeholder="本次審查結果的發函日">
+                                     </div>
                                 </div>
                             </div>
                         </div>
@@ -1057,7 +1069,20 @@
             var item = { number: info.raw.toUpperCase(), year: String(info.yearRoc), unit: unitName, itemKindCode: info.kindCode, category: kindName, inspectionCategoryName: inspectName, divisionName: divName, content: "", handling: "", status: "持續列管" }; if(cells[col.content]) item.content = sanitizeContent(cells[col.content].innerHTML); if(cells[col.handling]) item.handling = sanitizeContent(cells[col.handling].innerHTML); if(info.kindCode === "R") item.status = "自行列管"; else if(cells[col.result]) item.status = parseStatusFromResultCell(cells[col.result]) || "持續列管"; reviewCols.forEach(function(rc) { var key = (rc.round === 1 ? "review" : ("review" + rc.round)); item[key] = sanitizeContent(cells[rc.idx] ? cells[rc.idx].innerHTML : ""); }); items.push(item); } }); } catch(e) { console.error("Parse error:", e); } return items;
         }
 
-        function checkImportReady() { const r = document.getElementById('importRound').value, d = document.getElementById('importDate').value, valid = r && r > 0 && d && d.trim().length > 0; document.getElementById('wordInput').disabled = !valid; document.getElementById('btnParseWord').disabled = !valid || !document.getElementById('wordInput').files[0]; }
+        // [Modified] Toggle import date fields based on round
+        function onImportRoundChange() {
+            const r = parseInt(document.getElementById('importRound').value);
+            if(r === 1) {
+                document.getElementById('importDateGroup').style.display = 'block';
+                document.getElementById('importReviewDateGroup').style.display = 'none';
+            } else {
+                document.getElementById('importDateGroup').style.display = 'none';
+                document.getElementById('importReviewDateGroup').style.display = 'grid';
+            }
+            checkImportReady();
+        }
+
+        function checkImportReady() { const r = document.getElementById('importRound').value, d = document.getElementById('importIssueDate').value, valid = r && r > 0; document.getElementById('wordInput').disabled = !valid; document.getElementById('btnParseWord').disabled = !valid || !document.getElementById('wordInput').files[0]; }
         document.getElementById('wordInput').addEventListener('change', checkImportReady);
         
         async function previewWord() {
@@ -1225,7 +1250,7 @@
             document.getElementById('importStatusBackup').innerText = ''; 
         }
         
-        // [Updated] Confirm import to include new global fields (Plan Name, Issue Date)
+        // [Updated] Confirm import: Handle IssueDate vs ReviewDate
         async function confirmImport() { 
             const count = stagedImportData.length;
             const isBackup = currentImportMode === 'backup';
@@ -1233,17 +1258,19 @@
             if(!confirm(msg)) return; 
             
             const round = isBackup ? 0 : document.getElementById('importRound').value;
-            // Note: importDate here is used for "review date" in old logic, but we also want initial date.
-            const date = isBackup ? '' : document.getElementById('importDate').value;
-            
+            // Get dates based on Round logic
+            const issueDate = document.getElementById('importIssueDate').value;
+            const replyDate = document.getElementById('importReplyDate').value;
+            const responseDate = document.getElementById('importResponseDate').value;
+
             // New Global Fields
             const planName = isBackup ? '' : document.getElementById('importPlanName').value;
             
             let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
                 if(currentImportMode === 'word') {
-                    // Apply batch settings if manual fields are empty on the object
                     if(!item.planName && planName) item.planName = planName;
-                    if(!item.issueDate && date && parseInt(round) === 1) item.issueDate = date; 
+                    // Only apply issueDate if Round 1
+                    if(!item.issueDate && parseInt(round) === 1) item.issueDate = issueDate; 
                 }
                 return item;
             });
@@ -1252,7 +1279,13 @@
                 const res = await fetch('/api/issues/import', { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ data: cleanData, round: round, reviewDate: date, actualReplyDate: '', mode: currentImportMode }) 
+                    body: JSON.stringify({ 
+                        data: cleanData, 
+                        round: round, 
+                        reviewDate: responseDate, // 本次函復
+                        replyDate: replyDate,     // 機構回復
+                        mode: currentImportMode 
+                    }) 
                 }); 
                 if(res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); loadPlanOptions(); } else { showToast('匯入失敗', 'error'); } 
             } catch(e) { showToast('Error: ' + e.message, 'error'); } 
@@ -1314,7 +1347,7 @@
                     issueDate: issueDate, // Added
                     scheme: 'MANUAL' 
                 }],
-                round: 1, reviewDate: '', actualReplyDate: ''
+                round: 1, reviewDate: '', replyDate: '' // Initial manual entry has no reply yet
             };
 
             try {

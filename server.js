@@ -53,6 +53,8 @@ async function initDB() {
         console.log('Connected to PostgreSQL. Checking schema...');
 
         // 1. 建立主表
+        // plan_name: 檢查計畫名稱
+        // issue_date: 初次發函日期 (YYYYMMDD)
         await client.query(`CREATE TABLE IF NOT EXISTS issues (
             id SERIAL PRIMARY KEY,
             number TEXT UNIQUE,
@@ -66,7 +68,7 @@ async function initDB() {
             category TEXT,
             handling TEXT,
             review TEXT,
-            plan_name TEXT, 
+            plan_name TEXT,
             issue_date TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -93,23 +95,26 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // 4. 動態欄位補強
+        // 4. 動態欄位補強 (含歷程日期)
         const newColumns = [];
+        // 內容欄位
         for (let i = 2; i <= 20; i++) {
             newColumns.push({ name: `handling${i}`, type: 'TEXT' });
             newColumns.push({ name: `review${i}`, type: 'TEXT' });
         }
+        // 日期欄位: reply_date (機構回復), response_date (監理機關函復)
         for (let i = 1; i <= 20; i++) {
             newColumns.push({ name: `reply_date_r${i}`, type: 'TEXT' });
             newColumns.push({ name: `response_date_r${i}`, type: 'TEXT' });
         }
+        // 補足主要新欄位 (若是舊 DB 升級)
         newColumns.push({ name: 'plan_name', type: 'TEXT' });
         newColumns.push({ name: 'issue_date', type: 'TEXT' });
 
         for (const col of newColumns) {
             try {
                 await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
-            } catch (e) { /* 忽略 */ }
+            } catch (e) { /* 忽略已存在的錯誤 */ }
         }
 
         // 5. 建立預設 Admin
@@ -178,20 +183,14 @@ app.post('/api/auth/logout', (req, res) => {
 app.get('/api/auth/me', async (req, res) => {
     if (req.session && req.session.user) {
         try {
-            // 每次呼叫 /me 都去資料庫查最新的 role 和 name
             const result = await pool.query("SELECT id, username, name, role FROM users WHERE id = $1", [req.session.user.id]);
             const latestUser = result.rows[0];
 
             if (!latestUser) {
-                // 使用者可能被刪除了
                 req.session.destroy();
                 return res.json({ isLogin: false });
             }
-
-            // 更新 session 中的資訊以保持同步
             req.session.user = latestUser;
-            
-            // 加入 cache-control header 確保瀏覽器不快取此回應
             res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
             res.json({ isLogin: true, ...latestUser });
         } catch (e) {
@@ -217,7 +216,7 @@ app.put('/api/auth/profile', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 2. AI 審查 (Gemini Flash 2.5 - 監理機關專業版 V2)
+// 2. AI 審查
 app.post('/api/gemini', async (req, res) => {
     const { content, rounds } = req.body;
 
@@ -226,8 +225,6 @@ app.post('/api/gemini', async (req, res) => {
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        
-        // 使用指定的 gemini 2.5 flash
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const latestRound = (rounds && rounds.length > 0) ? rounds[rounds.length - 1] : { handling: '無', review: '無' };
@@ -235,30 +232,19 @@ app.post('/api/gemini', async (req, res) => {
 
         const prompt = `
         你現在是【鐵道監理機關】的專業審查人員，正在審核受檢機構針對缺失事項的改善情形。
-        請秉持「中立、客觀、平實」的原則進行審查，語氣需符合公務機關公文風格。
+        請秉持「中立、客觀、平實」的原則進行審查。
 
         【待改善事項內容】：
         ${content}
 
-        【上一回合審查意見】(若有，請確認是否已針對此意見修正)：
+        【上一回合審查意見】：
         ${previousReview}
 
         【本次機構辦理情形】：
         ${latestRound.handling || '無'}
 
-        ---
-        【審查判斷邏輯】：
-        1. **缺失事項**：必須比對「辦理情形」是否具體解決問題。若僅說明「將於未來辦理」或「納入計畫」，應評為「持續列管」，並要求具體期程。
-        2. **觀察事項 (Observation)**：此類事項通常涉及潛在風險或長期趨勢。若機構僅表示「研議中」或「評估中」而無具體結論或改善措施，**不可解除列管**，應要求持續觀察或提出具體方案。
-        3. **建議事項 (Recommendation)**：此類事項通常由機構**自行列管**。若機構已回復相關處置或說明理由，原則上可同意備查或維持自行列管。
-        4. **佐證資料**：若機構宣稱已完成，審查意見應習慣性提及「請檢附相關佐證資料(如照片、紀錄)」。
-
         【回覆格式要求】：
-        請嚴格依照以下 JSON 格式回覆 (不要 Markdown 標記)：
-        {
-            "fulfill": "Yes 或 No (Yes代表同意解除列管/備查, No代表不同意/持續列管)",
-            "reason": "請撰寫平實的審查意見(100字內)。範例：「說明內容尚屬妥適，同意解除列管。」或「所陳改善措施尚未具體，請補充相關佐證資料後報局。」"
-        }
+        JSON: {"fulfill": "Yes/No", "reason": "100字內簡評"}
         `;
 
         const result = await model.generateContent(prompt);
@@ -270,29 +256,25 @@ app.post('/api/gemini', async (req, res) => {
             const json = JSON.parse(text);
             res.json(json);
         } catch (parseError) {
-            console.error("JSON Parse Error, raw text:", text);
             res.json({ 
                 fulfill: text.includes("Yes") ? "Yes" : "No", 
-                reason: text.replace(/[{}]/g, '').replace(/"reason":/g, '').replace(/"fulfill":.*/g, '').trim() 
+                reason: text.replace(/[{}]/g, '').trim() 
             });
         }
-
     } catch (e) {
         console.error("Gemini API Error:", e);
         res.status(500).json({ error: 'AI 分析失敗: ' + e.message });
     }
 });
 
-// 3. 事項查詢 (更新：支援 planName 篩選與防快取)
+// 3. 事項查詢 (支援 planName 與日期欄位)
 app.get('/api/issues', requireAuth, async (req, res) => {
-    // 新增 planName 參數
     const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, planName, sortField, sortDir } = req.query;
     const limit = parseInt(pageSize);
     const offset = (page - 1) * limit;
     
     let where = ["1=1"], params = [], idx = 1;
 
-    // 加入 Cache-Control 確保資料不被瀏覽器快取
     res.set('Cache-Control', 'no-store');
 
     if (q) {
@@ -339,12 +321,15 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// [修改] 編輯更新，支援日期欄位
 app.put('/api/issues/:id', requireAuth, async (req, res) => {
     const { status, round, handling, review, replyDate, responseDate } = req.body;
     const id = req.params.id;
     const r = parseInt(round);
     const hField = r === 1 ? 'handling' : `handling${r}`;
     const rField = r === 1 ? 'review' : `review${r}`;
+    
+    // 動態對應日期欄位
     const replyField = `reply_date_r${r}`;
     const respField = `response_date_r${r}`;
 
@@ -374,9 +359,15 @@ app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// [修改] 匯入 API，完整支援日期與計畫名稱
 app.post('/api/issues/import', requireAuth, async (req, res) => {
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
-    const { data, round, reviewDate } = req.body;
+    // data: 匯入的項目列表
+    // round: 第幾次
+    // reviewDate: "本次函復日期" (對應 response_date_r{round})
+    // replyDate: "機構回復日期" (對應 reply_date_r{round})
+    // mode: 'word' | 'backup'
+    const { data, round, reviewDate, replyDate, mode } = req.body;
     const r = parseInt(round) || 1;
     
     const client = await pool.connect();
@@ -387,32 +378,44 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
             const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
             
             if (check.rows.length > 0) {
+                // 更新現有
                 const hCol = r===1 ? 'handling' : `handling${r}`;
                 const rCol = r===1 ? 'review' : `review${r}`;
+                const replyCol = `reply_date_r${r}`;
                 const respCol = `response_date_r${r}`;
                 
                 await client.query(
-                    `UPDATE issues SET status=$1, ${hCol}=$2, ${rCol}=$3, ${respCol}=$4, plan_name=COALESCE($5, plan_name), updated_at=CURRENT_TIMESTAMP WHERE number=$6`,
+                    `UPDATE issues SET 
+                        status=$1, ${hCol}=$2, ${rCol}=$3, 
+                        ${replyCol}=$4, ${respCol}=$5,
+                        plan_name=COALESCE($6, plan_name), 
+                        updated_at=CURRENT_TIMESTAMP 
+                    WHERE number=$7`,
                     [
                         item.status, item.handling||'', item.review||'',
-                        reviewDate||'', 
+                        replyDate||'', reviewDate||'', // 寫入該回合的日期
                         item.planName || null,
                         item.number
                     ]
                 );
             } else {
+                // 新增
+                // issue_date 只在新增時寫入 (來自 item.issueDate)
+                // response_date_r1 對應 reviewDate (若有)
                 await client.query(
                     `INSERT INTO issues (
                         number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
-                        handling, review, plan_name, issue_date, response_date_r1
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+                        handling, review, plan_name, issue_date, 
+                        response_date_r1, reply_date_r1
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
                     [
                         item.number, item.year, item.unit, item.content, item.status||'持續列管',
                         item.itemKindCode, item.category, item.divisionName, item.inspectionCategoryName,
                         item.handling||'', item.review||'', 
                         item.planName || null, 
-                        item.issueDate || null,
-                        reviewDate || '' 
+                        item.issueDate || null, // 初次發函日期
+                        reviewDate || '', // 第1次函復
+                        replyDate || ''   // 第1次回復
                     ]
                 );
             }
@@ -428,7 +431,7 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
     }
 });
 
-// Users
+// Users API (保持不變)
 app.get('/api/users', requireAuth, async (req, res) => {
     if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
@@ -512,7 +515,6 @@ app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
 // [新增] 取得既有的計畫名稱列表 (供下拉選單用)
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
-        // 取得所有不重複的計畫名稱，排除空的
         const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");
         res.set('Cache-Control', 'no-store');
         res.json({ data: result.rows.map(r => r.plan_name) });
@@ -521,7 +523,6 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
     }
 });
 
-// 穩定啟動
 async function startServer() {
     try {
         await initDB();
