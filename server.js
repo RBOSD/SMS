@@ -288,7 +288,7 @@ app.post('/api/gemini', async (req, res) => {
 
 // 3. 事項查詢
 app.get('/api/issues', requireAuth, async (req, res) => {
-    const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, sortField, sortDir } = req.query;
+    const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, planName, sortField, sortDir } = req.query;
     const limit = parseInt(pageSize);
     const offset = (page - 1) * limit;
     
@@ -304,6 +304,9 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     if (itemKindCode) { where.push(`item_kind_code = $${idx}`); params.push(itemKindCode); idx++; }
     if (division) { where.push(`division_name = $${idx}`); params.push(division); idx++; }
     if (inspectionCategory) { where.push(`inspection_category_name = $${idx}`); params.push(inspectionCategory); idx++; }
+    
+    // [新增] 計畫名稱篩選
+    if (planName) { where.push(`plan_name = $${idx}`); params.push(planName); idx++; }
 
     let orderBy = "created_at DESC";
     const validCols = ['year', 'number', 'unit', 'status', 'created_at'];
@@ -320,6 +323,9 @@ app.get('/api/issues', requireAuth, async (req, res) => {
         const sRes = await pool.query("SELECT status, count(*) as count FROM issues GROUP BY status");
         const uRes = await pool.query("SELECT unit, count(*) as count FROM issues GROUP BY unit");
         const yRes = await pool.query("SELECT year, count(*) as count FROM issues GROUP BY year");
+        // [新增] 計畫名稱統計
+        const pRes = await pool.query("SELECT plan_name, count(*) as count FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' GROUP BY plan_name ORDER BY plan_name DESC");
+        
         const tRes = await pool.query("SELECT max(created_at) as latest, max(updated_at) as updated FROM issues");
         const latestTime = tRes.rows[0] ? (tRes.rows[0].updated || tRes.rows[0].latest) : null;
 
@@ -330,7 +336,7 @@ app.get('/api/issues', requireAuth, async (req, res) => {
             pageSize: limit,
             pages: Math.ceil(total / limit),
             latestCreatedAt: latestTime,
-            globalStats: { status: sRes.rows, unit: uRes.rows, year: yRes.rows }
+            globalStats: { status: sRes.rows, unit: uRes.rows, year: yRes.rows, plans: pRes.rows }
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
