@@ -315,7 +315,18 @@
                     <div class="integrated-controls">
                         <!-- Optimized Filter Layout -->
                         <div class="filter-primary-row">
-                            <div class="search-item" style="flex:2;"><label>關鍵字</label><input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字..."></div>
+                            <div class="search-item" style="flex:2;">
+                                <label>關鍵字</label>
+                                <input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字...">
+                            </div>
+                            
+                            <!-- [新增] 檢查計畫篩選 (使用 datalist 實現可選可搜) -->
+                            <div class="search-item" style="flex:1.5; min-width: 200px;">
+                                <label>檢查計畫 (可輸入或下拉)</label>
+                                <input type="text" id="filterPlan" list="planOptionsList" class="filter-input" placeholder="選擇或輸入計畫名稱..." onchange="applyFilters()">
+                                <datalist id="planOptionsList"></datalist>
+                            </div>
+                            
                             <div class="search-item"><label>年度</label><select id="filterYear" class="filter-select"></select></div>
                             <div class="search-item"><label>機構</label><select id="filterUnit" class="filter-select"></select></div>
                             <div class="search-item"><label>狀態</label><select id="filterStatus" class="filter-select"><option value="">全部狀態</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
@@ -418,7 +429,8 @@
                                 </div>
                                 <div>
                                     <div style="font-size:12px;color:#64748b;margin-bottom:4px;">檢查計畫名稱 (例如: 113年度上半年定期檢查)</div>
-                                    <input type="text" id="importPlanName" class="filter-input" placeholder="選填 (會套用到所有項目)">
+                                    <!-- [修改] 增加 datalist 支援 -->
+                                    <input type="text" id="importPlanName" list="planOptionsList" class="filter-input" placeholder="選填 (會套用到所有項目)">
                                 </div>
                             </div>
                             <div style="display:grid; grid-template-columns: 1fr; gap:16px;">
@@ -466,11 +478,18 @@
                         
                         <!-- New Fields for Plan and Date -->
                         <div style="background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:20px; border:1px solid #e2e8f0;">
-                            <div style="font-weight:700; margin-bottom:12px; color:#334155;">專案資訊</div>
+                            <div style="font-weight:700; margin-bottom:12px; color:#334155; display:flex; justify-content:space-between; align-items:center;">
+                                <span>專案資訊</span>
+                                <!-- [新增] 連續新增開關 -->
+                                <label style="font-size:13px; color:#2563eb; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                    <input type="checkbox" id="manualContinuousMode"> 🔒 連續新增模式 (鎖定計畫與機構)
+                                </label>
+                            </div>
                             <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
                                 <div class="form-group" style="margin-bottom:0;">
                                     <label>檢查計畫名稱</label>
-                                    <input type="text" id="manualPlanName" class="filter-input" placeholder="例如: 113年度上半年定期檢查">
+                                    <!-- [修改] 增加 datalist 支援 -->
+                                    <input type="text" id="manualPlanName" list="planOptionsList" class="filter-input" placeholder="例如: 113年度上半年定期檢查">
                                 </div>
                                 <div class="form-group" style="margin-bottom:0;">
                                     <label>初次發函日期</label>
@@ -860,6 +879,20 @@
 
         function showPreview(html, title) { document.getElementById('previewTitle').innerText = title || '內容預覽'; document.getElementById('previewContent').innerHTML = html || '(無內容)'; document.getElementById('previewModal').classList.add('open'); }
         function closePreview() { document.getElementById('previewModal').classList.remove('open'); }
+        
+        // [New] Load Plan Options for Datalist
+        async function loadPlanOptions() {
+            try {
+                const res = await fetch('/api/options/plans?t=' + Date.now());
+                const json = await res.json();
+                const list = document.getElementById('planOptionsList');
+                if (list && json.data) {
+                    list.innerHTML = json.data.map(p => `<option value="${p}">`).join('');
+                }
+            } catch (e) {
+                console.error("Load plans failed", e);
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', async () => { 
             console.log("App init...");
@@ -869,15 +902,17 @@
                 initListeners(); 
                 initEditForm(); 
                 initCharts(); 
+                loadPlanOptions(); // [New]
                 await loadIssuesPage(1); 
                 loadUsersPage(1); 
             } 
         });
 
-        // [Fixed] Anti-cache by adding timestamp
+        // [Fixed] Anti-cache and DB validation
         async function checkAuth() { 
             try { 
-                const res = await fetch('/api/auth/me?t=' + Date.now()); const data = await res.json(); 
+                const res = await fetch('/api/auth/me?t=' + Date.now(), { headers: { 'Cache-Control': 'no-cache' } }); 
+                const data = await res.json(); 
                 if(data.isLogin) { 
                     currentUser = data; 
                     const nameEl = document.getElementById('headerUserName');
@@ -913,12 +948,13 @@
             const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '', kind = document.getElementById('filterKind').value || '';
             const division = document.getElementById('filterDivision') ? document.getElementById('filterDivision').value : '';
             const inspection = document.getElementById('filterInspection') ? document.getElementById('filterInspection').value : '';
+            const planName = document.getElementById('filterPlan') ? document.getElementById('filterPlan').value : ''; // [New]
             
             let sortField = 'created_at', sortDir = 'desc';
             if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
             
-            // [Fixed] Added _t for anti-cache
-            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, sortField, sortDir, _t: Date.now() });
+            // [Fixed] Added _t for anti-cache and planName
+            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, planName, sortField, sortDir, _t: Date.now() });
             
             try {
                 const res = await fetch('/api/issues?' + params.toString()); 
@@ -1218,7 +1254,7 @@
                     headers: { 'Content-Type': 'application/json' }, 
                     body: JSON.stringify({ data: cleanData, round: round, reviewDate: date, actualReplyDate: '', mode: currentImportMode }) 
                 }); 
-                if(res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); } else { showToast('匯入失敗', 'error'); } 
+                if(res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); loadPlanOptions(); } else { showToast('匯入失敗', 'error'); } 
             } catch(e) { showToast('Error: ' + e.message, 'error'); } 
         }
         
@@ -1249,7 +1285,7 @@
             }
         }
 
-        // [Updated] Submit Manual Issue to include Plan Name and Issue Date
+        // [Updated] Submit Manual Issue to include Plan Name, Issue Date, and Continuous Mode
         async function submitManualIssue() {
             const number = document.getElementById('manualNumber').value.trim();
             const year = document.getElementById('manualYear').value.trim();
@@ -1262,6 +1298,7 @@
             // New Fields
             const planName = document.getElementById('manualPlanName').value.trim();
             const issueDate = document.getElementById('manualIssueDate').value.trim();
+            const continuousMode = document.getElementById('manualContinuousMode').checked;
             
             const status = document.getElementById('manualStatus').value;
             const content = document.getElementById('manualContent').value.trim();
@@ -1284,18 +1321,31 @@
                 const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if(res.ok) { 
                     showToast('新增成功'); 
-                    // Clear all inputs
-                    document.getElementById('manualNumber').value = ''; 
-                    document.getElementById('manualYear').value = ''; 
-                    document.getElementById('manualUnit').value = ''; 
-                    document.getElementById('manualDivision').value = '';
-                    document.getElementById('manualInspection').value = '';
-                    document.getElementById('manualKind').value = '';
-                    document.getElementById('manualContent').value = ''; 
-                    // Clear new inputs
-                    document.getElementById('manualPlanName').value = '';
-                    document.getElementById('manualIssueDate').value = '';
+                    
+                    // [Logic] Clear fields based on Continuous Mode
+                    if (continuousMode) {
+                        // Keep Plan, Date, Year, Unit, Inspection, Division (assuming same batch)
+                        // Only clear specific item fields
+                        document.getElementById('manualNumber').value = ''; 
+                        document.getElementById('manualKind').value = '';
+                        document.getElementById('manualContent').value = ''; 
+                        // Focus back to Number for next entry
+                        document.getElementById('manualNumber').focus();
+                    } else {
+                        // Clear all inputs
+                        document.getElementById('manualNumber').value = ''; 
+                        document.getElementById('manualYear').value = ''; 
+                        document.getElementById('manualUnit').value = ''; 
+                        document.getElementById('manualDivision').value = '';
+                        document.getElementById('manualInspection').value = '';
+                        document.getElementById('manualKind').value = '';
+                        document.getElementById('manualContent').value = ''; 
+                        document.getElementById('manualPlanName').value = '';
+                        document.getElementById('manualIssueDate').value = '';
+                    }
+                    
                     loadIssuesPage(1); 
+                    loadPlanOptions(); // Reload plan list in case new one was added
                 } else { showToast('新增失敗', 'error'); }
             } catch(e) { showToast('Error: ' + e.message, 'error'); }
         }

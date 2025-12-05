@@ -174,9 +174,33 @@ app.post('/api/auth/logout', (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/api/auth/me', (req, res) => {
-    if (req.session.user) res.json({ isLogin: true, ...req.session.user });
-    else res.json({ isLogin: false });
+// [修正] 強制從資料庫驗證最新權限 (解決權限更動後不即時更新的問題)
+app.get('/api/auth/me', async (req, res) => {
+    if (req.session && req.session.user) {
+        try {
+            // 每次呼叫 /me 都去資料庫查最新的 role 和 name
+            const result = await pool.query("SELECT id, username, name, role FROM users WHERE id = $1", [req.session.user.id]);
+            const latestUser = result.rows[0];
+
+            if (!latestUser) {
+                // 使用者可能被刪除了
+                req.session.destroy();
+                return res.json({ isLogin: false });
+            }
+
+            // 更新 session 中的資訊以保持同步
+            req.session.user = latestUser;
+            
+            // 加入 cache-control header 確保瀏覽器不快取此回應
+            res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+            res.json({ isLogin: true, ...latestUser });
+        } catch (e) {
+            console.error("Auth check db error:", e);
+            res.json({ isLogin: false });
+        }
+    } else {
+        res.json({ isLogin: false });
+    }
 });
 
 app.put('/api/auth/profile', requireAuth, async (req, res) => {
@@ -204,7 +228,6 @@ app.post('/api/gemini', async (req, res) => {
         const genAI = new GoogleGenerativeAI(apiKey);
         
         // 使用指定的 gemini 2.5 flash
-        // (備註: 若日後官方正式名稱不同，請在此修改)
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const latestRound = (rounds && rounds.length > 0) ? rounds[rounds.length - 1] : { handling: '無', review: '無' };
@@ -260,13 +283,17 @@ app.post('/api/gemini', async (req, res) => {
     }
 });
 
-// 3. 事項查詢
+// 3. 事項查詢 (更新：支援 planName 篩選與防快取)
 app.get('/api/issues', requireAuth, async (req, res) => {
-    const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, sortField, sortDir } = req.query;
+    // 新增 planName 參數
+    const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, planName, sortField, sortDir } = req.query;
     const limit = parseInt(pageSize);
     const offset = (page - 1) * limit;
     
     let where = ["1=1"], params = [], idx = 1;
+
+    // 加入 Cache-Control 確保資料不被瀏覽器快取
+    res.set('Cache-Control', 'no-store');
 
     if (q) {
         where.push(`(number LIKE $${idx} OR content LIKE $${idx} OR handling LIKE $${idx} OR review LIKE $${idx} OR plan_name LIKE $${idx})`);
@@ -278,6 +305,9 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     if (itemKindCode) { where.push(`item_kind_code = $${idx}`); params.push(itemKindCode); idx++; }
     if (division) { where.push(`division_name = $${idx}`); params.push(division); idx++; }
     if (inspectionCategory) { where.push(`inspection_category_name = $${idx}`); params.push(inspectionCategory); idx++; }
+    
+    // [新增] 精確篩選計畫名稱
+    if (planName) { where.push(`plan_name = $${idx}`); params.push(planName); idx++; }
 
     let orderBy = "created_at DESC";
     const validCols = ['year', 'number', 'unit', 'status', 'created_at'];
@@ -477,6 +507,18 @@ app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
     if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
     await pool.query("DELETE FROM logs WHERE action!='LOGIN'");
     res.json({success:true});
+});
+
+// [新增] 取得既有的計畫名稱列表 (供下拉選單用)
+app.get('/api/options/plans', requireAuth, async (req, res) => {
+    try {
+        // 取得所有不重複的計畫名稱，排除空的
+        const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");
+        res.set('Cache-Control', 'no-store');
+        res.json({ data: result.rows.map(r => r.plan_name) });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // 穩定啟動
