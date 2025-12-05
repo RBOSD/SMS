@@ -588,6 +588,47 @@ app.post('/api/gemini', requireAuth, async (req, res) => {
     res.json({ fulfill: 'Yes', reason: '系統模擬 AI 分析結果：此辦理情形尚稱合理。' });
 });
 
+// ==========================================
+// 🚑 緊急救援路由 (修復後請刪除此段)
+// ==========================================
+app.get('/api/rescue', (req, res) => {
+    const targetUser = req.query.u; // 從網址取得帳號
+
+    if (!targetUser) {
+        // 如果沒輸入帳號，就列出目前資料庫裡的所有使用者，幫您確認資料還在不在
+        db.all("SELECT id, username, role FROM users", [], (err, rows) => {
+            if (err) return res.send("資料庫讀取錯誤: " + err.message);
+            if (rows.length === 0) return res.send("⚠️ 資料庫是空的！(代表資料確實被重置了，請使用 admin / admin123 登入)");
+            
+            const userList = rows.map(r => `[ID:${r.id}] ${r.username} (${r.role})`).join('<br>');
+            res.send(`
+                <h3>目前資料庫內的使用者：</h3>
+                ${userList}
+                <hr>
+                <p>若要重設密碼，請在網址後方加上 <code>?u=您的帳號</code></p>
+                <p>例如: <code>/api/rescue?u=myusername</code></p>
+            `);
+        });
+    } else {
+        // 強制重設該使用者的密碼為 12345678
+        const newHash = bcrypt.hashSync('12345678', 10);
+        db.run("UPDATE users SET password = ? WHERE username = ?", [newHash, targetUser], function(err) {
+            if (err) return res.send("更新失敗: " + err.message);
+            
+            if (this.changes > 0) {
+                res.send(`
+                    <h2 style="color:green">✅ 救援成功</h2>
+                    <p>帳號 <b>${targetUser}</b> 的密碼已重設為: <b>12345678</b></p>
+                    <p><a href="/login.html">點此返回登入頁面</a></p>
+                    <p>(登入後請記得去個人設定修改密碼)</p>
+                `);
+            } else {
+                res.send(`<h2 style="color:red">❌ 找不到帳號 ${targetUser}</h2><p>請確認帳號是否輸入正確。</p>`);
+            }
+        });
+    }
+});
+// ==========================================
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
