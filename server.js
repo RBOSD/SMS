@@ -26,13 +26,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Session 設定
 app.use(session({
-    secret: 'sms-secret-key-pg-final-v2',
+    secret: 'sms-secret-key-pg-final-v3', // 若要強制登出所有用戶，可修改此字串
     resave: false,
     saveUninitialized: false,
-    proxy: true, // 允許 Proxy
+    proxy: true, 
     cookie: { 
         maxAge: 24 * 60 * 60 * 1000,
-        secure: process.env.NODE_ENV === 'production', // HTTPS 必開
+        secure: process.env.NODE_ENV === 'production', 
         sameSite: 'lax' 
     } 
 }));
@@ -93,7 +93,7 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // 4. 動態欄位補強 (確保 1~20 回合欄位都存在)
+        // 4. 動態欄位補強
         const newColumns = [];
         for (let i = 2; i <= 20; i++) {
             newColumns.push({ name: `handling${i}`, type: 'TEXT' });
@@ -109,10 +109,10 @@ async function initDB() {
         for (const col of newColumns) {
             try {
                 await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
-            } catch (e) { /* 忽略欄位已存在 */ }
+            } catch (e) { /* 忽略 */ }
         }
 
-        // 5. 建立預設 Admin (若無使用者)
+        // 5. 建立預設 Admin
         const userRes = await client.query("SELECT count(*) as count FROM users");
         if (parseInt(userRes.rows[0].count) === 0) {
             const hash = bcrypt.hashSync('admin123', 10);
@@ -155,7 +155,6 @@ app.post('/api/auth/login', async (req, res) => {
 
         if (bcrypt.compareSync(password, user.password)) {
             req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name };
-            // 手動保存 Session 以確保寫入
             req.session.save((err) => {
                 if(err) return res.status(500).json({error: 'Session error'});
                 logAction(user.username, 'LOGIN', 'User logged in', req).catch(()=>{});
@@ -194,7 +193,7 @@ app.put('/api/auth/profile', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 2. AI 審查 (Gemini Flash 2.5)
+// 2. AI 審查 (Gemini Flash 2.5 - 監理機關專業版 V2)
 app.post('/api/gemini', async (req, res) => {
     const { content, rounds } = req.body;
 
@@ -203,23 +202,39 @@ app.post('/api/gemini', async (req, res) => {
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-		
-                      // 使用Google gemini 2.5 flash    
+        
+        // 使用指定的 gemini 2.5 flash
+        // (備註: 若日後官方正式名稱不同，請在此修改)
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const latestRound = (rounds && rounds.length > 0) ? rounds[rounds.length - 1] : { handling: '無', review: '無' };
-        
+        const previousReview = (rounds && rounds.length > 1) ? rounds[rounds.length - 2].review : '無';
+
         const prompt = `
-        你是一個鐵道監理機關的安全改善事項的專業審查人員。
-        【事項內容】：${content}
-        【最新辦理情形】：${latestRound.handling || '無'}
-        
-        請分析上述「辦理情形」是否已具體解決「事項內容」的問題，審查的內容須保持中性、客觀的語氣，可帶有一點公務機關常用文字。
-        
+        你現在是【鐵道監理機關】的專業審查人員，正在審核受檢機構針對缺失事項的改善情形。
+        請秉持「中立、客觀、平實」的原則進行審查，語氣需符合公務機關公文風格。
+
+        【待改善事項內容】：
+        ${content}
+
+        【上一回合審查意見】(若有，請確認是否已針對此意見修正)：
+        ${previousReview}
+
+        【本次機構辦理情形】：
+        ${latestRound.handling || '無'}
+
+        ---
+        【審查判斷邏輯】：
+        1. **缺失事項**：必須比對「辦理情形」是否具體解決問題。若僅說明「將於未來辦理」或「納入計畫」，應評為「持續列管」，並要求具體期程。
+        2. **觀察事項 (Observation)**：此類事項通常涉及潛在風險或長期趨勢。若機構僅表示「研議中」或「評估中」而無具體結論或改善措施，**不可解除列管**，應要求持續觀察或提出具體方案。
+        3. **建議事項 (Recommendation)**：此類事項通常由機構**自行列管**。若機構已回復相關處置或說明理由，原則上可同意備查或維持自行列管。
+        4. **佐證資料**：若機構宣稱已完成，審查意見應習慣性提及「請檢附相關佐證資料(如照片、紀錄)」。
+
+        【回覆格式要求】：
         請嚴格依照以下 JSON 格式回覆 (不要 Markdown 標記)：
         {
-            "fulfill": "Yes 或 No (Yes代表已完成, No代表未完成)",
-            "reason": "請提供簡潔且說明清楚的審查意見"
+            "fulfill": "Yes 或 No (Yes代表同意解除列管/備查, No代表不同意/持續列管)",
+            "reason": "請撰寫平實的審查意見(100字內)。範例：「說明內容尚屬妥適，同意解除列管。」或「所陳改善措施尚未具體，請補充相關佐證資料後報局。」"
         }
         `;
 
@@ -233,12 +248,14 @@ app.post('/api/gemini', async (req, res) => {
             res.json(json);
         } catch (parseError) {
             console.error("JSON Parse Error, raw text:", text);
-            res.json({ fulfill: text.includes("Yes")?"Yes":"No", reason: text });
+            res.json({ 
+                fulfill: text.includes("Yes") ? "Yes" : "No", 
+                reason: text.replace(/[{}]/g, '').replace(/"reason":/g, '').replace(/"fulfill":.*/g, '').trim() 
+            });
         }
 
     } catch (e) {
         console.error("Gemini API Error:", e);
-        // 回傳 500 讓前端知道失敗，而不是回傳 HTML
         res.status(500).json({ error: 'AI 分析失敗: ' + e.message });
     }
 });
