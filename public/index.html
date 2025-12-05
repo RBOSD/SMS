@@ -404,10 +404,34 @@
                     <!-- Part A: Word Import -->
                     <div class="detail-card" id="uploadCardWord" style="max-width:800px; margin-bottom:30px;">
                         <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#0369a1;">📝 例行作業區 (Word 解析)</div>
-                        <div style="margin-bottom:20px; background:#f0f9ff; border:1px solid #bae6fd; padding:16px; border-radius:8px; font-size:13px; color:#0369a1; line-height:1.5;">用於新增新的審查紀錄。請先設定本次審查的次數與發函日期，再選擇 Word 檔。</div>
-                        <div style="display:flex; gap:24px; margin-bottom:24px; flex-wrap:wrap;">
-                            <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">1. 設定匯入參數 (必填)</label><div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;"><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">審查次數 (Round)</div><input type="number" id="importRound" class="filter-input" value="1" min="1" max="20" onchange="checkImportReady()"></div><div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">發函日期 (例:1130615)</div><input type="text" id="importDate" class="filter-input" placeholder="必填" onkeyup="checkImportReady()"></div></div></div>
-                            <div style="flex:1; min-width:240px;"><label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">2. 選擇 Word 檔案 (.docx)</label><input type="file" id="wordInput" class="filter-input" accept=".docx" disabled style="padding:8px;"></div>
+                        <div style="margin-bottom:20px; background:#f0f9ff; border:1px solid #bae6fd; padding:16px; border-radius:8px; font-size:13px; color:#0369a1; line-height:1.5;">
+                            <p style="margin:0 0 8px 0;">用於新增新的審查紀錄。Word 檔內可能無日期資訊，請在此處統一設定。</p>
+                        </div>
+                        
+                        <!-- Global Settings for Import -->
+                        <div style="background:white; border:1px solid #e2e8f0; padding:16px; border-radius:8px; margin-bottom:24px;">
+                            <label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">1. 設定整批匯入參數 (必填)</label>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:12px;">
+                                <div>
+                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">審查次數 (Round)</div>
+                                    <input type="number" id="importRound" class="filter-input" value="1" min="1" max="20" onchange="checkImportReady()">
+                                </div>
+                                <div>
+                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">檢查計畫名稱 (例如: 113年度上半年定期檢查)</div>
+                                    <input type="text" id="importPlanName" class="filter-input" placeholder="選填 (會套用到所有項目)">
+                                </div>
+                            </div>
+                            <div style="display:grid; grid-template-columns: 1fr; gap:16px;">
+                                <div>
+                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">初次發函日期 (例如: 1130615) - 僅第1次審查時需要</div>
+                                    <input type="text" id="importDate" class="filter-input" placeholder="若是第1次匯入，建議填寫" onkeyup="checkImportReady()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:24px;">
+                            <label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">2. 選擇 Word 檔案 (.docx)</label>
+                            <input type="file" id="wordInput" class="filter-input" accept=".docx" disabled style="padding:8px;">
                         </div>
                         <button id="btnParseWord" class="btn btn-primary" style="width:100%; padding:12px;" onclick="previewWord()" disabled>解析並預覽 Word</button>
                         <div id="importStatusWord" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
@@ -439,6 +463,22 @@
                 <div id="tab-data-manual" class="hidden">
                     <div class="detail-card" style="max-width:800px;">
                         <div style="margin-bottom:20px;font-size:14px;color:#475569;">手動新增單筆開立事項至資料庫。<br><span style="color:var(--primary);">💡 提示：輸入編號後，系統會自動帶入年度、機構、分組與種類資訊。</span></div>
+                        
+                        <!-- New Fields for Plan and Date -->
+                        <div style="background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:20px; border:1px solid #e2e8f0;">
+                            <div style="font-weight:700; margin-bottom:12px; color:#334155;">專案資訊</div>
+                            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label>檢查計畫名稱</label>
+                                    <input type="text" id="manualPlanName" class="filter-input" placeholder="例如: 113年度上半年定期檢查">
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <label>初次發函日期</label>
+                                    <input type="text" id="manualIssueDate" class="filter-input" placeholder="例如: 1130501">
+                                </div>
+                            </div>
+                        </div>
+
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                             <div class="form-group"><label>事項編號 (必填)</label><input type="text" id="manualNumber" class="filter-input" placeholder="例如: 113-TRA-1-A01-N01" oninput="autoFillFromNumber()"></div>
                             <div class="form-group"><label>年度 (必填)</label><input type="number" id="manualYear" class="filter-input" placeholder="自動帶入"></div>
@@ -570,6 +610,16 @@
                     <div style="margin-bottom:16px;" id="dStatus"></div>
                     <div style="line-height:1.7;font-size:15px;color:#334155;" id="dContent"></div>
                 </div>
+
+                <!-- New Plan Info Section -->
+                <div class="detail-card" id="dPlanInfoBox">
+                    <div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:8px;text-transform:uppercase;">專案計畫資訊</div>
+                    <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                        <div><div style="font-size:12px;color:#64748b;margin-bottom:2px;">檢查計畫名稱</div><div style="font-weight:600;" id="dPlanName">-</div></div>
+                        <div><div style="font-size:12px;color:#64748b;margin-bottom:2px;">初次發函日期</div><div style="font-weight:600;" id="dIssueDate">-</div></div>
+                    </div>
+                </div>
+
                 <div style="font-weight:700;margin:24px 0 16px;font-size:16px;color:#0f172a;">歷程紀錄</div><div id="dTimeline"></div>
                 <div style="margin-top:30px; display:flex; flex-direction:column; gap:12px;">
                     <button class="btn btn-primary hidden" id="editBtn" style="width:100%;padding:12px;" onclick="toggleEditMode(true)">✏️ 編輯 / 審查</button>
@@ -594,6 +644,22 @@
                              <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;" id="prevReviewText"></div>
                         </div>
                         <div class="form-group"><label>第幾次審查</label><select id="editRound" class="filter-select" onchange="loadRoundData()"></select></div>
+                        
+                        <!-- New Round Date Fields -->
+                        <div class="form-group" style="background:#f1f5f9; padding:12px; border-radius:8px; border:1px solid #e2e8f0;">
+                            <label style="margin-bottom:8px; color:#0f172a;">歷程日期設定</label>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                                <div>
+                                    <div style="font-size:11px;color:#64748b;margin-bottom:2px;">機構回復日期</div>
+                                    <input type="text" id="editReplyDate" class="filter-input" placeholder="例: 1130601" style="font-size:13px;padding:6px;">
+                                </div>
+                                <div>
+                                    <div style="font-size:11px;color:#64748b;margin-bottom:2px;">本次函復日期</div>
+                                    <input type="text" id="editResponseDate" class="filter-input" placeholder="例: 1130615" style="font-size:13px;padding:6px;">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-group" style="flex:1;display:flex;flex-direction:column;"><label>機構辦理情形</label><textarea id="editHandling" class="filter-input" rows="10" style="background:#ffffff;line-height:1.5;flex:1;min-height:200px;resize:vertical;"></textarea></div>
                     </div>
                     <div class="review-right">
@@ -808,9 +874,10 @@
             } 
         });
 
+        // [Fixed] Anti-cache by adding timestamp
         async function checkAuth() { 
             try { 
-                const res = await fetch('/api/auth/me'); const data = await res.json(); 
+                const res = await fetch('/api/auth/me?t=' + Date.now()); const data = await res.json(); 
                 if(data.isLogin) { 
                     currentUser = data; 
                     const nameEl = document.getElementById('headerUserName');
@@ -850,7 +917,8 @@
             let sortField = 'created_at', sortDir = 'desc';
             if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
             
-            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, sortField, sortDir });
+            // [Fixed] Added _t for anti-cache
+            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, sortField, sortDir, _t: Date.now() });
             
             try {
                 const res = await fetch('/api/issues?' + params.toString()); 
@@ -927,12 +995,14 @@
 
         function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }
 
-        async function loadUsersPage(page = 1) { usersPage = page; usersPageSize = parseInt(document.getElementById('usersPageSize').value, 10); const q = document.getElementById('userSearch').value || ''; const params = new URLSearchParams({ page: usersPage, pageSize: usersPageSize, q, sortField: usersSortField, sortDir: usersSortDir }); try { const res = await fetch('/api/users?' + params.toString()); if(!res.ok) { showToast('載入使用者失敗','error'); return; } const j = await res.json(); userList = j.data || []; usersTotal = j.total || 0; usersPages = j.pages || 1; renderUsers(); renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage'); } catch(e) { console.error(e); showToast('載入使用者錯誤','error'); } }
+        // [Fixed] Anti-cache
+        async function loadUsersPage(page = 1) { usersPage = page; usersPageSize = parseInt(document.getElementById('usersPageSize').value, 10); const q = document.getElementById('userSearch').value || ''; const params = new URLSearchParams({ page: usersPage, pageSize: usersPageSize, q, sortField: usersSortField, sortDir: usersSortDir, _t: Date.now() }); try { const res = await fetch('/api/users?' + params.toString()); if(!res.ok) { showToast('載入使用者失敗','error'); return; } const j = await res.json(); userList = j.data || []; usersTotal = j.total || 0; usersPages = j.pages || 1; renderUsers(); renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage'); } catch(e) { console.error(e); showToast('載入使用者錯誤','error'); } }
         function renderUsers() { document.getElementById('usersTableBody').innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name||'-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id!==currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); }
         function usersSortBy(field) { if(usersSortField === field) usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; else { usersSortField = field; usersSortDir = 'asc'; } loadUsersPage(1); }
 
-        async function loadLogsPage(page = 1) { logsPage = page; const q = document.getElementById('loginSearch').value || ''; const params = new URLSearchParams({ page: logsPage, pageSize: logsPageSize, q }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/logs?' + params.toString()); if(!res.ok) { showToast('載入登入紀錄失敗','error'); return; } const j = await res.json(); currentLogs.login = j.data || []; logsTotal = j.total || 0; logsPages = j.pages || 1; document.getElementById('logsTableBody').innerHTML = currentLogs.login.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="IP">${l.ip_address||'-'}</td></tr>`).join(''); renderPagination('logsPagination', logsPage, logsPages, 'loadLogsPage'); } catch(e) { console.error(e); showToast('載入登入紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
-        async function loadActionsPage(page = 1) { actionsPage = page; const q = document.getElementById('actionSearch').value || ''; const params = new URLSearchParams({ page: actionsPage, pageSize: actionsPageSize, q }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/action_logs?' + params.toString()); if(!res.ok) { showToast('載入操作紀錄失敗','error'); return; } const j = await res.json(); currentLogs.action = j.data || []; actionsTotal = j.total || 0; actionsPages = j.pages || 1; document.getElementById('actionsTableBody').innerHTML = currentLogs.action.map(l => `<tr><td data-label="時間" style="padding:12px;white-space:nowrap;">${new Date(l.created_at).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="動作"><span class="badge new">${l.action}</span></td><td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td></tr>`).join(''); renderPagination('actionsPagination', actionsPage, actionsPages, 'loadActionsPage'); } catch(e) { console.error(e); showToast('載入操作紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
+        // [Fixed] Anti-cache
+        async function loadLogsPage(page = 1) { logsPage = page; const q = document.getElementById('loginSearch').value || ''; const params = new URLSearchParams({ page: logsPage, pageSize: logsPageSize, q, _t: Date.now() }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/logs?' + params.toString()); if(!res.ok) { showToast('載入登入紀錄失敗','error'); return; } const j = await res.json(); currentLogs.login = j.data || []; logsTotal = j.total || 0; logsPages = j.pages || 1; document.getElementById('logsTableBody').innerHTML = currentLogs.login.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="IP">${l.ip_address||'-'}</td></tr>`).join(''); renderPagination('logsPagination', logsPage, logsPages, 'loadLogsPage'); } catch(e) { console.error(e); showToast('載入登入紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
+        async function loadActionsPage(page = 1) { actionsPage = page; const q = document.getElementById('actionSearch').value || ''; const params = new URLSearchParams({ page: actionsPage, pageSize: actionsPageSize, q, _t: Date.now() }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/action_logs?' + params.toString()); if(!res.ok) { showToast('載入操作紀錄失敗','error'); return; } const j = await res.json(); currentLogs.action = j.data || []; actionsTotal = j.total || 0; actionsPages = j.pages || 1; document.getElementById('actionsTableBody').innerHTML = currentLogs.action.map(l => `<tr><td data-label="時間" style="padding:12px;white-space:nowrap;">${new Date(l.created_at).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="動作"><span class="badge new">${l.action}</span></td><td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td></tr>`).join(''); renderPagination('actionsPagination', actionsPage, actionsPages, 'loadActionsPage'); } catch(e) { console.error(e); showToast('載入操作紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
 
         function exportLogs(type) { const data = type === 'login' ? currentLogs.login : currentLogs.action; if(!data || data.length === 0) return showToast('無資料可匯出', 'error'); let csvContent = '\uFEFF'; if(type === 'login') { csvContent += "時間,帳號,IP位址\n"; data.forEach(row => { csvContent += `"${new Date(row.login_time).toLocaleString('zh-TW')}","${row.username}","${row.ip_address}"\n`; }); } else { csvContent += "時間,帳號,動作,詳細內容\n"; data.forEach(row => { csvContent += `"${new Date(row.created_at).toLocaleString('zh-TW')}","${row.username}","${row.action}","${(row.details||'').replace(/"/g, '""')}"\n`; }); } const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `${type}_logs_${new Date().toISOString().slice(0,10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
         async function clearLogs(type) { if(!confirm(`確定要清空所有「${type === 'login' ? '登入' : '操作'}」紀錄嗎？此動作無法復原！`)) return; const endpoint = type === 'login' ? '/api/admin/logs' : '/api/admin/action_logs'; try { const res = await fetch(endpoint, { method: 'DELETE' }); if(res.ok) { showToast('紀錄已清空'); if(type === 'login') loadLogsPage(1); else loadActionsPage(1); } else showToast('清除失敗', 'error'); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
@@ -1014,7 +1084,9 @@
                             itemKindCode: i.itemKindCode,
                             category: i.category,
                             divisionName: i.division, // map back to divisionName for consistency
-                            inspectionCategoryName: i.inspection_category
+                            inspectionCategoryName: i.inspection_category,
+                            planName: i.planName,
+                            issueDate: i.issueDate
                         };
                         
                         for(let k=1; k<=20; k++) {
@@ -1117,6 +1189,7 @@
             document.getElementById('importStatusBackup').innerText = ''; 
         }
         
+        // [Modified] Confirm import to include new global fields (Plan Name, Issue Date)
         async function confirmImport() { 
             const count = stagedImportData.length;
             const isBackup = currentImportMode === 'backup';
@@ -1124,8 +1197,24 @@
             if(!confirm(msg)) return; 
             
             const round = isBackup ? 0 : document.getElementById('importRound').value;
+            // Note: importDate here is used for "review date" in old logic, but we also want initial date.
             const date = isBackup ? '' : document.getElementById('importDate').value;
-            const cleanData = stagedImportData.map(({ _importStatus, ...item }) => item); 
+            
+            // New Global Fields
+            const planName = isBackup ? '' : document.getElementById('importPlanName').value;
+            
+            // If user fills "Import Date" in batch settings, we treat it as the Review Date for the round,
+            // AND if it's round 1, we can also treat it as Issue Date if they want, but let's rely on the specific input.
+            // Actually, let's just pass planName and issueDate into every item if it's Word mode.
+            
+            let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
+                if(currentImportMode === 'word') {
+                    // Apply batch settings if manual fields are empty on the object
+                    if(!item.planName && planName) item.planName = planName;
+                    if(!item.issueDate && date && parseInt(round) === 1) item.issueDate = date; 
+                }
+                return item;
+            });
             
             try { 
                 const res = await fetch('/api/issues/import', { 
@@ -1164,7 +1253,7 @@
             }
         }
 
-        // [Updated] Submit Manual Issue to include auto-parsing
+        // [Updated] Submit Manual Issue to include Plan Name and Issue Date
         async function submitManualIssue() {
             const number = document.getElementById('manualNumber').value.trim();
             const year = document.getElementById('manualYear').value.trim();
@@ -1173,6 +1262,10 @@
             const division = document.getElementById('manualDivision').value;
             const inspection = document.getElementById('manualInspection').value;
             const kind = document.getElementById('manualKind').value;
+            
+            // New Fields
+            const planName = document.getElementById('manualPlanName').value.trim();
+            const issueDate = document.getElementById('manualIssueDate').value.trim();
             
             const status = document.getElementById('manualStatus').value;
             const content = document.getElementById('manualContent').value.trim();
@@ -1184,6 +1277,8 @@
                     itemKindCode: kind, 
                     divisionName: division,
                     inspectionCategoryName: inspection,
+                    planName: planName,  // Added
+                    issueDate: issueDate, // Added
                     scheme: 'MANUAL' 
                 }],
                 round: 1, reviewDate: '', actualReplyDate: ''
@@ -1201,6 +1296,9 @@
                     document.getElementById('manualInspection').value = '';
                     document.getElementById('manualKind').value = '';
                     document.getElementById('manualContent').value = ''; 
+                    // Clear new inputs
+                    document.getElementById('manualPlanName').value = '';
+                    document.getElementById('manualIssueDate').value = '';
                     loadIssuesPage(1); 
                 } else { showToast('新增失敗', 'error'); }
             } catch(e) { showToast('Error: ' + e.message, 'error'); }
@@ -1267,22 +1365,45 @@
         function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
         async function submitProfile() { const name = document.getElementById('myProfileName').value, pwd = document.getElementById('myProfilePwd').value; try { const res = await fetch('/api/auth/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password: pwd }) }); if(res.ok) { showToast('更新成功，請重新登入'); document.getElementById('profileModal').classList.remove('open'); logout(); } else { const j = await res.json(); showToast(j.error || '更新失敗', 'error'); } } catch(e) { showToast('更新失敗', 'error'); } }
         
+        // [Updated] Edit Mode Logic to handle new dates
         function toggleEditMode(edit) { document.getElementById('viewModeContent').classList.toggle('hidden', edit); document.getElementById('editModeContent').classList.toggle('hidden', !edit); document.getElementById('drawerTitle').innerText = edit ? "編輯事項" : "詳細資料"; if(edit) { document.getElementById('editId').value = currentEditItem.id; document.getElementById('editHeaderNumber').innerText = currentEditItem.number; document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; document.getElementById('editStatus').value = st; document.getElementById('editRound').value = 1; document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); loadRoundData(); document.getElementById('aiBox').style.display = 'none'; document.getElementById('aiPreviewText').innerText = ''; } }
         function initEditForm() { const s = document.getElementById('editRound'); if(!s || s.options.length > 0) return; for(let i = 1; i <= 20; i++) { const o = document.createElement('option'); o.value = i; o.text = `第 ${i} 次`; s.add(o); } }
+        
+        // [Updated] openDetail to show Plan and Dates
         function openDetail(id, isEdit) { 
             currentEditItem = currentData.find(d => String(d.id) === String(id)); if(!currentEditItem) return; 
             document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dYear').textContent = currentEditItem.year; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; 
+            
+            // New Fields Display
+            document.getElementById('dPlanName').textContent = currentEditItem.planName || '(未設定)';
+            document.getElementById('dIssueDate').textContent = currentEditItem.issueDate || '(未設定)';
+            
             const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self'); 
             document.getElementById('dStatus').innerHTML = currentEditItem.status && currentEditItem.status !== 'Open' ? `<span class="badge ${st}">${currentEditItem.status}</span>` : '(未設定)'; 
             let h = ''; 
             let firstRecord = true;
             for(let i = 20; i >= 1; i--) { 
-                const ha = currentEditItem[i === 1 ? 'handling' : `handling${i}`], re = currentEditItem[i === 1 ? 'review' : `review${i}`]; 
+                const suffix = i === 1 ? '' : i;
+                const ha = currentEditItem['handling' + suffix], re = currentEditItem['review' + suffix]; 
+                const replyDate = currentEditItem['replyDate_r' + i];
+                const responseDate = currentEditItem['responseDate_r' + i];
+
                 if(ha || re) {
                     const latestBadge = firstRecord ? '<span class="badge new" style="margin-left:8px;font-size:11px;">最新</span>' : '';
+                    
+                    // Date Display in Timeline
+                    let dateInfo = '';
+                    if(replyDate || responseDate) {
+                        dateInfo = `<div style="margin-bottom:8px;font-size:12px;color:#64748b;background:#f8fafc;padding:6px;border-radius:4px;display:inline-block;">`;
+                        if(replyDate) dateInfo += `機構回復: ${replyDate} `;
+                        if(responseDate) dateInfo += ` | 函復: ${responseDate}`;
+                        dateInfo += `</div>`;
+                    }
+
                     h += `<div style="padding-left:16px;border-left:2px solid #e5e7eb;margin-left:8px;padding-bottom:20px;position:relative;">
                         <div style="position:absolute;left:-7px;top:0;width:12px;height:12px;border-radius:50%;background:${firstRecord?'var(--primary)':'#fff'};border:2px solid var(--primary);"></div>
                         <div style="font-size:13px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;">第 ${i} 次辦理情形${latestBadge}</div>
+                        ${dateInfo}
                         ${ha?`<div style="background:#f1f5f9;padding:10px;border-radius:6px;font-size:14px;margin-bottom:8px;">${ha}</div>`:''}
                         ${re?`<div style="background:#fff;border:1px solid #e2e8f0;padding:10px;border-radius:6px;font-size:14px;">${re}</div>`:''}
                     </div>`;
@@ -1323,12 +1444,45 @@
         function toggleAllCheckboxes() { const master = document.getElementById('selectAll'); document.querySelectorAll('.issue-check').forEach(cb => cb.checked = master.checked); updateBatchUI(); }
         function updateBatchUI() { const checked = document.querySelectorAll('.issue-check:checked'), count = checked.length, container = document.getElementById('batchActionContainer'); if(count > 0) { container.style.display = 'block'; document.getElementById('selectedCountBadge').innerText = `(${count})`; } else { container.style.display = 'none'; } }
         async function batchDeleteIssues() { const checked = document.querySelectorAll('.issue-check:checked'), ids = Array.from(checked).map(cb => cb.value); if(ids.length === 0) return showToast('請先勾選要刪除的項目', 'error'); if(!confirm(`確定要刪除這 ${ids.length} 筆資料嗎？`)) return; try { const res = await fetch('/api/issues/batch-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); const result = await res.json(); if(result.success) { showToast(`成功刪除 ${ids.length} 筆資料`); loadIssuesPage(1); document.getElementById('selectAll').checked = false; updateBatchUI(); } else { showToast('刪除失敗: ' + result.error, 'error'); } } catch(e) { showToast('連線錯誤', 'error'); } }
-        async function saveEdit() { const id = document.getElementById('editId').value, payload = { status: document.getElementById('editStatus').value, round: document.getElementById('editRound').value, handling: document.getElementById('editHandling').value, review: document.getElementById('editReview').value }; const res = await fetch(`/api/issues/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if(res.ok) { showToast('儲存成功'); await loadIssuesPage(issuesPage); toggleEditMode(false); openDetail(id, false); } else showToast('儲存失敗', 'error'); }
+        
+        // [Updated] Save Edit to include dates
+        async function saveEdit() { 
+            const id = document.getElementById('editId').value;
+            const round = document.getElementById('editRound').value;
+            const replyDate = document.getElementById('editReplyDate').value;
+            const responseDate = document.getElementById('editResponseDate').value;
+
+            const payload = { 
+                status: document.getElementById('editStatus').value, 
+                round: round, 
+                handling: document.getElementById('editHandling').value, 
+                review: document.getElementById('editReview').value,
+                replyDate: replyDate,
+                responseDate: responseDate
+            }; 
+
+            const res = await fetch(`/api/issues/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if(res.ok) { showToast('儲存成功'); await loadIssuesPage(issuesPage); toggleEditMode(false); openDetail(id, false); } else showToast('儲存失敗', 'error'); 
+        }
+
         async function deleteIssue(id) { if(!confirm('確定要刪除此事項嗎？此操作無法復原。')) return; try { const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('已刪除'); await loadIssuesPage(issuesPage); closeDrawer(); } else showToast('刪除失敗','error'); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
         async function deleteIssueFromDrawer() { if(!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
         
         function switchView(id) { document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.sidebar-btn').forEach(e => e.classList.remove('active')); const btn = document.getElementById(`btn-${id}`); if(btn) btn.classList.add('active'); const panel = document.getElementById('filtersPanel'); if(panel.classList.contains('open')) { onToggleSidebar(); } }
-        function loadRoundData() { const r = parseInt(document.getElementById('editRound').value), s = r === 1 ? '' : r, rawHandling = currentEditItem['handling' + s] || '', rawReview = currentEditItem['review' + s] || ''; document.getElementById('editHandling').value = formatHtmlToText(rawHandling); document.getElementById('editReview').value = formatHtmlToText(rawReview); const prevBox = document.getElementById('prevReviewBox'), prevText = document.getElementById('prevReviewText'); if(r > 1) { const prevS = (r - 1) === 1 ? '' : (r - 1), prevReviewContent = currentEditItem['review' + prevS]; if(prevReviewContent) { document.getElementById('prevRoundNum').innerText = `第 ${r-1} 次`; prevText.innerText = formatHtmlToText(prevReviewContent); prevBox.style.display = 'block'; } else { prevBox.style.display = 'none'; } } else { prevBox.style.display = 'none'; } }
+        
+        // [Updated] Load Round Data to fill date inputs
+        function loadRoundData() { 
+            const r = parseInt(document.getElementById('editRound').value), s = r === 1 ? '' : r;
+            const rawHandling = currentEditItem['handling' + s] || '';
+            const rawReview = currentEditItem['review' + s] || ''; 
+            document.getElementById('editHandling').value = formatHtmlToText(rawHandling); 
+            document.getElementById('editReview').value = formatHtmlToText(rawReview); 
+            
+            // Load Dates
+            document.getElementById('editReplyDate').value = currentEditItem['replyDate_r' + r] || '';
+            document.getElementById('editResponseDate').value = currentEditItem['responseDate_r' + r] || '';
+
+            const prevBox = document.getElementById('prevReviewBox'), prevText = document.getElementById('prevReviewText'); if(r > 1) { const prevS = (r - 1) === 1 ? '' : (r - 1), prevReviewContent = currentEditItem['review' + prevS]; if(prevReviewContent) { document.getElementById('prevRoundNum').innerText = `第 ${r-1} 次`; prevText.innerText = formatHtmlToText(prevReviewContent); prevBox.style.display = 'block'; } else { prevBox.style.display = 'none'; } } else { prevBox.style.display = 'none'; } 
+        }
     </script>
 </body>
 </html>
