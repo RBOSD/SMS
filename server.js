@@ -174,9 +174,38 @@ app.post('/api/auth/logout', (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/api/auth/me', (req, res) => {
-    if (req.session.user) res.json({ isLogin: true, ...req.session.user });
-    else res.json({ isLogin: false });
+// [修改重點] 獲取當前使用者 (修正權限不同步問題)
+app.get('/api/auth/me', async (req, res) => {
+    if (req.session.user) {
+        try {
+            // 這裡很重要：每次前端詢問 "我是誰" 時，都去資料庫查最新的資料
+            // 而不是只回傳 Session 裡存的舊資料
+            const result = await pool.query("SELECT id, username, name, role FROM users WHERE id = $1", [req.session.user.id]);
+            const freshUser = result.rows[0];
+
+            if (freshUser) {
+                // 同時更新 Session 裡的資料，確保接下來的 API 請求使用的是最新權限
+                req.session.user = { 
+                    id: freshUser.id, 
+                    username: freshUser.username, 
+                    role: freshUser.role, 
+                    name: freshUser.name 
+                };
+                // 回傳最新資料
+                res.json({ isLogin: true, ...freshUser });
+            } else {
+                // 如果資料庫找不到這個人 (可能被刪除了)，強制登出
+                req.session.destroy();
+                res.json({ isLogin: false });
+            }
+        } catch (e) {
+            console.error("Auth Me Error:", e);
+            // 如果資料庫連線失敗，為了安全，視為未登入
+            res.json({ isLogin: false });
+        }
+    } else {
+        res.json({ isLogin: false });
+    }
 });
 
 app.put('/api/auth/profile', requireAuth, async (req, res) => {
@@ -202,9 +231,6 @@ app.post('/api/gemini', async (req, res) => {
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        
-        // 使用指定的 gemini 2.5 flash
-        // (備註: 若日後官方正式名稱不同，請在此修改)
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const latestRound = (rounds && rounds.length > 0) ? rounds[rounds.length - 1] : { handling: '無', review: '無' };
