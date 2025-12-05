@@ -416,39 +416,63 @@
                     <div class="detail-card" id="uploadCardWord" style="max-width:800px; margin-bottom:30px;">
                         <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#0369a1;">📝 例行作業區 (Word 解析)</div>
                         <div style="margin-bottom:20px; background:#f0f9ff; border:1px solid #bae6fd; padding:16px; border-radius:8px; font-size:13px; color:#0369a1; line-height:1.5;">
-                            <p style="margin:0 0 8px 0;">用於新增新的審查紀錄。請選擇審查次數，系統將自動顯示對應的日期欄位。</p>
+                            <p style="margin:0 0 8px 0;">用於新增新的審查紀錄。請選擇本次的作業階段。</p>
                         </div>
                         
                         <!-- Global Settings for Import -->
                         <div style="background:white; border:1px solid #e2e8f0; padding:16px; border-radius:8px; margin-bottom:24px;">
                             <label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">1. 設定整批匯入參數 (必填)</label>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:12px;">
-                                <div>
-                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">審查次數 (Round)</div>
-                                    <input type="number" id="importRound" class="filter-input" value="1" min="1" max="20" onchange="onImportRoundChange()">
+                            
+                            <!-- [修改] 改為「作業階段」選擇，邏輯更清晰 -->
+                            <div style="margin-bottom:16px;">
+                                <div style="font-size:12px;color:#64748b;margin-bottom:4px;">請選擇本次匯入的作業階段</div>
+                                <div style="display:flex; gap:16px;">
+                                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px; background:#f0f9ff; padding:10px 16px; border-radius:8px; border:1px solid #bae6fd; color:#0369a1; flex:1;">
+                                        <input type="radio" name="importStage" value="initial" checked onchange="onImportStageChange()">
+                                        <span style="font-weight:700;">🆕 初次開立 (新案)</span>
+                                    </label>
+                                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px; background:#fdf2f8; padding:10px 16px; border-radius:8px; border:1px solid #fbcfe8; color:#be185d; flex:1;">
+                                        <input type="radio" name="importStage" value="review" onchange="onImportStageChange()">
+                                        <span style="font-weight:700;">🔄 後續審查 (第 N 次)</span>
+                                    </label>
                                 </div>
-                                <div>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:12px;">
+                                <!-- [修改] 此欄位只有在選擇「後續審查」時才需要輸入數字，初次開立隱藏 -->
+                                <div id="importRoundContainer" style="display:none;">
+                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">這是第幾次審查？</div>
+                                    <select id="importRoundSelect" class="filter-select">
+                                        <!-- JavaScript 會自動產生選項 -->
+                                    </select>
+                                </div>
+                                
+                                <div style="grid-column: span 2;" id="importPlanNameContainer">
                                     <div style="font-size:12px;color:#64748b;margin-bottom:4px;">檢查計畫名稱 (例如: 113年度上半年定期檢查)</div>
-                                    <!-- [修改] 增加 datalist 支援 -->
                                     <input type="text" id="importPlanName" list="planOptionsList" class="filter-input" placeholder="選填 (會套用到所有項目)">
                                 </div>
                             </div>
                             
-                            <!-- [修改] 日期欄位區塊，根據 Round 動態顯示 -->
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-                                <div id="importDateGroup" style="display:block;">
-                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">初次發函日期 (例如: 1130615)</div>
-                                    <input type="text" id="importIssueDate" class="filter-input" placeholder="第1次匯入時建議填寫" onkeyup="checkImportReady()">
+                            <!-- [修改] 日期欄位區塊，根據 Stage 動態切換 -->
+                            <div style="background:#fafafa; padding:12px; border-radius:6px; border:1px dashed #cbd5e1;">
+                                <div id="importDateGroup_Initial" style="display:block;">
+                                    <div style="font-size:12px;color:#0369a1;margin-bottom:4px;font-weight:700;">📆 日期設定 (初次開立)</div>
+                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">監理機關初次發函日期 (例如: 1130615)</div>
+                                    <input type="text" id="importIssueDate" class="filter-input" placeholder="必填" onkeyup="checkImportReady()">
                                 </div>
-                                <div id="importReviewDateGroup" style="display:none; grid-column: span 2; grid-template-columns: 1fr 1fr; gap:16px;">
-                                     <div>
-                                        <div style="font-size:12px;color:#64748b;margin-bottom:4px;">機構回復日期 (例如: 1130601)</div>
-                                        <input type="text" id="importReplyDate" class="filter-input" placeholder="本次審查的機構回復日">
-                                     </div>
-                                     <div>
-                                        <div style="font-size:12px;color:#64748b;margin-bottom:4px;">本次函復日期 (例如: 1130615)</div>
-                                        <input type="text" id="importResponseDate" class="filter-input" placeholder="本次審查結果的發函日">
-                                     </div>
+
+                                <div id="importDateGroup_Review" style="display:none;">
+                                    <div style="font-size:12px;color:#be185d;margin-bottom:4px;font-weight:700;">📆 日期設定 (審查階段)</div>
+                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                                        <div>
+                                            <div style="font-size:12px;color:#64748b;margin-bottom:4px;">機構回復辦理情形日期</div>
+                                            <input type="text" id="importReplyDate" class="filter-input" placeholder="例如: 1130701">
+                                        </div>
+                                        <div>
+                                            <div style="font-size:12px;color:#64748b;margin-bottom:4px;">監理機關本次函復日期</div>
+                                            <input type="text" id="importResponseDate" class="filter-input" placeholder="例如: 1130715">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -905,6 +929,16 @@
                 console.error("Load plans failed", e);
             }
         }
+        
+        // [新增] 初始化：產生審查次數選項
+        function initImportRoundOptions() {
+            const s = document.getElementById('importRoundSelect');
+            if(!s) return;
+            s.innerHTML = '';
+            for(let i=1; i<=20; i++) {
+                s.innerHTML += `<option value="${i}">第 ${i} 次審查</option>`;
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', async () => { 
             console.log("App init...");
@@ -915,6 +949,7 @@
                 initEditForm(); 
                 initCharts(); 
                 loadPlanOptions(); // [New]
+                initImportRoundOptions(); // [新增]
                 await loadIssuesPage(1); 
                 loadUsersPage(1); 
             } 
@@ -1069,24 +1104,69 @@
             var item = { number: info.raw.toUpperCase(), year: String(info.yearRoc), unit: unitName, itemKindCode: info.kindCode, category: kindName, inspectionCategoryName: inspectName, divisionName: divName, content: "", handling: "", status: "持續列管" }; if(cells[col.content]) item.content = sanitizeContent(cells[col.content].innerHTML); if(cells[col.handling]) item.handling = sanitizeContent(cells[col.handling].innerHTML); if(info.kindCode === "R") item.status = "自行列管"; else if(cells[col.result]) item.status = parseStatusFromResultCell(cells[col.result]) || "持續列管"; reviewCols.forEach(function(rc) { var key = (rc.round === 1 ? "review" : ("review" + rc.round)); item[key] = sanitizeContent(cells[rc.idx] ? cells[rc.idx].innerHTML : ""); }); items.push(item); } }); } catch(e) { console.error("Parse error:", e); } return items;
         }
 
-        // [Modified] Toggle import date fields based on round
-        function onImportRoundChange() {
-            const r = parseInt(document.getElementById('importRound').value);
-            if(r === 1) {
-                document.getElementById('importDateGroup').style.display = 'block';
-                document.getElementById('importReviewDateGroup').style.display = 'none';
+        // [新增] 當作業階段改變時
+        function onImportStageChange() {
+            // 取得目前選中的階段
+            const stage = document.querySelector('input[name="importStage"]:checked').value;
+            const roundContainer = document.getElementById('importRoundContainer');
+            const planNameContainer = document.getElementById('importPlanNameContainer');
+            
+            if (stage === 'initial') {
+                // 初次開立
+                roundContainer.style.display = 'none'; // 不需要選第幾次
+                planNameContainer.style.gridColumn = 'span 2'; // 計畫名稱佔滿
+                
+                document.getElementById('importDateGroup_Initial').style.display = 'block';
+                document.getElementById('importDateGroup_Review').style.display = 'none';
+                
+                // 提示文字修正
+                document.getElementById('importStatusWord').innerText = '';
             } else {
-                document.getElementById('importDateGroup').style.display = 'none';
-                document.getElementById('importReviewDateGroup').style.display = 'grid';
+                // 後續審查
+                roundContainer.style.display = 'block'; // 顯示審查次數選單
+                planNameContainer.style.gridColumn = 'auto'; // 回復正常寬度
+                
+                document.getElementById('importDateGroup_Initial').style.display = 'none';
+                document.getElementById('importDateGroup_Review').style.display = 'block';
             }
             checkImportReady();
         }
 
-        function checkImportReady() { const r = document.getElementById('importRound').value, d = document.getElementById('importIssueDate').value, valid = r && r > 0; document.getElementById('wordInput').disabled = !valid; document.getElementById('btnParseWord').disabled = !valid || !document.getElementById('wordInput').files[0]; }
+        // [修改] 檢查是否可執行
+        function checkImportReady() {
+            const f = document.getElementById('wordInput').files[0];
+            
+            // 若是 backup mode，只檢查檔案
+            if(currentImportMode === 'backup') {
+                const backupF = document.getElementById('backupInput').files[0];
+                // Backup button logic handled elsewhere, this is mainly for Word
+                return; 
+            }
+
+            const stageRadio = document.querySelector('input[name="importStage"]:checked');
+            // 安全檢查：如果 UI 還沒 render 好
+            if(!stageRadio) return;
+            
+            const stage = stageRadio.value;
+            
+            let valid = false;
+            
+            if (stage === 'initial') {
+                // 初次開立：必須填寫發函日期
+                const d = document.getElementById('importIssueDate').value.trim();
+                valid = (d.length > 0);
+            } else {
+                // 後續審查：只要選了次數即可 (日期非強制，但建議填)
+                valid = true; 
+            }
+            
+            document.getElementById('wordInput').disabled = !valid;
+            document.getElementById('btnParseWord').disabled = !valid || !f;
+        }
         document.getElementById('wordInput').addEventListener('change', checkImportReady);
         
         async function previewWord() {
-            const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRound').value, msg = document.getElementById('importStatusWord'); 
+            const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRoundSelect') ? document.getElementById('importRoundSelect').value : 1, msg = document.getElementById('importStatusWord'); 
             if(!f) return showToast('請先選擇 Word 檔案', 'error'); 
             msg.innerText = 'Word 解析中...';
             currentImportMode = 'word';
@@ -1209,7 +1289,12 @@
             stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
             
             if (currentImportMode === 'word') {
-                document.getElementById('previewModeBadge').innerHTML = `<span class="badge new">Word 匯入 (第 ${round} 次)</span>`;
+                // 取得 UI 上的階段文字來顯示
+                const stageRadio = document.querySelector('input[name="importStage"]:checked');
+                const stageText = stageRadio && stageRadio.value === 'initial' ? '初次開立' : `第 ${round} 次審查`;
+                const badgeClass = stageRadio && stageRadio.value === 'initial' ? 'new' : 'update';
+
+                document.getElementById('previewModeBadge').innerHTML = `<span class="badge ${badgeClass}">Word 匯入 (${stageText})</span>`;
                 document.getElementById('uploadCardWord').classList.add('hidden');
                 document.getElementById('uploadCardBackup').classList.add('hidden');
             } else {
@@ -1257,20 +1342,39 @@
             const msg = isBackup ? `⚠️ 警告：即將進行「災難復原」，這將覆蓋或新增 ${count} 筆資料。\n確定要執行嗎？` : `確定要匯入 ${count} 筆資料嗎？`;
             if(!confirm(msg)) return; 
             
-            const round = isBackup ? 0 : document.getElementById('importRound').value;
-            // Get dates based on Round logic
-            const issueDate = document.getElementById('importIssueDate').value;
-            const replyDate = document.getElementById('importReplyDate').value;
-            const responseDate = document.getElementById('importResponseDate').value;
-
-            // New Global Fields
+            // 取得 UI 設定值
+            let round = 1; // 預設值
+            let issueDate = '';
+            let replyDate = '';
+            let responseDate = '';
+            
+            if (!isBackup) {
+                const stage = document.querySelector('input[name="importStage"]:checked').value;
+                
+                if (stage === 'initial') {
+                    // 初次開立
+                    // 技術上後端仍需要一個 round 數字來寫入資料庫結構，我們使用 1
+                    // 但重點是我們會寫入 issueDate
+                    round = 1;
+                    issueDate = document.getElementById('importIssueDate').value;
+                    // 初始狀態通常沒有回復和函復
+                } else {
+                    // 後續審查
+                    round = document.getElementById('importRoundSelect').value;
+                    replyDate = document.getElementById('importReplyDate').value;
+                    responseDate = document.getElementById('importResponseDate').value;
+                }
+            }
+            
+            // 計畫名稱
             const planName = isBackup ? '' : document.getElementById('importPlanName').value;
             
             let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
                 if(currentImportMode === 'word') {
                     if(!item.planName && planName) item.planName = planName;
-                    // Only apply issueDate if Round 1
-                    if(!item.issueDate && parseInt(round) === 1) item.issueDate = issueDate; 
+                    // 只有在「初次開立」模式下，才強制寫入發函日
+                    const stage = document.querySelector('input[name="importStage"]:checked') ? document.querySelector('input[name="importStage"]:checked').value : 'initial';
+                    if(!item.issueDate && stage === 'initial') item.issueDate = issueDate; 
                 }
                 return item;
             });
@@ -1282,8 +1386,8 @@
                     body: JSON.stringify({ 
                         data: cleanData, 
                         round: round, 
-                        reviewDate: responseDate, // 本次函復
-                        replyDate: replyDate,     // 機構回復
+                        reviewDate: responseDate, // 傳送給後端寫入 response_date_r{N}
+                        replyDate: replyDate,     // 傳送給後端寫入 reply_date_r{N}
                         mode: currentImportMode 
                     }) 
                 }); 
