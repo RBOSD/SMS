@@ -316,10 +316,6 @@
                         <!-- Optimized Filter Layout -->
                         <div class="filter-primary-row">
                             <div class="search-item" style="flex:2;"><label>關鍵字</label><input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字..."></div>
-                            
-                            <!-- [改善點1] 新增檢查計畫篩選器 -->
-                            <div class="search-item" style="flex:2;"><label>檢查計畫</label><select id="filterPlan" class="filter-select"><option value="">全部計畫</option></select></div>
-                            
                             <div class="search-item"><label>年度</label><select id="filterYear" class="filter-select"></select></div>
                             <div class="search-item"><label>機構</label><select id="filterUnit" class="filter-select"></select></div>
                             <div class="search-item"><label>狀態</label><select id="filterStatus" class="filter-select"><option value="">全部狀態</option><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
@@ -497,13 +493,6 @@
                         </div>
                         <div class="form-group"><label>初始狀態</label><select id="manualStatus" class="filter-select"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></div>
                         <div class="form-group"><label>事項內容 (必填)</label><textarea id="manualContent" class="filter-input" rows="6" style="resize:vertical;"></textarea></div>
-                        
-                        <!-- [改善點2] 連續新增模式 -->
-                        <div style="margin-bottom:16px; display:flex; align-items:center; gap:8px; background:#fff; padding:10px; border:1px solid #e2e8f0; border-radius:6px;">
-                            <input type="checkbox" id="keepCommonFields" style="width:16px; height:16px;">
-                            <label for="keepCommonFields" style="margin-bottom:0; color:var(--primary); cursor:pointer;">啟用「連續新增模式」 (勾選後，儲存時會保留計畫名稱、日期、年度與機構資訊，方便連續輸入)</label>
-                        </div>
-
                         <button class="btn btn-primary" style="width:100%; padding:12px;" onclick="submitManualIssue()">💾 新增事項</button>
                     </div>
                 </div>
@@ -922,10 +911,6 @@
         async function loadIssuesPage(page = 1) {
             issuesPage = page; document.getElementById('issuesPageSizeTop').value = issuesPageSize; document.getElementById('issuesPageSizeBottom').value = issuesPageSize;
             const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '', kind = document.getElementById('filterKind').value || '';
-            
-            // [新增] 計畫篩選參數
-            const planName = document.getElementById('filterPlan').value || '';
-
             const division = document.getElementById('filterDivision') ? document.getElementById('filterDivision').value : '';
             const inspection = document.getElementById('filterInspection') ? document.getElementById('filterInspection').value : '';
             
@@ -933,7 +918,7 @@
             if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
             
             // [Fixed] Added _t for anti-cache
-            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, planName, sortField, sortDir, _t: Date.now() });
+            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, sortField, sortDir, _t: Date.now() });
             
             try {
                 const res = await fetch('/api/issues?' + params.toString()); 
@@ -946,17 +931,6 @@
                 }
                 const j = await res.json(); currentData = j.data || []; issuesTotal = j.total || 0; issuesPages = j.pages || 1;
                 if (j.latestCreatedAt) { const d = new Date(j.latestCreatedAt); document.getElementById('dataTimestamp').innerText = `資料庫更新時間：${d.toLocaleDateString('zh-TW')} ${d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`; } else { document.getElementById('dataTimestamp').innerText = ''; }
-                
-                // [改善點1] 更新計畫篩選器
-                if(j.globalStats && j.globalStats.plans) {
-                     const planSelect = document.getElementById('filterPlan');
-                     // 只有當目前沒有選值時才更新，避免篩選後選項消失
-                     if(planSelect.value === "") {
-                         planSelect.innerHTML = '<option value="">全部計畫</option>' + 
-                             j.globalStats.plans.map(p => `<option value="${p.plan_name}">${p.plan_name} (${p.count})</option>`).join('');
-                     }
-                }
-
                 if(document.getElementById('filterYear').options.length === 0 && j.globalStats) { const years = [...new Set(j.globalStats.year.map(x => x.year).filter(Boolean))].sort().reverse(); document.getElementById('filterYear').innerHTML = '<option value="">全部年度</option>' + years.map(v => `<option value="${v}">${v}</option>`).join(''); const units = [...new Set(j.globalStats.unit.map(x => x.unit).filter(Boolean))].sort(); document.getElementById('filterUnit').innerHTML = '<option value="">全部機構</option>' + units.map(v => `<option value="${v}">${v}</option>`).join(''); }
                 if (j.globalStats) { cachedGlobalStats = j.globalStats; updateChartsData(j.globalStats); renderStats(j.globalStats); }
                 renderTable(); renderPagination('issuesPagination', issuesPage, issuesPages, 'loadIssuesPage'); document.getElementById('issuesTotalCount').innerText = issuesTotal;
@@ -1310,24 +1284,17 @@
                 const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if(res.ok) { 
                     showToast('新增成功'); 
-                    
-                    // [改善點2] 檢查是否啟用「連續新增模式」
-                    const keepCommon = document.getElementById('keepCommonFields').checked;
-                    
+                    // Clear all inputs
                     document.getElementById('manualNumber').value = ''; 
-                    document.getElementById('manualContent').value = '';
-                    document.getElementById('manualKind').value = ''; // 類型通常跟編號走，所以清空
-                    document.getElementById('manualDivision').value = ''; // 分組通常跟編號走，所以清空
-                    document.getElementById('manualInspection').value = ''; // 種類通常跟編號走，所以清空
-                    
-                    if(!keepCommon) {
-                        // 若未勾選，才清空這些共用欄位
-                        document.getElementById('manualYear').value = ''; 
-                        document.getElementById('manualUnit').value = ''; 
-                        document.getElementById('manualPlanName').value = '';
-                        document.getElementById('manualIssueDate').value = '';
-                    }
-                    
+                    document.getElementById('manualYear').value = ''; 
+                    document.getElementById('manualUnit').value = ''; 
+                    document.getElementById('manualDivision').value = '';
+                    document.getElementById('manualInspection').value = '';
+                    document.getElementById('manualKind').value = '';
+                    document.getElementById('manualContent').value = ''; 
+                    // Clear new inputs
+                    document.getElementById('manualPlanName').value = '';
+                    document.getElementById('manualIssueDate').value = '';
                     loadIssuesPage(1); 
                 } else { showToast('新增失敗', 'error'); }
             } catch(e) { showToast('Error: ' + e.message, 'error'); }
