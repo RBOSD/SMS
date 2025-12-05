@@ -1,85 +1,58 @@
-require('dotenv').config();
 const express = require('express');
-const { Pool } = require('pg');
+const { Pool } = require('pg'); 
 const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
-const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcrypt');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenerativeAI } = require("@google/generative-ai"); // AI 套件
+require('dotenv').config(); 
 
 const app = express();
+
+// [重要] 信任 Proxy，解決 Render 上 Session 失效問題
+app.set('trust proxy', 1); 
+
 const PORT = process.env.PORT || 3000;
 
-// --- 1. 環境與連線設定 ---
-
-// [Render 必備] 信任反向代理，確保 Cookie/Session 正常運作
-app.set('trust proxy', 1);
-
-// 資料庫連線字串檢查
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-    console.error("❌ [嚴重錯誤] 未設定 DATABASE_URL 環境變數！系統無法啟動。");
-    process.exit(1);
-}
-
+// 初始化 PostgreSQL 連線池
 const pool = new Pool({
-    connectionString: connectionString,
-    ssl: { rejectUnauthorized: false }, // Render 強制 SSL
-    connectionTimeoutMillis: 10000,     // 放寬連線超時
-    idleTimeoutMillis: 30000
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-pool.on('error', (err) => {
-    console.error('❌ Database Pool Error:', err);
-});
-
-// --- 2. 中介軟體 (Middleware) ---
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- 3. Session 設定 (使用 PostgreSQL 儲存) ---
+// Session 設定
 app.use(session({
-    store: new pgSession({
-        pool: pool,
-        tableName: 'session',
-        createTableIfMissing: true // 自動嘗試建表
-    }),
-    secret: process.env.SESSION_SECRET || 'sms-system-secret-key-2025-full',
+    secret: 'sms-secret-key-pg-final-v3', // 若要強制登出所有用戶，可修改此字串
     resave: false,
     saveUninitialized: false,
-    proxy: true,
-    cookie: {
-        maxAge: 24 * 60 * 60 * 1000, // 1 天
-        secure: true,                // Render 上必須為 true
-        sameSite: 'none'             // 允許跨站 Cookie
-    }
+    proxy: true, 
+    cookie: { 
+        maxAge: 24 * 60 * 60 * 1000,
+        secure: process.env.NODE_ENV === 'production', 
+        sameSite: 'lax' 
+    } 
 }));
 
-// --- 4. 資料庫初始化 (Init DB) ---
+// 權限檢查 Middleware
+const requireAuth = (req, res, next) => {
+    if (req.session && req.session.user) {
+        next();
+    } else {
+        res.status(401).json({ error: 'Unauthorized' });
+    }
+};
+
+// --- 資料庫初始化 ---
 async function initDB() {
-    let client;
+    const client = await pool.connect();
     try {
-        client = await pool.connect();
-        console.log('✅ PostgreSQL 資料庫連線成功');
+        console.log('Connected to PostgreSQL. Checking schema...');
 
-        // (A) 手動確保 Session 表存在 (防止套件自動建立失敗導致白畫面)
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS "session" (
-                "sid" varchar NOT NULL COLLATE "default",
-                "sess" json NOT NULL,
-                "expire" timestamp(6) NOT NULL
-            ) WITH (OIDS=FALSE);
-        `);
-        try {
-            await client.query(`ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE;`);
-        } catch (e) { /* 忽略主鍵已存在錯誤 */ }
-        try {
-            await client.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");`);
-        } catch (e) { /* 忽略索引已存在錯誤 */ }
-
-        // (B) 建立主要業務資料表
+        // 1. 建立主表
         await client.query(`CREATE TABLE IF NOT EXISTS issues (
             id SERIAL PRIMARY KEY,
             number TEXT UNIQUE,
@@ -99,6 +72,7 @@ async function initDB() {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
+        // 2. 建立使用者表
         await client.query(`CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             username TEXT UNIQUE,
@@ -108,6 +82,7 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
+        // 3. 建立 Log 表
         await client.query(`CREATE TABLE IF NOT EXISTS logs (
             id SERIAL PRIMARY KEY,
             username TEXT,
@@ -118,134 +93,123 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // (C) 動態欄位補強 (確保歷史紀錄欄位存在)
+        // 4. 動態欄位補強
         const newColumns = [];
-        for(let i=2; i<=20; i++) { 
-            newColumns.push({name:`handling${i}`,type:'TEXT'}); 
-            newColumns.push({name:`review${i}`,type:'TEXT'}); 
+        for (let i = 2; i <= 20; i++) {
+            newColumns.push({ name: `handling${i}`, type: 'TEXT' });
+            newColumns.push({ name: `review${i}`, type: 'TEXT' });
         }
-        for(let i=1; i<=20; i++) { 
-            newColumns.push({name:`reply_date_r${i}`,type:'TEXT'}); 
-            newColumns.push({name:`response_date_r${i}`,type:'TEXT'}); 
+        for (let i = 1; i <= 20; i++) {
+            newColumns.push({ name: `reply_date_r${i}`, type: 'TEXT' });
+            newColumns.push({ name: `response_date_r${i}`, type: 'TEXT' });
         }
-        newColumns.push({name:'plan_name',type:'TEXT'}); 
-        newColumns.push({name:'issue_date',type:'TEXT'});
-        
-        for(const col of newColumns) {
-            try { 
-                await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`); 
-            } catch(e){}
+        newColumns.push({ name: 'plan_name', type: 'TEXT' });
+        newColumns.push({ name: 'issue_date', type: 'TEXT' });
+
+        for (const col of newColumns) {
+            try {
+                await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+            } catch (e) { /* 忽略 */ }
         }
 
-        // (D) 建立預設管理員
-        const uRes = await client.query("SELECT count(*) FROM users");
-        if(parseInt(uRes.rows[0].count) === 0) {
+        // 5. 建立預設 Admin
+        const userRes = await client.query("SELECT count(*) as count FROM users");
+        if (parseInt(userRes.rows[0].count) === 0) {
             const hash = bcrypt.hashSync('admin123', 10);
             await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
                 ['admin', hash, '系統管理員', 'admin']);
-            console.log("⚠️ 初始化：已建立預設管理員 (admin / admin123)");
+            console.log("Default admin created.");
         }
-
-        console.log('✅ 資料庫結構初始化完成');
+        
+        console.log('Database initialized.');
 
     } catch (err) {
-        console.error('❌ 資料庫初始化失敗:', err);
-        // 不退出進程，嘗試讓伺服器繼續運行
+        console.error('Init DB Error:', err);
+        throw err;
     } finally {
-        if(client) client.release();
+        client.release();
     }
 }
 
-// Log 輔助函式
+// Log 輔助
 async function logAction(username, action, details, req) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     try {
-        await pool.query("INSERT INTO logs (username, action, details, ip_address, created_at) VALUES ($1, $2, $3, $4, NOW())", 
+        await pool.query("INSERT INTO logs (username, action, details, ip_address, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)", 
             [username, action, details, ip]);
-    } catch (e) { console.error("Log Error:", e); }
+    } catch (e) { console.error("Log error:", e); }
 }
-
-// 權限檢查 Middleware
-const requireAuth = (req, res, next) => {
-    if (req.session && req.session.user) {
-        next();
-    } else {
-        res.status(401).json({ error: 'Unauthorized' });
-    }
-};
 
 // --- API Routes ---
 
-// 1. 登入與驗證
+// 1. 登入
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const r = await pool.query("SELECT * FROM users WHERE username=$1", [username]);
-        const user = r.rows[0];
+        const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
+        const user = result.rows[0];
         
-        if(user && bcrypt.compareSync(password, user.password)) {
-            req.session.user = { 
-                id: user.id, 
-                username: user.username, 
-                role: user.role, 
-                name: user.name 
-            };
-            
-            // 記錄登入 Log
-            const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-            await pool.query("INSERT INTO logs (username, action, details, ip_address, login_time, created_at) VALUES ($1, 'LOGIN', 'User logged in', $2, NOW(), NOW())", [user.username, ip]);
+        if (!user || !user.password) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
 
-            req.session.save(err => {
-                if(err) { console.error(err); return res.status(500).json({error:'Session save failed'}); }
+        if (bcrypt.compareSync(password, user.password)) {
+            req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name };
+            req.session.save((err) => {
+                if(err) return res.status(500).json({error: 'Session error'});
+                logAction(user.username, 'LOGIN', 'User logged in', req).catch(()=>{});
                 res.json({ success: true, user: req.session.user });
             });
         } else {
-            res.status(401).json({ error: '帳號或密碼錯誤' });
+            res.status(401).json({ error: 'Invalid credentials' });
         }
-    } catch(e) { 
+    } catch (e) {
         console.error("Login Error:", e);
-        res.status(500).json({error: 'System Error'}); 
+        res.status(500).json({ error: 'System error' });
     }
 });
 
 app.post('/api/auth/logout', (req, res) => {
     req.session.destroy();
-    res.clearCookie('connect.sid');
     res.json({ success: true });
 });
 
-app.get('/api/auth/me', async (req, res) => {
-    if(req.session && req.session.user) {
-        // 重新確認權限 (防止權限變更後 Session 未更新)
-        try {
-            const r = await pool.query("SELECT id, username, name, role FROM users WHERE id=$1", [req.session.user.id]);
-            if(r.rows[0]) {
-                req.session.user = { ...req.session.user, ...r.rows[0] };
-                return res.json({ isLogin: true, ...req.session.user });
-            }
-        } catch(e) { console.error(e); }
-        // 如果 DB 讀取失敗，暫時回傳 session 內的資料，避免白畫面
-        res.json({ isLogin: true, ...req.session.user });
-    } else {
-        res.json({ isLogin: false });
-    }
+app.get('/api/auth/me', (req, res) => {
+    if (req.session.user) res.json({ isLogin: true, ...req.session.user });
+    else res.json({ isLogin: false });
 });
 
-// 2. AI 審查 (Gemini - 完整監理機關版)
+app.put('/api/auth/profile', requireAuth, async (req, res) => {
+    const { name, password } = req.body;
+    const id = req.session.user.id;
+    try {
+        if (password) {
+            const hash = bcrypt.hashSync(password, 10);
+            await pool.query("UPDATE users SET name = $1, password = $2 WHERE id = $3", [name, hash, id]);
+        } else {
+            await pool.query("UPDATE users SET name = $1 WHERE id = $2", [name, id]);
+        }
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 2. AI 審查 (Gemini Flash 2.5 - 監理機關專業版 V2)
 app.post('/api/gemini', async (req, res) => {
     const { content, rounds } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!apiKey) return res.json({ fulfill: 'No', reason: '後端未設定 GEMINI_API_KEY' });
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: '後端未設定 GEMINI_API_KEY' });
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        
+        // 使用指定的 gemini 2.5 flash
+        // (備註: 若日後官方正式名稱不同，請在此修改)
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const latestRound = (rounds && rounds.length > 0) ? rounds[rounds.length - 1] : { handling: '無', review: '無' };
         const previousReview = (rounds && rounds.length > 1) ? rounds[rounds.length - 2].review : '無';
 
-        // [完整保留] 專業審查 Prompt
         const prompt = `
         你現在是【鐵道監理機關】的專業審查人員，正在審核受檢機構針對缺失事項的改善情形。
         請秉持「中立、客觀、平實」的原則進行審查，語氣需符合公務機關公文風格。
@@ -267,7 +231,7 @@ app.post('/api/gemini', async (req, res) => {
         4. **佐證資料**：若機構宣稱已完成，審查意見應習慣性提及「請檢附相關佐證資料(如照片、紀錄)」。
 
         【回覆格式要求】：
-        請嚴格依照以下 JSON 格式回覆 (不要 Markdown 標記，純 JSON)：
+        請嚴格依照以下 JSON 格式回覆 (不要 Markdown 標記)：
         {
             "fulfill": "Yes 或 No (Yes代表同意解除列管/備查, No代表不同意/持續列管)",
             "reason": "請撰寫平實的審查意見(100字內)。範例：「說明內容尚屬妥適，同意解除列管。」或「所陳改善措施尚未具體，請補充相關佐證資料後報局。」"
@@ -275,169 +239,89 @@ app.post('/api/gemini', async (req, res) => {
         `;
 
         const result = await model.generateContent(prompt);
-        const txt = result.response.text().replace(/```json|```/g, '').trim();
-        
+        const response = await result.response;
+        let text = response.text();
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+
         try {
-            res.json(JSON.parse(txt));
-        } catch(e) {
-            // 備援解析
+            const json = JSON.parse(text);
+            res.json(json);
+        } catch (parseError) {
+            console.error("JSON Parse Error, raw text:", text);
             res.json({ 
-                fulfill: txt.includes("Yes") ? "Yes" : "No", 
-                reason: txt.replace(/[{}]/g, '').replace(/"reason":/g, '').replace(/"fulfill":.*/g, '').trim() 
+                fulfill: text.includes("Yes") ? "Yes" : "No", 
+                reason: text.replace(/[{}]/g, '').replace(/"reason":/g, '').replace(/"fulfill":.*/g, '').trim() 
             });
         }
-    } catch(e) { 
-        console.error("AI Error:", e);
-        res.json({ fulfill: 'No', reason: 'AI 連線失敗: ' + e.message });
+
+    } catch (e) {
+        console.error("Gemini API Error:", e);
+        res.status(500).json({ error: 'AI 分析失敗: ' + e.message });
     }
 });
 
-// 3. 事項查詢 API (全功能篩選)
+// 3. 事項查詢
 app.get('/api/issues', requireAuth, async (req, res) => {
-    const { page=1, pageSize=20, q, planName, status, year, unit, itemKindCode, division, inspectionCategory, sortField='created_at', sortDir='desc' } = req.query;
+    const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, sortField, sortDir } = req.query;
     const limit = parseInt(pageSize);
-    const offset = (page-1)*limit;
+    const offset = (page - 1) * limit;
     
     let where = ["1=1"], params = [], idx = 1;
-    
-    // 搜尋條件
-    if(q) { where.push(`(number ILIKE $${idx} OR content ILIKE $${idx} OR handling ILIKE $${idx} OR review ILIKE $${idx})`); params.push(`%${q}%`); idx++; }
-    if(planName) { where.push(`plan_name = $${idx}`); params.push(planName); idx++; }
-    if(status) { where.push(`status = $${idx}`); params.push(status); idx++; }
-    if(year) { where.push(`year = $${idx}`); params.push(year); idx++; }
-    if(unit) { where.push(`unit = $${idx}`); params.push(unit); idx++; }
-    if(itemKindCode) { where.push(`item_kind_code = $${idx}`); params.push(itemKindCode); idx++; }
-    if(division) { where.push(`division_name = $${idx}`); params.push(division); idx++; }
-    if(inspectionCategory) { where.push(`inspection_category_name = $${idx}`); params.push(inspectionCategory); idx++; }
 
-    // 排序
-    const order = `${sortField} ${sortDir==='asc'?'ASC':'DESC'}`;
+    if (q) {
+        where.push(`(number LIKE $${idx} OR content LIKE $${idx} OR handling LIKE $${idx} OR review LIKE $${idx} OR plan_name LIKE $${idx})`);
+        params.push(`%${q}%`); idx++;
+    }
+    if (year) { where.push(`year = $${idx}`); params.push(year); idx++; }
+    if (unit) { where.push(`unit = $${idx}`); params.push(unit); idx++; }
+    if (status) { where.push(`status = $${idx}`); params.push(status); idx++; }
+    if (itemKindCode) { where.push(`item_kind_code = $${idx}`); params.push(itemKindCode); idx++; }
+    if (division) { where.push(`division_name = $${idx}`); params.push(division); idx++; }
+    if (inspectionCategory) { where.push(`inspection_category_name = $${idx}`); params.push(inspectionCategory); idx++; }
+
+    let orderBy = "created_at DESC";
+    const validCols = ['year', 'number', 'unit', 'status', 'created_at'];
+    if (sortField && validCols.includes(sortField)) {
+        orderBy = `${sortField} ${sortDir === 'asc' ? 'ASC' : 'DESC'}`;
+    }
 
     try {
-        // 總數
-        const cRes = await pool.query(`SELECT count(*) FROM issues WHERE ${where.join(" AND ")}`, params);
-        const total = parseInt(cRes.rows[0].count);
+        const countRes = await pool.query(`SELECT count(*) FROM issues WHERE ${where.join(" AND ")}`, params);
+        const total = parseInt(countRes.rows[0].count);
         
-        // 資料
-        const dRes = await pool.query(`SELECT * FROM issues WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ${limit} OFFSET ${offset}`, params);
+        const dataRes = await pool.query(`SELECT * FROM issues WHERE ${where.join(" AND ")} ORDER BY ${orderBy} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
         
-        // 統計 (用於前端篩選器與儀表板)
-        // 使用 Promise.all 並行查詢以提升效能
-        const [sRes, uRes, yRes, pRes] = await Promise.all([
-            pool.query("SELECT status, count(*) as count FROM issues GROUP BY status"),
-            pool.query("SELECT unit, count(*) as count FROM issues GROUP BY unit"),
-            pool.query("SELECT year, count(*) as count FROM issues GROUP BY year ORDER BY year DESC"),
-            pool.query("SELECT plan_name, count(*) as count FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' GROUP BY plan_name ORDER BY plan_name DESC")
-        ]);
+        const sRes = await pool.query("SELECT status, count(*) as count FROM issues GROUP BY status");
+        const uRes = await pool.query("SELECT unit, count(*) as count FROM issues GROUP BY unit");
+        const yRes = await pool.query("SELECT year, count(*) as count FROM issues GROUP BY year");
+        const tRes = await pool.query("SELECT max(created_at) as latest, max(updated_at) as updated FROM issues");
+        const latestTime = tRes.rows[0] ? (tRes.rows[0].updated || tRes.rows[0].latest) : null;
 
         res.json({
-            data: dRes.rows,
+            data: dataRes.rows,
             total,
             page: parseInt(page),
             pageSize: limit,
-            pages: Math.ceil(total/limit),
-            globalStats: { status: sRes.rows, unit: uRes.rows, year: yRes.rows, plans: pRes.rows }
+            pages: Math.ceil(total / limit),
+            latestCreatedAt: latestTime,
+            globalStats: { status: sRes.rows, unit: uRes.rows, year: yRes.rows }
         });
-    } catch(e) { 
-        console.error("Query Error:", e);
-        res.status(500).json({error: e.message}); 
-    }
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 4. 匯入/新增 API (支援新版計畫綁定邏輯)
-app.post('/api/issues/import', requireAuth, async (req, res) => {
-    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Permission Denied'});
-    
-    const { data, round, reviewDate } = req.body;
-    const r = parseInt(round) || 1;
-    const client = await pool.connect();
-    
-    try {
-        await client.query('BEGIN');
-        
-        for(const item of data) {
-            // 檢查是否已存在 (依編號)
-            const check = await client.query("SELECT id FROM issues WHERE number=$1", [item.number]);
-            
-            if(check.rows.length > 0) {
-                // 更新模式 (Update)
-                const hCol = r===1 ? 'handling' : `handling${r}`;
-                const rCol = r===1 ? 'review' : `review${r}`;
-                const dateCol = `response_date_r${r}`;
-                
-                await client.query(
-                    `UPDATE issues SET 
-                        status=$1, 
-                        ${hCol}=$2, 
-                        ${rCol}=$3, 
-                        ${dateCol}=$4, 
-                        plan_name=COALESCE($5, plan_name), 
-                        updated_at=NOW() 
-                    WHERE number=$6`,
-                    [
-                        item.status, 
-                        item.handling||'', 
-                        item.review||'', 
-                        reviewDate||'', 
-                        item.planName||null, // 若有帶入計畫名稱，則更新歸屬
-                        item.number
-                    ]
-                );
-            } else {
-                // 新增模式 (Insert)
-                await client.query(
-                    `INSERT INTO issues (
-                        number, year, unit, content, status, 
-                        item_kind_code, category, division_name, inspection_category_name,
-                        handling, review, plan_name, issue_date, response_date_r1
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-                    [
-                        item.number, 
-                        item.year, 
-                        item.unit, 
-                        item.content, 
-                        item.status || '持續列管',
-                        item.itemKindCode,
-                        item.category,
-                        item.divisionName,
-                        item.inspectionCategoryName,
-                        item.handling || '', 
-                        item.review || '', 
-                        item.planName || null, 
-                        item.issueDate || null, 
-                        reviewDate || ''
-                    ]
-                );
-            }
-        }
-        
-        await client.query('COMMIT');
-        await logAction(req.session.user.username, 'IMPORT', `Imported/Updated ${data.length} items`, req);
-        res.json({ success: true, count: data.length });
-
-    } catch(e) {
-        await client.query('ROLLBACK');
-        console.error("Import Error:", e);
-        res.status(500).json({ error: e.message });
-    } finally {
-        client.release();
-    }
-});
-
-// 5. 單筆編輯與刪除
 app.put('/api/issues/:id', requireAuth, async (req, res) => {
     const { status, round, handling, review, replyDate, responseDate } = req.body;
     const id = req.params.id;
     const r = parseInt(round);
-    const hField = r===1 ? 'handling' : `handling${r}`;
-    const rField = r===1 ? 'review' : `review${r}`;
+    const hField = r === 1 ? 'handling' : `handling${r}`;
+    const rField = r === 1 ? 'review' : `review${r}`;
     const replyField = `reply_date_r${r}`;
     const respField = `response_date_r${r}`;
 
     try {
-        await pool.query(`UPDATE issues SET status=$1, ${hField}=$2, ${rField}=$3, ${replyField}=$4, ${respField}=$5, updated_at=NOW() WHERE id=$6`, 
+        await pool.query(`UPDATE issues SET status=$1, ${hField}=$2, ${rField}=$3, ${replyField}=$4, ${respField}=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6`, 
             [status, handling, review, replyDate, responseDate, id]);
-        await logAction(req.session.user.username, 'UPDATE', `Updated issue ${id}`, req);
+        logAction(req.session.user.username, 'UPDATE', `Updated issue ${id}`, req);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -446,7 +330,7 @@ app.delete('/api/issues/:id', requireAuth, async (req, res) => {
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
     try {
         await pool.query("DELETE FROM issues WHERE id=$1", [req.params.id]);
-        res.json({ success: true });
+        res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -455,14 +339,157 @@ app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
     const { ids } = req.body;
     try {
         await pool.query("DELETE FROM issues WHERE id = ANY($1)", [ids]);
-        await logAction(req.session.user.username, 'BATCH_DELETE', `Deleted ${ids.length} items`, req);
-        res.json({ success: true });
+        logAction(req.session.user.username, 'BATCH_DELETE', `Deleted ${ids.length} items`, req);
+        res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 6. 啟動伺服器
-initDB().then(() => {
-    app.listen(PORT, () => {
-        console.log(`\n🚀 Server running on port ${PORT}`);
-    });
+app.post('/api/issues/import', requireAuth, async (req, res) => {
+    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
+    const { data, round, reviewDate } = req.body;
+    const r = parseInt(round) || 1;
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        for (const item of data) {
+            const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
+            
+            if (check.rows.length > 0) {
+                const hCol = r===1 ? 'handling' : `handling${r}`;
+                const rCol = r===1 ? 'review' : `review${r}`;
+                const respCol = `response_date_r${r}`;
+                
+                await client.query(
+                    `UPDATE issues SET status=$1, ${hCol}=$2, ${rCol}=$3, ${respCol}=$4, plan_name=COALESCE($5, plan_name), updated_at=CURRENT_TIMESTAMP WHERE number=$6`,
+                    [
+                        item.status, item.handling||'', item.review||'',
+                        reviewDate||'', 
+                        item.planName || null,
+                        item.number
+                    ]
+                );
+            } else {
+                await client.query(
+                    `INSERT INTO issues (
+                        number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
+                        handling, review, plan_name, issue_date, response_date_r1
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+                    [
+                        item.number, item.year, item.unit, item.content, item.status||'持續列管',
+                        item.itemKindCode, item.category, item.divisionName, item.inspectionCategoryName,
+                        item.handling||'', item.review||'', 
+                        item.planName || null, 
+                        item.issueDate || null,
+                        reviewDate || '' 
+                    ]
+                );
+            }
+        }
+        await client.query('COMMIT');
+        logAction(req.session.user.username, 'IMPORT', `Imported ${data.length} items`, req);
+        res.json({ success: true, count: data.length });
+    } catch (e) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
 });
+
+// Users
+app.get('/api/users', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+    const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
+    const limit = parseInt(pageSize);
+    const offset = (page-1)*limit;
+    
+    let where = ["1=1"], params = [], idx = 1;
+    if(q) { where.push(`(username LIKE $${idx} OR name LIKE $${idx})`); params.push(`%${q}%`); idx++; }
+    const order = `${sortField} ${sortDir==='desc'?'DESC':'ASC'}`;
+    
+    try {
+        const cRes = await pool.query(`SELECT count(*) FROM users WHERE ${where.join(" AND ")}`, params);
+        const total = parseInt(cRes.rows[0].count);
+        const dRes = await pool.query(`SELECT id, username, name, role, created_at FROM users WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
+        res.json({data:dRes.rows, total, page: parseInt(page), pages: Math.ceil(total/limit)});
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/users', requireAuth, async (req, res) => {
+    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    const { username, password, name, role } = req.body;
+    try {
+        const hash = bcrypt.hashSync(password, 10);
+        await pool.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", [username, hash, name, role]);
+        res.json({success:true});
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/users/:id', requireAuth, async (req, res) => {
+    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    const { name, password, role } = req.body;
+    const id = req.params.id;
+    try {
+        if (password) {
+            const hash = bcrypt.hashSync(password, 10);
+            await pool.query("UPDATE users SET name=$1, role=$2, password=$3 WHERE id=$4", [name, role, hash, id]);
+        } else {
+            await pool.query("UPDATE users SET name=$1, role=$2 WHERE id=$3", [name, role, id]);
+        }
+        res.json({success:true});
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/users/:id', requireAuth, async (req, res) => {
+    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if(parseInt(req.params.id) === req.session.user.id) return res.status(400).json({error:'Cannot self delete'});
+    try {
+        await pool.query("DELETE FROM users WHERE id=$1", [req.params.id]);
+        res.json({success:true});
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/logs', requireAuth, async (req, res) => {
+    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    try {
+        const { rows } = await pool.query("SELECT * FROM logs WHERE action='LOGIN' ORDER BY login_time DESC LIMIT 50");
+        res.json({data:rows, total:rows.length, page:1, pages:1});
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
+    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    try {
+        const { rows } = await pool.query("SELECT * FROM logs WHERE action!='LOGIN' ORDER BY created_at DESC LIMIT 50");
+        res.json({data:rows, total:rows.length, page:1, pages:1});
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/logs', requireAuth, async (req, res) => {
+    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    await pool.query("DELETE FROM logs WHERE action='LOGIN'");
+    res.json({success:true});
+});
+
+app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
+    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    await pool.query("DELETE FROM logs WHERE action!='LOGIN'");
+    res.json({success:true});
+});
+
+// 穩定啟動
+async function startServer() {
+    try {
+        await initDB();
+        app.listen(PORT, () => {
+            console.log(`Server running on http://localhost:${PORT}`);
+        });
+    } catch (e) {
+        console.error("Server start failed:", e);
+        process.exit(1);
+    }
+}
+
+startServer();
