@@ -20,12 +20,13 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(session({
-    secret: 'sms-secret-key-pg-fix',
+    secret: 'sms-secret-key-pg-final',
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 24 * 60 * 60 * 1000 } 
 }));
 
+// 權限檢查
 const requireAuth = (req, res, next) => {
     if (req.session && req.session.user) {
         next();
@@ -34,13 +35,14 @@ const requireAuth = (req, res, next) => {
     }
 };
 
-// 資料庫初始化與遷移
+// --- 資料庫初始化 ---
+// 因為是新資料庫，這裡會負責建立所有 Table 和預設 Admin
 async function initDB() {
     const client = await pool.connect();
     try {
-        console.log('Connected to PostgreSQL database. Starting schema check...');
+        console.log('Connected to PostgreSQL. Initializing database...');
 
-        // 1. 建立主表
+        // 1. 建立主表 (包含所有新欄位)
         await client.query(`CREATE TABLE IF NOT EXISTS issues (
             id SERIAL PRIMARY KEY,
             number TEXT UNIQUE,
@@ -81,7 +83,7 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // 4. 自動遷移
+        // 4. 補強檢查：確保所有動態欄位都存在 (防止未來手動改壞)
         const newColumns = [];
         for (let i = 2; i <= 20; i++) {
             newColumns.push({ name: `handling${i}`, type: 'TEXT' });
@@ -97,25 +99,23 @@ async function initDB() {
         for (const col of newColumns) {
             try {
                 await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
-            } catch (e) {
-                // 忽略錯誤
-            }
+            } catch (e) { /* 忽略欄位已存在的錯誤 */ }
         }
 
-        // 5. 建立預設 Admin
+        // 5. 建立預設 Admin (只有在沒有任何使用者時才建立)
         const userRes = await client.query("SELECT count(*) as count FROM users");
         if (parseInt(userRes.rows[0].count) === 0) {
             const hash = bcrypt.hashSync('admin123', 10);
             await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
                 ['admin', hash, '系統管理員', 'admin']);
-            console.log("Default admin created.");
+            console.log("New database detected. Default admin user created.");
         }
         
         console.log('Database initialization completed.');
 
     } catch (err) {
         console.error('Init DB Error:', err);
-        throw err; // 拋出錯誤讓啟動流程知道失敗了
+        throw err;
     } finally {
         client.release();
     }
@@ -138,6 +138,7 @@ app.post('/api/auth/login', async (req, res) => {
         const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
         const user = result.rows[0];
         
+        // 安全檢查：防止空密碼導致崩潰
         if (!user || !user.password) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
@@ -211,9 +212,11 @@ app.get('/api/issues', requireAuth, async (req, res) => {
         
         const dataRes = await pool.query(`SELECT * FROM issues WHERE ${where.join(" AND ")} ORDER BY ${orderBy} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
         
+        // 簡易統計
         const sRes = await pool.query("SELECT status, count(*) as count FROM issues GROUP BY status");
         const uRes = await pool.query("SELECT unit, count(*) as count FROM issues GROUP BY unit");
         const yRes = await pool.query("SELECT year, count(*) as count FROM issues GROUP BY year");
+        
         const tRes = await pool.query("SELECT max(created_at) as latest, max(updated_at) as updated FROM issues");
         const latestTime = tRes.rows[0] ? (tRes.rows[0].updated || tRes.rows[0].latest) : null;
 
@@ -282,9 +285,11 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
             const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
             
             if (check.rows.length > 0) {
+                // Update: 僅當有填 plan_name 時才更新，避免蓋掉舊的 (COALESCE)
                 const hCol = r===1 ? 'handling' : `handling${r}`;
                 const rCol = r===1 ? 'review' : `review${r}`;
                 const respCol = `response_date_r${r}`;
+                
                 await client.query(
                     `UPDATE issues SET status=$1, ${hCol}=$2, ${rCol}=$3, ${respCol}=$4, plan_name=COALESCE($5, plan_name), updated_at=CURRENT_TIMESTAMP WHERE number=$6`,
                     [
@@ -295,6 +300,7 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                     ]
                 );
             } else {
+                // Insert: 寫入所有資訊
                 await client.query(
                     `INSERT INTO issues (
                         number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
@@ -323,7 +329,7 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
     }
 });
 
-// User Management
+// Users Management
 app.get('/api/users', requireAuth, async (req, res) => {
     if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
@@ -404,8 +410,7 @@ app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
     res.json({success:true});
 });
 
-
-// --- 關鍵修正：等待 DB 就緒才啟動 Server ---
+// --- 穩定啟動邏輯 ---
 async function startServer() {
     try {
         await initDB();
@@ -417,56 +422,5 @@ async function startServer() {
         process.exit(1);
     }
 }
-
-// ==========================================
-// 🚑 強力救援：修復資料表結構 + 重設 Admin
-// ==========================================
-app.get('/rescue/fix-db', async (req, res) => {
-    try {
-        const client = await pool.connect();
-        let log = [];
-
-        try {
-            // 1. 檢查並修復 users 表格 (補上 password 欄位)
-            log.push("檢查 users 資料表結構...");
-            await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT`);
-            log.push("✅ password 欄位檢查/修復完成。");
-
-            // 2. 檢查並修復 users 表格 (補上 role 欄位，以防萬一)
-            await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'viewer'`);
-            log.push("✅ role 欄位檢查/修復完成。");
-
-            // 3. 重設 Admin
-            const hash = bcrypt.hashSync('admin123', 10);
-            const updateRes = await client.query("UPDATE users SET password = $1, role = 'admin' WHERE username = 'admin'", [hash]);
-            
-            if (updateRes.rowCount > 0) {
-                log.push("✅ Admin 密碼已重設為: admin123");
-            } else {
-                // 如果沒有 admin，就建立一個
-                await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
-                    ['admin', hash, '系統管理員', 'admin']);
-                log.push("✅ Admin 帳號已建立，密碼為: admin123");
-            }
-
-            res.send(`
-                <h2>資料庫修復報告</h2>
-                <pre>${log.join('\n')}</pre>
-                <br>
-                <a href="/login.html">點此返回登入頁面</a>
-            `);
-
-        } finally {
-            client.release();
-        }
-    } catch (e) {
-        res.status(500).send(`
-            <h2 style="color:red">❌ 修復失敗</h2>
-            <p>${e.message}</p>
-            <pre>${e.stack}</pre>
-        `);
-    }
-});
-// ==========================================
 
 startServer();
