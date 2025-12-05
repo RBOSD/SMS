@@ -845,59 +845,76 @@
         function parseItemNumber(numberStr) { 
             var raw = normalizeCodeString(numberStr || "");
             if(!raw) return null; 
-
-            // [Sanitization Step] Remove ALL extraneous characters before parsing
-            // Remove chinese chars, parentheses, brackets, spaces, newlines
-            // Keep only: letters, numbers, hyphens
             var cleanRaw = raw.replace(/[^a-zA-Z0-9\-]/g, "");
-
-            // [Improved Regex] Supports standard format and short format more robustly
-            // e.g., 113-TRC-1-1130101-OP-N01
-            // e.g., 112T1-A01-N01
-
-            // Pattern A (Long): 113-TRC-1-xxxxx-OP-N01
-            // Captures: Year, Org, Inspect, (ignore date), Div, Kind
             var mLong = cleanRaw.match(/^(\d{3})-([A-Z]{3,4})-([0-9])-(\d+)-([A-Z]{2,4})-([NOR])(\d+)$/i);
             if(mLong) {
-                return { 
-                    raw: mLong[0], // Use the matched clean string as raw
-                    yearRoc: parseInt(mLong[1], 10), 
-                    orgCode: mLong[2].toUpperCase(), 
-                    inspectCode: mLong[3], 
-                    divCode: mLong[5].toUpperCase(), 
-                    kindCode: mLong[6].toUpperCase() 
-                };
+                return { raw: mLong[0], yearRoc: parseInt(mLong[1], 10), orgCode: mLong[2].toUpperCase(), inspectCode: mLong[3], divCode: mLong[5].toUpperCase(), kindCode: mLong[6].toUpperCase() };
             }
-
-            // Pattern B (Short): 112T1-A01-N01
-            // Captures: Year, Org(1char), Inspect, Div, Kind
             var mShort = cleanRaw.match(/^(\d{2,3})([A-Z])([0-9])-([A-Z])(\d{2})-([NOR])(\d{2})$/i); 
             if(mShort) { 
                 var yy = parseInt(mShort[1], 10);
                 var rocYear = (yy < 1000) ? (yy + (yy < 100 ? 100 : 0)) : (yy - 1911);
-                return { 
-                    raw: mShort[0], // Use the matched clean string as raw
-                    yearRoc: rocYear, 
-                    orgCode: mShort[2].toUpperCase(), 
-                    inspectCode: mShort[3], 
-                    divCode: mShort[4].toUpperCase(), 
-                    kindCode: mShort[6].toUpperCase() 
-                }; 
+                return { raw: mShort[0], yearRoc: rocYear, orgCode: mShort[2].toUpperCase(), inspectCode: mShort[3], divCode: mShort[4].toUpperCase(), kindCode: mShort[6].toUpperCase() }; 
             }
-            
-            // Fallback: Just try to find Year and Kind, leave others empty (better than failing)
-            // [Cleanup] If falling back, we grab the "ID-like" substring from the cleanRaw
             var mLoose = cleanRaw.match(/(\d{2,3}).*([NOR])\d+/i);
             if(mLoose) {
                  return { raw: mLoose[0], yearRoc: parseInt(mLoose[1],10), orgCode: "?", inspectCode: "?", divCode: "?", kindCode: mLoose[2].toUpperCase() };
             }
-            
-            // If it's really weird but not empty, return the clean version at least
             return { raw: cleanRaw, yearRoc: "", orgCode: "", inspectCode: "", divCode: "", kindCode: "" }; 
         }
 
         function normalizeMultiline(s) { s = String(s || ""); return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
-        function sanitizeContent(html) { if(!html) return ""; var s = String(html); s = s.replace(/&lt;\s*\/?\s*p\s*&gt;/gi, "").replace(/<\s*\/?\s*p\s*>/gi, "").replace(/<p>\s*<\/p>/gi, "").replace(/(?:<br\s*\/?>\s*){3,}/gi, "<br><br>").replace(/\n{3,}/g, "\n\n").replace(/(<li>\s*)+/gi, "<li>").replace(/(<\/li>\s*)+/gi, "</li>").replace(/(<ol>\s*)+/gi, "<ol>").replace(/(<\/ol>\s*)+/gi, "</ol>").replace(/[\u200B-\u200D\uFEFF]/g, "").trim(); return s; }
+        
+        // [修正與增強] 內容清理與切割：只抓取最新的回覆內容
+        function sanitizeContent(html) { 
+            if(!html) return ""; 
+            var s = String(html); 
+            
+            // 1. 先做基礎清理，移除多餘的樣式標籤，保留換行結構
+            s = s.replace(/<\s*br\s*\/?>/gi, "\n")
+                 .replace(/<\s*\/p\s*>/gi, "\n")
+                 .replace(/<\s*p[^>]*>/gi, "")
+                 .replace(/<[^>]+>/g, ""); // 移除剩餘所有 HTML 標籤
+                 
+            // 2. 正規化空白與特殊字元
+            s = s.replace(/&nbsp;/g, " ")
+                 .replace(/[\u200B-\u200D\uFEFF]/g, "")
+                 .trim();
+
+            // 3. [關鍵邏輯] 智慧切割：抓取「最上面」的內容
+            var lines = s.split('\n');
+            var resultLines = [];
+            var hasContent = false;
+
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].trim();
+                
+                // 略過開頭的空行
+                if (!hasContent && line.length === 0) continue;
+                
+                // 遇到常見的分隔線符號，視為舊資料開始，直接結束截取
+                if (/^[-=_]{3,}/.test(line)) {
+                    break; 
+                }
+                
+                // 遇到明顯的「日期標籤」且不是第一行時，視為舊資料的開始
+                if (hasContent && /^(\d{2,3}[./-]\d{1,2}[./-]\d{1,2})/.test(line)) {
+                     break;
+                }
+
+                // 遇到「前次」、「上次」關鍵字開頭，視為舊資料
+                if (hasContent && /^(前次|上次|第\d+次)(辦理|審查|回復|說明)/.test(line)) {
+                    break;
+                }
+
+                // 加入有效行
+                resultLines.push(line);
+                if (line.length > 0) hasContent = true;
+            }
+
+            return resultLines.join("\n").trim(); 
+        }
+
         function parseStatusFromResultCell(cell) { if(!cell) return ""; var src = normalizeMultiline((cell.innerText || cell.textContent || "") + "\n" + (cell.innerHTML || "").replace(/<[^>]+>/g, "")); if(!src) return ""; var allMarks = FILLED_MARKS.concat(EMPTY_MARKS).join(""); allMarks = allMarks.replace(/[-\\^$*+?.()|[\]{}]/g, "\\$&"); var reFront = new RegExp("([" + allMarks + "])\\s*(?:[:：﹕-]?\\s*)?(解除列管|持續列管|自行列管)", "g"); var reBack  = new RegExp("(解除列管|持續列管|自行列管)\\s*(?:[:：﹕-]?\\s*)?([" + allMarks + "])", "g"); var hits = [], m; while((m = reFront.exec(src)) !== null) { hits.push({ idx: m.index, label: m[2], mark: m[1], filled: FILLED_MARKS.indexOf(m[1]) >= 0 }); } while((m = reBack.exec(src)) !== null) { hits.push({ idx: m.index, label: m[1], mark: m[2], filled: FILLED_MARKS.indexOf(m[2]) >= 0 }); } var filled = hits.filter(function(h) { return h.filled; }).sort(function(a, b) { return a.idx - b.idx; }); if (filled.length) return filled[filled.length - 1].label; var labels = ["解除列管", "持續列管", "自行列管"]; var present = labels.filter(function(l) { return src.indexOf(l) >= 0; }); if (present.length === 1) return present[0]; return ""; }
         function formatHtmlToText(html) { if(!html) return ""; let temp = String(html).replace(/<li[^>]*>/gi, "\n• ").replace(/<\/li>/gi, "").replace(/<ul[^>]*>/gi, "").replace(/<\/ul>/gi, "").replace(/<ol[^>]*>/gi, "").replace(/<\/ol>/gi, "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<p[^>]*>/gi, ""); let div = document.createElement("div"); div.innerHTML = temp; return (div.textContent || div.innerText || "").replace(/\n\s*\n/g, "\n").trim(); }
 
@@ -916,7 +933,6 @@
         function showPreview(html, title) { document.getElementById('previewTitle').innerText = title || '內容預覽'; document.getElementById('previewContent').innerHTML = html || '(無內容)'; document.getElementById('previewModal').classList.add('open'); }
         function closePreview() { document.getElementById('previewModal').classList.remove('open'); }
         
-        // [New] Load Plan Options for Datalist
         async function loadPlanOptions() {
             try {
                 const res = await fetch('/api/options/plans?t=' + Date.now());
@@ -930,7 +946,6 @@
             }
         }
         
-        // [新增] 初始化：產生審查次數選項
         function initImportRoundOptions() {
             const s = document.getElementById('importRoundSelect');
             if(!s) return;
@@ -948,14 +963,13 @@
                 initListeners(); 
                 initEditForm(); 
                 initCharts(); 
-                loadPlanOptions(); // [New]
-                initImportRoundOptions(); // [新增]
+                loadPlanOptions(); 
+                initImportRoundOptions(); 
                 await loadIssuesPage(1); 
                 loadUsersPage(1); 
             } 
         });
 
-        // [Fixed] Anti-cache and DB validation
         async function checkAuth() { 
             try { 
                 const res = await fetch('/api/auth/me?t=' + Date.now(), { headers: { 'Cache-Control': 'no-cache' } }); 
@@ -970,8 +984,8 @@
                         document.getElementById('btn-importView').classList.remove('hidden'); 
                         if(data.role === 'admin') {
                              document.getElementById('btn-usersView').classList.remove('hidden');
-                             document.getElementById('uploadCardBackup').classList.remove('hidden'); // Admin sees backup import
-                             document.getElementById('exportJsonOption').style.display = 'flex'; // Admin sees JSON export
+                             document.getElementById('uploadCardBackup').classList.remove('hidden'); 
+                             document.getElementById('exportJsonOption').style.display = 'flex'; 
                         }
                     } 
                 } else window.location.href = '/login.html'; 
@@ -995,17 +1009,15 @@
             const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '', kind = document.getElementById('filterKind').value || '';
             const division = document.getElementById('filterDivision') ? document.getElementById('filterDivision').value : '';
             const inspection = document.getElementById('filterInspection') ? document.getElementById('filterInspection').value : '';
-            const planName = document.getElementById('filterPlan') ? document.getElementById('filterPlan').value : ''; // [New]
+            const planName = document.getElementById('filterPlan') ? document.getElementById('filterPlan').value : ''; 
             
             let sortField = 'created_at', sortDir = 'desc';
             if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
             
-            // [Fixed] Added _t for anti-cache and planName
             const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, planName, sortField, sortDir, _t: Date.now() });
             
             try {
                 const res = await fetch('/api/issues?' + params.toString()); 
-                // [Safe Guard] Error handling
                 if (!res.ok) { 
                     const errJson = await res.json().catch(()=>({}));
                     console.error("Server Error:", errJson);
@@ -1026,7 +1038,6 @@
         function updateSortUI() { document.querySelectorAll('th').forEach(th => { th.classList.remove('sort-asc', 'sort-desc'); if(th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc'); }); }
         function renderStats(stats) { const s = stats.status; const total = s.reduce((sum, item) => sum + parseInt(item.count), 0); const active = s.find(x => x.status === '持續列管')?.count || 0; const resolved = s.filter(x => ['解除列管', '自行列管'].includes(x.status)).reduce((sum, x) => sum + parseInt(x.count), 0); document.getElementById('countTotal').innerText = total; document.getElementById('countActive').innerText = active; document.getElementById('countResolved').innerText = resolved; }
         
-        // [Modified] Render Table (Double Safe Version + Improved UI)
         function renderTable() {
             const tbody = document.getElementById('dataBody'); tbody.innerHTML = '';
             if(!currentData || currentData.length === 0) { document.getElementById('emptyMsg').style.display = 'block'; return; }
@@ -1051,9 +1062,7 @@
                     const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
                     const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
                     
-                    // [Safe] Type Badge Logic
                     let k = item.itemKindCode;
-                    // Ensure item.number is a string before calling match
                     const numStr = String(item.number || '');
                     if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
                     
@@ -1062,9 +1071,7 @@
                     else if(k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`; 
                     else if(k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
                     
-                    // [Improved UI] Side-by-side badges, nice gap, centered alignment
                     const statusHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${badge}</div>`;
-
                     const snippet = stripHtml(item.content || '').slice(0, 180); 
                     const fullHtml = String(item.content || '');
                     
@@ -1077,13 +1084,10 @@
         }
 
         function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }
-
-        // [Fixed] Anti-cache
         async function loadUsersPage(page = 1) { usersPage = page; usersPageSize = parseInt(document.getElementById('usersPageSize').value, 10); const q = document.getElementById('userSearch').value || ''; const params = new URLSearchParams({ page: usersPage, pageSize: usersPageSize, q, sortField: usersSortField, sortDir: usersSortDir, _t: Date.now() }); try { const res = await fetch('/api/users?' + params.toString()); if(!res.ok) { showToast('載入使用者失敗','error'); return; } const j = await res.json(); userList = j.data || []; usersTotal = j.total || 0; usersPages = j.pages || 1; renderUsers(); renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage'); } catch(e) { console.error(e); showToast('載入使用者錯誤','error'); } }
         function renderUsers() { document.getElementById('usersTableBody').innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name||'-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id!==currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); }
         function usersSortBy(field) { if(usersSortField === field) usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; else { usersSortField = field; usersSortDir = 'asc'; } loadUsersPage(1); }
 
-        // [Fixed] Anti-cache
         async function loadLogsPage(page = 1) { logsPage = page; const q = document.getElementById('loginSearch').value || ''; const params = new URLSearchParams({ page: logsPage, pageSize: logsPageSize, q, _t: Date.now() }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/logs?' + params.toString()); if(!res.ok) { showToast('載入登入紀錄失敗','error'); return; } const j = await res.json(); currentLogs.login = j.data || []; logsTotal = j.total || 0; logsPages = j.pages || 1; document.getElementById('logsTableBody').innerHTML = currentLogs.login.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="IP">${l.ip_address||'-'}</td></tr>`).join(''); renderPagination('logsPagination', logsPage, logsPages, 'loadLogsPage'); } catch(e) { console.error(e); showToast('載入登入紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
         async function loadActionsPage(page = 1) { actionsPage = page; const q = document.getElementById('actionSearch').value || ''; const params = new URLSearchParams({ page: actionsPage, pageSize: actionsPageSize, q, _t: Date.now() }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/action_logs?' + params.toString()); if(!res.ok) { showToast('載入操作紀錄失敗','error'); return; } const j = await res.json(); currentLogs.action = j.data || []; actionsTotal = j.total || 0; actionsPages = j.pages || 1; document.getElementById('actionsTableBody').innerHTML = currentLogs.action.map(l => `<tr><td data-label="時間" style="padding:12px;white-space:nowrap;">${new Date(l.created_at).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="動作"><span class="badge new">${l.action}</span></td><td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td></tr>`).join(''); renderPagination('actionsPagination', actionsPage, actionsPages, 'loadActionsPage'); } catch(e) { console.error(e); showToast('載入操作紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
 
@@ -1092,71 +1096,129 @@
 
         function switchAdminTab(tab) { document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users'); document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs'); document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions'); if(tab === 'logs') loadLogsPage(1); if(tab === 'actions') loadActionsPage(1); }
 
-        // [Modified] HTML Parser (Restored to be lenient)
+        // [修正與增強] HTML 解析核心：提升對 Word 表格的容錯率
         function parseFromHTML(html) {
-            var items = []; try { var doc = new DOMParser().parseFromString(html, "text/html"); var tables = doc.querySelectorAll("table"); tables.forEach(function(table) { var rows = table.querySelectorAll("tr"); var headerRow = -1, dataStart = -1; for(var i = 0; i < Math.min(rows.length, 6); i++) { var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, ""); if((/編號|項次編號/).test(t) && (/內容/).test(t)) { headerRow = i; dataStart = i + 1; break; } } if(headerRow === -1) return; var headerCells = rows[headerRow].querySelectorAll("td,th"); var col = {}; var reviewCols = []; headerCells.forEach(function(cell, idx) { var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, ""); if((/編號|項次編號/).test(text)) col.number = idx; if((/內容/).test(text)) col.content = idx; if((/辦理情形/).test(text)) col.handling = idx; if((/結果|狀態/).test(text)) col.result = idx; var mm = text.match(/^第(\d+)次.*(審查意見|意見審查)$/); if(mm) reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) }); else if((/(審查意見|意見審查)$/).test(text)) reviewCols.push({ idx: idx, round: 1 }); }); if(col.number === undefined) col.number = 0; if(col.content === undefined) col.content = 1; for(var r = dataStart; r < rows.length; r++) { var cells = rows[r].querySelectorAll("td,th"); if(cells.length < 2) continue; var numText = extractNumberFromCell(cells[col.number]); 
-            // [Fixed] Don't drop row if strict parse fails. Use best effort.
-            var info = parseItemNumber(numText); 
-            var unitName = ORG_MAP[info.orgCode] || info.orgCode || ""; 
-            var inspectName = INSPECTION_MAP[info.inspectCode] || info.inspectCode || ""; 
-            var divName = DIVISION_MAP[info.divCode] || info.divCode || ""; 
-            var kindName = KIND_MAP[info.kindCode] || "其他"; 
-            var item = { number: info.raw.toUpperCase(), year: String(info.yearRoc), unit: unitName, itemKindCode: info.kindCode, category: kindName, inspectionCategoryName: inspectName, divisionName: divName, content: "", handling: "", status: "持續列管" }; if(cells[col.content]) item.content = sanitizeContent(cells[col.content].innerHTML); if(cells[col.handling]) item.handling = sanitizeContent(cells[col.handling].innerHTML); if(info.kindCode === "R") item.status = "自行列管"; else if(cells[col.result]) item.status = parseStatusFromResultCell(cells[col.result]) || "持續列管"; reviewCols.forEach(function(rc) { var key = (rc.round === 1 ? "review" : ("review" + rc.round)); item[key] = sanitizeContent(cells[rc.idx] ? cells[rc.idx].innerHTML : ""); }); items.push(item); } }); } catch(e) { console.error("Parse error:", e); } return items;
+            var items = []; 
+            try { 
+                var doc = new DOMParser().parseFromString(html, "text/html"); 
+                var tables = doc.querySelectorAll("table"); 
+                
+                tables.forEach(function(table) { 
+                    var rows = table.querySelectorAll("tr"); 
+                    var headerRow = -1, dataStart = -1; 
+                    
+                    for(var i = 0; i < Math.min(rows.length, 10); i++) { 
+                        var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, ""); 
+                        if((/編號|項次|序號/).test(t) && (/內容|摘要/).test(t)) { 
+                            headerRow = i; 
+                            dataStart = i + 1; 
+                            break; 
+                        } 
+                    } 
+                    
+                    if(headerRow === -1) return; 
+
+                    var headerCells = rows[headerRow].querySelectorAll("td,th"); 
+                    var col = { number: -1, content: -1, handling: -1, result: -1 }; 
+                    var reviewCols = []; 
+
+                    headerCells.forEach(function(cell, idx) { 
+                        var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, ""); 
+                        if((/編號|項次|序號/).test(text)) col.number = idx; 
+                        else if((/事項內容|缺失內容|觀察內容|內容/).test(text)) col.content = idx; 
+                        else if((/辦理情形|改善情形/).test(text)) col.handling = idx; 
+                        else if((/結果|狀態|列管/).test(text)) col.result = idx; 
+                        
+                        var mm = text.match(/第(\d+)次.*(審查|意見)/); 
+                        if(mm) {
+                            reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) }); 
+                        } else if((/審查意見|意見審查/).test(text)) {
+                            reviewCols.push({ idx: idx, round: 1 }); 
+                        }
+                    }); 
+
+                    if(col.number === -1) col.number = 0; 
+                    if(col.content === -1) col.content = (col.number === 0) ? 1 : 0;
+
+                    for(var r = dataStart; r < rows.length; r++) { 
+                        var cells = rows[r].querySelectorAll("td,th"); 
+                        if(cells.length < 2) continue; 
+
+                        var rawNumText = cells[col.number] ? (cells[col.number].innerText || cells[col.number].textContent || "") : "";
+                        var info = parseItemNumber(rawNumText); 
+                        if(!info || !info.raw) continue;
+
+                        var unitName = ORG_MAP[info.orgCode] || info.orgCode || ""; 
+                        var inspectName = INSPECTION_MAP[info.inspectCode] || info.inspectCode || ""; 
+                        var divName = DIVISION_MAP[info.divCode] || info.divCode || ""; 
+                        var kindName = KIND_MAP[info.kindCode] || "其他"; 
+                        
+                        var item = { 
+                            number: info.raw.toUpperCase(), 
+                            year: String(info.yearRoc), 
+                            unit: unitName, 
+                            itemKindCode: info.kindCode, 
+                            category: kindName, 
+                            inspectionCategoryName: inspectName, 
+                            divisionName: divName, 
+                            content: "", 
+                            handling: "", 
+                            status: "持續列管" 
+                        }; 
+
+                        if(col.content !== -1 && cells[col.content]) item.content = sanitizeContent(cells[col.content].innerHTML); 
+                        if(col.handling !== -1 && cells[col.handling]) item.handling = sanitizeContent(cells[col.handling].innerHTML); 
+                        if(info.kindCode === "R") item.status = "自行列管"; else if(col.result !== -1 && cells[col.result]) item.status = parseStatusFromResultCell(cells[col.result]) || "持續列管"; 
+
+                        reviewCols.forEach(function(rc) { 
+                            var key = (rc.round === 1 ? "review" : ("review" + rc.round)); 
+                            if(cells[rc.idx]) item[key] = sanitizeContent(cells[rc.idx].innerHTML); 
+                        }); 
+
+                        items.push(item); 
+                    } 
+                }); 
+            } catch(e) { 
+                console.error("Parse error:", e); 
+                alert("解析 Word 表格時發生錯誤，請確認表格格式是否包含「編號」與「內容」欄位。");
+            } 
+            return items;
         }
 
-        // [新增] 當作業階段改變時
         function onImportStageChange() {
-            // 取得目前選中的階段
             const stage = document.querySelector('input[name="importStage"]:checked').value;
             const roundContainer = document.getElementById('importRoundContainer');
             const planNameContainer = document.getElementById('importPlanNameContainer');
             
             if (stage === 'initial') {
-                // 初次開立
-                roundContainer.style.display = 'none'; // 不需要選第幾次
-                planNameContainer.style.gridColumn = 'span 2'; // 計畫名稱佔滿
-                
+                roundContainer.style.display = 'none'; 
+                planNameContainer.style.gridColumn = 'span 2'; 
                 document.getElementById('importDateGroup_Initial').style.display = 'block';
                 document.getElementById('importDateGroup_Review').style.display = 'none';
-                
-                // 提示文字修正
                 document.getElementById('importStatusWord').innerText = '';
             } else {
-                // 後續審查
-                roundContainer.style.display = 'block'; // 顯示審查次數選單
-                planNameContainer.style.gridColumn = 'auto'; // 回復正常寬度
-                
+                roundContainer.style.display = 'block'; 
+                planNameContainer.style.gridColumn = 'auto'; 
                 document.getElementById('importDateGroup_Initial').style.display = 'none';
                 document.getElementById('importDateGroup_Review').style.display = 'block';
             }
             checkImportReady();
         }
 
-        // [修改] 檢查是否可執行
         function checkImportReady() {
             const f = document.getElementById('wordInput').files[0];
-            
-            // 若是 backup mode，只檢查檔案
-            if(currentImportMode === 'backup') {
-                const backupF = document.getElementById('backupInput').files[0];
-                // Backup button logic handled elsewhere, this is mainly for Word
-                return; 
-            }
+            if(currentImportMode === 'backup') return; 
 
             const stageRadio = document.querySelector('input[name="importStage"]:checked');
-            // 安全檢查：如果 UI 還沒 render 好
             if(!stageRadio) return;
             
             const stage = stageRadio.value;
-            
             let valid = false;
             
             if (stage === 'initial') {
-                // 初次開立：必須填寫發函日期
                 const d = document.getElementById('importIssueDate').value.trim();
                 valid = (d.length > 0);
             } else {
-                // 後續審查：只要選了次數即可 (日期非強制，但建議填)
                 valid = true; 
             }
             
@@ -1178,7 +1240,6 @@
             } catch(e) { console.error(e); msg.innerText = 'Word 解析錯誤: ' + e.message; }
         }
 
-        // New robust parsing function shared by JSON and CSV
         function parseHistoryField(text) {
             if (!text || typeof text !== 'string') return {};
             const chunks = {};
@@ -1221,10 +1282,9 @@
                             status: i.status || i['狀態'] || '持續列管',
                             handling: i.handling || i['辦理情形'] || i['最新辦理情形'] || '',
                             review: i.review || i['審查意見'] || i['最新審查意見'] || '',
-                            // Backup might contain these
                             itemKindCode: i.itemKindCode,
                             category: i.category,
-                            divisionName: i.division, // map back to divisionName for consistency
+                            divisionName: i.division, 
                             inspectionCategoryName: i.inspection_category,
                             planName: i.planName,
                             issueDate: i.issueDate
@@ -1289,7 +1349,6 @@
             stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
             
             if (currentImportMode === 'word') {
-                // 取得 UI 上的階段文字來顯示
                 const stageRadio = document.querySelector('input[name="importStage"]:checked');
                 const stageText = stageRadio && stageRadio.value === 'initial' ? '初次開立' : `第 ${round} 次審查`;
                 const badgeClass = stageRadio && stageRadio.value === 'initial' ? 'new' : 'update';
@@ -1307,7 +1366,6 @@
             if(msgElement) msgElement.innerText = '';
         }
 
-        // [Updated] Render Preview Table function to use new CSS classes
         function renderPreviewTable() { 
             document.getElementById('previewCount').innerText = stagedImportData.length; 
             const tbody = document.getElementById('previewBody'); 
@@ -1335,15 +1393,13 @@
             document.getElementById('importStatusBackup').innerText = ''; 
         }
         
-        // [Updated] Confirm import: Handle IssueDate vs ReviewDate
         async function confirmImport() { 
             const count = stagedImportData.length;
             const isBackup = currentImportMode === 'backup';
             const msg = isBackup ? `⚠️ 警告：即將進行「災難復原」，這將覆蓋或新增 ${count} 筆資料。\n確定要執行嗎？` : `確定要匯入 ${count} 筆資料嗎？`;
             if(!confirm(msg)) return; 
             
-            // 取得 UI 設定值
-            let round = 1; // 預設值
+            let round = 1; 
             let issueDate = '';
             let replyDate = '';
             let responseDate = '';
@@ -1352,27 +1408,20 @@
                 const stage = document.querySelector('input[name="importStage"]:checked').value;
                 
                 if (stage === 'initial') {
-                    // 初次開立
-                    // 技術上後端仍需要一個 round 數字來寫入資料庫結構，我們使用 1
-                    // 但重點是我們會寫入 issueDate
                     round = 1;
                     issueDate = document.getElementById('importIssueDate').value;
-                    // 初始狀態通常沒有回復和函復
                 } else {
-                    // 後續審查
                     round = document.getElementById('importRoundSelect').value;
                     replyDate = document.getElementById('importReplyDate').value;
                     responseDate = document.getElementById('importResponseDate').value;
                 }
             }
             
-            // 計畫名稱
             const planName = isBackup ? '' : document.getElementById('importPlanName').value;
             
             let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
                 if(currentImportMode === 'word') {
                     if(!item.planName && planName) item.planName = planName;
-                    // 只有在「初次開立」模式下，才強制寫入發函日
                     const stage = document.querySelector('input[name="importStage"]:checked') ? document.querySelector('input[name="importStage"]:checked').value : 'initial';
                     if(!item.issueDate && stage === 'initial') item.issueDate = issueDate; 
                 }
@@ -1386,8 +1435,8 @@
                     body: JSON.stringify({ 
                         data: cleanData, 
                         round: round, 
-                        reviewDate: responseDate, // 傳送給後端寫入 response_date_r{N}
-                        replyDate: replyDate,     // 傳送給後端寫入 reply_date_r{N}
+                        reviewDate: responseDate, 
+                        replyDate: replyDate, 
                         mode: currentImportMode 
                     }) 
                 }); 
@@ -1395,10 +1444,8 @@
             } catch(e) { showToast('Error: ' + e.message, 'error'); } 
         }
         
-        // --- New Data Management Functions ---
         function switchDataTab(tab) { document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); }
         
-        // [New] Auto-fill function
         function autoFillFromNumber() {
             const val = document.getElementById('manualNumber').value;
             const info = parseItemNumber(val);
@@ -1422,17 +1469,14 @@
             }
         }
 
-        // [Updated] Submit Manual Issue to include Plan Name, Issue Date, and Continuous Mode
         async function submitManualIssue() {
             const number = document.getElementById('manualNumber').value.trim();
             const year = document.getElementById('manualYear').value.trim();
             const unit = document.getElementById('manualUnit').value.trim();
-            // Get manual overrides
             const division = document.getElementById('manualDivision').value;
             const inspection = document.getElementById('manualInspection').value;
             const kind = document.getElementById('manualKind').value;
             
-            // New Fields
             const planName = document.getElementById('manualPlanName').value.trim();
             const issueDate = document.getElementById('manualIssueDate').value.trim();
             const continuousMode = document.getElementById('manualContinuousMode').checked;
@@ -1447,11 +1491,11 @@
                     itemKindCode: kind, 
                     divisionName: division,
                     inspectionCategoryName: inspection,
-                    planName: planName,  // Added
-                    issueDate: issueDate, // Added
+                    planName: planName, 
+                    issueDate: issueDate, 
                     scheme: 'MANUAL' 
                 }],
-                round: 1, reviewDate: '', replyDate: '' // Initial manual entry has no reply yet
+                round: 1, reviewDate: '', replyDate: '' 
             };
 
             try {
@@ -1459,17 +1503,12 @@
                 if(res.ok) { 
                     showToast('新增成功'); 
                     
-                    // [Logic] Clear fields based on Continuous Mode
                     if (continuousMode) {
-                        // Keep Plan, Date, Year, Unit, Inspection, Division (assuming same batch)
-                        // Only clear specific item fields
                         document.getElementById('manualNumber').value = ''; 
                         document.getElementById('manualKind').value = '';
                         document.getElementById('manualContent').value = ''; 
-                        // Focus back to Number for next entry
                         document.getElementById('manualNumber').focus();
                     } else {
-                        // Clear all inputs
                         document.getElementById('manualNumber').value = ''; 
                         document.getElementById('manualYear').value = ''; 
                         document.getElementById('manualUnit').value = ''; 
@@ -1482,12 +1521,11 @@
                     }
                     
                     loadIssuesPage(1); 
-                    loadPlanOptions(); // Reload plan list in case new one was added
+                    loadPlanOptions(); 
                 } else { showToast('新增失敗', 'error'); }
             } catch(e) { showToast('Error: ' + e.message, 'error'); }
         }
 
-        // [Updated] Export function to include new columns
         async function exportAllIssues() {
             try {
                 const exportScope = document.querySelector('input[name="exportScope"]:checked').value;
@@ -1506,7 +1544,6 @@
 
                 let csvContent = '\uFEFF'; const clean = (t) => `"${String(t||'').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
                 
-                // CSV Header
                 const baseHeader = "編號,年度,機構,分組,檢查種類,類型,狀態,事項內容";
                 
                 if (exportScope === 'latest') {
@@ -1548,16 +1585,13 @@
         function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
         async function submitProfile() { const name = document.getElementById('myProfileName').value, pwd = document.getElementById('myProfilePwd').value; try { const res = await fetch('/api/auth/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password: pwd }) }); if(res.ok) { showToast('更新成功，請重新登入'); document.getElementById('profileModal').classList.remove('open'); logout(); } else { const j = await res.json(); showToast(j.error || '更新失敗', 'error'); } } catch(e) { showToast('更新失敗', 'error'); } }
         
-        // [Updated] Edit Mode Logic to handle new dates
         function toggleEditMode(edit) { document.getElementById('viewModeContent').classList.toggle('hidden', edit); document.getElementById('editModeContent').classList.toggle('hidden', !edit); document.getElementById('drawerTitle').innerText = edit ? "編輯事項" : "詳細資料"; if(edit) { document.getElementById('editId').value = currentEditItem.id; document.getElementById('editHeaderNumber').innerText = currentEditItem.number; document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; document.getElementById('editStatus').value = st; document.getElementById('editRound').value = 1; document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); loadRoundData(); document.getElementById('aiBox').style.display = 'none'; document.getElementById('aiPreviewText').innerText = ''; } }
         function initEditForm() { const s = document.getElementById('editRound'); if(!s || s.options.length > 0) return; for(let i = 1; i <= 20; i++) { const o = document.createElement('option'); o.value = i; o.text = `第 ${i} 次`; s.add(o); } }
         
-        // [Updated] openDetail to show Plan and Dates CORRECTLY (using snake_case fallback)
         function openDetail(id, isEdit) { 
             currentEditItem = currentData.find(d => String(d.id) === String(id)); if(!currentEditItem) return; 
             document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dYear').textContent = currentEditItem.year; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; 
             
-            // [FIX] Use snake_case for DB compatibility
             document.getElementById('dPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)';
             document.getElementById('dIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
             
@@ -1568,14 +1602,12 @@
             for(let i = 20; i >= 1; i--) { 
                 const suffix = i === 1 ? '' : i;
                 const ha = currentEditItem['handling' + suffix], re = currentEditItem['review' + suffix]; 
-                // [FIX] Use snake_case for DB compatibility
                 const replyDate = currentEditItem['reply_date_r' + i];
                 const responseDate = currentEditItem['response_date_r' + i];
 
                 if(ha || re) {
                     const latestBadge = firstRecord ? '<span class="badge new" style="margin-left:8px;font-size:11px;">最新</span>' : '';
                     
-                    // Date Display in Timeline
                     let dateInfo = '';
                     if(replyDate || responseDate) {
                         dateInfo = `<div style="margin-bottom:8px;font-size:12px;color:#64748b;background:#f8fafc;padding:6px;border-radius:4px;display:inline-block;">`;
@@ -1629,7 +1661,6 @@
         function updateBatchUI() { const checked = document.querySelectorAll('.issue-check:checked'), count = checked.length, container = document.getElementById('batchActionContainer'); if(count > 0) { container.style.display = 'block'; document.getElementById('selectedCountBadge').innerText = `(${count})`; } else { container.style.display = 'none'; } }
         async function batchDeleteIssues() { const checked = document.querySelectorAll('.issue-check:checked'), ids = Array.from(checked).map(cb => cb.value); if(ids.length === 0) return showToast('請先勾選要刪除的項目', 'error'); if(!confirm(`確定要刪除這 ${ids.length} 筆資料嗎？`)) return; try { const res = await fetch('/api/issues/batch-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); const result = await res.json(); if(result.success) { showToast(`成功刪除 ${ids.length} 筆資料`); loadIssuesPage(1); document.getElementById('selectAll').checked = false; updateBatchUI(); } else { showToast('刪除失敗: ' + result.error, 'error'); } } catch(e) { showToast('連線錯誤', 'error'); } }
         
-        // [Updated] Save Edit to include dates
         async function saveEdit() { 
             const id = document.getElementById('editId').value;
             const round = document.getElementById('editRound').value;
@@ -1653,7 +1684,6 @@
         
         function switchView(id) { document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.sidebar-btn').forEach(e => e.classList.remove('active')); const btn = document.getElementById(`btn-${id}`); if(btn) btn.classList.add('active'); const panel = document.getElementById('filtersPanel'); if(panel.classList.contains('open')) { onToggleSidebar(); } }
         
-        // [Updated] Load Round Data to fill date inputs (FIXED to read snake_case from DB)
         function loadRoundData() { 
             const r = parseInt(document.getElementById('editRound').value), s = r === 1 ? '' : r;
             const rawHandling = currentEditItem['handling' + s] || '';
@@ -1661,7 +1691,6 @@
             document.getElementById('editHandling').value = formatHtmlToText(rawHandling); 
             document.getElementById('editReview').value = formatHtmlToText(rawReview); 
             
-            // [FIX] Use snake_case for DB compatibility
             document.getElementById('editReplyDate').value = currentEditItem['reply_date_r' + r] || currentEditItem['replyDate_r' + r] || '';
             document.getElementById('editResponseDate').value = currentEditItem['response_date_r' + r] || currentEditItem['responseDate_r' + r] || '';
 
