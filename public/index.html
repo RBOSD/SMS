@@ -13,7 +13,7 @@
         /* 1. 基礎設定 */
         html, body { min-height: 100vh; overflow-x: hidden; margin: 0; padding: 0; }
         body { display: none; font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #f8fafc; flex-direction: column; } 
-        :root { --primary: #2563eb; --bg-body: #f8fafc; --bg-card: #ffffff; --text-main: #0f172a; --text-sub: #64748b; --border: #e2e8f0; --header-h: 60px; --danger: #ef4444; --success: #10b981; }
+        :root { --primary: #2563eb; --primary-light: #eff6ff; --bg-body: #f8fafc; --bg-card: #ffffff; --text-main: #0f172a; --text-sub: #64748b; --border: #e2e8f0; --header-h: 60px; --danger: #ef4444; --success: #10b981; }
         *, *::before, *::after { box-sizing: border-box; }
         
         /* Header */
@@ -176,6 +176,20 @@
         .form-group { margin-bottom: 20px; } .form-group label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px; color: #475569; }
         .view-section { display: none; width: 100%; height: 100%; flex-direction: column; }
         .view-section.active { display: flex; }
+        
+        /* NEW: 重新設計的詳細資料樣式 */
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; padding-bottom: 24px; }
+        .info-item { display: flex; flex-direction: column; gap: 4px; }
+        .info-label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .info-value { font-size: 14px; font-weight: 500; color: #334155; line-height: 1.4; }
+        .info-header-main { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .content-text { font-size: 15px; line-height: 1.8; color: #1e293b; background: #fafafa; padding: 20px; border-radius: 8px; border-left: 4px solid #cbd5e1; }
+        
+        .timeline-line { position: absolute; left: 20px; top: 24px; bottom: 0; width: 2px; background: #e2e8f0; }
+        .timeline-item { position: relative; padding-left: 48px; margin-bottom: 32px; }
+        .timeline-dot { position: absolute; left: 14px; top: 4px; width: 14px; height: 14px; border-radius: 50%; background: white; border: 3px solid var(--primary); z-index: 1; }
+        .timeline-title { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
+        .timeline-date-tag { display: inline-flex; align-items: center; gap: 6px; background: #f1f5f9; color: #475569; font-size: 12px; padding: 4px 10px; border-radius: 20px; font-weight: 500; margin-bottom: 12px; border: 1px solid #e2e8f0; }
 
         #toast-container { position: fixed; top: 80px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
         .toast { pointer-events: auto; background: white; padding: 16px 20px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); display: flex; align-items: center; gap: 12px; min-width: 300px; transform: translateX(120%); transition: transform 0.3s; border-left: 4px solid #cbd5e1; }
@@ -659,29 +673,45 @@
         <div class="drawer-header"><div style="font-weight:700;font-size:18px;" id="drawerTitle">詳細資料</div><button onclick="closeDrawer()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button></div>
         <div class="drawer-body">
             <div id="viewModeContent">
+                <!-- NEW: 美化後的詳細資料區塊 -->
                 <div class="detail-card">
-                    <div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:8px;text-transform:uppercase;">基本資訊</div>
-                    <div style="margin-bottom:12px;font-weight:700;color:#2563eb;font-size:16px;"><span id="dNumber"></span> <span style="color:#cbd5e1;margin:0 8px;">|</span> <span id="dYear"></span> <span style="color:#cbd5e1;margin:0 8px;">|</span> <span id="dUnit"></span></div>
-                    <div style="margin-bottom:16px;" id="dStatus"></div>
-                    
-                    <!-- [Modified] Merged Plan Info -->
-                    <div style="background:#f1f5f9; padding:12px; border-radius:8px; margin-bottom:16px; border:1px solid #e2e8f0;">
-                         <div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:8px;border-bottom:1px solid #cbd5e1;padding-bottom:4px;">專案計畫資訊</div>
-                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-                             <div><div style="font-size:11px;color:#64748b;">檢查計畫名稱</div><div style="font-weight:600;font-size:14px;" id="dPlanName">-</div></div>
-                             <div><div style="font-size:11px;color:#64748b;">初次發函日期</div><div style="font-weight:600;font-size:14px;" id="dIssueDate">-</div></div>
-                         </div>
+                    <!-- Header: Number & Tags -->
+                    <div class="info-header-main">
+                        <span id="dNumber"></span>
+                        <span id="dStatus"></span>
+                        <span class="badge" id="dYear" style="background:#f1f5f9; color:#475569;"></span>
+                        <span class="badge" id="dUnit" style="background:#f1f5f9; color:#475569;"></span>
                     </div>
 
-                    <div style="line-height:1.7;font-size:15px;color:#334155;" id="dContent"></div>
+                    <!-- Grid Layout for Info -->
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">檢查計畫名稱</span>
+                            <span class="info-value" id="dPlanName">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">初次發函日期</span>
+                            <span class="info-value" id="dIssueDate">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">分組 / 類型</span>
+                            <span class="info-value" id="dCategoryInfo">-</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 8px; font-size:12px; font-weight:600; color:#64748b; text-transform:uppercase;">事項內容</div>
+                    <div class="content-text" id="dContent"></div>
                 </div>
 
-                <!-- Removed separate plan info card -->
-
-                <div style="font-weight:700;margin:24px 0 16px;font-size:16px;color:#0f172a;">歷程紀錄</div><div id="dTimeline"></div>
-                <div style="margin-top:30px; display:flex; flex-direction:column; gap:12px;">
-                    <button class="btn btn-primary hidden" id="editBtn" style="width:100%;padding:12px;" onclick="toggleEditMode(true)">✏️ 編輯 / 審查</button>
-                    <button class="btn btn-danger hidden" id="deleteBtnDrawer" style="width:100%;padding:12px;" onclick="deleteIssueFromDrawer()">🗑️ 刪除此項目</button>
+                <div style="font-weight:700;margin:24px 0 20px;font-size:18px;color:#0f172a;display:flex;align-items:center;gap:8px;">
+                    <span>📅</span> 歷程紀錄
+                </div>
+                
+                <div id="dTimeline" style="position: relative;"></div>
+                
+                <div style="margin-top:40px; display:flex; flex-direction:column; gap:12px;">
+                    <button class="btn btn-primary hidden" id="editBtn" style="width:100%;padding:14px;font-size:15px;" onclick="toggleEditMode(true)">✏️ 編輯 / 審查</button>
+                    <button class="btn btn-danger hidden" id="deleteBtnDrawer" style="width:100%;padding:14px;font-size:15px;" onclick="deleteIssueFromDrawer()">🗑️ 刪除此項目</button>
                 </div>
             </div>
             <div id="editModeContent" class="hidden" style="height:100%;">
@@ -1592,13 +1622,22 @@
         
         function openDetail(id, isEdit) { 
             currentEditItem = currentData.find(d => String(d.id) === String(id)); if(!currentEditItem) return; 
-            document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dYear').textContent = currentEditItem.year; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; 
+            document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dYear').textContent = currentEditItem.year + " 年"; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; 
             
+            // Plan Info
             document.getElementById('dPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)';
             document.getElementById('dIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
             
+            // Category Info
+            const divName = currentEditItem.divisionName || currentEditItem.division_name || '-';
+            const insName = currentEditItem.inspectionCategoryName || currentEditItem.inspection_category_name || '-';
+            const kindName = currentEditItem.category || '-';
+            document.getElementById('dCategoryInfo').textContent = `${divName} / ${insName} / ${kindName}`;
+
+            // Status
             const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self'); 
             document.getElementById('dStatus').innerHTML = currentEditItem.status && currentEditItem.status !== 'Open' ? `<span class="badge ${st}">${currentEditItem.status}</span>` : '(未設定)'; 
+            
             let h = ''; 
             let firstRecord = true;
             for(let i = 20; i >= 1; i--) { 
@@ -1608,27 +1647,30 @@
                 const responseDate = currentEditItem['response_date_r' + i];
 
                 if(ha || re) {
-                    const latestBadge = firstRecord ? '<span class="badge new" style="margin-left:8px;font-size:11px;">最新</span>' : '';
+                    const latestBadge = firstRecord ? '<span class="badge new" style="margin-left:8px;font-size:11px;">最新進度</span>' : '';
                     
                     let dateInfo = '';
                     if(replyDate || responseDate) {
-                        dateInfo = `<div style="margin-bottom:8px;font-size:12px;color:#475569;background:#f1f5f9;padding:8px 12px;border-radius:6px;display:inline-block;border:1px solid #e2e8f0;">`;
-                        if(replyDate) dateInfo += `<span style="margin-right:12px;">📅 機構回復: <strong>${replyDate}</strong></span>`;
-                        if(responseDate) dateInfo += `<span>📅 機關函復: <strong>${responseDate}</strong></span>`;
+                        dateInfo = `<div style="margin-bottom:12px;">`;
+                        if(replyDate) dateInfo += `<span class="timeline-date-tag">🏢 機構回復: ${replyDate}</span> `;
+                        if(responseDate) dateInfo += `<span class="timeline-date-tag">🏛️ 機關函復: ${responseDate}</span>`;
                         dateInfo += `</div>`;
                     }
 
-                    h += `<div style="padding-left:16px;border-left:2px solid #e5e7eb;margin-left:8px;padding-bottom:20px;position:relative;">
-                        <div style="position:absolute;left:-7px;top:0;width:12px;height:12px;border-radius:50%;background:${firstRecord?'var(--primary)':'#fff'};border:2px solid var(--primary);"></div>
-                        <div style="font-size:13px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;">第 ${i} 次辦理情形${latestBadge}</div>
+                    h += `<div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-title">第 ${i} 次辦理情形 ${latestBadge}</div>
                         ${dateInfo}
-                        ${ha?`<div style="background:#f8fafc;padding:10px;border-radius:6px;font-size:14px;margin-bottom:8px;border:1px solid #f1f5f9;">${ha}</div>`:''}
-                        ${re?`<div style="background:#fff;border:1px solid #e2e8f0;padding:10px;border-radius:6px;font-size:14px;">${re}</div>`:''}
+                        ${ha?`<div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#334155;border:1px solid #e2e8f0;margin-bottom:12px;">${ha}</div>`:''}
+                        ${re?`<div style="background:#fff;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#334155;border:1px solid #e2e8f0;border-left:3px solid var(--primary);"><strong>審查意見：</strong><br>${re}</div>`:''}
                     </div>`;
                     firstRecord = false;
                 }
             } 
-            document.getElementById('dTimeline').innerHTML = h || '<div style="color:#999;">無歷程</div>'; 
+            
+            const timelineHtml = `<div class="timeline-line"></div>` + (h || '<div style="color:#999;padding-left:20px;">無歷程紀錄</div>');
+            document.getElementById('dTimeline').innerHTML = timelineHtml; 
+            
             const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role); const canDelete = ['admin', 'manager'].includes(currentUser.role); document.getElementById('editBtn').classList.toggle('hidden', !canEdit); document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit); 
         }
         function logout() { fetch('/api/auth/logout', { method: 'POST' }).then(() => window.location.reload()); }
