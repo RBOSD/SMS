@@ -419,25 +419,52 @@ async function startServer() {
 }
 
 // ==========================================
-// 🚑 救援路由：強制重設 admin 密碼
+// 🚑 強力救援：修復資料表結構 + 重設 Admin
 // ==========================================
-app.get('/rescue/reset-admin', async (req, res) => {
+app.get('/rescue/fix-db', async (req, res) => {
     try {
-        const hash = bcrypt.hashSync('admin123', 10);
-        
-        // 1. 嘗試更新 admin
-        const result = await pool.query("UPDATE users SET password = $1 WHERE username = 'admin'", [hash]);
-        
-        if (result.rowCount > 0) {
-            return res.send("✅ Admin 密碼已重設為: admin123");
-        } else {
-            // 2. 如果沒更新到（代表沒 admin），則插入一個新的
-            await pool.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
-                ['admin', hash, '系統管理員', 'admin']);
-            return res.send("✅ Admin 帳號已建立，密碼為: admin123");
+        const client = await pool.connect();
+        let log = [];
+
+        try {
+            // 1. 檢查並修復 users 表格 (補上 password 欄位)
+            log.push("檢查 users 資料表結構...");
+            await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password TEXT`);
+            log.push("✅ password 欄位檢查/修復完成。");
+
+            // 2. 檢查並修復 users 表格 (補上 role 欄位，以防萬一)
+            await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'viewer'`);
+            log.push("✅ role 欄位檢查/修復完成。");
+
+            // 3. 重設 Admin
+            const hash = bcrypt.hashSync('admin123', 10);
+            const updateRes = await client.query("UPDATE users SET password = $1, role = 'admin' WHERE username = 'admin'", [hash]);
+            
+            if (updateRes.rowCount > 0) {
+                log.push("✅ Admin 密碼已重設為: admin123");
+            } else {
+                // 如果沒有 admin，就建立一個
+                await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
+                    ['admin', hash, '系統管理員', 'admin']);
+                log.push("✅ Admin 帳號已建立，密碼為: admin123");
+            }
+
+            res.send(`
+                <h2>資料庫修復報告</h2>
+                <pre>${log.join('\n')}</pre>
+                <br>
+                <a href="/login.html">點此返回登入頁面</a>
+            `);
+
+        } finally {
+            client.release();
         }
     } catch (e) {
-        res.send("❌ 錯誤: " + e.message);
+        res.status(500).send(`
+            <h2 style="color:red">❌ 修復失敗</h2>
+            <p>${e.message}</p>
+            <pre>${e.stack}</pre>
+        `);
     }
 });
 // ==========================================
