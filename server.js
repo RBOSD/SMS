@@ -205,7 +205,7 @@ app.post('/api/gemini', async (req, res) => {
         const genAI = new GoogleGenerativeAI(apiKey);
 		
                       // 使用Google gemini 2.5 flash    
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const latestRound = (rounds && rounds.length > 0) ? rounds[rounds.length - 1] : { handling: '無', review: '無' };
         
