@@ -418,4 +418,28 @@ async function startServer() {
     }
 }
 
+// ==========================================
+// 🚑 救援路由：強制重設 admin 密碼
+// ==========================================
+app.get('/rescue/reset-admin', async (req, res) => {
+    try {
+        const hash = bcrypt.hashSync('admin123', 10);
+        
+        // 1. 嘗試更新 admin
+        const result = await pool.query("UPDATE users SET password = $1 WHERE username = 'admin'", [hash]);
+        
+        if (result.rowCount > 0) {
+            return res.send("✅ Admin 密碼已重設為: admin123");
+        } else {
+            // 2. 如果沒更新到（代表沒 admin），則插入一個新的
+            await pool.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
+                ['admin', hash, '系統管理員', 'admin']);
+            return res.send("✅ Admin 帳號已建立，密碼為: admin123");
+        }
+    } catch (e) {
+        res.send("❌ 錯誤: " + e.message);
+    }
+});
+// ==========================================
+
 startServer();
