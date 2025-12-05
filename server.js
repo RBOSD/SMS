@@ -1,14 +1,21 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg'); // 改用 pg
 const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
-// const { GoogleGenerativeAI } = require("@google/generative-ai"); // 若無使用 AI 可註解
+require('dotenv').config();
+// const { GoogleGenerativeAI } = require("@google/generative-ai"); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DB_PATH = path.join(__dirname, 'issues.db');
+
+// 初始化 PostgreSQL 連線池
+// Render 會自動提供 DATABASE_URL 環境變數
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
 // Middleware
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -16,103 +23,133 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(session({
-    secret: 'sms-secret-key',
+    secret: 'sms-secret-key-pg',
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
-// 初始化資料庫
-const db = new sqlite3.Database(DB_PATH, (err) => {
-    if (err) console.error('Error opening database:', err.message);
-    else {
-        console.log('Connected to SQLite database.');
-        initDB();
-    }
-});
-
-// 權限檢查
+// 權限檢查 Middleware
 const requireAuth = (req, res, next) => {
     if (req.session && req.session.user) next();
     else res.status(401).json({ error: 'Unauthorized' });
 };
 
-function initDB() {
-    db.serialize(() => {
-        // 確保基本資料表存在
-        db.run(`CREATE TABLE IF NOT EXISTS issues (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            number TEXT UNIQUE, year TEXT, unit TEXT, content TEXT, status TEXT,
-            item_kind_code TEXT, division_name TEXT, inspection_category_name TEXT,
-            category TEXT, handling TEXT, review TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+// 資料庫初始化
+async function initDB() {
+    const client = await pool.connect();
+    try {
+        console.log('Connected to PostgreSQL database.');
+
+        // 1. 建立 Issues 表 (Postgres 語法: SERIAL, TIMESTAMP)
+        await client.query(`CREATE TABLE IF NOT EXISTS issues (
+            id SERIAL PRIMARY KEY,
+            number TEXT UNIQUE,
+            year TEXT,
+            unit TEXT,
+            content TEXT,
+            status TEXT,
+            item_kind_code TEXT,
+            division_name TEXT,
+            inspection_category_name TEXT,
+            category TEXT,
+            handling TEXT,
+            review TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE, password TEXT, name TEXT, role TEXT DEFAULT 'viewer',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        // 2. 建立 Users 表
+        await client.query(`CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username TEXT UNIQUE,
+            password TEXT,
+            name TEXT,
+            role TEXT DEFAULT 'viewer',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT, action TEXT, details TEXT, ip_address TEXT,
-            login_time DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        // 3. 建立 Logs 表
+        await client.query(`CREATE TABLE IF NOT EXISTS logs (
+            id SERIAL PRIMARY KEY,
+            username TEXT,
+            action TEXT,
+            details TEXT,
+            ip_address TEXT,
+            login_time TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // [重要修正]：這裡執行「無痛遷移」，嘗試新增新功能需要的欄位
-        // 如果欄位已存在，SQLite 會報錯，我們直接忽略錯誤即可，保證舊資料安全
+        // 4. 自動遷移: 新增欄位
+        // Postgres 新增欄位如果已存在可以透過 IF NOT EXISTS (Postgres 9.6+)
         const newColumns = [
-            'plan_name TEXT', 
-            'issue_date TEXT'
+            { name: 'plan_name', type: 'TEXT' },
+            { name: 'issue_date', type: 'TEXT' }
         ];
-        // 20回合的欄位
+        
         for (let i = 1; i <= 20; i++) {
-            if(i > 1) {
-                newColumns.push(`handling${i} TEXT`);
-                newColumns.push(`review${i} TEXT`);
+            if (i > 1) {
+                newColumns.push({ name: `handling${i}`, type: 'TEXT' });
+                newColumns.push({ name: `review${i}`, type: 'TEXT' });
             }
-            newColumns.push(`reply_date_r${i} TEXT`);    // 機構回復日期
-            newColumns.push(`response_date_r${i} TEXT`); // 函復日期
+            newColumns.push({ name: `reply_date_r${i}`, type: 'TEXT' });
+            newColumns.push({ name: `response_date_r${i}`, type: 'TEXT' });
         }
 
-        newColumns.forEach(colDef => {
-            db.run(`ALTER TABLE issues ADD COLUMN ${colDef}`, (err) => {
-                // 忽略 "duplicate column name" 錯誤，這代表欄位已經有了，不用擔心
-            });
-        });
-
-        // 預設 Admin (只在完全沒人時才建立)
-        db.get("SELECT count(*) as count FROM users", (err, row) => {
-            if (!err && row.count === 0) {
-                const hash = bcrypt.hashSync('admin123', 10);
-                db.run("INSERT INTO users (username, password, name, role) VALUES (?, ?, ?, ?)", 
-                    ['admin', hash, '系統管理員', 'admin']);
+        for (const col of newColumns) {
+            try {
+                await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+            } catch (e) {
+                // 忽略錯誤
+                console.log(`Column check ${col.name}:`, e.message);
             }
-        });
-    });
+        }
+
+        // 5. 建立預設 Admin
+        const userRes = await client.query("SELECT count(*) as count FROM users");
+        if (parseInt(userRes.rows[0].count) === 0) {
+            const hash = bcrypt.hashSync('admin123', 10);
+            await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
+                ['admin', hash, '系統管理員', 'admin']);
+            console.log("Default admin created.");
+        }
+
+    } catch (err) {
+        console.error('Init DB Error:', err);
+    } finally {
+        client.release();
+    }
 }
 
-function logAction(username, action, details, req) {
+// 啟動時執行 DB 初始化
+initDB();
+
+// 記錄 Log 輔助函式
+async function logAction(username, action, details, req) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    db.run("INSERT INTO logs (username, action, details, ip_address) VALUES (?, ?, ?, ?)", [username, action, details, ip]);
+    try {
+        await pool.query("INSERT INTO logs (username, action, details, ip_address) VALUES ($1, $2, $3, $4)", 
+            [username, action, details, ip]);
+    } catch (e) { console.error("Log error:", e); }
 }
 
-// --- API Routes ---
+// --- API Routes (Postgres 版本: 使用 $1, $2 佔位符) ---
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
-    db.get("SELECT * FROM users WHERE username = ?", [username], (err, user) => {
-        if (err || !user) return res.status(401).json({ error: 'Invalid credentials' });
+    try {
+        const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
+        const user = result.rows[0];
+        if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+        
         if (bcrypt.compareSync(password, user.password)) {
             req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name };
-            logAction(user.username, 'LOGIN', 'User logged in', req);
+            await logAction(user.username, 'LOGIN', 'User logged in', req);
             res.json({ success: true, user: req.session.user });
         } else {
             res.status(401).json({ error: 'Invalid credentials' });
         }
-    });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -125,241 +162,252 @@ app.get('/api/auth/me', (req, res) => {
     else res.json({ isLogin: false });
 });
 
-app.put('/api/auth/profile', requireAuth, (req, res) => {
+app.put('/api/auth/profile', requireAuth, async (req, res) => {
     const { name, password } = req.body;
     const id = req.session.user.id;
-    let sql = "UPDATE users SET name = ? WHERE id = ?";
-    let params = [name, id];
-    if(password) {
-        sql = "UPDATE users SET name = ?, password = ? WHERE id = ?";
-        params = [name, bcrypt.hashSync(password, 10), id];
-    }
-    db.run(sql, params, (err) => {
-        if(err) return res.status(500).json({ error: err.message });
+    try {
+        if (password) {
+            const hash = bcrypt.hashSync(password, 10);
+            await pool.query("UPDATE users SET name = $1, password = $2 WHERE id = $3", [name, hash, id]);
+        } else {
+            await pool.query("UPDATE users SET name = $1 WHERE id = $2", [name, id]);
+        }
         res.json({ success: true });
-    });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/issues', requireAuth, (req, res) => {
+// 列表查詢
+app.get('/api/issues', requireAuth, async (req, res) => {
     const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, sortField, sortDir } = req.query;
-    const offset = (page - 1) * pageSize;
-    let where = ["1=1"], params = [];
+    const limit = parseInt(pageSize);
+    const offset = (page - 1) * limit;
+    
+    let where = ["1=1"];
+    let params = [];
+    let pIdx = 1;
 
     if (q) {
-        where.push("(number LIKE ? OR content LIKE ? OR handling LIKE ? OR review LIKE ? OR plan_name LIKE ?)");
-        const l = `%${q}%`; params.push(l, l, l, l, l);
+        where.push(`(number LIKE $${pIdx} OR content LIKE $${pIdx} OR handling LIKE $${pIdx} OR review LIKE $${pIdx} OR plan_name LIKE $${pIdx})`);
+        params.push(`%${q}%`);
+        pIdx++;
     }
-    if (year) { where.push("year = ?"); params.push(year); }
-    if (unit) { where.push("unit = ?"); params.push(unit); }
-    if (status) { where.push("status = ?"); params.push(status); }
-    if (itemKindCode) { where.push("item_kind_code = ?"); params.push(itemKindCode); }
-    if (division) { where.push("division_name = ?"); params.push(division); }
-    if (inspectionCategory) { where.push("inspection_category_name = ?"); params.push(inspectionCategory); }
+    if (year) { where.push(`year = $${pIdx}`); params.push(year); pIdx++; }
+    if (unit) { where.push(`unit = $${pIdx}`); params.push(unit); pIdx++; }
+    if (status) { where.push(`status = $${pIdx}`); params.push(status); pIdx++; }
+    if (itemKindCode) { where.push(`item_kind_code = $${pIdx}`); params.push(itemKindCode); pIdx++; }
+    if (division) { where.push(`division_name = $${pIdx}`); params.push(division); pIdx++; }
+    if (inspectionCategory) { where.push(`inspection_category_name = $${pIdx}`); params.push(inspectionCategory); pIdx++; }
 
-    let order = "created_at DESC";
-    if(sortField && ['year','number','unit','status','created_at'].includes(sortField)) {
-        order = `${sortField} ${sortDir === 'asc' ? 'ASC' : 'DESC'}`;
+    let orderBy = "created_at DESC";
+    // 安全排序
+    const validCols = ['year', 'number', 'unit', 'status', 'created_at'];
+    if (sortField && validCols.includes(sortField)) {
+        orderBy = `${sortField} ${sortDir === 'asc' ? 'ASC' : 'DESC'}`;
     }
 
-    db.get(`SELECT count(*) as total FROM issues WHERE ${where.join(" AND ")}`, params, (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        const total = row.total;
-        db.all(`SELECT * FROM issues WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, pageSize, offset], (err, rows) => {
-            if (err) return res.status(500).json({ error: err.message });
-            
-            // 簡單統計
-            db.all(`SELECT status, count(*) as count FROM issues GROUP BY status 
-                    UNION ALL SELECT unit, count(*) FROM issues GROUP BY unit
-                    UNION ALL SELECT year, count(*) FROM issues GROUP BY year`, [], (err, statsRows) => {
-                // 這裡簡化回傳，前端會自己處理分類，或者如果前端依賴特定格式，維持基本的
-                // 為求相容舊版邏輯，重新組裝 stats
-                const stats = { status: [], unit: [], year: [] };
-                // (前端其實比較依賴 specific key，但舊版 server.js 在這裡邏輯比較複雜)
-                // 為了確保 100% 相容，我們做一個簡單的查詢分離
-                const p1 = new Promise(r => db.all("SELECT status, count(*) as count FROM issues GROUP BY status", (e,d)=>r(d||[])));
-                const p2 = new Promise(r => db.all("SELECT unit, count(*) as count FROM issues GROUP BY unit", (e,d)=>r(d||[])));
-                const p3 = new Promise(r => db.all("SELECT year, count(*) as count FROM issues GROUP BY year", (e,d)=>r(d||[])));
-                
-                Promise.all([p1, p2, p3]).then(([s, u, y]) => {
-                    res.json({
-                        data: rows, total, page: parseInt(page), pages: Math.ceil(total/pageSize),
-                        globalStats: { status: s, unit: u, year: y }
-                    });
-                });
-            });
+    try {
+        const countRes = await pool.query(`SELECT count(*) FROM issues WHERE ${where.join(" AND ")}`, params);
+        const total = parseInt(countRes.rows[0].count);
+        
+        const dataRes = await pool.query(`SELECT * FROM issues WHERE ${where.join(" AND ")} ORDER BY ${orderBy} LIMIT $${pIdx} OFFSET $${pIdx+1}`, [...params, limit, offset]);
+        
+        // 簡易統計 (為了效能，這裡分開查詢或一次聚合)
+        // 這裡用簡單的三個查詢
+        const sRes = await pool.query("SELECT status, count(*) as count FROM issues GROUP BY status");
+        const uRes = await pool.query("SELECT unit, count(*) as count FROM issues GROUP BY unit");
+        const yRes = await pool.query("SELECT year, count(*) as count FROM issues GROUP BY year");
+
+        res.json({
+            data: dataRes.rows,
+            total,
+            page: parseInt(page),
+            pages: Math.ceil(total / limit),
+            globalStats: {
+                status: sRes.rows,
+                unit: uRes.rows,
+                year: yRes.rows
+            }
         });
-    });
+
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 更新 (包含日期)
-app.put('/api/issues/:id', requireAuth, (req, res) => {
+// 更新
+app.put('/api/issues/:id', requireAuth, async (req, res) => {
     const { status, round, handling, review, replyDate, responseDate } = req.body;
     const id = req.params.id;
     const r = parseInt(round);
     
     const hField = r === 1 ? 'handling' : `handling${r}`;
     const rField = r === 1 ? 'review' : `review${r}`;
-    // 新增日期欄位更新
     const replyField = `reply_date_r${r}`;
     const respField = `response_date_r${r}`;
 
-    const sql = `UPDATE issues SET status=?, ${hField}=?, ${rField}=?, ${replyField}=?, ${respField}=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`;
-    
-    db.run(sql, [status, handling, review, replyDate, responseDate, id], function(err) {
-        if(err) return res.status(500).json({ error: err.message });
-        logAction(req.session.user.username, 'UPDATE', `Updated issue ${id}`, req);
+    try {
+        await pool.query(`UPDATE issues SET status=$1, ${hField}=$2, ${rField}=$3, ${replyField}=$4, ${respField}=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6`, 
+            [status, handling, review, replyDate, responseDate, id]);
+        await logAction(req.session.user.username, 'UPDATE', `Updated issue ${id}`, req);
         res.json({ success: true });
-    });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/issues/:id', requireAuth, (req, res) => {
-    if(!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
-    db.run("DELETE FROM issues WHERE id=?", [req.params.id], (err) => {
-        if(err) return res.status(500).json({error:err.message});
+app.delete('/api/issues/:id', requireAuth, async (req, res) => {
+    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
+    try {
+        await pool.query("DELETE FROM issues WHERE id=$1", [req.params.id]);
         res.json({success:true});
-    });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/issues/batch-delete', requireAuth, (req, res) => {
-    if(!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
+app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
+    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
     const { ids } = req.body;
-    const ph = ids.map(()=>'?').join(',');
-    db.run(`DELETE FROM issues WHERE id IN (${ph})`, ids, (err) => {
-        if(err) return res.status(500).json({error:err.message});
+    try {
+        // Postgres ANY($1)
+        await pool.query("DELETE FROM issues WHERE id = ANY($1)", [ids]);
         res.json({success:true});
-    });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 匯入 (包含新欄位)
-app.post('/api/issues/import', requireAuth, (req, res) => {
-    if(!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
-    const { data, round, reviewDate, mode } = req.body; // data now has planName, issueDate
+// 匯入
+app.post('/api/issues/import', requireAuth, async (req, res) => {
+    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
+    const { data, round, reviewDate } = req.body;
     const r = parseInt(round) || 1;
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
 
-    db.serialize(() => {
-        const check = db.prepare("SELECT id FROM issues WHERE number = ?");
-        
-        // 插入: 包含 plan_name, issue_date, 以及第一回合的 response_date
-        const insert = db.prepare(`INSERT INTO issues (
-            number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
-            handling, review, plan_name, issue_date, response_date_r1
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-
-        // 更新: 包含 plan_name
-        const hCol = r===1?'handling':`handling${r}`;
-        const rCol = r===1?'review':`review${r}`;
-        const respCol = `response_date_r${r}`;
-        
-        const update = db.prepare(`UPDATE issues SET status=?, ${hCol}=?, ${rCol}=?, ${respCol}=?, plan_name=COALESCE(?, plan_name), updated_at=CURRENT_TIMESTAMP WHERE number=?`);
-
-        let processed = 0;
-        data.forEach(item => {
-            check.get([item.number], (err, row) => {
-                if(row) {
-                    // update
-                    update.run([
-                        item.status, item.handling||'', item.review||'', 
-                        reviewDate||'', // map reviewDate to this round's response date
-                        item.planName, 
+        for (const item of data) {
+            const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
+            
+            if (check.rows.length > 0) {
+                // Update
+                const hCol = r===1 ? 'handling' : `handling${r}`;
+                const rCol = r===1 ? 'review' : `review${r}`;
+                const respCol = `response_date_r${r}`;
+                
+                // 使用 COALESCE 確保不覆蓋已有的 plan_name
+                await client.query(
+                    `UPDATE issues SET status=$1, ${hCol}=$2, ${rCol}=$3, ${respCol}=$4, plan_name=COALESCE($5, plan_name), updated_at=CURRENT_TIMESTAMP WHERE number=$6`,
+                    [
+                        item.status, item.handling||'', item.review||'',
+                        reviewDate||'', // reviewDate map to response_date
+                        item.planName || null,
                         item.number
-                    ]);
-                } else {
-                    // insert (只在第一次帶入 issueDate)
-                    insert.run([
+                    ]
+                );
+            } else {
+                // Insert
+                await client.query(
+                    `INSERT INTO issues (
+                        number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
+                        handling, review, plan_name, issue_date, response_date_r1
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+                    [
                         item.number, item.year, item.unit, item.content, item.status||'持續列管',
                         item.itemKindCode, item.category, item.divisionName, item.inspectionCategoryName,
                         item.handling||'', item.review||'', 
-                        item.planName, item.issueDate,
-                        reviewDate||'' // response_date_r1
-                    ]);
-                }
-                processed++;
-                if(processed === data.length) res.json({success:true, count:data.length});
-            });
-        });
-        check.finalize();
-        insert.finalize();
-        update.finalize();
-    });
+                        item.planName || null, 
+                        item.issueDate || null,
+                        reviewDate || '' // response_date_r1
+                    ]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, count: data.length });
+    } catch (e) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
 });
 
 // Users
-app.get('/api/users', requireAuth, (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+app.get('/api/users', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
-    const offset = (page-1)*pageSize;
-    let sql = "SELECT id, username, name, role, created_at FROM users WHERE 1=1";
-    let params = [];
-    if(q) { sql+=" AND (username LIKE ? OR name LIKE ?)"; params.push(`%${q}%`,`%${q}%`); }
-    sql += ` ORDER BY ${sortField} ${sortDir==='desc'?'DESC':'ASC'} LIMIT ? OFFSET ?`;
+    const limit = parseInt(pageSize);
+    const offset = (page-1)*limit;
     
-    db.get("SELECT count(*) as t FROM users", (err,row)=>{
-        db.all(sql, [...params, pageSize, offset], (err, rows)=>{
-            res.json({data:rows, total:row.t, page, pages:Math.ceil(row.t/pageSize)});
-        });
-    });
+    let where = ["1=1"], params = [], idx = 1;
+    if(q) { where.push(`(username LIKE $${idx} OR name LIKE $${idx})`); params.push(`%${q}%`); idx++; }
+    
+    const order = `${sortField} ${sortDir==='desc'?'DESC':'ASC'}`;
+    
+    try {
+        const cRes = await pool.query(`SELECT count(*) FROM users WHERE ${where.join(" AND ")}`, params);
+        const total = parseInt(cRes.rows[0].count);
+        const dRes = await pool.query(`SELECT id, username, name, role, created_at FROM users WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
+        res.json({data:dRes.rows, total, page: parseInt(page), pages: Math.ceil(total/limit)});
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/users', requireAuth, (req, res) => {
+app.post('/api/users', requireAuth, async (req, res) => {
     if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
     const { username, password, name, role } = req.body;
-    db.run("INSERT INTO users (username, password, name, role) VALUES (?,?,?,?)", 
-        [username, bcrypt.hashSync(password, 10), name, role], (err)=>{
-        if(err) return res.status(400).json({error:err.message});
+    try {
+        const hash = bcrypt.hashSync(password, 10);
+        await pool.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", [username, hash, name, role]);
         res.json({success:true});
-    });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.put('/api/users/:id', requireAuth, (req, res) => {
+app.put('/api/users/:id', requireAuth, async (req, res) => {
     if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
     const { name, password, role } = req.body;
-    let sql = "UPDATE users SET name=?, role=? WHERE id=?";
-    let p = [name, role, req.params.id];
-    if(password) { sql="UPDATE users SET name=?, role=?, password=? WHERE id=?"; p=[name, role, bcrypt.hashSync(password,10), req.params.id]; }
-    db.run(sql, p, (err)=>{
-        if(err) return res.status(500).json({error:err.message});
+    const id = req.params.id;
+    try {
+        if (password) {
+            const hash = bcrypt.hashSync(password, 10);
+            await pool.query("UPDATE users SET name=$1, role=$2, password=$3 WHERE id=$4", [name, role, hash, id]);
+        } else {
+            await pool.query("UPDATE users SET name=$1, role=$2 WHERE id=$3", [name, role, id]);
+        }
         res.json({success:true});
-    });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/users/:id', requireAuth, (req, res) => {
+app.delete('/api/users/:id', requireAuth, async (req, res) => {
     if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
     if(parseInt(req.params.id) === req.session.user.id) return res.status(400).json({error:'Cannot self delete'});
-    db.run("DELETE FROM users WHERE id=?", [req.params.id], (err)=>{
+    try {
+        await pool.query("DELETE FROM users WHERE id=$1", [req.params.id]);
         res.json({success:true});
-    });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/logs', requireAuth, (req, res) => {
+// Logs
+app.get('/api/admin/logs', requireAuth, async (req, res) => {
     if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
-    const { page=1, pageSize=20, q } = req.query;
-    const offset = (page-1)*pageSize;
-    let sql = "SELECT * FROM logs WHERE action='LOGIN'";
-    let p = [];
-    if(q) { sql+=" AND (username LIKE ? OR ip_address LIKE ?)"; p.push(`%${q}%`,`%${q}%`); }
-    sql += " ORDER BY login_time DESC LIMIT ? OFFSET ?";
-    db.all(sql, [...p, pageSize, offset], (err, rows) => res.json({data:rows, total:0, page, pages:1})); // 簡化total
+    try {
+        const { rows } = await pool.query("SELECT * FROM logs WHERE action='LOGIN' ORDER BY login_time DESC LIMIT 50");
+        res.json({data:rows, total:rows.length, page:1, pages:1});
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/action_logs', requireAuth, (req, res) => {
+app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
     if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
-    const { page=1, pageSize=20, q } = req.query;
-    const offset = (page-1)*pageSize;
-    let sql = "SELECT * FROM logs WHERE action!='LOGIN'";
-    let p = [];
-    if(q) { sql+=" AND (username LIKE ? OR action LIKE ?)"; p.push(`%${q}%`,`%${q}%`); }
-    sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
-    db.all(sql, [...p, pageSize, offset], (err, rows) => res.json({data:rows, total:0, page, pages:1}));
+    try {
+        const { rows } = await pool.query("SELECT * FROM logs WHERE action!='LOGIN' ORDER BY created_at DESC LIMIT 50");
+        res.json({data:rows, total:rows.length, page:1, pages:1});
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.delete('/api/admin/logs', requireAuth, (req, res) => {
+app.delete('/api/admin/logs', requireAuth, async (req, res) => {
     if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
-    db.run("DELETE FROM logs WHERE action='LOGIN'", ()=>res.json({success:true}));
+    await pool.query("DELETE FROM logs WHERE action='LOGIN'");
+    res.json({success:true});
 });
 
-app.delete('/api/admin/action_logs', requireAuth, (req, res) => {
+app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
     if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
-    db.run("DELETE FROM logs WHERE action!='LOGIN'", ()=>res.json({success:true}));
+    await pool.query("DELETE FROM logs WHERE action!='LOGIN'");
+    res.json({success:true});
 });
 
 app.listen(PORT, () => {

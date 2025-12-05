@@ -1189,7 +1189,7 @@
             document.getElementById('importStatusBackup').innerText = ''; 
         }
         
-        // [Modified] Confirm import to include new global fields (Plan Name, Issue Date)
+        // [Updated] Confirm import to include new global fields (Plan Name, Issue Date)
         async function confirmImport() { 
             const count = stagedImportData.length;
             const isBackup = currentImportMode === 'backup';
@@ -1202,10 +1202,6 @@
             
             // New Global Fields
             const planName = isBackup ? '' : document.getElementById('importPlanName').value;
-            
-            // If user fills "Import Date" in batch settings, we treat it as the Review Date for the round,
-            // AND if it's round 1, we can also treat it as Issue Date if they want, but let's rely on the specific input.
-            // Actually, let's just pass planName and issueDate into every item if it's Word mode.
             
             let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
                 if(currentImportMode === 'word') {
@@ -1369,14 +1365,14 @@
         function toggleEditMode(edit) { document.getElementById('viewModeContent').classList.toggle('hidden', edit); document.getElementById('editModeContent').classList.toggle('hidden', !edit); document.getElementById('drawerTitle').innerText = edit ? "編輯事項" : "詳細資料"; if(edit) { document.getElementById('editId').value = currentEditItem.id; document.getElementById('editHeaderNumber').innerText = currentEditItem.number; document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; document.getElementById('editStatus').value = st; document.getElementById('editRound').value = 1; document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); loadRoundData(); document.getElementById('aiBox').style.display = 'none'; document.getElementById('aiPreviewText').innerText = ''; } }
         function initEditForm() { const s = document.getElementById('editRound'); if(!s || s.options.length > 0) return; for(let i = 1; i <= 20; i++) { const o = document.createElement('option'); o.value = i; o.text = `第 ${i} 次`; s.add(o); } }
         
-        // [Updated] openDetail to show Plan and Dates
+        // [Updated] openDetail to show Plan and Dates CORRECTLY (using snake_case fallback)
         function openDetail(id, isEdit) { 
             currentEditItem = currentData.find(d => String(d.id) === String(id)); if(!currentEditItem) return; 
             document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dYear').textContent = currentEditItem.year; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; 
             
-            // New Fields Display
-            document.getElementById('dPlanName').textContent = currentEditItem.planName || '(未設定)';
-            document.getElementById('dIssueDate').textContent = currentEditItem.issueDate || '(未設定)';
+            // [FIX] Use snake_case for DB compatibility
+            document.getElementById('dPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)';
+            document.getElementById('dIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
             
             const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self'); 
             document.getElementById('dStatus').innerHTML = currentEditItem.status && currentEditItem.status !== 'Open' ? `<span class="badge ${st}">${currentEditItem.status}</span>` : '(未設定)'; 
@@ -1385,8 +1381,9 @@
             for(let i = 20; i >= 1; i--) { 
                 const suffix = i === 1 ? '' : i;
                 const ha = currentEditItem['handling' + suffix], re = currentEditItem['review' + suffix]; 
-                const replyDate = currentEditItem['replyDate_r' + i];
-                const responseDate = currentEditItem['responseDate_r' + i];
+                // [FIX] Use snake_case for DB compatibility
+                const replyDate = currentEditItem['reply_date_r' + i];
+                const responseDate = currentEditItem['response_date_r' + i];
 
                 if(ha || re) {
                     const latestBadge = firstRecord ? '<span class="badge new" style="margin-left:8px;font-size:11px;">最新</span>' : '';
@@ -1469,7 +1466,7 @@
         
         function switchView(id) { document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.sidebar-btn').forEach(e => e.classList.remove('active')); const btn = document.getElementById(`btn-${id}`); if(btn) btn.classList.add('active'); const panel = document.getElementById('filtersPanel'); if(panel.classList.contains('open')) { onToggleSidebar(); } }
         
-        // [Updated] Load Round Data to fill date inputs
+        // [Updated] Load Round Data to fill date inputs (FIXED to read snake_case from DB)
         function loadRoundData() { 
             const r = parseInt(document.getElementById('editRound').value), s = r === 1 ? '' : r;
             const rawHandling = currentEditItem['handling' + s] || '';
@@ -1477,9 +1474,9 @@
             document.getElementById('editHandling').value = formatHtmlToText(rawHandling); 
             document.getElementById('editReview').value = formatHtmlToText(rawReview); 
             
-            // Load Dates
-            document.getElementById('editReplyDate').value = currentEditItem['replyDate_r' + r] || '';
-            document.getElementById('editResponseDate').value = currentEditItem['responseDate_r' + r] || '';
+            // [FIX] Use snake_case for DB compatibility
+            document.getElementById('editReplyDate').value = currentEditItem['reply_date_r' + r] || currentEditItem['replyDate_r' + r] || '';
+            document.getElementById('editResponseDate').value = currentEditItem['response_date_r' + r] || currentEditItem['responseDate_r' + r] || '';
 
             const prevBox = document.getElementById('prevReviewBox'), prevText = document.getElementById('prevReviewText'); if(r > 1) { const prevS = (r - 1) === 1 ? '' : (r - 1), prevReviewContent = currentEditItem['review' + prevS]; if(prevReviewContent) { document.getElementById('prevRoundNum').innerText = `第 ${r-1} 次`; prevText.innerText = formatHtmlToText(prevReviewContent); prevBox.style.display = 'block'; } else { prevBox.style.display = 'none'; } } else { prevBox.style.display = 'none'; } 
         }
