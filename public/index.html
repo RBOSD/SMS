@@ -663,17 +663,20 @@
                     <div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:8px;text-transform:uppercase;">基本資訊</div>
                     <div style="margin-bottom:12px;font-weight:700;color:#2563eb;font-size:16px;"><span id="dNumber"></span> <span style="color:#cbd5e1;margin:0 8px;">|</span> <span id="dYear"></span> <span style="color:#cbd5e1;margin:0 8px;">|</span> <span id="dUnit"></span></div>
                     <div style="margin-bottom:16px;" id="dStatus"></div>
+                    
+                    <!-- [Modified] Merged Plan Info -->
+                    <div style="background:#f1f5f9; padding:12px; border-radius:8px; margin-bottom:16px; border:1px solid #e2e8f0;">
+                         <div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:8px;border-bottom:1px solid #cbd5e1;padding-bottom:4px;">專案計畫資訊</div>
+                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                             <div><div style="font-size:11px;color:#64748b;">檢查計畫名稱</div><div style="font-weight:600;font-size:14px;" id="dPlanName">-</div></div>
+                             <div><div style="font-size:11px;color:#64748b;">初次發函日期</div><div style="font-weight:600;font-size:14px;" id="dIssueDate">-</div></div>
+                         </div>
+                    </div>
+
                     <div style="line-height:1.7;font-size:15px;color:#334155;" id="dContent"></div>
                 </div>
 
-                <!-- New Plan Info Section -->
-                <div class="detail-card" id="dPlanInfoBox">
-                    <div style="font-size:12px;color:#64748b;font-weight:600;margin-bottom:8px;text-transform:uppercase;">專案計畫資訊</div>
-                    <div style="display:flex; gap:20px; flex-wrap:wrap;">
-                        <div><div style="font-size:12px;color:#64748b;margin-bottom:2px;">檢查計畫名稱</div><div style="font-weight:600;" id="dPlanName">-</div></div>
-                        <div><div style="font-size:12px;color:#64748b;margin-bottom:2px;">初次發函日期</div><div style="font-weight:600;" id="dIssueDate">-</div></div>
-                    </div>
-                </div>
+                <!-- Removed separate plan info card -->
 
                 <div style="font-weight:700;margin:24px 0 16px;font-size:16px;color:#0f172a;">歷程紀錄</div><div id="dTimeline"></div>
                 <div style="margin-top:30px; display:flex; flex-direction:column; gap:12px;">
@@ -700,7 +703,6 @@
                         </div>
                         <div class="form-group"><label>第幾次審查</label><select id="editRound" class="filter-select" onchange="loadRoundData()"></select></div>
                         
-                        <!-- New Round Date Fields -->
                         <div class="form-group" style="background:#f1f5f9; padding:12px; border-radius:8px; border:1px solid #e2e8f0;">
                             <label style="margin-bottom:8px; color:#0f172a;">歷程日期設定</label>
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
@@ -1610,9 +1612,9 @@
                     
                     let dateInfo = '';
                     if(replyDate || responseDate) {
-                        dateInfo = `<div style="margin-bottom:8px;font-size:12px;color:#64748b;background:#f8fafc;padding:6px;border-radius:4px;display:inline-block;">`;
-                        if(replyDate) dateInfo += `機構回復: ${replyDate} `;
-                        if(responseDate) dateInfo += ` | 函復: ${responseDate}`;
+                        dateInfo = `<div style="margin-bottom:8px;font-size:12px;color:#475569;background:#f1f5f9;padding:8px 12px;border-radius:6px;display:inline-block;border:1px solid #e2e8f0;">`;
+                        if(replyDate) dateInfo += `<span style="margin-right:12px;">📅 機構回復: <strong>${replyDate}</strong></span>`;
+                        if(responseDate) dateInfo += `<span>📅 機關函復: <strong>${responseDate}</strong></span>`;
                         dateInfo += `</div>`;
                     }
 
@@ -1620,7 +1622,7 @@
                         <div style="position:absolute;left:-7px;top:0;width:12px;height:12px;border-radius:50%;background:${firstRecord?'var(--primary)':'#fff'};border:2px solid var(--primary);"></div>
                         <div style="font-size:13px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;">第 ${i} 次辦理情形${latestBadge}</div>
                         ${dateInfo}
-                        ${ha?`<div style="background:#f1f5f9;padding:10px;border-radius:6px;font-size:14px;margin-bottom:8px;">${ha}</div>`:''}
+                        ${ha?`<div style="background:#f8fafc;padding:10px;border-radius:6px;font-size:14px;margin-bottom:8px;border:1px solid #f1f5f9;">${ha}</div>`:''}
                         ${re?`<div style="background:#fff;border:1px solid #e2e8f0;padding:10px;border-radius:6px;font-size:14px;">${re}</div>`:''}
                     </div>`;
                     firstRecord = false;
