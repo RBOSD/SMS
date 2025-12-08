@@ -287,8 +287,6 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     if (itemKindCode) { where.push(`item_kind_code = $${idx}`); params.push(itemKindCode); idx++; }
     if (division) { where.push(`division_name = $${idx}`); params.push(division); idx++; }
     if (inspectionCategory) { where.push(`inspection_category_name = $${idx}`); params.push(inspectionCategory); idx++; }
-    
-    // [新增] 精確篩選計畫名稱
     if (planName) { where.push(`plan_name = $${idx}`); params.push(planName); idx++; }
 
     let orderBy = "created_at DESC";
@@ -521,6 +519,49 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
+});
+
+// [新增] 取得所有計畫聚合 (計畫名稱、年度、筆數、最後更新)
+app.get('/api/options/plans_details', requireAuth, async (req, res) => {
+    const { q = '', year = '', page = 1, pageSize = 15 } = req.query;
+    const limit = parseInt(pageSize), offset = (page - 1) * limit;
+    let where = ['plan_name IS NOT NULL AND TRIM(plan_name) != \'\''], params = [], idx = 1;
+    if (q) { where.push(`plan_name ILIKE $${idx}`); params.push('%' + q + '%'); idx++; }
+    if (year) { where.push(`year = $${idx}`); params.push(year); idx++; }
+    try {
+        const countRes = await pool.query(
+            `SELECT COUNT(DISTINCT plan_name || year) AS count FROM issues WHERE ${where.join(' AND ')}`
+            , params);
+        const total = parseInt(countRes.rows[0]?.count || 0);
+        const mainRes = await pool.query(
+            `SELECT plan_name, year, COUNT(*) as issues_count, MAX(updated_at) as updated_at
+             FROM issues WHERE ${where.join(' AND ')}
+             GROUP BY plan_name, year ORDER BY updated_at DESC NULLS LAST
+             LIMIT $${idx} OFFSET $${idx + 1}`,
+            [...params, limit, offset]
+        );
+        res.json({
+            data: mainRes.rows,
+            page: parseInt(page),
+            pageSize: limit,
+            total,
+            pages: Math.ceil(total / limit)
+        });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// [新增] 新增計畫
+app.post('/api/options/plans', requireAuth, async (req, res) => {
+    const { plan_name, year } = req.body;
+    if (!plan_name || !year) return res.status(400).json({ error: '缺少計畫名稱或年度' });
+    try {
+        await pool.query(
+            `INSERT INTO issues (plan_name, year, number, content, status)
+             VALUES ($1, $2, '', '', '')`,
+            [plan_name, year]
+        );
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 async function startServer() {
