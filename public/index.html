@@ -175,7 +175,8 @@
         .detail-card { background: white; padding: 24px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.01); }
         .form-group { margin-bottom: 20px; } .form-group label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 8px; color: #475569; }
         .view-section { display: none; width: 100%; height: 100%; flex-direction: column; }
-        .view-section.active { display: flex; }
+        /* [修正] 確保 view-section active 時強制顯示 */
+        .view-section.active { display: flex !important; }
         
         /* NEW: Single Row Metadata */
         .detail-header-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; margin-bottom: 16px; font-size: 14px; color: #334155; line-height: 1.6; }
@@ -302,7 +303,6 @@
             <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')"><span>📊</span> 查詢看板</button>
             <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')"><span>📂</span> 資料管理</button>
             <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')"><span>👥</span> 帳號管理</button>
-            <!-- 新增：計畫管理 -->
             <button class="sidebar-btn" id="btn-plansView" onclick="switchView('plansView')"><span>🗂</span> 檢查計畫管理</button>
         </aside>
         
@@ -416,8 +416,8 @@
 
                 <div id="emptyMsg" style="text-align:center;padding:40px;color:#999;display:none;">查無資料</div>
             </div>
-
-            <!-- 新增/融入 PlansView -->
+            
+            <!-- 新增: 檢查計畫/開立事項 管理頁面 -->
             <div id="plansView" class="view-section hidden">
                 <div class="content-header">
                     <div class="content-title">🗂 檢查計畫事項管理</div>
@@ -470,7 +470,7 @@
                     </div>
                     <button class="btn btn-outline" style="margin-top:28px;" onclick="closePlanDetail()">⬅️ 返回計畫列表</button>
                 </div>
-                <!-- 計畫新增 Modal -->
+                <!-- 計畫新增/編輯 Modal -->
                 <div class="modal-overlay" id="planModal">
                     <div class="modal-box">
                         <h3 id="planModalTitle">新增計畫</h3>
@@ -479,50 +479,36 @@
                         <div style="display:flex;gap:10px;"><button class="btn btn-primary" onclick="submitPlanModal()">送出</button><button class="btn btn-outline" onclick="closePlanModal()">取消</button></div>
                     </div>
                 </div>
-                <!-- 事項新增 Modal -->
+                <!-- 新增/編輯事項 Modal -->
                 <div class="modal-overlay" id="issueModal">
                     <div class="modal-box">
                         <h3 id="issueModalTitle">新增開立事項</h3>
                         <div class="form-group"><label>事項編號</label><input type="text" id="issueModalNumber" class="filter-input"></div>
                         <div class="form-group"><label>事項內容</label><textarea id="issueModalContent" class="filter-input" rows="5"></textarea></div>
                         <div class="form-group"><label>狀態</label>
-                            <select id="issueModalStatus" class="filter-select">
-                                <option value="持續列管">持續列管</option>
-                                <option value="解除列管">解除列管</option>
-                                <option value="自行列管">自行列管</option>
-                            </select>
+                            <select id="issueModalStatus" class="filter-select"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select>
                         </div>
-                        <div style="display:flex;gap:10px;">
-                            <button class="btn btn-primary" onclick="submitIssueModal()">送出</button>
-                            <button class="btn btn-outline" onclick="closeIssueModal()">取消</button>
-                        </div>
+                        <div style="display:flex;gap:10px;"><button class="btn btn-primary" onclick="submitIssueModal()">送出</button><button class="btn btn-outline" onclick="closeIssueModal()">取消</button></div>
                     </div>
                 </div>
             </div>
 
             <div id="importView" class="view-section">
+                <!-- 原 importView 內容保持不變 -->
                 <div class="content-header" style="justify-content: flex-start;"><div class="content-title">📂 資料管理</div></div>
-                
                 <div class="admin-tabs">
                     <button class="admin-tab-btn active" onclick="switchDataTab('import')">📥 批次匯入</button>
                     <button class="admin-tab-btn" onclick="switchDataTab('manual')">✍️ 手動新增</button>
                     <button class="admin-tab-btn" onclick="switchDataTab('export')">📤 資料匯出</button>
                 </div>
-
-                <!-- Tab 1: Import -->
                 <div id="tab-data-import">
-                    <!-- Part A: Word Import -->
                     <div class="detail-card" id="uploadCardWord" style="max-width:800px; margin-bottom:30px;">
                         <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#0369a1;">📝 例行作業區 (Word 解析)</div>
                         <div style="margin-bottom:20px; background:#f0f9ff; border:1px solid #bae6fd; padding:16px; border-radius:8px; font-size:13px; color:#0369a1; line-height:1.5;">
                             <p style="margin:0 0 8px 0;">用於新增新的審查紀錄。請選擇本次的作業階段。</p>
                         </div>
-                        
-                        <!-- Global Settings for Import -->
                         <div style="background:white; border:1px solid #e2e8f0; padding:16px; border-radius:8px; margin-bottom:24px;">
                             <label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">1. 設定整批匯入參數 (必填)</label>
-                            
-                            <!-- [修改] 改為「作業階段」選擇，邏輯更清晰 -->
                             <div style="margin-bottom:16px;">
                                 <div style="font-size:12px;color:#64748b;margin-bottom:4px;">請選擇本次匯入的作業階段</div>
                                 <div style="display:flex; gap:16px;">
@@ -536,46 +522,31 @@
                                     </label>
                                 </div>
                             </div>
-
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:12px;">
-                                <!-- [修改] 此欄位只有在選擇「後續審查」時才需要輸入數字，初次開立隱藏 -->
                                 <div id="importRoundContainer" style="display:none;">
                                     <div style="font-size:12px;color:#64748b;margin-bottom:4px;">這是第幾次審查？</div>
-                                    <select id="importRoundSelect" class="filter-select">
-                                        <!-- JavaScript 會自動產生選項 -->
-                                    </select>
+                                    <select id="importRoundSelect" class="filter-select"></select>
                                 </div>
-                                
                                 <div style="grid-column: span 2;" id="importPlanNameContainer">
                                     <div style="font-size:12px;color:#64748b;margin-bottom:4px;">檢查計畫名稱 (例如: 113年度上半年定期檢查)</div>
                                     <input type="text" id="importPlanName" list="planOptionsList" class="filter-input" placeholder="選填 (會套用到所有項目)">
                                 </div>
                             </div>
-                            
-                            <!-- [修改] 日期欄位區塊，根據 Stage 動態切換 -->
                             <div style="background:#fafafa; padding:12px; border-radius:6px; border:1px dashed #cbd5e1;">
                                 <div id="importDateGroup_Initial" style="display:block;">
                                     <div style="font-size:12px;color:#0369a1;margin-bottom:4px;font-weight:700;">📆 日期設定 (初次開立)</div>
                                     <div style="font-size:12px;color:#64748b;margin-bottom:4px;">監理機關初次發函日期 (例如: 1130615)</div>
                                     <input type="text" id="importIssueDate" class="filter-input" placeholder="必填" onkeyup="checkImportReady()">
                                 </div>
-
                                 <div id="importDateGroup_Review" style="display:none;">
                                     <div style="font-size:12px;color:#be185d;margin-bottom:4px;font-weight:700;">📆 日期設定 (審查階段)</div>
                                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-                                        <div>
-                                            <div style="font-size:12px;color:#64748b;margin-bottom:4px;">機構回復辦理情形日期</div>
-                                            <input type="text" id="importReplyDate" class="filter-input" placeholder="例如: 1130701">
-                                        </div>
-                                        <div>
-                                            <div style="font-size:12px;color:#64748b;margin-bottom:4px;">監理機關本次函復日期</div>
-                                            <input type="text" id="importResponseDate" class="filter-input" placeholder="例如: 1130715">
-                                        </div>
+                                        <div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">機構回復辦理情形日期</div><input type="text" id="importReplyDate" class="filter-input" placeholder="例如: 1130701"></div>
+                                        <div><div style="font-size:12px;color:#64748b;margin-bottom:4px;">監理機關本次函復日期</div><input type="text" id="importResponseDate" class="filter-input" placeholder="例如: 1130715"></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
                         <div style="margin-bottom:24px;">
                             <label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">2. 選擇 Word 檔案 (.docx)</label>
                             <input type="file" id="wordInput" class="filter-input" accept=".docx" disabled style="padding:8px;">
@@ -583,8 +554,6 @@
                         <button id="btnParseWord" class="btn btn-primary" style="width:100%; padding:12px;" onclick="previewWord()" disabled>解析並預覽 Word</button>
                         <div id="importStatusWord" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
                     </div>
-
-                    <!-- Part B: Backup Import (Restricted to Admin) -->
                     <div class="detail-card hidden" id="uploadCardBackup" style="max-width:800px;">
                         <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#b91c1c;">🚑 資料救援區 (還原備份) [Admin Only]</div>
                         <div style="margin-bottom:20px; background:#fef2f2; border:1px solid #fecaca; padding:16px; border-radius:8px; font-size:13px; color:#b91c1c; line-height:1.5;">用於資料庫清空後的災難復原。支援 CSV 或 JSON 格式。</div>
@@ -595,8 +564,6 @@
                         <button id="btnParseBackup" class="btn btn-danger" style="width:100%; padding:12px;" onclick="previewBackup()">解析並還原備份資料</button>
                         <div id="importStatusBackup" style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
                     </div>
-
-                    <!-- Preview Modal Container (Shared) -->
                     <div id="previewContainer" class="hidden">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
                             <div style="font-weight:700;font-size:16px;">解析結果預覽 (<span id="previewCount" style="color:var(--primary);">0</span> 筆) <span id="previewModeBadge"></span></div>
@@ -605,34 +572,19 @@
                         <div class="main-card"><div class="data-container"><table class="preview-table"><thead><tr><th>操作</th><th>編號</th><th>機構</th><th>事項內容</th><th>辦理/審查內容</th></tr></thead><tbody id="previewBody"></tbody></table></div></div>
                     </div>
                 </div>
-
-                <!-- Tab 2: Manual Entry -->
                 <div id="tab-data-manual" class="hidden">
                     <div class="detail-card" style="max-width:800px;">
                         <div style="margin-bottom:20px;font-size:14px;color:#475569;">手動新增單筆開立事項至資料庫。<br><span style="color:var(--primary);">💡 提示：輸入編號後，系統會自動帶入年度、機構、分組與種類資訊。</span></div>
-                        
-                        <!-- New Fields for Plan and Date -->
                         <div style="background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:20px; border:1px solid #e2e8f0;">
                             <div style="font-weight:700; margin-bottom:12px; color:#334155; display:flex; justify-content:space-between; align-items:center;">
                                 <span>專案資訊</span>
-                                <!-- [新增] 連續新增開關 -->
-                                <label style="font-size:13px; color:#2563eb; display:flex; align-items:center; gap:6px; cursor:pointer;">
-                                    <input type="checkbox" id="manualContinuousMode"> 🔒 連續新增模式 (鎖定計畫與機構)
-                                </label>
+                                <label style="font-size:13px; color:#2563eb; display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" id="manualContinuousMode"> 🔒 連續新增模式 (鎖定計畫與機構)</label>
                             </div>
                             <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label>檢查計畫名稱</label>
-                                    <!-- [修改] 增加 datalist 支援 -->
-                                    <input type="text" id="manualPlanName" list="planOptionsList" class="filter-input" placeholder="例如: 113年度上半年定期檢查">
-                                </div>
-                                <div class="form-group" style="margin-bottom:0;">
-                                    <label>初次發函日期</label>
-                                    <input type="text" id="manualIssueDate" class="filter-input" placeholder="例如: 1130501">
-                                </div>
+                                <div class="form-group" style="margin-bottom:0;"><label>檢查計畫名稱</label><input type="text" id="manualPlanName" list="planOptionsList" class="filter-input" placeholder="例如: 113年度上半年定期檢查"></div>
+                                <div class="form-group" style="margin-bottom:0;"><label>初次發函日期</label><input type="text" id="manualIssueDate" class="filter-input" placeholder="例如: 1130501"></div>
                             </div>
                         </div>
-
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                             <div class="form-group"><label>事項編號 (必填)</label><input type="text" id="manualNumber" class="filter-input" placeholder="例如: 113-TRA-1-A01-N01" oninput="autoFillFromNumber()"></div>
                             <div class="form-group"><label>年度 (必填)</label><input type="number" id="manualYear" class="filter-input" placeholder="自動帶入"></div>
@@ -650,44 +602,32 @@
                         <button class="btn btn-primary" style="width:100%; padding:12px;" onclick="submitManualIssue()">💾 新增事項</button>
                     </div>
                 </div>
-
-                <!-- Tab 3: Export -->
                 <div id="tab-data-export" class="hidden">
                     <div class="detail-card" style="max-width:800px; text-align:center; padding:40px;">
                         <div style="font-size:40px; margin-bottom:16px;">📤</div>
                         <h3 style="margin-top:0; color:#334155;">匯出所有資料</h3>
                         <p style="color:#64748b; margin-bottom:24px;">將系統中所有開立事項匯出。<br>CSV 適合 Excel 編輯，JSON 適合系統備份與還原。</p>
-                        
                         <div style="margin-bottom:24px; display:flex; flex-direction:column; gap:12px; align-items:center;">
                             <div style="font-weight:600; color:#475569; font-size:13px; margin-bottom:4px;">1. 選擇匯出內容</div>
                             <div style="display:flex; gap:20px;">
-                                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-                                    <input type="radio" name="exportScope" value="latest" checked> 僅匯出最新進度
-                                </label>
-                                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-                                    <input type="radio" name="exportScope" value="full"> 匯出完整歷程
-                                </label>
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;"><input type="radio" name="exportScope" value="latest" checked> 僅匯出最新進度</label>
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;"><input type="radio" name="exportScope" value="full"> 匯出完整歷程</label>
                             </div>
                         </div>
-
                         <div style="margin-bottom:30px; display:flex; flex-direction:column; gap:12px; align-items:center;">
                             <div style="font-weight:600; color:#475569; font-size:13px; margin-bottom:4px;">2. 選擇檔案格式</div>
                             <div style="display:flex; gap:20px;">
-                                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-                                    <input type="radio" name="exportFormat" value="csv" checked> CSV (Excel)
-                                </label>
-                                <label id="exportJsonOption" style="cursor:pointer; display:none; align-items:center; gap:8px;">
-                                    <input type="radio" name="exportFormat" value="json"> JSON (備份用)
-                                </label>
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;"><input type="radio" name="exportFormat" value="csv" checked> CSV (Excel)</label>
+                                <label id="exportJsonOption" style="cursor:pointer; display:none; align-items:center; gap:8px;"><input type="radio" name="exportFormat" value="json"> JSON (備份用)</label>
                             </div>
                         </div>
-
                         <button class="btn btn-primary" onclick="exportAllIssues()">執行匯出</button>
                     </div>
                 </div>
             </div>
 
             <div id="usersView" class="view-section">
+                <!-- 原 usersView 內容保持不變 -->
                 <div class="content-header" style="justify-content: flex-start; gap: 16px;">
                     <div class="content-title">👥 帳號與紀錄</div>
                     <button class="btn btn-primary" onclick="openUserModal('create')">➕ 新增</button>
@@ -697,17 +637,11 @@
                     <button class="admin-tab-btn" onclick="switchAdminTab('logs')">登入紀錄</button>
                     <button class="admin-tab-btn" onclick="switchAdminTab('actions')">操作歷程</button>
                 </div>
-                
-                <!-- Users Tab -->
                 <div id="tab-users" class="main-card">
                     <div style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border);">
                         <input id="userSearch" class="filter-input" placeholder="搜尋姓名、帳號..." style="max-width:300px;" oninput="loadUsersPage(1)">
-                        <select id="usersPageSize" class="page-size-select" onchange="loadUsersPage(1)">
-                            <option value="10">10 筆/頁</option><option value="20" selected>20 筆/頁</option><option value="50">50 筆/頁</option>
-                        </select>
-                        <div style="margin-left:auto;">
-                            <button class="btn btn-outline" onclick="loadUsersPage(1)">🔍</button>
-                        </div>
+                        <select id="usersPageSize" class="page-size-select" onchange="loadUsersPage(1)"><option value="10">10 筆/頁</option><option value="20" selected>20 筆/頁</option><option value="50">50 筆/頁</option></select>
+                        <div style="margin-left:auto;"><button class="btn btn-outline" onclick="loadUsersPage(1)">🔍</button></div>
                     </div>
                     <div id="usersPaginationTop" class="pagination-bar" style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
                     <div class="data-container">
@@ -718,8 +652,6 @@
                     </div>
                     <div id="usersPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
                 </div>
-                
-                <!-- Login Logs Tab -->
                 <div id="tab-logs" class="main-card hidden">
                     <div style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff;">
                         <input id="loginSearch" class="filter-input" placeholder="搜尋帳號或 IP" style="width:240px;" oninput="loadLogsPage(1)">
@@ -727,13 +659,9 @@
                         <button class="btn btn-danger btn-sm" onclick="clearLogs('login')">🗑️ 清除紀錄</button>
                     </div>
                     <div id="logsPaginationTop" class="pagination-bar" style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
-                    <div class="data-container">
-                        <table class="user-table"><thead><tr><th style="padding:16px;">時間</th><th>帳號</th><th>IP 位址</th></tr></thead><tbody id="logsTableBody"></tbody></table>
-                    </div>
+                    <div class="data-container"><table class="user-table"><thead><tr><th style="padding:16px;">時間</th><th>帳號</th><th>IP 位址</th></tr></thead><tbody id="logsTableBody"></tbody></table></div>
                     <div id="logsPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
                 </div>
-                
-                <!-- Action Logs Tab -->
                 <div id="tab-actions" class="main-card hidden">
                     <div style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff;">
                         <input id="actionSearch" class="filter-input" placeholder="搜尋帳號或操作" style="width:240px;" oninput="loadActionsPage(1)">
@@ -741,12 +669,9 @@
                         <button class="btn btn-danger btn-sm" onclick="clearLogs('action')">🗑️ 清除紀錄</button>
                     </div>
                     <div id="actionsPaginationTop" class="pagination-bar" style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
-                    <div class="data-container">
-                        <table class="user-table"><thead><tr><th style="padding:16px;">時間</th><th>帳號</th><th>動作</th><th>詳細內容</th></tr></thead><tbody id="actionsTableBody"></tbody></table>
-                    </div>
+                    <div class="data-container"><table class="user-table"><thead><tr><th style="padding:16px;">時間</th><th>帳號</th><th>動作</th><th>詳細內容</th></tr></thead><tbody id="actionsTableBody"></tbody></table></div>
                     <div id="actionsPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
                 </div>
-                
                 <div id="logsLoading" style="display:none; padding:30px; text-align:center; color:#64748b;">⏳ 載入紀錄中...</div>
             </div>
         </main>
@@ -755,10 +680,10 @@
     <!-- Drawer & Modal -->
     <div class="drawer-backdrop" id="drawerBackdrop"></div>
     <div class="drawer" id="detailDrawer">
+        <!-- 原 drawer 內容 -->
         <div class="drawer-header"><div style="font-weight:700;font-size:18px;" id="drawerTitle">詳細資料</div><button onclick="closeDrawer()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button></div>
         <div class="drawer-body">
             <div id="viewModeContent">
-                <!-- NEW: 單行資訊條設計 -->
                 <div class="detail-card">
                     <div class="detail-header-row">
                         <span class="detail-unit-badge" id="dUnit"></span>
@@ -771,17 +696,11 @@
                         <span class="separator">|</span>
                         <span style="color:#64748b;font-size:13px;" id="dCategoryInfo"></span>
                     </div>
-
                     <div style="margin-bottom: 8px; font-size:12px; font-weight:600; color:#64748b; text-transform:uppercase;">事項內容</div>
                     <div class="content-text" id="dContent"></div>
                 </div>
-
-                <div style="font-weight:700;margin:24px 0 20px;font-size:18px;color:#0f172a;display:flex;align-items:center;gap:8px;">
-                    <span>📅</span> 歷程紀錄
-                </div>
-                
+                <div style="font-weight:700;margin:24px 0 20px;font-size:18px;color:#0f172a;display:flex;align-items:center;gap:8px;"><span>📅</span> 歷程紀錄</div>
                 <div id="dTimeline" style="position: relative;"></div>
-                
                 <div style="margin-top:40px; display:flex; flex-direction:column; gap:12px;">
                     <button class="btn btn-primary hidden" id="editBtn" style="width:100%;padding:14px;font-size:15px;" onclick="toggleEditMode(true)">✏️ 編輯 / 審查</button>
                     <button class="btn btn-danger hidden" id="deleteBtnDrawer" style="width:100%;padding:14px;font-size:15px;" onclick="deleteIssueFromDrawer()">🗑️ 刪除此項目</button>
@@ -805,21 +724,13 @@
                              <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;" id="prevReviewText"></div>
                         </div>
                         <div class="form-group"><label>第幾次審查</label><select id="editRound" class="filter-select" onchange="loadRoundData()"></select></div>
-                        
                         <div class="form-group" style="background:#f1f5f9; padding:12px; border-radius:8px; border:1px solid #e2e8f0;">
                             <label style="margin-bottom:8px; color:#0f172a;">歷程日期設定</label>
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                                <div>
-                                    <div style="font-size:11px;color:#64748b;margin-bottom:2px;">機構回復日期</div>
-                                    <input type="text" id="editReplyDate" class="filter-input" placeholder="例: 1130601" style="font-size:13px;padding:6px;">
-                                </div>
-                                <div>
-                                    <div style="font-size:11px;color:#64748b;margin-bottom:2px;">本次函復日期</div>
-                                    <input type="text" id="editResponseDate" class="filter-input" placeholder="例: 1130615" style="font-size:13px;padding:6px;">
-                                </div>
+                                <div><div style="font-size:11px;color:#64748b;margin-bottom:2px;">機構回復日期</div><input type="text" id="editReplyDate" class="filter-input" placeholder="例: 1130601" style="font-size:13px;padding:6px;"></div>
+                                <div><div style="font-size:11px;color:#64748b;margin-bottom:2px;">本次函復日期</div><input type="text" id="editResponseDate" class="filter-input" placeholder="例: 1130615" style="font-size:13px;padding:6px;"></div>
                             </div>
                         </div>
-
                         <div class="form-group" style="flex:1;display:flex;flex-direction:column;"><label>機構辦理情形</label><textarea id="editHandling" class="filter-input" rows="10" style="background:#ffffff;line-height:1.5;flex:1;min-height:200px;resize:vertical;"></textarea></div>
                     </div>
                     <div class="review-right">
@@ -840,48 +751,28 @@
         </div>
     </div>
     
+    <!-- Modal overlays (User, Profile, Preview) -->
     <div class="modal-overlay" id="userModal">
         <div class="modal-box">
             <h3 style="margin-top:0;" id="userModalTitle">使用者</h3>
             <input type="hidden" id="targetUserId">
             <div class="form-group"><label>姓名</label><input type="text" id="uName" class="filter-input"></div>
             <div class="form-group"><label>帳號 (Username)</label><input type="text" id="uEmail" class="filter-input"></div>
-            <div class="form-group">
-                <label>密碼 <span style="font-weight:400;color:#666;font-size:12px" id="pwdHint"></span></label>
-                <div class="pwd-wrapper">
-                    <input type="password" id="uPwd" class="filter-input">
-                    <button class="pwd-toggle" onclick="togglePwdVisibility('uPwd', this)">👁️</button>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>確認密碼</label>
-                <div class="pwd-wrapper">
-                    <input type="password" id="uPwdConfirm" class="filter-input">
-                    <button class="pwd-toggle" onclick="togglePwdVisibility('uPwdConfirm', this)">👁️</button>
-                </div>
-            </div>
+            <div class="form-group"><label>密碼 <span style="font-weight:400;color:#666;font-size:12px" id="pwdHint"></span></label><div class="pwd-wrapper"><input type="password" id="uPwd" class="filter-input"><button class="pwd-toggle" onclick="togglePwdVisibility('uPwd', this)">👁️</button></div></div>
+            <div class="form-group"><label>確認密碼</label><div class="pwd-wrapper"><input type="password" id="uPwdConfirm" class="filter-input"><button class="pwd-toggle" onclick="togglePwdVisibility('uPwdConfirm', this)">👁️</button></div></div>
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;"><div id="pwdStrength" style="font-size:13px;color:#666;">密碼強度: -</div></div>
             <div class="form-group"><label>權限</label><select id="uRole" class="filter-select"><option value="admin">系統管理員 (Admin)</option><option value="manager">資料管理者 (Manager)</option><option value="editor">審查人員 (Editor)</option><option value="viewer">檢視人員 (Viewer)</option></select></div>
             <div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%" onclick="submitUser()">送出</button><button class="btn btn-outline" style="width:100%" onclick="document.getElementById('userModal').classList.remove('open')">取消</button></div>
         </div>
     </div>
-
     <div class="modal-overlay" id="profileModal">
         <div class="modal-box">
             <h3 style="margin-top:0;">個人設定</h3>
             <div class="form-group"><label>姓名</label><input type="text" id="myProfileName" class="filter-input"></div>
-            <div class="form-group">
-                <label>新密碼 <span style="font-weight:400;color:#666;font-size:12px">(若不修改請留空)</span></label>
-                <div class="pwd-wrapper">
-                    <input type="password" id="myProfilePwd" class="filter-input">
-                    <button class="pwd-toggle" onclick="togglePwdVisibility('myProfilePwd', this)">👁️</button>
-                </div>
-            </div>
+            <div class="form-group"><label>新密碼 <span style="font-weight:400;color:#666;font-size:12px">(若不修改請留空)</span></label><div class="pwd-wrapper"><input type="password" id="myProfilePwd" class="filter-input"><button class="pwd-toggle" onclick="togglePwdVisibility('myProfilePwd', this)">👁️</button></div></div>
             <div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%" onclick="submitProfile()">更新</button><button class="btn btn-outline" style="width:100%" onclick="document.getElementById('profileModal').classList.remove('open')">取消</button></div>
         </div>
     </div>
-
-    <!-- Preview modal -->
     <div class="modal-overlay" id="previewModal"><div class="modal-box" id="previewBox" style="max-width:800px; width:90%; max-height:80vh; overflow:auto;"><div style="display:flex;justify-content:space-between;align-items:center;"><h3 id="previewTitle">內容預覽</h3><button onclick="closePreview()" style="border:none;background:none;font-size:20px;">&times;</button></div><div id="previewContent" style="margin-top:12px;"></div></div></div>
 
     <script>
@@ -894,9 +785,7 @@
         let usersPage = 1, usersPageSize = 20, usersTotal = 0, usersPages = 1, usersSortField = 'id', usersSortDir = 'asc';
         let logsPage = 1, logsPageSize = 20, logsTotal = 0, logsPages = 1;
         let actionsPage = 1, actionsPageSize = 20, actionsTotal = 0, actionsPages = 1;
-        // Current import mode: 'word' (uses param) or 'backup' (ignores param)
         let currentImportMode = 'word'; 
-        // [新增] 檢查計畫管理相關變數
         let plansData = [], plansPage = 1, plansPageSize = 15, plansTotal = 0, plansPages = 1, currentPlan = null, planIssues = [];
 
         function resetAutoLogout() { clearTimeout(autoLogoutTimer); autoLogoutTimer = setTimeout(() => { alert("您已閒置過久，系統將自動登出。"); logout(); }, 1800000); }
@@ -905,46 +794,16 @@
         function toggleDashboard(btn) { const d = document.getElementById('dashboardSection'); const c = d.classList.contains('collapsed'); d.classList.toggle('collapsed', !c); btn.innerHTML = c ? '<span>收合統計圖表</span> <span>▲</span>' : '<span>展開統計圖表</span> <span>▼</span>'; }
         function toggleUserMenu() { document.getElementById('userDropdown').classList.toggle('show'); }
         window.addEventListener('click', function(e) { if (!e.target.closest('.user-menu-container')) { document.getElementById('userDropdown').classList.remove('show'); } });
-        
         function togglePwdVisibility(inputId, btn) { const input = document.getElementById(inputId); if(input.type === 'password') { input.type = 'text'; btn.innerText = '🚫'; } else { input.type = 'password'; btn.innerText = '👁️'; } }
-        
-        // [New] Toggle Advanced Filters
-        function toggleAdvancedFilters(btn) {
-            const panel = document.getElementById('advancedFilters');
-            const isShown = panel.classList.contains('show');
-            if (isShown) {
-                panel.classList.remove('show');
-                btn.innerText = '⬇️ 顯示更多篩選條件';
-            } else {
-                panel.classList.add('show');
-                btn.innerText = '⬆️ 收合篩選條件';
-            }
-        }
+        function toggleAdvancedFilters(btn) { const panel = document.getElementById('advancedFilters'); const isShown = panel.classList.contains('show'); if (isShown) { panel.classList.remove('show'); btn.innerText = '⬇️ 顯示更多篩選條件'; } else { panel.classList.add('show'); btn.innerText = '⬆️ 收合篩選條件'; } }
 
-        // --- Helper functions (Safe Versions) ---
-        function normalizeCodeString(str) { 
-            if(!str) return ""; 
-            var s = String(str); 
-            s = (s.normalize ? s.normalize("NFKC") : s); 
-            s = s.replace(/[\u200B-\u200D\uFEFF]/g, ""); 
-            s = s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g, "-"); 
-            s = s.replace(/[ \t]+/g, " ").replace(/\s*-\s*/g, "-"); 
-            return s.trim(); 
-        }
-        function stripHtml(h) { 
-            if(!h) return ''; 
-            let t = document.createElement("DIV"); 
-            t.innerHTML = String(h); 
-            return t.textContent || t.innerText || ""; 
-        }
+        function normalizeCodeString(str) { if(!str) return ""; var s = String(str); s = (s.normalize ? s.normalize("NFKC") : s); s = s.replace(/[\u200B-\u200D\uFEFF]/g, ""); s = s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g, "-"); s = s.replace(/[ \t]+/g, " ").replace(/\s*-\s*/g, "-"); return s.trim(); }
+        function stripHtml(h) { if(!h) return ''; let t = document.createElement("DIV"); t.innerHTML = String(h); return t.textContent || t.innerText || ""; }
         function getLatest(i, p) { for(let k = 20; k >= 1; k--) { const key = k === 1 ? p : `${p}${k}`; if(i[key]) return i[key]; } return null; }
         function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' }; return map[r] || r; }
-        function extractNumberFromCell(cell) { if(!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); return whole.trim(); }
         
-        // [Updated] Map & Parser
         const ORG_MAP = { "T": "臺鐵", "H": "高鐵", "A": "林鐵", "S": "糖鐵", "TRC": "臺鐵", "HSR": "高鐵", "AFR": "林鐵", "TSC": "糖鐵" };
         const INSPECTION_MAP = { "1": "定期檢查", "2": "例行性檢查", "3": "特別檢查", "4": "臨時檢查" };
-        // [Verified] Division Map includes all requested codes
         const DIVISION_MAP = { "A": "運務", "B": "工務", "C": "機務", "D": "電務", "E": "安全", "F": "審核", "G": "災防", "OP": "運轉", "CP": "土木", "EM": "機電" };
         const KIND_MAP = { "N": "缺失事項", "O": "觀察事項", "R": "建議事項" };
         const FILLED_MARKS = ["■","☑","☒","✔","✅","●","◉","✓"]; var EMPTY_MARKS  = ["□","☐","◻","○","◯","◇","△"];
@@ -954,113 +813,25 @@
             if(!raw) return null; 
             var cleanRaw = raw.replace(/[^a-zA-Z0-9\-]/g, "");
             var mLong = cleanRaw.match(/^(\d{3})-([A-Z]{3,4})-([0-9])-(\d+)-([A-Z]{2,4})-([NOR])(\d+)$/i);
-            if(mLong) {
-                return { raw: mLong[0], yearRoc: parseInt(mLong[1], 10), orgCode: mLong[2].toUpperCase(), inspectCode: mLong[3], divCode: mLong[5].toUpperCase(), kindCode: mLong[6].toUpperCase() };
-            }
+            if(mLong) { return { raw: mLong[0], yearRoc: parseInt(mLong[1], 10), orgCode: mLong[2].toUpperCase(), inspectCode: mLong[3], divCode: mLong[5].toUpperCase(), kindCode: mLong[6].toUpperCase() }; }
             var mShort = cleanRaw.match(/^(\d{2,3})([A-Z])([0-9])-([A-Z])(\d{2})-([NOR])(\d{2})$/i); 
-            if(mShort) { 
-                var yy = parseInt(mShort[1], 10);
-                var rocYear = (yy < 1000) ? (yy + (yy < 100 ? 100 : 0)) : (yy - 1911);
-                return { raw: mShort[0], yearRoc: rocYear, orgCode: mShort[2].toUpperCase(), inspectCode: mShort[3], divCode: mShort[4].toUpperCase(), kindCode: mShort[6].toUpperCase() }; 
-            }
+            if(mShort) { var yy = parseInt(mShort[1], 10); var rocYear = (yy < 1000) ? (yy + (yy < 100 ? 100 : 0)) : (yy - 1911); return { raw: mShort[0], yearRoc: rocYear, orgCode: mShort[2].toUpperCase(), inspectCode: mShort[3], divCode: mShort[4].toUpperCase(), kindCode: mShort[6].toUpperCase() }; }
             var mLoose = cleanRaw.match(/(\d{2,3}).*([NOR])\d+/i);
-            if(mLoose) {
-                 return { raw: mLoose[0], yearRoc: parseInt(mLoose[1],10), orgCode: "?", inspectCode: "?", divCode: "?", kindCode: mLoose[2].toUpperCase() };
-            }
+            if(mLoose) { return { raw: mLoose[0], yearRoc: parseInt(mLoose[1],10), orgCode: "?", inspectCode: "?", divCode: "?", kindCode: mLoose[2].toUpperCase() }; }
             return { raw: cleanRaw, yearRoc: "", orgCode: "", inspectCode: "", divCode: "", kindCode: "" }; 
         }
 
         function normalizeMultiline(s) { s = String(s || ""); return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
-        
-        // [修正與增強] 內容清理與切割：只抓取最新的回覆內容
-        function sanitizeContent(html) { 
-            if(!html) return ""; 
-            var s = String(html); 
-            
-            // 1. 先做基礎清理，移除多餘的樣式標籤，保留換行結構
-            s = s.replace(/<\s*br\s*\/?>/gi, "\n")
-                 .replace(/<\s*\/p\s*>/gi, "\n")
-                 .replace(/<\s*p[^>]*>/gi, "")
-                 .replace(/<[^>]+>/g, ""); // 移除剩餘所有 HTML 標籤
-                 
-            // 2. 正規化空白與特殊字元
-            s = s.replace(/&nbsp;/g, " ")
-                 .replace(/[\u200B-\u200D\uFEFF]/g, "")
-                 .trim();
-
-            // 3. [關鍵邏輯] 智慧切割：抓取「最上面」的內容
-            var lines = s.split('\n');
-            var resultLines = [];
-            var hasContent = false;
-
-            for (var i = 0; i < lines.length; i++) {
-                var line = lines[i].trim();
-                
-                // 略過開頭的空行
-                if (!hasContent && line.length === 0) continue;
-                
-                // 遇到常見的分隔線符號，視為舊資料開始，直接結束截取
-                if (/^[-=_]{3,}/.test(line)) {
-                    break; 
-                }
-                
-                // 遇到明顯的「日期標籤」且不是第一行時，視為舊資料的開始
-                if (hasContent && /^(\d{2,3}[./-]\d{1,2}[./-]\d{1,2})/.test(line)) {
-                     break;
-                }
-
-                // 遇到「前次」、「上次」關鍵字開頭，視為舊資料
-                if (hasContent && /^(前次|上次|第\d+次)(辦理|審查|回復|說明)/.test(line)) {
-                    break;
-                }
-
-                // 加入有效行
-                resultLines.push(line);
-                if (line.length > 0) hasContent = true;
-            }
-
-            return resultLines.join("\n").trim(); 
-        }
-
+        function sanitizeContent(html) { if(!html) return ""; var s = String(html); s = s.replace(/<\s*br\s*\/?>/gi, "\n").replace(/<\s*\/p\s*>/gi, "\n").replace(/<\s*p[^>]*>/gi, "").replace(/<[^>]+>/g, ""); s = s.replace(/&nbsp;/g, " ").replace(/[\u200B-\u200D\uFEFF]/g, "").trim(); var lines = s.split('\n'); var resultLines = []; var hasContent = false; for (var i = 0; i < lines.length; i++) { var line = lines[i].trim(); if (!hasContent && line.length === 0) continue; if (/^[-=_]{3,}/.test(line)) break; if (hasContent && /^(\d{2,3}[./-]\d{1,2}[./-]\d{1,2})/.test(line)) break; if (hasContent && /^(前次|上次|第\d+次)(辦理|審查|回復|說明)/.test(line)) break; resultLines.push(line); if (line.length > 0) hasContent = true; } return resultLines.join("\n").trim(); }
         function parseStatusFromResultCell(cell) { if(!cell) return ""; var src = normalizeMultiline((cell.innerText || cell.textContent || "") + "\n" + (cell.innerHTML || "").replace(/<[^>]+>/g, "")); if(!src) return ""; var allMarks = FILLED_MARKS.concat(EMPTY_MARKS).join(""); allMarks = allMarks.replace(/[-\\^$*+?.()|[\]{}]/g, "\\$&"); var reFront = new RegExp("([" + allMarks + "])\\s*(?:[:：﹕-]?\\s*)?(解除列管|持續列管|自行列管)", "g"); var reBack  = new RegExp("(解除列管|持續列管|自行列管)\\s*(?:[:：﹕-]?\\s*)?([" + allMarks + "])", "g"); var hits = [], m; while((m = reFront.exec(src)) !== null) { hits.push({ idx: m.index, label: m[2], mark: m[1], filled: FILLED_MARKS.indexOf(m[1]) >= 0 }); } while((m = reBack.exec(src)) !== null) { hits.push({ idx: m.index, label: m[1], mark: m[2], filled: FILLED_MARKS.indexOf(m[2]) >= 0 }); } var filled = hits.filter(function(h) { return h.filled; }).sort(function(a, b) { return a.idx - b.idx; }); if (filled.length) return filled[filled.length - 1].label; var labels = ["解除列管", "持續列管", "自行列管"]; var present = labels.filter(function(l) { return src.indexOf(l) >= 0; }); if (present.length === 1) return present[0]; return ""; }
         function formatHtmlToText(html) { if(!html) return ""; let temp = String(html).replace(/<li[^>]*>/gi, "\n• ").replace(/<\/li>/gi, "").replace(/<ul[^>]*>/gi, "").replace(/<\/ul>/gi, "").replace(/<ol[^>]*>/gi, "").replace(/<\/ol>/gi, "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<p[^>]*>/gi, ""); let div = document.createElement("div"); div.innerHTML = temp; return (div.textContent || div.innerText || "").replace(/\n\s*\n/g, "\n").trim(); }
 
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            const icon = type === 'success' ? '✅' : '⚠️';
-            const title = type === 'success' ? '成功' : '錯誤';
-            toast.className = `toast ${type}`;
-            toast.innerHTML = `<div class="toast-icon">${icon}</div><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-msg">${message}</div></div>`;
-            container.appendChild(toast);
-            requestAnimationFrame(() => { toast.classList.add('show'); });
-            setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 3000);
-        }
-
+        function showToast(message, type = 'success') { const container = document.getElementById('toast-container'); const toast = document.createElement('div'); const icon = type === 'success' ? '✅' : '⚠️'; const title = type === 'success' ? '成功' : '錯誤'; toast.className = `toast ${type}`; toast.innerHTML = `<div class="toast-icon">${icon}</div><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-msg">${message}</div></div>`; container.appendChild(toast); requestAnimationFrame(() => { toast.classList.add('show'); }); setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 3000); }
         function showPreview(html, title) { document.getElementById('previewTitle').innerText = title || '內容預覽'; document.getElementById('previewContent').innerHTML = html || '(無內容)'; document.getElementById('previewModal').classList.add('open'); }
         function closePreview() { document.getElementById('previewModal').classList.remove('open'); }
         
-        async function loadPlanOptions() {
-            try {
-                const res = await fetch('/api/options/plans?t=' + Date.now());
-                const json = await res.json();
-                const list = document.getElementById('planOptionsList');
-                if (list && json.data) {
-                    list.innerHTML = json.data.map(p => `<option value="${p}">`).join('');
-                }
-            } catch (e) {
-                console.error("Load plans failed", e);
-            }
-        }
-        
-        function initImportRoundOptions() {
-            const s = document.getElementById('importRoundSelect');
-            if(!s) return;
-            s.innerHTML = '';
-            for(let i=1; i<=20; i++) {
-                s.innerHTML += `<option value="${i}">第 ${i} 次審查</option>`;
-            }
-        }
+        async function loadPlanOptions() { try { const res = await fetch('/api/options/plans?t=' + Date.now()); const json = await res.json(); const list = document.getElementById('planOptionsList'); if (list && json.data) { list.innerHTML = json.data.map(p => `<option value="${p}">`).join(''); } } catch (e) { console.error("Load plans failed", e); } }
+        function initImportRoundOptions() { const s = document.getElementById('importRoundSelect'); if(!s) return; s.innerHTML = ''; for(let i=1; i<=20; i++) { s.innerHTML += `<option value="${i}">第 ${i} 次審查</option>`; } }
 
         document.addEventListener('DOMContentLoaded', async () => { 
             console.log("App init...");
@@ -1077,84 +848,26 @@
             } 
         });
 
-        async function checkAuth() { 
-            try { 
-                const res = await fetch('/api/auth/me?t=' + Date.now(), { headers: { 'Cache-Control': 'no-cache' } }); 
-                const data = await res.json(); 
-                if(data.isLogin) { 
-                    currentUser = data; 
-                    const nameEl = document.getElementById('headerUserName');
-                    const roleEl = document.getElementById('headerUserRole');
-                    if(nameEl) nameEl.innerText = data.name || data.username; 
-                    if(roleEl) roleEl.innerText = getRoleName(data.role); 
-                    if(['admin', 'manager'].includes(data.role)) { 
-                        document.getElementById('btn-importView').classList.remove('hidden'); 
-                        if(data.role === 'admin') {
-                             document.getElementById('btn-usersView').classList.remove('hidden');
-                             document.getElementById('uploadCardBackup').classList.remove('hidden'); 
-                             document.getElementById('exportJsonOption').style.display = 'flex'; 
-                        }
-                    } 
-                } else window.location.href = '/login.html'; 
-            } catch(e) { window.location.href = '/login.html'; } 
-        }
+        async function checkAuth() { try { const res = await fetch('/api/auth/me?t=' + Date.now(), { headers: { 'Cache-Control': 'no-cache' } }); const data = await res.json(); if(data.isLogin) { currentUser = data; const nameEl = document.getElementById('headerUserName'); const roleEl = document.getElementById('headerUserRole'); if(nameEl) nameEl.innerText = data.name || data.username; if(roleEl) roleEl.innerText = getRoleName(data.role); if(['admin', 'manager'].includes(data.role)) { document.getElementById('btn-importView').classList.remove('hidden'); if(data.role === 'admin') { document.getElementById('btn-usersView').classList.remove('hidden'); document.getElementById('uploadCardBackup').classList.remove('hidden'); document.getElementById('exportJsonOption').style.display = 'flex'; } } } else window.location.href = '/login.html'; } catch(e) { window.location.href = '/login.html'; } }
 
         function renderPagination(containerId, currentPage, totalPages, onPageChange) {
             const containerTop = document.getElementById(containerId + 'Top'); const containerBottom = document.getElementById(containerId + 'Bottom'); 
-            // 如果只有一個 container (例如 planListBar)，則只渲染該處
             if(!containerTop && !containerBottom) {
                 const singleContainer = document.getElementById(containerId);
                 if(singleContainer) {
-                    let html = '';
-                    html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="${onPageChange}(${currentPage - 1})">◀</button>`;
-                    const delta = 2, range = [];
-                    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) { range.push(i); }
-                    if (currentPage - delta > 2) range.unshift('...'); if (currentPage + delta < totalPages - 1) range.push('...');
-                    range.unshift(1); if (totalPages > 1) range.push(totalPages);
-                    range.forEach(i => { if (i === '...') html += `<div class="page-dots">...</div>`; else html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`; });
-                    html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="${onPageChange}(${currentPage + 1})">▶</button>`;
-                    singleContainer.innerHTML = html;
-                }
-                return;
+                    let html = ''; html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="${onPageChange}(${currentPage - 1})">◀</button>`; const delta = 2, range = []; for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) { range.push(i); } if (currentPage - delta > 2) range.unshift('...'); if (currentPage + delta < totalPages - 1) range.push('...'); range.unshift(1); if (totalPages > 1) range.push(totalPages); range.forEach(i => { if (i === '...') html += `<div class="page-dots">...</div>`; else html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`; }); html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="${onPageChange}(${currentPage + 1})">▶</button>`; singleContainer.innerHTML = html;
+                } return;
             }
-            
-            let html = '';
-            html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="${onPageChange}(${currentPage - 1})">◀</button>`;
-            const delta = 2, range = [];
-            for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) { range.push(i); }
-            if (currentPage - delta > 2) range.unshift('...'); if (currentPage + delta < totalPages - 1) range.push('...');
-            range.unshift(1); if (totalPages > 1) range.push(totalPages);
-            range.forEach(i => { if (i === '...') html += `<div class="page-dots">...</div>`; else html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`; });
-            html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="${onPageChange}(${currentPage + 1})">▶</button>`;
-            if(containerTop) containerTop.innerHTML = html; if(containerBottom) containerBottom.innerHTML = html;
+            let html = ''; html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="${onPageChange}(${currentPage - 1})">◀</button>`; const delta = 2, range = []; for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) { range.push(i); } if (currentPage - delta > 2) range.unshift('...'); if (currentPage + delta < totalPages - 1) range.push('...'); range.unshift(1); if (totalPages > 1) range.push(totalPages); range.forEach(i => { if (i === '...') html += `<div class="page-dots">...</div>`; else html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`; }); html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="${onPageChange}(${currentPage + 1})">▶</button>`; if(containerTop) containerTop.innerHTML = html; if(containerBottom) containerBottom.innerHTML = html;
         }
 
         async function loadIssuesPage(page = 1) {
             issuesPage = page; document.getElementById('issuesPageSizeTop').value = issuesPageSize; document.getElementById('issuesPageSizeBottom').value = issuesPageSize;
             const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '', kind = document.getElementById('filterKind').value || '';
-            const division = document.getElementById('filterDivision') ? document.getElementById('filterDivision').value : '';
-            const inspection = document.getElementById('filterInspection') ? document.getElementById('filterInspection').value : '';
-            const planName = document.getElementById('filterPlan') ? document.getElementById('filterPlan').value : ''; 
-            
-            let sortField = 'created_at', sortDir = 'desc';
-            if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
-            
+            const division = document.getElementById('filterDivision') ? document.getElementById('filterDivision').value : ''; const inspection = document.getElementById('filterInspection') ? document.getElementById('filterInspection').value : ''; const planName = document.getElementById('filterPlan') ? document.getElementById('filterPlan').value : ''; 
+            let sortField = 'created_at', sortDir = 'desc'; if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
             const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, planName, sortField, sortDir, _t: Date.now() });
-            
-            try {
-                const res = await fetch('/api/issues?' + params.toString()); 
-                if (!res.ok) { 
-                    const errJson = await res.json().catch(()=>({}));
-                    console.error("Server Error:", errJson);
-                    showToast('載入資料失敗: ' + (errJson.error || res.statusText), 'error'); 
-                    return; 
-                }
-                const j = await res.json(); currentData = j.data || []; issuesTotal = j.total || 0; issuesPages = j.pages || 1;
-                if (j.latestCreatedAt) { const d = new Date(j.latestCreatedAt); document.getElementById('dataTimestamp').innerText = `資料庫更新時間：${d.toLocaleDateString('zh-TW')} ${d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`; } else { document.getElementById('dataTimestamp').innerText = ''; }
-                if(document.getElementById('filterYear').options.length === 0 && j.globalStats) { const years = [...new Set(j.globalStats.year.map(x => x.year).filter(Boolean))].sort().reverse(); document.getElementById('filterYear').innerHTML = '<option value="">全部年度</option>' + years.map(v => `<option value="${v}">${v}</option>`).join(''); const units = [...new Set(j.globalStats.unit.map(x => x.unit).filter(Boolean))].sort(); document.getElementById('filterUnit').innerHTML = '<option value="">全部機構</option>' + units.map(v => `<option value="${v}">${v}</option>`).join(''); }
-                if (j.globalStats) { cachedGlobalStats = j.globalStats; updateChartsData(j.globalStats); renderStats(j.globalStats); }
-                renderTable(); renderPagination('issuesPagination', issuesPage, issuesPages, 'loadIssuesPage'); document.getElementById('issuesTotalCount').innerText = issuesTotal;
-            } catch (e) { console.error(e); showToast('載入資料錯誤 (請檢查 Console)','error'); }
+            try { const res = await fetch('/api/issues?' + params.toString()); if (!res.ok) { const errJson = await res.json().catch(()=>({})); console.error("Server Error:", errJson); showToast('載入資料失敗: ' + (errJson.error || res.statusText), 'error'); return; } const j = await res.json(); currentData = j.data || []; issuesTotal = j.total || 0; issuesPages = j.pages || 1; if (j.latestCreatedAt) { const d = new Date(j.latestCreatedAt); document.getElementById('dataTimestamp').innerText = `資料庫更新時間：${d.toLocaleDateString('zh-TW')} ${d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}`; } else { document.getElementById('dataTimestamp').innerText = ''; } if(document.getElementById('filterYear').options.length === 0 && j.globalStats) { const years = [...new Set(j.globalStats.year.map(x => x.year).filter(Boolean))].sort().reverse(); document.getElementById('filterYear').innerHTML = '<option value="">全部年度</option>' + years.map(v => `<option value="${v}">${v}</option>`).join(''); const units = [...new Set(j.globalStats.unit.map(x => x.unit).filter(Boolean))].sort(); document.getElementById('filterUnit').innerHTML = '<option value="">全部機構</option>' + units.map(v => `<option value="${v}">${v}</option>`).join(''); } if (j.globalStats) { cachedGlobalStats = j.globalStats; updateChartsData(j.globalStats); renderStats(j.globalStats); } renderTable(); renderPagination('issuesPagination', issuesPage, issuesPages, 'loadIssuesPage'); document.getElementById('issuesTotalCount').innerText = issuesTotal; } catch (e) { console.error(e); showToast('載入資料錯誤','error'); }
         }
 
         function applyFilters() { issuesPage = 1; loadIssuesPage(1); }
@@ -1162,679 +875,66 @@
         function sortData(field) { if(sortState.field === field) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc'; else { sortState.field = field; sortState.dir = 'asc'; } loadIssuesPage(1); updateSortUI(); }
         function updateSortUI() { document.querySelectorAll('th').forEach(th => { th.classList.remove('sort-asc', 'sort-desc'); if(th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc'); }); }
         function renderStats(stats) { const s = stats.status; const total = s.reduce((sum, item) => sum + parseInt(item.count), 0); const active = s.find(x => x.status === '持續列管')?.count || 0; const resolved = s.filter(x => ['解除列管', '自行列管'].includes(x.status)).reduce((sum, x) => sum + parseInt(x.count), 0); document.getElementById('countTotal').innerText = total; document.getElementById('countActive').innerText = active; document.getElementById('countResolved').innerText = resolved; }
-        
-        function renderTable() {
-            const tbody = document.getElementById('dataBody'); tbody.innerHTML = '';
-            if(!currentData || currentData.length === 0) { document.getElementById('emptyMsg').style.display = 'block'; return; }
-            document.getElementById('emptyMsg').style.display = 'none';
-            const canManage = currentUser && ['admin', 'manager'].includes(currentUser.role); 
-            const canEdit = currentUser && ['admin', 'manager', 'editor'].includes(currentUser.role);
-            document.getElementById('batchActionContainer').style.display = 'none'; document.getElementById('selectedCountBadge').innerText = ''; document.getElementById('selectAll').checked = false;
-            document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
-            
-            let html = '';
-            currentData.forEach(item => {
-                try {
-                    let badge = ''; 
-                    const st = String(item.status || 'Open');
-                    if(st !== 'Open') { 
-                        const stClass = st === '持續列管' ? 'active' : (st === '解除列管' ? 'resolved' : 'self'); 
-                        badge = `<span class="badge ${stClass}">${st}</span>`; 
-                    }
-                    let updateTxt = '-'; const lr = getLatest(item, 'review'), lh = getLatest(item, 'handling'); if(lr) updateTxt = `[審] ${stripHtml(lr).slice(0,80)}`; else if(lh) updateTxt = `[回] ${stripHtml(lh).slice(0,80)}`;
-                    let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if(item.aiResult && item.aiResult.status === 'done') { const f = String(item.aiResult.fulfill || ''); const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes?'yes':'no'}">${isYes?'✅':'⚠️'} ${f}</div>`; }
-                    const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : '';
-                    const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
-                    const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
-                    
-                    let k = item.itemKindCode;
-                    const numStr = String(item.number || '');
-                    if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
-                    
-                    let kindLabel = ''; 
-                    if(k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`; 
-                    else if(k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`; 
-                    else if(k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
-                    
-                    const statusHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${badge}</div>`;
-                    const snippet = stripHtml(item.content || '').slice(0, 180); 
-                    const fullHtml = String(item.content || '');
-                    
-                    html += `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="年度">${item.year}</td><td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="機構">${item.unit}</td><td data-label="狀態與類型">${statusHtml}</td><td data-label="事項內容"><div class="text-content">${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新辦理/審查情形"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="管理功能"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
-                } catch(err) {
-                    console.error("Skipping bad row:", item, err);
-                }
-            });
-            tbody.innerHTML = html;
-        }
-
+        function renderTable() { const tbody = document.getElementById('dataBody'); tbody.innerHTML = ''; if(!currentData || currentData.length === 0) { document.getElementById('emptyMsg').style.display = 'block'; return; } document.getElementById('emptyMsg').style.display = 'none'; const canManage = currentUser && ['admin', 'manager'].includes(currentUser.role); const canEdit = currentUser && ['admin', 'manager', 'editor'].includes(currentUser.role); document.getElementById('batchActionContainer').style.display = 'none'; document.getElementById('selectedCountBadge').innerText = ''; document.getElementById('selectAll').checked = false; document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none'); let html = ''; currentData.forEach(item => { let badge = ''; const st = String(item.status || 'Open'); if(st !== 'Open') { const stClass = st === '持續列管' ? 'active' : (st === '解除列管' ? 'resolved' : 'self'); badge = `<span class="badge ${stClass}">${st}</span>`; } let updateTxt = '-'; const lr = getLatest(item, 'review'), lh = getLatest(item, 'handling'); if(lr) updateTxt = `[審] ${stripHtml(lr).slice(0,80)}`; else if(lh) updateTxt = `[回] ${stripHtml(lh).slice(0,80)}`; let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if(item.aiResult && item.aiResult.status === 'done') { const f = String(item.aiResult.fulfill || ''); const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes?'yes':'no'}">${isYes?'✅':'⚠️'} ${f}</div>`; } const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : ''; const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : ''; const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`; let k = item.itemKindCode; const numStr = String(item.number || ''); if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); } let kindLabel = ''; if(k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`; else if(k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`; else if(k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`; const statusHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${badge}</div>`; const snippet = stripHtml(item.content || '').slice(0, 180); const fullHtml = String(item.content || ''); html += `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="年度">${item.year}</td><td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="機構">${item.unit}</td><td data-label="狀態與類型">${statusHtml}</td><td data-label="事項內容"><div class="text-content">${snippet}${(stripHtml(item.content||'').length>180?` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>`:'' )}</div></td><td data-label="最新辦理/審查情形"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="管理功能"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`; }); tbody.innerHTML = html; }
         function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }
+        
         async function loadUsersPage(page = 1) { usersPage = page; usersPageSize = parseInt(document.getElementById('usersPageSize').value, 10); const q = document.getElementById('userSearch').value || ''; const params = new URLSearchParams({ page: usersPage, pageSize: usersPageSize, q, sortField: usersSortField, sortDir: usersSortDir, _t: Date.now() }); try { const res = await fetch('/api/users?' + params.toString()); if(!res.ok) { showToast('載入使用者失敗','error'); return; } const j = await res.json(); userList = j.data || []; usersTotal = j.total || 0; usersPages = j.pages || 1; renderUsers(); renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage'); } catch(e) { console.error(e); showToast('載入使用者錯誤','error'); } }
         function renderUsers() { document.getElementById('usersTableBody').innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name||'-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id!==currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); }
         function usersSortBy(field) { if(usersSortField === field) usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; else { usersSortField = field; usersSortDir = 'asc'; } loadUsersPage(1); }
-
         async function loadLogsPage(page = 1) { logsPage = page; const q = document.getElementById('loginSearch').value || ''; const params = new URLSearchParams({ page: logsPage, pageSize: logsPageSize, q, _t: Date.now() }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/logs?' + params.toString()); if(!res.ok) { showToast('載入登入紀錄失敗','error'); return; } const j = await res.json(); currentLogs.login = j.data || []; logsTotal = j.total || 0; logsPages = j.pages || 1; document.getElementById('logsTableBody').innerHTML = currentLogs.login.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="IP">${l.ip_address||'-'}</td></tr>`).join(''); renderPagination('logsPagination', logsPage, logsPages, 'loadLogsPage'); } catch(e) { console.error(e); showToast('載入登入紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
         async function loadActionsPage(page = 1) { actionsPage = page; const q = document.getElementById('actionSearch').value || ''; const params = new URLSearchParams({ page: actionsPage, pageSize: actionsPageSize, q, _t: Date.now() }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/action_logs?' + params.toString()); if(!res.ok) { showToast('載入操作紀錄失敗','error'); return; } const j = await res.json(); currentLogs.action = j.data || []; actionsTotal = j.total || 0; actionsPages = j.pages || 1; document.getElementById('actionsTableBody').innerHTML = currentLogs.action.map(l => `<tr><td data-label="時間" style="padding:12px;white-space:nowrap;">${new Date(l.created_at).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="動作"><span class="badge new">${l.action}</span></td><td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td></tr>`).join(''); renderPagination('actionsPagination', actionsPage, actionsPages, 'loadActionsPage'); } catch(e) { console.error(e); showToast('載入操作紀錄錯誤','error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
-
         function exportLogs(type) { const data = type === 'login' ? currentLogs.login : currentLogs.action; if(!data || data.length === 0) return showToast('無資料可匯出', 'error'); let csvContent = '\uFEFF'; if(type === 'login') { csvContent += "時間,帳號,IP位址\n"; data.forEach(row => { csvContent += `"${new Date(row.login_time).toLocaleString('zh-TW')}","${row.username}","${row.ip_address}"\n`; }); } else { csvContent += "時間,帳號,動作,詳細內容\n"; data.forEach(row => { csvContent += `"${new Date(row.created_at).toLocaleString('zh-TW')}","${row.username}","${row.action}","${(row.details||'').replace(/"/g, '""')}"\n`; }); } const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `${type}_logs_${new Date().toISOString().slice(0,10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
         async function clearLogs(type) { if(!confirm(`確定要清空所有「${type === 'login' ? '登入' : '操作'}」紀錄嗎？此動作無法復原！`)) return; const endpoint = type === 'login' ? '/api/admin/logs' : '/api/admin/action_logs'; try { const res = await fetch(endpoint, { method: 'DELETE' }); if(res.ok) { showToast('紀錄已清空'); if(type === 'login') loadLogsPage(1); else loadActionsPage(1); } else showToast('清除失敗', 'error'); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
-
         function switchAdminTab(tab) { document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users'); document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs'); document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions'); if(tab === 'logs') loadLogsPage(1); if(tab === 'actions') loadActionsPage(1); }
-
-        // [修正與增強] HTML 解析核心：提升對 Word 表格的容錯率
-        function parseFromHTML(html) {
-            var items = []; 
-            try { 
-                var doc = new DOMParser().parseFromString(html, "text/html"); 
-                var tables = doc.querySelectorAll("table"); 
-                
-                tables.forEach(function(table) { 
-                    var rows = table.querySelectorAll("tr"); 
-                    var headerRow = -1, dataStart = -1; 
-                    
-                    for(var i = 0; i < Math.min(rows.length, 10); i++) { 
-                        var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, ""); 
-                        if((/編號|項次|序號/).test(t) && (/內容|摘要/).test(t)) { 
-                            headerRow = i; 
-                            dataStart = i + 1; 
-                            break; 
-                        } 
-                    } 
-                    
-                    if(headerRow === -1) return; 
-
-                    var headerCells = rows[headerRow].querySelectorAll("td,th"); 
-                    var col = { number: -1, content: -1, handling: -1, result: -1 }; 
-                    var reviewCols = []; 
-
-                    headerCells.forEach(function(cell, idx) { 
-                        var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, ""); 
-                        if((/編號|項次|序號/).test(text)) col.number = idx; 
-                        else if((/事項內容|缺失內容|觀察內容|內容/).test(text)) col.content = idx; 
-                        else if((/辦理情形|改善情形/).test(text)) col.handling = idx; 
-                        else if((/結果|狀態|列管/).test(text)) col.result = idx; 
-                        
-                        var mm = text.match(/第(\d+)次.*(審查|意見)/); 
-                        if(mm) {
-                            reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) }); 
-                        } else if((/審查意見|意見審查/).test(text)) {
-                            reviewCols.push({ idx: idx, round: 1 }); 
-                        }
-                    }); 
-
-                    if(col.number === -1) col.number = 0; 
-                    if(col.content === -1) col.content = (col.number === 0) ? 1 : 0;
-
-                    for(var r = dataStart; r < rows.length; r++) { 
-                        var cells = rows[r].querySelectorAll("td,th"); 
-                        if(cells.length < 2) continue; 
-
-                        var rawNumText = cells[col.number] ? (cells[col.number].innerText || cells[col.number].textContent || "") : "";
-                        var info = parseItemNumber(rawNumText); 
-                        if(!info || !info.raw) continue;
-
-                        var unitName = ORG_MAP[info.orgCode] || info.orgCode || ""; 
-                        var inspectName = INSPECTION_MAP[info.inspectCode] || info.inspectCode || ""; 
-                        var divName = DIVISION_MAP[info.divCode] || info.divCode || ""; 
-                        var kindName = KIND_MAP[info.kindCode] || "其他"; 
-                        
-                        var item = { 
-                            number: info.raw.toUpperCase(), 
-                            year: String(info.yearRoc), 
-                            unit: unitName, 
-                            itemKindCode: info.kindCode, 
-                            category: kindName, 
-                            inspectionCategoryName: inspectName, 
-                            divisionName: divName, 
-                            content: "", 
-                            handling: "", 
-                            status: "持續列管" 
-                        }; 
-
-                        if(col.content !== -1 && cells[col.content]) item.content = sanitizeContent(cells[col.content].innerHTML); 
-                        if(col.handling !== -1 && cells[col.handling]) item.handling = sanitizeContent(cells[col.handling].innerHTML); 
-                        if(info.kindCode === "R") item.status = "自行列管"; else if(col.result !== -1 && cells[col.result]) item.status = parseStatusFromResultCell(cells[col.result]) || "持續列管"; 
-
-                        reviewCols.forEach(function(rc) { 
-                            var key = (rc.round === 1 ? "review" : ("review" + rc.round)); 
-                            if(cells[rc.idx]) item[key] = sanitizeContent(cells[rc.idx].innerHTML); 
-                        }); 
-
-                        items.push(item); 
-                    } 
-                }); 
-            } catch(e) { 
-                console.error("Parse error:", e); 
-                alert("解析 Word 表格時發生錯誤，請確認表格格式是否包含「編號」與「內容」欄位。");
-            } 
-            return items;
-        }
-
-        function onImportStageChange() {
-            const stage = document.querySelector('input[name="importStage"]:checked').value;
-            const roundContainer = document.getElementById('importRoundContainer');
-            const planNameContainer = document.getElementById('importPlanNameContainer');
-            
-            if (stage === 'initial') {
-                roundContainer.style.display = 'none'; 
-                planNameContainer.style.gridColumn = 'span 2'; 
-                document.getElementById('importDateGroup_Initial').style.display = 'block';
-                document.getElementById('importDateGroup_Review').style.display = 'none';
-                document.getElementById('importStatusWord').innerText = '';
-            } else {
-                roundContainer.style.display = 'block'; 
-                planNameContainer.style.gridColumn = 'auto'; 
-                document.getElementById('importDateGroup_Initial').style.display = 'none';
-                document.getElementById('importDateGroup_Review').style.display = 'block';
-            }
-            checkImportReady();
-        }
-
-        function checkImportReady() {
-            const f = document.getElementById('wordInput').files[0];
-            if(currentImportMode === 'backup') return; 
-
-            const stageRadio = document.querySelector('input[name="importStage"]:checked');
-            if(!stageRadio) return;
-            
-            const stage = stageRadio.value;
-            let valid = false;
-            
-            if (stage === 'initial') {
-                const d = document.getElementById('importIssueDate').value.trim();
-                valid = (d.length > 0);
-            } else {
-                valid = true; 
-            }
-            
-            document.getElementById('wordInput').disabled = !valid;
-            document.getElementById('btnParseWord').disabled = !valid || !f;
-        }
+        function parseFromHTML(html) { var items = []; try { var doc = new DOMParser().parseFromString(html, "text/html"); var tables = doc.querySelectorAll("table"); tables.forEach(function(table) { var rows = table.querySelectorAll("tr"); var headerRow = -1, dataStart = -1; for(var i = 0; i < Math.min(rows.length, 10); i++) { var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, ""); if((/編號|項次|序號/).test(t) && (/內容|摘要/).test(t)) { headerRow = i; dataStart = i + 1; break; } } if(headerRow === -1) return; var headerCells = rows[headerRow].querySelectorAll("td,th"); var col = { number: -1, content: -1, handling: -1, result: -1 }; var reviewCols = []; headerCells.forEach(function(cell, idx) { var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, ""); if((/編號|項次|序號/).test(text)) col.number = idx; else if((/事項內容|缺失內容|觀察內容|內容/).test(text)) col.content = idx; else if((/辦理情形|改善情形/).test(text)) col.handling = idx; else if((/結果|狀態|列管/).test(text)) col.result = idx; var mm = text.match(/第(\d+)次.*(審查|意見)/); if(mm) { reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) }); } else if((/審查意見|意見審查/).test(text)) { reviewCols.push({ idx: idx, round: 1 }); } }); if(col.number === -1) col.number = 0; if(col.content === -1) col.content = (col.number === 0) ? 1 : 0; for(var r = dataStart; r < rows.length; r++) { var cells = rows[r].querySelectorAll("td,th"); if(cells.length < 2) continue; var rawNumText = cells[col.number] ? (cells[col.number].innerText || cells[col.number].textContent || "") : ""; var info = parseItemNumber(rawNumText); if(!info || !info.raw) continue; var unitName = ORG_MAP[info.orgCode] || info.orgCode || ""; var inspectName = INSPECTION_MAP[info.inspectCode] || info.inspectCode || ""; var divName = DIVISION_MAP[info.divCode] || info.divCode || ""; var kindName = KIND_MAP[info.kindCode] || "其他"; var item = { number: info.raw.toUpperCase(), year: String(info.yearRoc), unit: unitName, itemKindCode: info.kindCode, category: kindName, inspectionCategoryName: inspectName, divisionName: divName, content: "", handling: "", status: "持續列管" }; if(col.content !== -1 && cells[col.content]) item.content = sanitizeContent(cells[col.content].innerHTML); if(col.handling !== -1 && cells[col.handling]) item.handling = sanitizeContent(cells[col.handling].innerHTML); if(info.kindCode === "R") item.status = "自行列管"; else if(col.result !== -1 && cells[col.result]) item.status = parseStatusFromResultCell(cells[col.result]) || "持續列管"; reviewCols.forEach(function(rc) { var key = (rc.round === 1 ? "review" : ("review" + rc.round)); if(cells[rc.idx]) item[key] = sanitizeContent(cells[rc.idx].innerHTML); }); items.push(item); } }); } catch(e) { console.error("Parse error:", e); alert("解析 Word 表格時發生錯誤，請確認表格格式是否包含「編號」與「內容」欄位。"); } return items; }
+        function onImportStageChange() { const stage = document.querySelector('input[name="importStage"]:checked').value; const roundContainer = document.getElementById('importRoundContainer'); const planNameContainer = document.getElementById('importPlanNameContainer'); if (stage === 'initial') { roundContainer.style.display = 'none'; planNameContainer.style.gridColumn = 'span 2'; document.getElementById('importDateGroup_Initial').style.display = 'block'; document.getElementById('importDateGroup_Review').style.display = 'none'; document.getElementById('importStatusWord').innerText = ''; } else { roundContainer.style.display = 'block'; planNameContainer.style.gridColumn = 'auto'; document.getElementById('importDateGroup_Initial').style.display = 'none'; document.getElementById('importDateGroup_Review').style.display = 'block'; } checkImportReady(); }
+        function checkImportReady() { const f = document.getElementById('wordInput').files[0]; if(currentImportMode === 'backup') return; const stageRadio = document.querySelector('input[name="importStage"]:checked'); if(!stageRadio) return; const stage = stageRadio.value; let valid = false; if (stage === 'initial') { const d = document.getElementById('importIssueDate').value.trim(); valid = (d.length > 0); } else { valid = true; } document.getElementById('wordInput').disabled = !valid; document.getElementById('btnParseWord').disabled = !valid || !f; }
         document.getElementById('wordInput').addEventListener('change', checkImportReady);
-        
-        async function previewWord() {
-            const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRoundSelect') ? document.getElementById('importRoundSelect').value : 1, msg = document.getElementById('importStatusWord'); 
-            if(!f) return showToast('請先選擇 Word 檔案', 'error'); 
-            msg.innerText = 'Word 解析中...';
-            currentImportMode = 'word';
-            try {
-                const b = await f.arrayBuffer();
-                const r = await mammoth.convertToHtml({ arrayBuffer: b });
-                const items = parseFromHTML(r.value);
-                processParsedItems(items, round, msg);
-            } catch(e) { console.error(e); msg.innerText = 'Word 解析錯誤: ' + e.message; }
-        }
-
-        function parseHistoryField(text) {
-            if (!text || typeof text !== 'string') return {};
-            const chunks = {};
-            const matches = [...text.matchAll(/\[第(\d+)次\]/g)];
-            if (matches.length === 0) return {};
-            matches.forEach((m, i) => {
-                const round = parseInt(m[1], 10);
-                const start = m.index + m[0].length;
-                const end = (i + 1 < matches.length) ? matches[i+1].index : text.length;
-                let content = text.substring(start, end).trim();
-                content = content.replace(/^-+\s*|\s*-+$/g, '');
-                if(content) chunks[round] = content;
-            });
-            return chunks;
-        }
-
-        async function previewBackup() {
-            const f = document.getElementById('backupInput').files[0];
-            const msg = document.getElementById('importStatusBackup');
-            
-            if(!f) return showToast('請先選擇備份檔案', 'error');
-            if (!msg) { alert("系統錯誤：找不到狀態顯示區域"); return; }
-            
-            msg.innerText = '備份檔解析中...';
-            currentImportMode = 'backup';
-            const ext = f.name.split('.').pop().toLowerCase();
-            
-            try {
-                let items = [];
-                if (ext === 'json') {
-                    const text = await f.text();
-                    const json = JSON.parse(text);
-                    const rawItems = Array.isArray(json) ? json : (json.data || []);
-                    items = rawItems.map(i => {
-                        const newItem = { 
-                            number: i.number || i['編號'] || '', 
-                            year: i.year || i['年度'] || '', 
-                            unit: i.unit || i['機構'] || '', 
-                            content: i.content || i['內容'] || i['事項內容'] || i['內容摘要'] || '', 
-                            status: i.status || i['狀態'] || '持續列管',
-                            handling: i.handling || i['辦理情形'] || i['最新辦理情形'] || '',
-                            review: i.review || i['審查意見'] || i['最新審查意見'] || '',
-                            itemKindCode: i.itemKindCode,
-                            category: i.category,
-                            divisionName: i.division, 
-                            inspectionCategoryName: i.inspection_category,
-                            planName: i.planName,
-                            issueDate: i.issueDate
-                        };
-                        
-                        for(let k=1; k<=20; k++) {
-                            if(i[`handling${k}`]) newItem[`handling${k}`] = i[`handling${k}`];
-                            if(i[`review${k}`]) newItem[`review${k}`] = i[`review${k}`];
-                        }
-
-                        const potentialHandling = i['完整辦理情形歷程'] || i.fullHandling || i.handling || i['辦理情形'] || '';
-                        const potentialReview = i['完整審查意見歷程'] || i.fullReview || i.review || i['審查意見'] || '';
-
-                        const hChunks = parseHistoryField(potentialHandling);
-                        const rChunks = parseHistoryField(potentialReview);
-
-                        Object.keys(hChunks).forEach(r => { const key = parseInt(r) === 1 ? 'handling' : `handling${r}`; newItem[key] = hChunks[r]; });
-                        Object.keys(rChunks).forEach(r => { const key = parseInt(r) === 1 ? 'review' : `review${r}`; newItem[key] = rChunks[r]; });
-                        
-                        return newItem;
-                    });
-                    processParsedItems(items, 0, msg);
-                } else if (ext === 'csv') {
-                    Papa.parse(f, {
-                        header: true,
-                        skipEmptyLines: true,
-                        encoding: "UTF-8", 
-                        complete: function(results) {
-                            const msgInside = document.getElementById('importStatusBackup');
-                            try {
-                                if(results.errors.length && results.data.length === 0) { if(msgInside) msgInside.innerText = 'CSV 解析錯誤'; return; }
-                                const mapped = results.data.map(i => {
-                                    let item = { 
-                                        number: i['編號'] || i.number || '', 
-                                        year: i['年度'] || i.year || '', 
-                                        unit: i['機構'] || i.unit || '', 
-                                        content: i['內容'] || i['事項內容'] || i['內容摘要'] || i.content || '', 
-                                        status: i['狀態'] || i.status || '持續列管',
-                                        handling: i['最新辦理情形'] || i['辦理情形'] || i.handling || '',
-                                        review: i['最新審查意見'] || i['審查意見'] || i.review || ''
-                                    };
-                                    const fullH = i['完整辦理情形歷程'] || i.handling || '';
-                                    const fullR = i['完整審查意見歷程'] || i.review || '';
-                                    const hChunks = parseHistoryField(fullH);
-                                    const rChunks = parseHistoryField(fullR);
-                                    Object.keys(hChunks).forEach(r => { const key = parseInt(r) === 1 ? 'handling' : `handling${r}`; item[key] = hChunks[r]; });
-                                    Object.keys(rChunks).forEach(r => { const key = parseInt(r) === 1 ? 'review' : `review${r}`; item[key] = rChunks[r]; });
-                                    return item;
-                                });
-                                const validRows = mapped.filter(r => r.number || r.content);
-                                if (validRows.length === 0) { if(msgInside) msgInside.innerText = '錯誤：未解析到有效資料'; return; }
-                                processParsedItems(mapped, 0, msgInside);
-                            } catch (err) { console.error(err); if(msgInside) msgInside.innerText = 'CSV 處理錯誤: ' + err.message; }
-                        }
-                    });
-                } else { throw new Error('不支援的檔案格式 (僅限 JSON 或 CSV)'); }
-            } catch(e) { console.error(e); msg.innerText = '解析錯誤: ' + e.message; }
-        }
-
-        function processParsedItems(items, round, msgElement) {
-            if (msgElement && items.length === 0) { msgElement.innerText = '錯誤：未解析到有效資料'; return; }
-            stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
-            
-            if (currentImportMode === 'word') {
-                const stageRadio = document.querySelector('input[name="importStage"]:checked');
-                const stageText = stageRadio && stageRadio.value === 'initial' ? '初次開立' : `第 ${round} 次審查`;
-                const badgeClass = stageRadio && stageRadio.value === 'initial' ? 'new' : 'update';
-
-                document.getElementById('previewModeBadge').innerHTML = `<span class="badge ${badgeClass}">Word 匯入 (${stageText})</span>`;
-                document.getElementById('uploadCardWord').classList.add('hidden');
-                document.getElementById('uploadCardBackup').classList.add('hidden');
-            } else {
-                document.getElementById('previewModeBadge').innerHTML = `<span class="badge active">⚠️ 災難復原模式</span>`;
-                document.getElementById('uploadCardWord').classList.add('hidden');
-                document.getElementById('uploadCardBackup').classList.add('hidden');
-            }
-            renderPreviewTable();
-            document.getElementById('previewContainer').classList.remove('hidden'); 
-            if(msgElement) msgElement.innerText = '';
-        }
-
-        function renderPreviewTable() { 
-            document.getElementById('previewCount').innerText = stagedImportData.length; 
-            const tbody = document.getElementById('previewBody'); 
-            tbody.innerHTML = stagedImportData.map(item => { 
-                const statusBadge = item._importStatus === 'new' ? `<span class="badge new">新增</span>` : `<span class="badge update">更新</span>`; 
-                let progress = `[審查] ${item.review||'-'}<br>[辦理] ${item.handling||'-'}`; 
-                return `<tr>
-                    <td>${statusBadge}</td>
-                    <td style="font-weight:600;color:var(--primary);">${item.number}</td>
-                    <td>${item.unit}</td>
-                    <td><div class="preview-content-box">${stripHtml(item.content)}</div></td>
-                    <td><div class="preview-content-box">${stripHtml(progress)}</div></td>
-                </tr>`; 
-            }).join(''); 
-        }
-        
-        function cancelImport() { 
-            stagedImportData = []; 
-            document.getElementById('previewContainer').classList.add('hidden'); 
-            document.getElementById('uploadCardWord').classList.remove('hidden'); 
-            if (currentUser && currentUser.role === 'admin') { document.getElementById('uploadCardBackup').classList.remove('hidden'); }
-            document.getElementById('wordInput').value = ''; 
-            document.getElementById('backupInput').value = '';
-            document.getElementById('importStatusWord').innerText = ''; 
-            document.getElementById('importStatusBackup').innerText = ''; 
-        }
-        
-        async function confirmImport() { 
-            const count = stagedImportData.length;
-            const isBackup = currentImportMode === 'backup';
-            const msg = isBackup ? `⚠️ 警告：即將進行「災難復原」，這將覆蓋或新增 ${count} 筆資料。\n確定要執行嗎？` : `確定要匯入 ${count} 筆資料嗎？`;
-            if(!confirm(msg)) return; 
-            
-            let round = 1; 
-            let issueDate = '';
-            let replyDate = '';
-            let responseDate = '';
-            
-            if (!isBackup) {
-                const stage = document.querySelector('input[name="importStage"]:checked').value;
-                
-                if (stage === 'initial') {
-                    round = 1;
-                    issueDate = document.getElementById('importIssueDate').value;
-                } else {
-                    round = document.getElementById('importRoundSelect').value;
-                    replyDate = document.getElementById('importReplyDate').value;
-                    responseDate = document.getElementById('importResponseDate').value;
-                }
-            }
-            
-            const planName = isBackup ? '' : document.getElementById('importPlanName').value;
-            
-            let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
-                if(currentImportMode === 'word') {
-                    if(!item.planName && planName) item.planName = planName;
-                    const stage = document.querySelector('input[name="importStage"]:checked') ? document.querySelector('input[name="importStage"]:checked').value : 'initial';
-                    if(!item.issueDate && stage === 'initial') item.issueDate = issueDate; 
-                }
-                return item;
-            });
-            
-            try { 
-                const res = await fetch('/api/issues/import', { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ 
-                        data: cleanData, 
-                        round: round, 
-                        reviewDate: responseDate, 
-                        replyDate: replyDate, 
-                        mode: currentImportMode 
-                    }) 
-                }); 
-                if(res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); loadPlanOptions(); } else { showToast('匯入失敗', 'error'); } 
-            } catch(e) { showToast('Error: ' + e.message, 'error'); } 
-        }
-        
+        async function previewWord() { const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRoundSelect') ? document.getElementById('importRoundSelect').value : 1, msg = document.getElementById('importStatusWord'); if(!f) return showToast('請先選擇 Word 檔案', 'error'); msg.innerText = 'Word 解析中...'; currentImportMode = 'word'; try { const b = await f.arrayBuffer(); const r = await mammoth.convertToHtml({ arrayBuffer: b }); const items = parseFromHTML(r.value); processParsedItems(items, round, msg); } catch(e) { console.error(e); msg.innerText = 'Word 解析錯誤: ' + e.message; } }
+        function parseHistoryField(text) { if (!text || typeof text !== 'string') return {}; const chunks = {}; const matches = [...text.matchAll(/\[第(\d+)次\]/g)]; if (matches.length === 0) return {}; matches.forEach((m, i) => { const round = parseInt(m[1], 10); const start = m.index + m[0].length; const end = (i + 1 < matches.length) ? matches[i+1].index : text.length; let content = text.substring(start, end).trim(); content = content.replace(/^-+\s*|\s*-+$/g, ''); if(content) chunks[round] = content; }); return chunks; }
+        async function previewBackup() { const f = document.getElementById('backupInput').files[0]; const msg = document.getElementById('importStatusBackup'); if(!f) return showToast('請先選擇備份檔案', 'error'); if (!msg) { alert("系統錯誤：找不到狀態顯示區域"); return; } msg.innerText = '備份檔解析中...'; currentImportMode = 'backup'; const ext = f.name.split('.').pop().toLowerCase(); try { let items = []; if (ext === 'json') { const text = await f.text(); const json = JSON.parse(text); const rawItems = Array.isArray(json) ? json : (json.data || []); items = rawItems.map(i => { const newItem = { number: i.number || i['編號'] || '', year: i.year || i['年度'] || '', unit: i.unit || i['機構'] || '', content: i.content || i['內容'] || i['事項內容'] || i['內容摘要'] || '', status: i.status || i['狀態'] || '持續列管', handling: i.handling || i['辦理情形'] || i['最新辦理情形'] || '', review: i.review || i['審查意見'] || i['最新審查意見'] || '', itemKindCode: i.itemKindCode, category: i.category, divisionName: i.division, inspectionCategoryName: i.inspection_category, planName: i.planName, issueDate: i.issueDate }; for(let k=1; k<=20; k++) { if(i[`handling${k}`]) newItem[`handling${k}`] = i[`handling${k}`]; if(i[`review${k}`]) newItem[`review${k}`] = i[`review${k}`]; } const potentialHandling = i['完整辦理情形歷程'] || i.fullHandling || i.handling || i['辦理情形'] || ''; const potentialReview = i['完整審查意見歷程'] || i.fullReview || i.review || i['審查意見'] || ''; const hChunks = parseHistoryField(potentialHandling); const rChunks = parseHistoryField(potentialReview); Object.keys(hChunks).forEach(r => { const key = parseInt(r) === 1 ? 'handling' : `handling${r}`; newItem[key] = hChunks[r]; }); Object.keys(rChunks).forEach(r => { const key = parseInt(r) === 1 ? 'review' : `review${r}`; newItem[key] = rChunks[r]; }); return newItem; }); processParsedItems(items, 0, msg); } else if (ext === 'csv') { Papa.parse(f, { header: true, skipEmptyLines: true, encoding: "UTF-8", complete: function(results) { const msgInside = document.getElementById('importStatusBackup'); try { if(results.errors.length && results.data.length === 0) { if(msgInside) msgInside.innerText = 'CSV 解析錯誤'; return; } const mapped = results.data.map(i => { let item = { number: i['編號'] || i.number || '', year: i['年度'] || i.year || '', unit: i['機構'] || i.unit || '', content: i['內容'] || i['事項內容'] || i['內容摘要'] || i.content || '', status: i['狀態'] || i.status || '持續列管', handling: i['最新辦理情形'] || i['辦理情形'] || i.handling || '', review: i['最新審查意見'] || i['審查意見'] || i.review || '' }; const fullH = i['完整辦理情形歷程'] || i.handling || ''; const fullR = i['完整審查意見歷程'] || i.review || ''; const hChunks = parseHistoryField(fullH); const rChunks = parseHistoryField(fullR); Object.keys(hChunks).forEach(r => { const key = parseInt(r) === 1 ? 'handling' : `handling${r}`; item[key] = hChunks[r]; }); Object.keys(rChunks).forEach(r => { const key = parseInt(r) === 1 ? 'review' : `review${r}`; item[key] = rChunks[r]; }); return item; }); const validRows = mapped.filter(r => r.number || r.content); if (validRows.length === 0) { if(msgInside) msgInside.innerText = '錯誤：未解析到有效資料'; return; } processParsedItems(mapped, 0, msgInside); } catch (err) { console.error(err); if(msgInside) msgInside.innerText = 'CSV 處理錯誤: ' + err.message; } } }); } else { throw new Error('不支援的檔案格式 (僅限 JSON 或 CSV)'); } } catch(e) { console.error(e); msg.innerText = '解析錯誤: ' + e.message; } }
+        function processParsedItems(items, round, msgElement) { if (msgElement && items.length === 0) { msgElement.innerText = '錯誤：未解析到有效資料'; return; } stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' })); if (currentImportMode === 'word') { const stageRadio = document.querySelector('input[name="importStage"]:checked'); const stageText = stageRadio && stageRadio.value === 'initial' ? '初次開立' : `第 ${round} 次審查`; const badgeClass = stageRadio && stageRadio.value === 'initial' ? 'new' : 'update'; document.getElementById('previewModeBadge').innerHTML = `<span class="badge ${badgeClass}">Word 匯入 (${stageText})</span>`; document.getElementById('uploadCardWord').classList.add('hidden'); document.getElementById('uploadCardBackup').classList.add('hidden'); } else { document.getElementById('previewModeBadge').innerHTML = `<span class="badge active">⚠️ 災難復原模式</span>`; document.getElementById('uploadCardWord').classList.add('hidden'); document.getElementById('uploadCardBackup').classList.add('hidden'); } renderPreviewTable(); document.getElementById('previewContainer').classList.remove('hidden'); if(msgElement) msgElement.innerText = ''; }
+        function renderPreviewTable() { document.getElementById('previewCount').innerText = stagedImportData.length; const tbody = document.getElementById('previewBody'); tbody.innerHTML = stagedImportData.map(item => { const statusBadge = item._importStatus === 'new' ? `<span class="badge new">新增</span>` : `<span class="badge update">更新</span>`; let progress = `[審查] ${item.review||'-'}<br>[辦理] ${item.handling||'-'}`; return `<tr> <td>${statusBadge}</td> <td style="font-weight:600;color:var(--primary);">${item.number}</td> <td>${item.unit}</td> <td><div class="preview-content-box">${stripHtml(item.content)}</div></td> <td><div class="preview-content-box">${stripHtml(progress)}</div></td> </tr>`; }).join(''); }
+        function cancelImport() { stagedImportData = []; document.getElementById('previewContainer').classList.add('hidden'); document.getElementById('uploadCardWord').classList.remove('hidden'); if (currentUser && currentUser.role === 'admin') { document.getElementById('uploadCardBackup').classList.remove('hidden'); } document.getElementById('wordInput').value = ''; document.getElementById('backupInput').value = ''; document.getElementById('importStatusWord').innerText = ''; document.getElementById('importStatusBackup').innerText = ''; }
+        async function confirmImport() { const count = stagedImportData.length; const isBackup = currentImportMode === 'backup'; const msg = isBackup ? `⚠️ 警告：即將進行「災難復原」，這將覆蓋或新增 ${count} 筆資料。\n確定要執行嗎？` : `確定要匯入 ${count} 筆資料嗎？`; if(!confirm(msg)) return; let round = 1; let issueDate = ''; let replyDate = ''; let responseDate = ''; if (!isBackup) { const stage = document.querySelector('input[name="importStage"]:checked').value; if (stage === 'initial') { round = 1; issueDate = document.getElementById('importIssueDate').value; } else { round = document.getElementById('importRoundSelect').value; replyDate = document.getElementById('importReplyDate').value; responseDate = document.getElementById('importResponseDate').value; } } const planName = isBackup ? '' : document.getElementById('importPlanName').value; let cleanData = stagedImportData.map(({ _importStatus, ...item }) => { if(currentImportMode === 'word') { if(!item.planName && planName) item.planName = planName; const stage = document.querySelector('input[name="importStage"]:checked') ? document.querySelector('input[name="importStage"]:checked').value : 'initial'; if(!item.issueDate && stage === 'initial') item.issueDate = issueDate; } return item; }); try { const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: cleanData, round: round, reviewDate: responseDate, replyDate: replyDate, mode: currentImportMode }) }); if(res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); loadPlanOptions(); } else { showToast('匯入失敗', 'error'); } } catch(e) { showToast('Error: ' + e.message, 'error'); } }
         function switchDataTab(tab) { document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); }
-        
-        function autoFillFromNumber() {
-            const val = document.getElementById('manualNumber').value;
-            const info = parseItemNumber(val);
-            if(info) {
-                if(info.yearRoc) document.getElementById('manualYear').value = info.yearRoc;
-                if(info.orgCode) {
-                    const name = ORG_MAP[info.orgCode] || info.orgCode;
-                    if(name && name !== '?') document.getElementById('manualUnit').value = name;
-                }
-                if(info.divCode) {
-                    const divName = DIVISION_MAP[info.divCode];
-                    if(divName) document.getElementById('manualDivision').value = divName;
-                }
-                if(info.inspectCode) {
-                    const inspectName = INSPECTION_MAP[info.inspectCode];
-                    if(inspectName) document.getElementById('manualInspection').value = inspectName;
-                }
-                if(info.kindCode) {
-                    document.getElementById('manualKind').value = info.kindCode;
-                }
-            }
-        }
-
-        async function submitManualIssue() {
-            const number = document.getElementById('manualNumber').value.trim();
-            const year = document.getElementById('manualYear').value.trim();
-            const unit = document.getElementById('manualUnit').value.trim();
-            const division = document.getElementById('manualDivision').value;
-            const inspection = document.getElementById('manualInspection').value;
-            const kind = document.getElementById('manualKind').value;
-            
-            const planName = document.getElementById('manualPlanName').value.trim();
-            const issueDate = document.getElementById('manualIssueDate').value.trim();
-            const continuousMode = document.getElementById('manualContinuousMode').checked;
-            
-            const status = document.getElementById('manualStatus').value;
-            const content = document.getElementById('manualContent').value.trim();
-            if(!number || !year || !unit || !content) return showToast('請填寫所有必填欄位', 'error');
-            
-            const payload = {
-                data: [{ 
-                    number, year, unit, content, status, 
-                    itemKindCode: kind, 
-                    divisionName: division,
-                    inspectionCategoryName: inspection,
-                    planName: planName, 
-                    issueDate: issueDate, 
-                    scheme: 'MANUAL' 
-                }],
-                round: 1, reviewDate: '', replyDate: '' 
-            };
-
-            try {
-                const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if(res.ok) { 
-                    showToast('新增成功'); 
-                    
-                    if (continuousMode) {
-                        document.getElementById('manualNumber').value = ''; 
-                        document.getElementById('manualKind').value = '';
-                        document.getElementById('manualContent').value = ''; 
-                        document.getElementById('manualNumber').focus();
-                    } else {
-                        document.getElementById('manualNumber').value = ''; 
-                        document.getElementById('manualYear').value = ''; 
-                        document.getElementById('manualUnit').value = ''; 
-                        document.getElementById('manualDivision').value = '';
-                        document.getElementById('manualInspection').value = '';
-                        document.getElementById('manualKind').value = '';
-                        document.getElementById('manualContent').value = ''; 
-                        document.getElementById('manualPlanName').value = '';
-                        document.getElementById('manualIssueDate').value = '';
-                    }
-                    
-                    loadIssuesPage(1); 
-                    loadPlanOptions(); 
-                } else { showToast('新增失敗', 'error'); }
-            } catch(e) { showToast('Error: ' + e.message, 'error'); }
-        }
-
-        async function exportAllIssues() {
-            try {
-                const exportScope = document.querySelector('input[name="exportScope"]:checked').value;
-                const exportFormat = document.querySelector('input[name="exportFormat"]:checked').value;
-                showToast('準備匯出中，請稍候...');
-                const res = await fetch('/api/issues?page=1&pageSize=10000&sortField=created_at&sortDir=desc');
-                if(!res.ok) throw new Error('取得資料失敗');
-                const json = await res.json();
-                const data = json.data || [];
-                if(data.length === 0) return showToast('無資料可匯出', 'error');
-
-                if (exportFormat === 'json') {
-                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `SMS_Backup_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('JSON 匯出完成'); return;
-                }
-
-                let csvContent = '\uFEFF'; const clean = (t) => `"${String(t||'').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
-                
-                const baseHeader = "編號,年度,機構,分組,檢查種類,類型,狀態,事項內容";
-                
-                if (exportScope === 'latest') {
-                    csvContent += baseHeader + ",最新辦理情形,最新審查意見\n";
-                    data.forEach(item => {
-                        let latestH = '', latestR = '';
-                        for(let i=20; i>=1; i--) { if(!latestH && (item[i===1?'handling':`handling${i}`])) latestH = item[i===1?'handling':`handling${i}`]; if(!latestR && (item[i===1?'review':`review${i}`])) latestR = item[i===1?'review':`review${i}`]; }
-                        
-                        csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(latestH)},${clean(latestR)}\n`;
-                    });
-                } else {
-                    csvContent += baseHeader + ",完整辦理情形歷程,完整審查意見歷程\n";
-                    data.forEach(item => {
-                        let fullH = [], fullR = [];
-                        for(let i=1; i<=20; i++) {
-                            const valH = item[i===1?'handling':`handling${i}`], valR = item[i===1?'review':`review${i}`];
-                            if(valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`); if(valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`);
-                        }
-                        const joinedH = fullH.length > 0 ? fullH.join("\n-------------------\n") : "";
-                        const joinedR = fullR.length > 0 ? fullR.join("\n-------------------\n") : "";
-                        
-                        csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(joinedH)},${clean(joinedR)}\n`;
-                    });
-                }
-                const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory'; link.setAttribute("download", `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0,10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('CSV 匯出完成');
-            } catch(e) { showToast('匯出失敗: ' + e.message, 'error'); }
-        }
-
-        // --- User modal submit & password strength ---
-        document.getElementById('uPwd')?.addEventListener('input', updatePwdStrength); document.getElementById('uPwdConfirm')?.addEventListener('input', updatePwdStrength);
-        function updatePwdStrength() { const p = document.getElementById('uPwd').value || ''; const conf = document.getElementById('uPwdConfirm').value || ''; let score = 0; if(p.length >= 8) score++; if(/[A-Z]/.test(p)) score++; if(/[0-9]/.test(p)) score++; if(/[^A-Za-z0-9]/.test(p)) score++; const texts = ['弱', '偏弱', '一般', '良好', '強']; document.getElementById('pwdStrength').innerText = `密碼強度: ${texts[Math.min(score,4)]} ${conf && p !== conf ? '(密碼不相符)' : ''}`; }
-
-        // User CRUD
+        function autoFillFromNumber() { const val = document.getElementById('manualNumber').value; const info = parseItemNumber(val); if(info) { if(info.yearRoc) document.getElementById('manualYear').value = info.yearRoc; if(info.orgCode) { const name = ORG_MAP[info.orgCode] || info.orgCode; if(name && name !== '?') document.getElementById('manualUnit').value = name; } if(info.divCode) { const divName = DIVISION_MAP[info.divCode]; if(divName) document.getElementById('manualDivision').value = divName; } if(info.inspectCode) { const inspectName = INSPECTION_MAP[info.inspectCode]; if(inspectName) document.getElementById('manualInspection').value = inspectName; } if(info.kindCode) { document.getElementById('manualKind').value = info.kindCode; } } }
+        async function submitManualIssue() { const number = document.getElementById('manualNumber').value.trim(); const year = document.getElementById('manualYear').value.trim(); const unit = document.getElementById('manualUnit').value.trim(); const division = document.getElementById('manualDivision').value; const inspection = document.getElementById('manualInspection').value; const kind = document.getElementById('manualKind').value; const planName = document.getElementById('manualPlanName').value.trim(); const issueDate = document.getElementById('manualIssueDate').value.trim(); const continuousMode = document.getElementById('manualContinuousMode').checked; const status = document.getElementById('manualStatus').value; const content = document.getElementById('manualContent').value.trim(); if(!number || !year || !unit || !content) return showToast('請填寫所有必填欄位', 'error'); const payload = { data: [{ number, year, unit, content, status, itemKindCode: kind, divisionName: division, inspectionCategoryName: inspection, planName: planName, issueDate: issueDate, scheme: 'MANUAL' }], round: 1, reviewDate: '', replyDate: '' }; try { const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if(res.ok) { showToast('新增成功'); if (continuousMode) { document.getElementById('manualNumber').value = ''; document.getElementById('manualKind').value = ''; document.getElementById('manualContent').value = ''; document.getElementById('manualNumber').focus(); } else { document.getElementById('manualNumber').value = ''; document.getElementById('manualYear').value = ''; document.getElementById('manualUnit').value = ''; document.getElementById('manualDivision').value = ''; document.getElementById('manualInspection').value = ''; document.getElementById('manualKind').value = ''; document.getElementById('manualContent').value = ''; document.getElementById('manualPlanName').value = ''; document.getElementById('manualIssueDate').value = ''; } loadIssuesPage(1); loadPlanOptions(); } else { showToast('新增失敗', 'error'); } } catch(e) { showToast('Error: ' + e.message, 'error'); } }
+        async function exportAllIssues() { try { const exportScope = document.querySelector('input[name="exportScope"]:checked').value; const exportFormat = document.querySelector('input[name="exportFormat"]:checked').value; showToast('準備匯出中，請稍候...'); const res = await fetch('/api/issues?page=1&pageSize=10000&sortField=created_at&sortDir=desc'); if(!res.ok) throw new Error('取得資料失敗'); const json = await res.json(); const data = json.data || []; if(data.length === 0) return showToast('無資料可匯出', 'error'); if (exportFormat === 'json') { const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `SMS_Backup_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('JSON 匯出完成'); return; } let csvContent = '\uFEFF'; const clean = (t) => `"${String(t||'').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`; const baseHeader = "編號,年度,機構,分組,檢查種類,類型,狀態,事項內容"; if (exportScope === 'latest') { csvContent += baseHeader + ",最新辦理情形,最新審查意見\n"; data.forEach(item => { let latestH = '', latestR = ''; for(let i=20; i>=1; i--) { if(!latestH && (item[i===1?'handling':`handling${i}`])) latestH = item[i===1?'handling':`handling${i}`]; if(!latestR && (item[i===1?'review':`review${i}`])) latestR = item[i===1?'review':`review${i}`]; } csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(latestH)},${clean(latestR)}\n`; }); } else { csvContent += baseHeader + ",完整辦理情形歷程,完整審查意見歷程\n"; data.forEach(item => { let fullH = [], fullR = []; for(let i=1; i<=20; i++) { const valH = item[i===1?'handling':`handling${i}`], valR = item[i===1?'review':`review${i}`]; if(valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`); if(valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`); } const joinedH = fullH.length > 0 ? fullH.join("\n-------------------\n") : ""; const joinedR = fullR.length > 0 ? fullR.join("\n-------------------\n") : ""; csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(joinedH)},${clean(joinedR)}\n`; }); } const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory'; link.setAttribute("download", `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0,10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('CSV 匯出完成'); } catch(e) { showToast('匯出失敗: ' + e.message, 'error'); } }
         async function openUserModal(mode, id) { const m = document.getElementById('userModal'), t = document.getElementById('userModalTitle'), e = document.getElementById('uEmail'); if(mode === 'create') { t.innerText = '新增'; document.getElementById('targetUserId').value = ''; document.getElementById('uName').value = ''; e.value = ''; e.disabled = false; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('pwdHint').innerText = ''; document.getElementById('uRole').value = 'viewer'; } else { const u = userList.find(x => x.id === id) || {}; t.innerText = '編輯'; document.getElementById('targetUserId').value = u.id || ''; document.getElementById('uName').value = u.name || ''; e.value = u.username || ''; e.disabled = true; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdHint').innerText = '(留空不改)'; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('uRole').value = u.role || 'viewer'; } m.classList.add('open'); }
         async function submitUser() { const id = document.getElementById('targetUserId').value, name = document.getElementById('uName').value, email = document.getElementById('uEmail').value, pwd = document.getElementById('uPwd').value, pwdConfirm = document.getElementById('uPwdConfirm').value, role = document.getElementById('uRole').value; if(!id) { if(!email) return showToast('請輸入帳號', 'error'); if(!pwd) return showToast('請輸入密碼', 'error'); if(pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if(pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: email, name, password: pwd, role }) }); const j = await res.json(); if(res.ok) { showToast('新增成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(1); } else showToast(j.error || '新增失敗','error'); } else { const payload = { name, role }; if(pwd) { if(pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if(pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); payload.password = pwd; } const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const j = await res.json(); if(res.ok) { showToast('更新成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(usersPage); } else showToast(j.error || '更新失敗','error'); } }
         async function deleteUser(id) { if(!confirm('確定?')) return; const res = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('刪除成功'); loadUsersPage(1); } else showToast('刪除失敗','error'); }
-
-        // Profile
         function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
         async function submitProfile() { const name = document.getElementById('myProfileName').value, pwd = document.getElementById('myProfilePwd').value; try { const res = await fetch('/api/auth/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password: pwd }) }); if(res.ok) { showToast('更新成功，請重新登入'); document.getElementById('profileModal').classList.remove('open'); logout(); } else { const j = await res.json(); showToast(j.error || '更新失敗', 'error'); } } catch(e) { showToast('更新失敗', 'error'); } }
-        
         function toggleEditMode(edit) { document.getElementById('viewModeContent').classList.toggle('hidden', edit); document.getElementById('editModeContent').classList.toggle('hidden', !edit); document.getElementById('drawerTitle').innerText = edit ? "編輯事項" : "詳細資料"; if(edit) { document.getElementById('editId').value = currentEditItem.id; document.getElementById('editHeaderNumber').innerText = currentEditItem.number; document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; document.getElementById('editStatus').value = st; document.getElementById('editRound').value = 1; document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); loadRoundData(); document.getElementById('aiBox').style.display = 'none'; document.getElementById('aiPreviewText').innerText = ''; } }
         function initEditForm() { const s = document.getElementById('editRound'); if(!s || s.options.length > 0) return; for(let i = 1; i <= 20; i++) { const o = document.createElement('option'); o.value = i; o.text = `第 ${i} 次`; s.add(o); } }
-        
-        function openDetail(id, isEdit) { 
-            currentEditItem = currentData.find(d => String(d.id) === String(id)); if(!currentEditItem) return; 
-            document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; 
-            
-            // Plan Info
-            document.getElementById('dPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)';
-            document.getElementById('dIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
-            
-            // Category Info
-            const divName = currentEditItem.divisionName || currentEditItem.division_name || '-';
-            const insName = currentEditItem.inspectionCategoryName || currentEditItem.inspection_category_name || '-';
-            const kindName = currentEditItem.category || '-';
-            document.getElementById('dCategoryInfo').textContent = `${divName} / ${insName} / ${kindName}`;
-
-            // Status
-            const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self'); 
-            document.getElementById('dStatus').innerHTML = currentEditItem.status && currentEditItem.status !== 'Open' ? `<span class="badge ${st}">${currentEditItem.status}</span>` : '(未設定)'; 
-            
-            let h = ''; 
-            let firstRecord = true;
-            for(let i = 20; i >= 1; i--) { 
-                const suffix = i === 1 ? '' : i;
-                const ha = currentEditItem['handling' + suffix], re = currentEditItem['review' + suffix]; 
-                const replyDate = currentEditItem['reply_date_r' + i];
-                const responseDate = currentEditItem['response_date_r' + i];
-
-                if(ha || re) {
-                    const latestBadge = firstRecord ? '<span class="badge new" style="margin-left:8px;font-size:11px;">最新進度</span>' : '';
-                    
-                    let dateInfo = '';
-                    if(replyDate || responseDate) {
-                        dateInfo = `<div style="margin-bottom:12px;">`;
-                        if(replyDate) dateInfo += `<span class="timeline-date-tag">🏢 機構回復: ${replyDate}</span> `;
-                        if(responseDate) dateInfo += `<span class="timeline-date-tag">🏛️ 機關函復: ${responseDate}</span>`;
-                        dateInfo += `</div>`;
-                    }
-
-                    h += `<div class="timeline-item">
-                        <div class="timeline-dot"></div>
-                        <div class="timeline-title">第 ${i} 次辦理情形 ${latestBadge}</div>
-                        ${dateInfo}
-                        ${ha?`<div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#334155;border:1px solid #e2e8f0;margin-bottom:12px;">${ha}</div>`:''}
-                        ${re?`<div style="background:#fff;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#334155;border:1px solid #e2e8f0;border-left:3px solid var(--primary);"><strong>審查意見：</strong><br>${re}</div>`:''}
-                    </div>`;
-                    firstRecord = false;
-                }
-            } 
-            
-            const timelineHtml = `<div class="timeline-line"></div>` + (h || '<div style="color:#999;padding-left:20px;">無歷程紀錄</div>');
-            document.getElementById('dTimeline').innerHTML = timelineHtml; 
-            
-            const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role); const canDelete = ['admin', 'manager'].includes(currentUser.role); document.getElementById('editBtn').classList.toggle('hidden', !canEdit); document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit); 
-        }
+        function openDetail(id, isEdit) { currentEditItem = currentData.find(d => String(d.id) === String(id)); if(!currentEditItem) return; document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content; document.getElementById('dPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)'; document.getElementById('dIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)'; const divName = currentEditItem.divisionName || currentEditItem.division_name || '-'; const insName = currentEditItem.inspectionCategoryName || currentEditItem.inspection_category_name || '-'; const kindName = currentEditItem.category || '-'; document.getElementById('dCategoryInfo').textContent = `${divName} / ${insName} / ${kindName}`; const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self'); document.getElementById('dStatus').innerHTML = currentEditItem.status && currentEditItem.status !== 'Open' ? `<span class="badge ${st}">${currentEditItem.status}</span>` : '(未設定)'; let h = ''; let firstRecord = true; for(let i = 20; i >= 1; i--) { const suffix = i === 1 ? '' : i; const ha = currentEditItem['handling' + suffix], re = currentEditItem['review' + suffix]; const replyDate = currentEditItem['reply_date_r' + i]; const responseDate = currentEditItem['response_date_r' + i]; if(ha || re) { const latestBadge = firstRecord ? '<span class="badge new" style="margin-left:8px;font-size:11px;">最新進度</span>' : ''; let dateInfo = ''; if(replyDate || responseDate) { dateInfo = `<div style="margin-bottom:12px;">`; if(replyDate) dateInfo += `<span class="timeline-date-tag">🏢 機構回復: ${replyDate}</span> `; if(responseDate) dateInfo += `<span class="timeline-date-tag">🏛️ 機關函復: ${responseDate}</span>`; dateInfo += `</div>`; } h += `<div class="timeline-item"> <div class="timeline-dot"></div> <div class="timeline-title">第 ${i} 次辦理情形 ${latestBadge}</div> ${dateInfo} ${ha?`<div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#334155;border:1px solid #e2e8f0;margin-bottom:12px;">${ha}</div>`:''} ${re?`<div style="background:#fff;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#334155;border:1px solid #e2e8f0;border-left:3px solid var(--primary);"><strong>審查意見：</strong><br>${re}</div>`:''} </div>`; firstRecord = false; } } const timelineHtml = `<div class="timeline-line"></div>` + (h || '<div style="color:#999;padding-left:20px;">無歷程紀錄</div>'); document.getElementById('dTimeline').innerHTML = timelineHtml; const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role); const canDelete = ['admin', 'manager'].includes(currentUser.role); document.getElementById('editBtn').classList.toggle('hidden', !canEdit); document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit); }
         function logout() { fetch('/api/auth/logout', { method: 'POST' }).then(() => window.location.reload()); }
         function closeDrawer() { document.getElementById('drawerBackdrop').classList.remove('open'); document.getElementById('detailDrawer').classList.remove('open'); }
         function initListeners() { document.getElementById('filterKeyword').addEventListener('keyup', (e) => { if(e.key === 'Enter') applyFilters() }); document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer); }
         function onToggleSidebar() { const panel = document.getElementById('filtersPanel'), backdrop = document.getElementById('filterBackdrop'); if(panel.classList.contains('open')) { panel.classList.remove('open'); backdrop.classList.remove('visible'); setTimeout(() => backdrop.style.display = 'none', 300); } else { backdrop.style.display = 'block'; requestAnimationFrame(() => { panel.classList.add('open'); backdrop.classList.add('visible'); }); } }
-        
-        function updateChartsData(stats) { 
-            if(!charts.status || !charts.unit || !charts.trend) return;
-            if (!stats) return;
-            const colorMap = { '持續列管': '#ef4444', '解除列管': '#10b981', '自行列管': '#f59e0b' };
-            const sLabels = stats.status.map(x => x.status).filter(s => s && s !== 'Open');
-            const sData = stats.status.filter(x => x.status && x.status !== 'Open').map(x => parseInt(x.count));
-            const sColors = sLabels.map(label => colorMap[label] || '#cbd5e1'); 
-            charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: sColors }] }; charts.status.update();
-            const uSorted = stats.unit.sort((a,b) => parseInt(b.count) - parseInt(a.count)); charts.unit.data = { labels: uSorted.map(x => x.unit), datasets: [{ label: '案件', data: uSorted.map(x => parseInt(x.count)), backgroundColor: '#0ea5e9', borderRadius: 8 }] }; charts.unit.update();
-            const tSorted = stats.year.sort((a,b) => a.year.localeCompare(b.year)); charts.trend.data = { labels: tSorted.map(x => x.year), datasets: [{ label: '開立事項數', data: tSorted.map(x => parseInt(x.count)), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] }; charts.trend.update();
-        }
-
-        function initCharts() { 
-            try { 
-                const c1 = document.getElementById('statusChart'), c2 = document.getElementById('unitChart'), c3 = document.getElementById('trendChart');
-                if(c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if(!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#333', font: { weight: 'bold' } } } } }); } 
-                if(c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); } 
-                if(c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } }); } 
-                if(cachedGlobalStats) updateChartsData(cachedGlobalStats);
-            } catch(e) { console.error("Chart Init Error:", e); } 
-        }
+        function updateChartsData(stats) { if(!charts.status || !charts.unit || !charts.trend) return; if (!stats) return; const colorMap = { '持續列管': '#ef4444', '解除列管': '#10b981', '自行列管': '#f59e0b' }; const sLabels = stats.status.map(x => x.status).filter(s => s && s !== 'Open'); const sData = stats.status.filter(x => x.status && x.status !== 'Open').map(x => parseInt(x.count)); const sColors = sLabels.map(label => colorMap[label] || '#cbd5e1'); charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: sColors }] }; charts.status.update(); const uSorted = stats.unit.sort((a,b) => parseInt(b.count) - parseInt(a.count)); charts.unit.data = { labels: uSorted.map(x => x.unit), datasets: [{ label: '案件', data: uSorted.map(x => parseInt(x.count)), backgroundColor: '#0ea5e9', borderRadius: 8 }] }; charts.unit.update(); const tSorted = stats.year.sort((a,b) => a.year.localeCompare(b.year)); charts.trend.data = { labels: tSorted.map(x => x.year), datasets: [{ label: '開立事項數', data: tSorted.map(x => parseInt(x.count)), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] }; charts.trend.update(); }
+        function initCharts() { try { const c1 = document.getElementById('statusChart'), c2 = document.getElementById('unitChart'), c3 = document.getElementById('trendChart'); if(c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if(!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#333', font: { weight: 'bold' } } } } }); } if(c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); } if(c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } }); } if(cachedGlobalStats) updateChartsData(cachedGlobalStats); } catch(e) { console.error("Chart Init Error:", e); } }
         async function runAiInEdit(btn) { btn.disabled = true; btn.innerText = 'AI 分析中...'; const handlingTxt = document.getElementById('editHandling').value, r = [{ handling: handlingTxt, review: '(待審查)' }]; try { if(!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); const cleanContent = stripHtml(currentEditItem.content); const res = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: cleanContent, rounds: r }) }); const j = await res.json(); if(!res.ok) throw new Error(j.error || '未知錯誤'); if(!j.fulfill) throw new Error('AI 回傳格式錯誤'); const isPass = j.fulfill.includes('Yes') || j.fulfill.includes('是'); document.getElementById('aiResBadge').innerHTML = `<strong style="color:${isPass?'#10b981':'#ef4444'}">[${j.fulfill}]</strong>`; document.getElementById('aiPreviewText').innerText = j.reason; document.getElementById('aiBox').style.display = 'block'; } catch(e) { showToast('AI 失敗: ' + e.message, 'error'); console.error(e); } finally { btn.disabled = false; btn.innerText = '🤖 AI 智能分析'; } }
         function applyAiSuggestion() { const reason = document.getElementById('aiPreviewText').innerText; if(reason) { const ta = document.getElementById('editReview'); ta.value = ta.value ? (ta.value + "\n" + reason) : reason; document.getElementById('aiBox').style.display = 'none'; } }
         function toggleAllCheckboxes() { const master = document.getElementById('selectAll'); document.querySelectorAll('.issue-check').forEach(cb => cb.checked = master.checked); updateBatchUI(); }
         function updateBatchUI() { const checked = document.querySelectorAll('.issue-check:checked'), count = checked.length, container = document.getElementById('batchActionContainer'); if(count > 0) { container.style.display = 'block'; document.getElementById('selectedCountBadge').innerText = `(${count})`; } else { container.style.display = 'none'; } }
         async function batchDeleteIssues() { const checked = document.querySelectorAll('.issue-check:checked'), ids = Array.from(checked).map(cb => cb.value); if(ids.length === 0) return showToast('請先勾選要刪除的項目', 'error'); if(!confirm(`確定要刪除這 ${ids.length} 筆資料嗎？`)) return; try { const res = await fetch('/api/issues/batch-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); const result = await res.json(); if(result.success) { showToast(`成功刪除 ${ids.length} 筆資料`); loadIssuesPage(1); document.getElementById('selectAll').checked = false; updateBatchUI(); } else { showToast('刪除失敗: ' + result.error, 'error'); } } catch(e) { showToast('連線錯誤', 'error'); } }
-        
-        async function saveEdit() { 
-            const id = document.getElementById('editId').value;
-            const round = document.getElementById('editRound').value;
-            const replyDate = document.getElementById('editReplyDate').value;
-            const responseDate = document.getElementById('editResponseDate').value;
-
-            const payload = { 
-                status: document.getElementById('editStatus').value, 
-                round: round, 
-                handling: document.getElementById('editHandling').value, 
-                review: document.getElementById('editReview').value,
-                replyDate: replyDate,
-                responseDate: responseDate
-            }; 
-
-            const res = await fetch(`/api/issues/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if(res.ok) { showToast('儲存成功'); await loadIssuesPage(issuesPage); toggleEditMode(false); openDetail(id, false); } else showToast('儲存失敗', 'error'); 
-        }
-
+        async function saveEdit() { const id = document.getElementById('editId').value; const round = document.getElementById('editRound').value; const replyDate = document.getElementById('editReplyDate').value; const responseDate = document.getElementById('editResponseDate').value; const payload = { status: document.getElementById('editStatus').value, round: round, handling: document.getElementById('editHandling').value, review: document.getElementById('editReview').value, replyDate: replyDate, responseDate: responseDate }; const res = await fetch(`/api/issues/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if(res.ok) { showToast('儲存成功'); await loadIssuesPage(issuesPage); toggleEditMode(false); openDetail(id, false); } else showToast('儲存失敗', 'error'); }
         async function deleteIssue(id) { if(!confirm('確定要刪除此事項嗎？此操作無法復原。')) return; try { const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' }); if(res.ok) { showToast('已刪除'); await loadIssuesPage(issuesPage); closeDrawer(); } else showToast('刪除失敗','error'); } catch(e) { showToast('Error: ' + e.message, 'error'); } }
         async function deleteIssueFromDrawer() { if(!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
         
-        function switchView(id) { document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.sidebar-btn').forEach(e => e.classList.remove('active')); const btn = document.getElementById(`btn-${id}`); if(btn) btn.classList.add('active'); const panel = document.getElementById('filtersPanel'); if(panel.classList.contains('open')) { onToggleSidebar(); } }
-        
-        function loadRoundData() { 
-            const r = parseInt(document.getElementById('editRound').value), s = r === 1 ? '' : r;
-            const rawHandling = currentEditItem['handling' + s] || '';
-            const rawReview = currentEditItem['review' + s] || ''; 
-            document.getElementById('editHandling').value = formatHtmlToText(rawHandling); 
-            document.getElementById('editReview').value = formatHtmlToText(rawReview); 
-            
-            document.getElementById('editReplyDate').value = currentEditItem['reply_date_r' + r] || currentEditItem['replyDate_r' + r] || '';
-            document.getElementById('editResponseDate').value = currentEditItem['response_date_r' + r] || currentEditItem['responseDate_r' + r] || '';
-
-            const prevBox = document.getElementById('prevReviewBox'), prevText = document.getElementById('prevReviewText'); if(r > 1) { const prevS = (r - 1) === 1 ? '' : (r - 1), prevReviewContent = currentEditItem['review' + prevS]; if(prevReviewContent) { document.getElementById('prevRoundNum').innerText = `第 ${r-1} 次`; prevText.innerText = formatHtmlToText(prevReviewContent); prevBox.style.display = 'block'; } else { prevBox.style.display = 'none'; } } else { prevBox.style.display = 'none'; } 
+        function switchView(id) { 
+            document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active')); 
+            document.getElementById(id).classList.add('active'); 
+            document.querySelectorAll('.sidebar-btn').forEach(e => e.classList.remove('active')); 
+            const btn = document.getElementById(`btn-${id}`); if(btn) btn.classList.add('active'); 
+            const panel = document.getElementById('filtersPanel'); if(panel.classList.contains('open')) { onToggleSidebar(); } 
         }
+        
+        function loadRoundData() { const r = parseInt(document.getElementById('editRound').value), s = r === 1 ? '' : r; const rawHandling = currentEditItem['handling' + s] || ''; const rawReview = currentEditItem['review' + s] || ''; document.getElementById('editHandling').value = formatHtmlToText(rawHandling); document.getElementById('editReview').value = formatHtmlToText(rawReview); document.getElementById('editReplyDate').value = currentEditItem['reply_date_r' + r] || currentEditItem['replyDate_r' + r] || ''; document.getElementById('editResponseDate').value = currentEditItem['response_date_r' + r] || currentEditItem['responseDate_r' + r] || ''; const prevBox = document.getElementById('prevReviewBox'), prevText = document.getElementById('prevReviewText'); if(r > 1) { const prevS = (r - 1) === 1 ? '' : (r - 1), prevReviewContent = currentEditItem['review' + prevS]; if(prevReviewContent) { document.getElementById('prevRoundNum').innerText = `第 ${r-1} 次`; prevText.innerText = formatHtmlToText(prevReviewContent); prevBox.style.display = 'block'; } else { prevBox.style.display = 'none'; } } else { prevBox.style.display = 'none'; } }
 
-        // [新增] 檢查計畫管理相關 JS
+        // [PlansView JS Logic]
         async function loadPlanList(page=1) {
             plansPage = page;
             const search = document.getElementById('planSearch').value || '';
@@ -1848,7 +948,6 @@
                 plansPages = j.pages || 1;
                 renderPlansTable();
                 renderPagination('planListBar', plansPage, plansPages, 'loadPlanList');
-                // 年度下拉選單
                 const years = [...new Set(plansData.map(x => x.year).filter(Boolean))];
                 document.getElementById('planYearSelect').innerHTML = '<option value="">全部年度</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
             } catch(e) {
@@ -1866,7 +965,6 @@
             </tr>`).join('');
         }
         async function openPlanDetail(planName, year) {
-            // API: 查詢某計畫所有事項
             try {
                 const params = new URLSearchParams({ planName, year, pageSize: 100 });
                 const res = await fetch('/api/issues?' + params.toString());
@@ -1897,9 +995,7 @@
                 </tr>
             `).join('');
         }
-        function closePlanDetail(){
-            document.getElementById('planDetailSection').classList.add('hidden');
-        }
+        function closePlanDetail(){ document.getElementById('planDetailSection').classList.add('hidden'); }
         function openPlanModal(){
             document.getElementById('planModalTitle').innerText = '新增計畫';
             document.getElementById('planModalName').value = '';
@@ -1912,7 +1008,6 @@
             const year = document.getElementById('planModalYear').value.trim();
             if(!name || !year) return showToast('請填完整計畫', 'error');
             try {
-                // API: 新增計畫（其實在主表加一條即可）
                 const res = await fetch('/api/options/plans', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan_name:name,year})});
                 if(res.ok) {showToast('已新增計畫'); closePlanModal(); loadPlanList(1);}
                 else showToast('新增計畫失敗','error');
@@ -1940,7 +1035,6 @@
             }catch(e){showToast('連線錯誤','error');}
         }
         function editIssueFromPlan(id){
-            // 可再延用 drawer 方式，如果需要獨立 modal 可自行展開
             openDetail(id,true);
         }
         async function deleteIssueFromPlan(id){
@@ -1951,9 +1045,7 @@
                 else showToast('刪除失敗','error');
             }catch(e){showToast('連線錯誤','error');}
         }
-        // [監聽器] 確保點擊側邊欄「檢查計畫管理」時自動載入資料
         document.getElementById('btn-plansView').addEventListener('click', () => {loadPlanList(1);});
-
     </script>
 </body>
 </html>
