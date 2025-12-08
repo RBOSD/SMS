@@ -1,44 +1,43 @@
 const express = require('express');
-const { Pool } = require('pg'); 
+const { Pool } = require('pg');
 const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
-const { GoogleGenerativeAI } = require("@google/generative-ai"); 
-require('dotenv').config(); 
+const { GoogleGenerativeAI } = require("@google/generative-ai"); // AI 套件
+require('dotenv').config();
 
 const app = express();
 
-// 設定 Trust Proxy (為了 Render/Heroku 等環境)
-app.set('trust proxy', 1); 
+// [重要] 信任 Proxy，解決 Render 上 Session 失效問題
+app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
 
-// PostgreSQL 連線池
+// 初始化 PostgreSQL 連線池
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Middleware
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Session 設定
 app.use(session({
-    secret: 'sms-secret-key-pg-final-v6', // 更新密鑰確保 Session 刷新
+    secret: 'sms-secret-key-pg-final-v3', // 若要強制登出所有用戶，可修改此字串
     resave: false,
     saveUninitialized: false,
-    proxy: true, 
-    cookie: { 
-        maxAge: 24 * 60 * 60 * 1000, // 24小時
-        secure: process.env.NODE_ENV === 'production', 
-        sameSite: 'lax' 
-    } 
+    proxy: true,
+    cookie: {
+        maxAge: 24 * 60 * 60 * 1000,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+    }
 }));
 
-// 權限驗證 Middleware
+// 權限檢查 Middleware
 const requireAuth = (req, res, next) => {
     if (req.session && req.session.user) {
         next();
@@ -47,13 +46,15 @@ const requireAuth = (req, res, next) => {
     }
 };
 
-// 資料庫初始化
+// --- 資料庫初始化 ---
 async function initDB() {
     const client = await pool.connect();
     try {
         console.log('Connected to PostgreSQL. Checking schema...');
 
-        // 1. Issues 表
+        // 1. 建立主表
+        // plan_name: 檢查計畫名稱
+        // issue_date: 初次發函日期 (YYYYMMDD)
         await client.query(`CREATE TABLE IF NOT EXISTS issues (
             id SERIAL PRIMARY KEY,
             number TEXT UNIQUE,
@@ -73,7 +74,7 @@ async function initDB() {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // 2. Users 表
+        // 2. 建立使用者表
         await client.query(`CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             username TEXT UNIQUE,
@@ -83,7 +84,15 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // 3. Logs 表
+        // 2.5 建立計畫表
+        await client.query(`CREATE TABLE IF NOT EXISTS plans (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            year TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // 3. 建立 Log 表
         await client.query(`CREATE TABLE IF NOT EXISTS logs (
             id SERIAL PRIMARY KEY,
             username TEXT,
@@ -94,36 +103,37 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // 動態新增欄位 (handling2~20, review2~20, dates, plan_name)
+        // 4. 動態欄位補強 (含歷程日期)
         const newColumns = [];
+        // 內容欄位
         for (let i = 2; i <= 20; i++) {
             newColumns.push({ name: `handling${i}`, type: 'TEXT' });
             newColumns.push({ name: `review${i}`, type: 'TEXT' });
         }
+        // 日期欄位: reply_date (機構回復), response_date (監理機關函復)
         for (let i = 1; i <= 20; i++) {
             newColumns.push({ name: `reply_date_r${i}`, type: 'TEXT' });
             newColumns.push({ name: `response_date_r${i}`, type: 'TEXT' });
         }
+        // 補足主要新欄位 (若是舊 DB 升級)
         newColumns.push({ name: 'plan_name', type: 'TEXT' });
         newColumns.push({ name: 'issue_date', type: 'TEXT' });
 
         for (const col of newColumns) {
             try {
                 await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
-            } catch (e) { 
-                // Ignore if exists
-            }
+            } catch (e) { /* 忽略已存在的錯誤 */ }
         }
 
-        // 預設管理員
+        // 5. 建立預設 Admin
         const userRes = await client.query("SELECT count(*) as count FROM users");
         if (parseInt(userRes.rows[0].count) === 0) {
             const hash = bcrypt.hashSync('admin123', 10);
-            await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
+            await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)",
                 ['admin', hash, '系統管理員', 'admin']);
             console.log("Default admin created.");
         }
-        
+
         console.log('Database initialized.');
 
     } catch (err) {
@@ -134,24 +144,24 @@ async function initDB() {
     }
 }
 
-// Log 輔助函式
+// Log 輔助
 async function logAction(username, action, details, req) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     try {
-        await pool.query("INSERT INTO logs (username, action, details, ip_address, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)", 
+        await pool.query("INSERT INTO logs (username, action, details, ip_address, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)",
             [username, action, details, ip]);
     } catch (e) { console.error("Log error:", e); }
 }
 
 // --- API Routes ---
 
-// 登入
+// 1. 登入
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
         const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
         const user = result.rows[0];
-        
+
         if (!user || !user.password) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
@@ -159,8 +169,8 @@ app.post('/api/auth/login', async (req, res) => {
         if (bcrypt.compareSync(password, user.password)) {
             req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name };
             req.session.save((err) => {
-                if(err) return res.status(500).json({error: 'Session error'});
-                logAction(user.username, 'LOGIN', 'User logged in', req).catch(()=>{});
+                if (err) return res.status(500).json({ error: 'Session error' });
+                logAction(user.username, 'LOGIN', 'User logged in', req).catch(() => { });
                 res.json({ success: true, user: req.session.user });
             });
         } else {
@@ -172,17 +182,15 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// 登出
 app.post('/api/auth/logout', (req, res) => {
     req.session.destroy();
     res.json({ success: true });
 });
 
-// 檢查登入狀態
+// [修正] 強制從資料庫驗證最新權限 (解決權限更動後不即時更新的問題)
 app.get('/api/auth/me', async (req, res) => {
     if (req.session && req.session.user) {
         try {
-            // 每次檢查都從 DB 撈最新權限
             const result = await pool.query("SELECT id, username, name, role FROM users WHERE id = $1", [req.session.user.id]);
             const latestUser = result.rows[0];
 
@@ -190,7 +198,6 @@ app.get('/api/auth/me', async (req, res) => {
                 req.session.destroy();
                 return res.json({ isLogin: false });
             }
-            // Update session info
             req.session.user = latestUser;
             res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
             res.json({ isLogin: true, ...latestUser });
@@ -203,7 +210,6 @@ app.get('/api/auth/me', async (req, res) => {
     }
 });
 
-// 修改個人資料
 app.put('/api/auth/profile', requireAuth, async (req, res) => {
     const { name, password } = req.body;
     const id = req.session.user.id;
@@ -218,9 +224,10 @@ app.put('/api/auth/profile', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Gemini AI
+// 2. AI 審查
 app.post('/api/gemini', async (req, res) => {
     const { content, rounds } = req.body;
+
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: '後端未設定 GEMINI_API_KEY' });
 
@@ -234,28 +241,33 @@ app.post('/api/gemini', async (req, res) => {
         const prompt = `
         你現在是【鐵道監理機關】的專業審查人員，正在審核受檢機構針對缺失事項的改善情形。
         請秉持「中立、客觀、平實」的原則進行審查。
-        【待改善事項內容】：${content}
-        【上一回合審查意見】：${previousReview}
-        【本次機構辦理情形】：${latestRound.handling || '無'}
-        
-        請依照以下 JSON 格式回覆：
-        {
-            "fulfill": "Yes" 或 "No", 
-            "reason": "100字以內的簡短評語，說明為何通過或為何不通過"
-        }
+
+        【待改善事項內容】：
+        ${content}
+
+        【上一回合審查意見】：
+        ${previousReview}
+
+        【本次機構辦理情形】：
+        ${latestRound.handling || '無'}
+
+        【回覆格式要求】：
+        JSON: {"fulfill": "Yes/No", "reason": "100字內簡評"}
         `;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
         let text = response.text();
-        // 清理 markdown
         text = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
         try {
             const json = JSON.parse(text);
             res.json(json);
         } catch (parseError) {
-            res.json({ fulfill: text.includes("Yes") ? "Yes" : "No", reason: text.replace(/[{}]/g, '').trim() });
+            res.json({
+                fulfill: text.includes("Yes") ? "Yes" : "No",
+                reason: text.replace(/[{}]/g, '').trim()
+            });
         }
     } catch (e) {
         console.error("Gemini API Error:", e);
@@ -263,13 +275,14 @@ app.post('/api/gemini', async (req, res) => {
     }
 });
 
-// 查詢事項 (支援多種篩選)
+// 3. 事項查詢 (支援 planName 與日期欄位)
 app.get('/api/issues', requireAuth, async (req, res) => {
     const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, planName, sortField, sortDir } = req.query;
     const limit = parseInt(pageSize);
     const offset = (page - 1) * limit;
-    
+
     let where = ["1=1"], params = [], idx = 1;
+
     res.set('Cache-Control', 'no-store');
 
     if (q) {
@@ -282,6 +295,8 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     if (itemKindCode) { where.push(`item_kind_code = $${idx}`); params.push(itemKindCode); idx++; }
     if (division) { where.push(`division_name = $${idx}`); params.push(division); idx++; }
     if (inspectionCategory) { where.push(`inspection_category_name = $${idx}`); params.push(inspectionCategory); idx++; }
+
+    // [新增] 精確篩選計畫名稱
     if (planName) { where.push(`plan_name = $${idx}`); params.push(planName); idx++; }
 
     let orderBy = "created_at DESC";
@@ -293,14 +308,12 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     try {
         const countRes = await pool.query(`SELECT count(*) FROM issues WHERE ${where.join(" AND ")}`, params);
         const total = parseInt(countRes.rows[0].count);
-        const dataRes = await pool.query(`SELECT * FROM issues WHERE ${where.join(" AND ")} ORDER BY ${orderBy} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
-        
-        // 統計數據 (全域，不受分頁影響但受篩選影響太慢，這裡做全表統計)
-        // 若要隨篩選變動，需帶入 where。這裡為求效能先給全表概況。
+
+        const dataRes = await pool.query(`SELECT * FROM issues WHERE ${where.join(" AND ")} ORDER BY ${orderBy} LIMIT $${idx} OFFSET $${idx + 1}`, [...params, limit, offset]);
+
         const sRes = await pool.query("SELECT status, count(*) as count FROM issues GROUP BY status");
         const uRes = await pool.query("SELECT unit, count(*) as count FROM issues GROUP BY unit");
         const yRes = await pool.query("SELECT year, count(*) as count FROM issues GROUP BY year");
-        
         const tRes = await pool.query("SELECT max(created_at) as latest, max(updated_at) as updated FROM issues");
         const latestTime = tRes.rows[0] ? (tRes.rows[0].updated || tRes.rows[0].latest) : null;
 
@@ -316,69 +329,69 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 更新單筆事項
+// [修改] 編輯更新，支援日期欄位
 app.put('/api/issues/:id', requireAuth, async (req, res) => {
     const { status, round, handling, review, replyDate, responseDate } = req.body;
     const id = req.params.id;
     const r = parseInt(round);
-
     const hField = r === 1 ? 'handling' : `handling${r}`;
     const rField = r === 1 ? 'review' : `review${r}`;
+
+    // 動態對應日期欄位
     const replyField = `reply_date_r${r}`;
     const respField = `response_date_r${r}`;
 
     try {
-        await pool.query(`UPDATE issues SET status=$1, ${hField}=$2, ${rField}=$3, ${replyField}=$4, ${respField}=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6`, 
+        await pool.query(`UPDATE issues SET status=$1, ${hField}=$2, ${rField}=$3, ${replyField}=$4, ${respField}=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6`,
             [status, handling, review, replyDate, responseDate, id]);
         logAction(req.session.user.username, 'UPDATE', `Updated issue ${id}`, req);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 刪除單筆
 app.delete('/api/issues/:id', requireAuth, async (req, res) => {
-    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
+    if (!['admin', 'manager'].includes(req.session.user.role)) return res.status(403).json({ error: 'Denied' });
     try {
         await pool.query("DELETE FROM issues WHERE id=$1", [req.params.id]);
-        res.json({success:true});
+        res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 批次刪除
 app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
-    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
+    if (!['admin', 'manager'].includes(req.session.user.role)) return res.status(403).json({ error: 'Denied' });
     const { ids } = req.body;
     try {
         await pool.query("DELETE FROM issues WHERE id = ANY($1)", [ids]);
         logAction(req.session.user.username, 'BATCH_DELETE', `Deleted ${ids.length} items`, req);
-        res.json({success:true});
+        res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 批次匯入/新增事項 (核心邏輯)
+// [修改] 匯入 API，完整支援日期與計畫名稱
 app.post('/api/issues/import', requireAuth, async (req, res) => {
-    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
-    const { data, round, reviewDate, replyDate } = req.body;
+    if (!['admin', 'manager'].includes(req.session.user.role)) return res.status(403).json({ error: 'Denied' });
+    // data: 匯入的項目列表
+    // round: 第幾次
+    // reviewDate: "本次函復日期" (對應 response_date_r{round})
+    // replyDate: "機構回復日期" (對應 reply_date_r{round})
+    // mode: 'word' | 'backup'
+    const { data, round, reviewDate, replyDate, mode } = req.body;
     const r = parseInt(round) || 1;
-    
+
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
         for (const item of data) {
-            // [關鍵] 若 number 為空，可能是無效行，跳過
-            if (!item.number) continue;
-
-            // 檢查是否存在
             const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
-            const exists = (check.rows.length > 0);
-            
-            if (exists) {
-                const hCol = r===1 ? 'handling' : `handling${r}`;
-                const rCol = r===1 ? 'review' : `review${r}`;
+
+            if (check.rows.length > 0) {
+                // 更新現有
+                const hCol = r === 1 ? 'handling' : `handling${r}`;
+                const rCol = r === 1 ? 'review' : `review${r}`;
                 const replyCol = `reply_date_r${r}`;
                 const respCol = `response_date_r${r}`;
-                
+
                 await client.query(
                     `UPDATE issues SET 
                         status=$1, ${hCol}=$2, ${rCol}=$3, 
@@ -387,14 +400,16 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                         updated_at=CURRENT_TIMESTAMP 
                     WHERE number=$7`,
                     [
-                        item.status, item.handling||'', item.review||'',
-                        replyDate||'', reviewDate||'', 
+                        item.status, item.handling || '', item.review || '',
+                        replyDate || '', reviewDate || '', // 寫入該回合的日期
                         item.planName || null,
                         item.number
                     ]
                 );
             } else {
                 // 新增
+                // issue_date 只在新增時寫入 (來自 item.issueDate)
+                // response_date_r1 對應 reviewDate (若有)
                 await client.query(
                     `INSERT INTO issues (
                         number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
@@ -402,13 +417,13 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                         response_date_r1, reply_date_r1
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
                     [
-                        item.number || '', item.year, item.unit, item.content || '', item.status||'持續列管',
+                        item.number, item.year, item.unit, item.content, item.status || '持續列管',
                         item.itemKindCode, item.category, item.divisionName, item.inspectionCategoryName,
-                        item.handling||'', item.review||'', 
-                        item.planName || null, 
-                        item.issueDate || null, 
-                        reviewDate || '', 
-                        replyDate || ''   
+                        item.handling || '', item.review || '',
+                        item.planName || null,
+                        item.issueDate || null, // 初次發函日期
+                        reviewDate || '', // 第1次函復
+                        replyDate || ''   // 第1次回復
                     ]
                 );
             }
@@ -424,37 +439,37 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
     }
 });
 
-// 使用者管理 API
+// Users API (保持不變)
 app.get('/api/users', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
-    const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
+    if (req.session.user.role !== 'admin') return res.status(403).json({ error: 'Denied' });
+    const { page = 1, pageSize = 20, q, sortField = 'id', sortDir = 'asc' } = req.query;
     const limit = parseInt(pageSize);
-    const offset = (page-1)*limit;
-    
+    const offset = (page - 1) * limit;
+
     let where = ["1=1"], params = [], idx = 1;
-    if(q) { where.push(`(username LIKE $${idx} OR name LIKE $${idx})`); params.push(`%${q}%`); idx++; }
-    const order = `${sortField} ${sortDir==='desc'?'DESC':'ASC'}`;
-    
+    if (q) { where.push(`(username LIKE $${idx} OR name LIKE $${idx})`); params.push(`%${q}%`); idx++; }
+    const order = `${sortField} ${sortDir === 'desc' ? 'DESC' : 'ASC'}`;
+
     try {
         const cRes = await pool.query(`SELECT count(*) FROM users WHERE ${where.join(" AND ")}`, params);
         const total = parseInt(cRes.rows[0].count);
-        const dRes = await pool.query(`SELECT id, username, name, role, created_at FROM users WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
-        res.json({data:dRes.rows, total, page: parseInt(page), pages: Math.ceil(total/limit)});
+        const dRes = await pool.query(`SELECT id, username, name, role, created_at FROM users WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT $${idx} OFFSET $${idx + 1}`, [...params, limit, offset]);
+        res.json({ data: dRes.rows, total, page: parseInt(page), pages: Math.ceil(total / limit) });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/users', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if (req.session.user.role !== 'admin') return res.status(403).json({ error: 'Denied' });
     const { username, password, name, role } = req.body;
     try {
         const hash = bcrypt.hashSync(password, 10);
         await pool.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", [username, hash, name, role]);
-        res.json({success:true});
+        res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.put('/api/users/:id', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if (req.session.user.role !== 'admin') return res.status(403).json({ error: 'Denied' });
     const { name, password, role } = req.body;
     const id = req.params.id;
     try {
@@ -464,54 +479,57 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
         } else {
             await pool.query("UPDATE users SET name=$1, role=$2 WHERE id=$3", [name, role, id]);
         }
-        res.json({success:true});
+        res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/users/:id', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
-    if(parseInt(req.params.id) === req.session.user.id) return res.status(400).json({error:'Cannot self delete'});
+    if (req.session.user.role !== 'admin') return res.status(403).json({ error: 'Denied' });
+    if (parseInt(req.params.id) === req.session.user.id) return res.status(400).json({ error: 'Cannot self delete' });
     try {
         await pool.query("DELETE FROM users WHERE id=$1", [req.params.id]);
-        res.json({success:true});
+        res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Logs API
 app.get('/api/admin/logs', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if (req.session.user.role !== 'admin') return res.status(403).json({ error: 'Denied' });
     try {
         const { rows } = await pool.query("SELECT * FROM logs WHERE action='LOGIN' ORDER BY login_time DESC LIMIT 50");
-        res.json({data:rows, total:rows.length, page:1, pages:1});
+        res.json({ data: rows, total: rows.length, page: 1, pages: 1 });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if (req.session.user.role !== 'admin') return res.status(403).json({ error: 'Denied' });
     try {
         const { rows } = await pool.query("SELECT * FROM logs WHERE action!='LOGIN' ORDER BY created_at DESC LIMIT 50");
-        res.json({data:rows, total:rows.length, page:1, pages:1});
+        res.json({ data: rows, total: rows.length, page: 1, pages: 1 });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/admin/logs', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if (req.session.user.role !== 'admin') return res.status(403).json({ error: 'Denied' });
     await pool.query("DELETE FROM logs WHERE action='LOGIN'");
-    res.json({success:true});
+    res.json({ success: true });
 });
 
 app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if (req.session.user.role !== 'admin') return res.status(403).json({ error: 'Denied' });
     await pool.query("DELETE FROM logs WHERE action!='LOGIN'");
-    res.json({success:true});
+    res.json({ success: true });
 });
 
-// --- 計畫相關 API ---
-
-// 1. 取得純計畫名稱選單
+// [新增] 取得既有的計畫名稱列表 (整合 plans table 與 issues table)
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
-        const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");
+        // 使用 UNION 整合兩邊來源，確保舊資料與新資料都能被選到
+        const result = await pool.query(`
+            SELECT name as plan_name FROM plans 
+            UNION 
+            SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' 
+            ORDER BY plan_name DESC
+        `);
         res.set('Cache-Control', 'no-store');
         res.json({ data: result.rows.map(r => r.plan_name) });
     } catch (e) {
@@ -519,80 +537,32 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
     }
 });
 
-// 2. 取得計畫詳情列表
-app.get('/api/options/plans_details', requireAuth, async (req, res) => {
-    const { q = '', year = '', page = 1, pageSize = 15 } = req.query;
-    const limit = parseInt(pageSize), offset = (page - 1) * limit;
-    let where = ['plan_name IS NOT NULL AND TRIM(plan_name) != \'\''], params = [], idx = 1;
-    if (q) { where.push(`plan_name ILIKE $${idx}`); params.push('%' + q + '%'); idx++; }
-    if (year) { where.push(`year = $${idx}`); params.push(year); idx++; }
+// [新增] 計畫管理 API
+app.get('/api/plans', requireAuth, async (req, res) => {
     try {
-        const countRes = await pool.query(
-            `SELECT COUNT(DISTINCT plan_name || year) AS count FROM issues WHERE ${where.join(' AND ')}`
-            , params);
-        const total = parseInt(countRes.rows[0]?.count || 0);
-        // number != '' 排除掉純計畫佔位符
-        const mainRes = await pool.query(
-            `SELECT plan_name, year, COUNT(CASE WHEN number != '' THEN 1 END) as issues_count, MAX(updated_at) as updated_at
-             FROM issues WHERE ${where.join(' AND ')}
-             GROUP BY plan_name, year ORDER BY updated_at DESC NULLS LAST
-             LIMIT $${idx} OFFSET $${idx + 1}`,
-            [...params, limit, offset]
-        );
-        res.json({
-            data: mainRes.rows,
-            page: parseInt(page),
-            pageSize: limit,
-            total,
-            pages: Math.ceil(total / limit)
-        });
+        const result = await pool.query("SELECT * FROM plans ORDER BY created_at DESC");
+        res.json({ success: true, data: result.rows });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 3. 單筆新增計畫
-app.post('/api/options/plans', requireAuth, async (req, res) => {
-    const { plan_name, year } = req.body;
-    if (!plan_name || !year) return res.status(400).json({ error: '缺少計畫名稱或年度' });
+app.post('/api/plans', requireAuth, async (req, res) => {
+    if (!['admin', 'manager'].includes(req.session.user.role)) return res.status(403).json({ error: 'Denied' });
+    const { name, year } = req.body;
     try {
-        // 插入一筆佔位資料來建立計畫
-        await pool.query(
-            `INSERT INTO issues (plan_name, year, number, content, status)
-             VALUES ($1, $2, '', '', '')`,
-            [plan_name, year]
-        );
+        await pool.query("INSERT INTO plans (name, year) VALUES ($1, $2)", [name, year]);
+        res.json({ success: true });
+    } catch (e) {
+        if (e.code === '23505') return res.status(400).json({ error: '計畫名稱已存在' });
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/plans/:id', requireAuth, async (req, res) => {
+    if (!['admin', 'manager'].includes(req.session.user.role)) return res.status(403).json({ error: 'Denied' });
+    try {
+        await pool.query("DELETE FROM plans WHERE id=$1", [req.params.id]);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// 4. [新增] 批次新增計畫 (接收陣列)
-app.post('/api/options/plans/batch', requireAuth, async (req, res) => {
-    const { plans } = req.body; // [{plan_name, year}, ...]
-    if (!Array.isArray(plans)) return res.status(400).json({ error: 'Data format error' });
-
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        for (const p of plans) {
-            if (p.plan_name && p.year) {
-                // 檢查該年度該計畫是否已存在 (避免重複建立佔位符)
-                const check = await client.query("SELECT 1 FROM issues WHERE plan_name = $1 AND year = $2 AND number = '' LIMIT 1", [p.plan_name, p.year]);
-                if (check.rows.length === 0) {
-                    await client.query(
-                        `INSERT INTO issues (plan_name, year, number, content, status)
-                         VALUES ($1, $2, '', '', '')`,
-                        [p.plan_name, p.year]
-                    );
-                }
-            }
-        }
-        await client.query('COMMIT');
-        res.json({ success: true, count: plans.length });
-    } catch (e) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ error: e.message });
-    } finally {
-        client.release();
-    }
 });
 
 async function startServer() {
