@@ -4,17 +4,14 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
-const { GoogleGenerativeAI } = require("@google/generative-ai"); // AI 套件
+const { GoogleGenerativeAI } = require("@google/generative-ai"); 
 require('dotenv').config(); 
 
 const app = express();
-
-// [重要] 信任 Proxy，解決 Render 上 Session 失效問題
 app.set('trust proxy', 1); 
 
 const PORT = process.env.PORT || 3000;
 
-// 初始化 PostgreSQL 連線池
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
@@ -24,9 +21,8 @@ app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Session 設定
 app.use(session({
-    secret: 'sms-secret-key-pg-final-v3', // 若要強制登出所有用戶，可修改此字串
+    secret: 'sms-secret-key-pg-final-v4', 
     resave: false,
     saveUninitialized: false,
     proxy: true, 
@@ -37,7 +33,6 @@ app.use(session({
     } 
 }));
 
-// 權限檢查 Middleware
 const requireAuth = (req, res, next) => {
     if (req.session && req.session.user) {
         next();
@@ -46,13 +41,11 @@ const requireAuth = (req, res, next) => {
     }
 };
 
-// --- 資料庫初始化 ---
 async function initDB() {
     const client = await pool.connect();
     try {
         console.log('Connected to PostgreSQL. Checking schema...');
 
-        // 1. 建立主表
         await client.query(`CREATE TABLE IF NOT EXISTS issues (
             id SERIAL PRIMARY KEY,
             number TEXT UNIQUE,
@@ -72,7 +65,6 @@ async function initDB() {
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // 2. 建立使用者表
         await client.query(`CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             username TEXT UNIQUE,
@@ -82,7 +74,6 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // 3. 建立 Log 表
         await client.query(`CREATE TABLE IF NOT EXISTS logs (
             id SERIAL PRIMARY KEY,
             username TEXT,
@@ -93,7 +84,6 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // 4. 動態欄位補強
         const newColumns = [];
         for (let i = 2; i <= 20; i++) {
             newColumns.push({ name: `handling${i}`, type: 'TEXT' });
@@ -109,10 +99,9 @@ async function initDB() {
         for (const col of newColumns) {
             try {
                 await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
-            } catch (e) { /* 忽略已存在的錯誤 */ }
+            } catch (e) { }
         }
 
-        // 5. 建立預設 Admin
         const userRes = await client.query("SELECT count(*) as count FROM users");
         if (parseInt(userRes.rows[0].count) === 0) {
             const hash = bcrypt.hashSync('admin123', 10);
@@ -131,7 +120,6 @@ async function initDB() {
     }
 }
 
-// Log 輔助
 async function logAction(username, action, details, req) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     try {
@@ -142,7 +130,6 @@ async function logAction(username, action, details, req) {
 
 // --- API Routes ---
 
-// 1. 登入
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -164,7 +151,6 @@ app.post('/api/auth/login', async (req, res) => {
             res.status(401).json({ error: 'Invalid credentials' });
         }
     } catch (e) {
-        console.error("Login Error:", e);
         res.status(500).json({ error: 'System error' });
     }
 });
@@ -188,7 +174,6 @@ app.get('/api/auth/me', async (req, res) => {
             res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
             res.json({ isLogin: true, ...latestUser });
         } catch (e) {
-            console.error("Auth check db error:", e);
             res.json({ isLogin: false });
         }
     } else {
@@ -210,35 +195,24 @@ app.put('/api/auth/profile', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 2. AI 審查
 app.post('/api/gemini', async (req, res) => {
     const { content, rounds } = req.body;
-
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: '後端未設定 GEMINI_API_KEY' });
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
         const latestRound = (rounds && rounds.length > 0) ? rounds[rounds.length - 1] : { handling: '無', review: '無' };
         const previousReview = (rounds && rounds.length > 1) ? rounds[rounds.length - 2].review : '無';
 
         const prompt = `
         你現在是【鐵道監理機關】的專業審查人員，正在審核受檢機構針對缺失事項的改善情形。
         請秉持「中立、客觀、平實」的原則進行審查。
-
-        【待改善事項內容】：
-        ${content}
-
-        【上一回合審查意見】：
-        ${previousReview}
-
-        【本次機構辦理情形】：
-        ${latestRound.handling || '無'}
-
-        【回覆格式要求】：
-        JSON: {"fulfill": "Yes/No", "reason": "100字內簡評"}
+        【待改善事項內容】：${content}
+        【上一回合審查意見】：${previousReview}
+        【本次機構辦理情形】：${latestRound.handling || '無'}
+        【回覆格式要求】：JSON: {"fulfill": "Yes/No", "reason": "100字內簡評"}
         `;
 
         const result = await model.generateContent(prompt);
@@ -250,25 +224,19 @@ app.post('/api/gemini', async (req, res) => {
             const json = JSON.parse(text);
             res.json(json);
         } catch (parseError) {
-            res.json({ 
-                fulfill: text.includes("Yes") ? "Yes" : "No", 
-                reason: text.replace(/[{}]/g, '').trim() 
-            });
+            res.json({ fulfill: text.includes("Yes") ? "Yes" : "No", reason: text.replace(/[{}]/g, '').trim() });
         }
     } catch (e) {
-        console.error("Gemini API Error:", e);
         res.status(500).json({ error: 'AI 分析失敗: ' + e.message });
     }
 });
 
-// 3. 事項查詢
 app.get('/api/issues', requireAuth, async (req, res) => {
     const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, planName, sortField, sortDir } = req.query;
     const limit = parseInt(pageSize);
     const offset = (page - 1) * limit;
     
     let where = ["1=1"], params = [], idx = 1;
-
     res.set('Cache-Control', 'no-store');
 
     if (q) {
@@ -292,7 +260,6 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     try {
         const countRes = await pool.query(`SELECT count(*) FROM issues WHERE ${where.join(" AND ")}`, params);
         const total = parseInt(countRes.rows[0].count);
-        
         const dataRes = await pool.query(`SELECT * FROM issues WHERE ${where.join(" AND ")} ORDER BY ${orderBy} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
         
         const sRes = await pool.query("SELECT status, count(*) as count FROM issues GROUP BY status");
@@ -313,7 +280,6 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 編輯更新
 app.put('/api/issues/:id', requireAuth, async (req, res) => {
     const { status, round, handling, review, replyDate, responseDate } = req.body;
     const id = req.params.id;
@@ -349,10 +315,9 @@ app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 匯入 API
 app.post('/api/issues/import', requireAuth, async (req, res) => {
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
-    const { data, round, reviewDate, replyDate, mode } = req.body;
+    const { data, round, reviewDate, replyDate } = req.body;
     const r = parseInt(round) || 1;
     
     const client = await pool.connect();
@@ -360,9 +325,20 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
         await client.query('BEGIN');
 
         for (const item of data) {
-            const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
+            // [關鍵] 若 number 為空 (手動新增計畫時產生)，則不進行 upsert 檢查，直接新增
+            if (!item.number) {
+                // 如果連 content 也沒有，視為無效空行，跳過
+                if(!item.content && !item.planName) continue;
+            }
+
+            // 若有編號，檢查是否存在
+            let exists = false;
+            if (item.number) {
+                const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
+                exists = (check.rows.length > 0);
+            }
             
-            if (check.rows.length > 0) {
+            if (exists) {
                 const hCol = r===1 ? 'handling' : `handling${r}`;
                 const rCol = r===1 ? 'review' : `review${r}`;
                 const replyCol = `reply_date_r${r}`;
@@ -383,6 +359,7 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                     ]
                 );
             } else {
+                // 新增 (含計畫初始化空行)
                 await client.query(
                     `INSERT INTO issues (
                         number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
@@ -390,13 +367,13 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                         response_date_r1, reply_date_r1
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
                     [
-                        item.number, item.year, item.unit, item.content, item.status||'持續列管',
+                        item.number || '', item.year, item.unit, item.content || '', item.status||'持續列管',
                         item.itemKindCode, item.category, item.divisionName, item.inspectionCategoryName,
                         item.handling||'', item.review||'', 
                         item.planName || null, 
-                        item.issueDate || null,
+                        item.issueDate || null, 
                         reviewDate || '', 
-                        replyDate || ''
+                        replyDate || ''   
                     ]
                 );
             }
@@ -412,7 +389,6 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
     }
 });
 
-// Users API
 app.get('/api/users', requireAuth, async (req, res) => {
     if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
@@ -493,7 +469,6 @@ app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
     res.json({success:true});
 });
 
-// [新增] 取得既有的計畫名稱列表
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
         const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");
@@ -504,7 +479,6 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
     }
 });
 
-// [新增] 取得所有計畫聚合
 app.get('/api/options/plans_details', requireAuth, async (req, res) => {
     const { q = '', year = '', page = 1, pageSize = 15 } = req.query;
     const limit = parseInt(pageSize), offset = (page - 1) * limit;
@@ -533,12 +507,10 @@ app.get('/api/options/plans_details', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// [新增] 新增計畫
 app.post('/api/options/plans', requireAuth, async (req, res) => {
     const { plan_name, year } = req.body;
     if (!plan_name || !year) return res.status(400).json({ error: '缺少計畫名稱或年度' });
     try {
-        // 這裡會建立一筆空的 placeholder 資料，確保 plan_name 存在於 DB
         await pool.query(
             `INSERT INTO issues (plan_name, year, number, content, status)
              VALUES ($1, $2, '', '', '')`,
