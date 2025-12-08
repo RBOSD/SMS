@@ -53,8 +53,6 @@ async function initDB() {
         console.log('Connected to PostgreSQL. Checking schema...');
 
         // 1. 建立主表
-        // plan_name: 檢查計畫名稱
-        // issue_date: 初次發函日期 (YYYYMMDD)
         await client.query(`CREATE TABLE IF NOT EXISTS issues (
             id SERIAL PRIMARY KEY,
             number TEXT UNIQUE,
@@ -95,19 +93,16 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        // 4. 動態欄位補強 (含歷程日期)
+        // 4. 動態欄位補強
         const newColumns = [];
-        // 內容欄位
         for (let i = 2; i <= 20; i++) {
             newColumns.push({ name: `handling${i}`, type: 'TEXT' });
             newColumns.push({ name: `review${i}`, type: 'TEXT' });
         }
-        // 日期欄位: reply_date (機構回復), response_date (監理機關函復)
         for (let i = 1; i <= 20; i++) {
             newColumns.push({ name: `reply_date_r${i}`, type: 'TEXT' });
             newColumns.push({ name: `response_date_r${i}`, type: 'TEXT' });
         }
-        // 補足主要新欄位 (若是舊 DB 升級)
         newColumns.push({ name: 'plan_name', type: 'TEXT' });
         newColumns.push({ name: 'issue_date', type: 'TEXT' });
 
@@ -179,7 +174,6 @@ app.post('/api/auth/logout', (req, res) => {
     res.json({ success: true });
 });
 
-// [修正] 強制從資料庫驗證最新權限 (解決權限更動後不即時更新的問題)
 app.get('/api/auth/me', async (req, res) => {
     if (req.session && req.session.user) {
         try {
@@ -267,7 +261,7 @@ app.post('/api/gemini', async (req, res) => {
     }
 });
 
-// 3. 事項查詢 (支援 planName 與日期欄位)
+// 3. 事項查詢
 app.get('/api/issues', requireAuth, async (req, res) => {
     const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, planName, sortField, sortDir } = req.query;
     const limit = parseInt(pageSize);
@@ -319,15 +313,13 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// [修改] 編輯更新，支援日期欄位
+// 編輯更新
 app.put('/api/issues/:id', requireAuth, async (req, res) => {
     const { status, round, handling, review, replyDate, responseDate } = req.body;
     const id = req.params.id;
     const r = parseInt(round);
     const hField = r === 1 ? 'handling' : `handling${r}`;
     const rField = r === 1 ? 'review' : `review${r}`;
-    
-    // 動態對應日期欄位
     const replyField = `reply_date_r${r}`;
     const respField = `response_date_r${r}`;
 
@@ -357,14 +349,9 @@ app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// [修改] 匯入 API，完整支援日期與計畫名稱
+// 匯入 API
 app.post('/api/issues/import', requireAuth, async (req, res) => {
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
-    // data: 匯入的項目列表
-    // round: 第幾次
-    // reviewDate: "本次函復日期" (對應 response_date_r{round})
-    // replyDate: "機構回復日期" (對應 reply_date_r{round})
-    // mode: 'word' | 'backup'
     const { data, round, reviewDate, replyDate, mode } = req.body;
     const r = parseInt(round) || 1;
     
@@ -376,7 +363,6 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
             const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
             
             if (check.rows.length > 0) {
-                // 更新現有
                 const hCol = r===1 ? 'handling' : `handling${r}`;
                 const rCol = r===1 ? 'review' : `review${r}`;
                 const replyCol = `reply_date_r${r}`;
@@ -391,15 +377,12 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                     WHERE number=$7`,
                     [
                         item.status, item.handling||'', item.review||'',
-                        replyDate||'', reviewDate||'', // 寫入該回合的日期
+                        replyDate||'', reviewDate||'', 
                         item.planName || null,
                         item.number
                     ]
                 );
             } else {
-                // 新增
-                // issue_date 只在新增時寫入 (來自 item.issueDate)
-                // response_date_r1 對應 reviewDate (若有)
                 await client.query(
                     `INSERT INTO issues (
                         number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
@@ -411,9 +394,9 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                         item.itemKindCode, item.category, item.divisionName, item.inspectionCategoryName,
                         item.handling||'', item.review||'', 
                         item.planName || null, 
-                        item.issueDate || null, // 初次發函日期
-                        reviewDate || '', // 第1次函復
-                        replyDate || ''   // 第1次回復
+                        item.issueDate || null,
+                        reviewDate || '', 
+                        replyDate || ''
                     ]
                 );
             }
@@ -429,7 +412,7 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
     }
 });
 
-// Users API (保持不變)
+// Users API
 app.get('/api/users', requireAuth, async (req, res) => {
     if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
@@ -510,7 +493,7 @@ app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
     res.json({success:true});
 });
 
-// [新增] 取得既有的計畫名稱列表 (供下拉選單用)
+// [新增] 取得既有的計畫名稱列表
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
         const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");
@@ -521,7 +504,7 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
     }
 });
 
-// [新增] 取得所有計畫聚合 (計畫名稱、年度、筆數、最後更新)
+// [新增] 取得所有計畫聚合
 app.get('/api/options/plans_details', requireAuth, async (req, res) => {
     const { q = '', year = '', page = 1, pageSize = 15 } = req.query;
     const limit = parseInt(pageSize), offset = (page - 1) * limit;
@@ -555,6 +538,7 @@ app.post('/api/options/plans', requireAuth, async (req, res) => {
     const { plan_name, year } = req.body;
     if (!plan_name || !year) return res.status(400).json({ error: '缺少計畫名稱或年度' });
     try {
+        // 這裡會建立一筆空的 placeholder 資料，確保 plan_name 存在於 DB
         await pool.query(
             `INSERT INTO issues (plan_name, year, number, content, status)
              VALUES ($1, $2, '', '', '')`,
