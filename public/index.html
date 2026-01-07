@@ -1856,7 +1856,7 @@
                                 style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">檢查計畫名稱
                                 (必填)</label>
                             <input type="text" id="batchPlanName" list="planOptionsList" class="filter-input"
-                                placeholder="例如: 113年度上半年定期檢��" style="background:white;">
+                                placeholder="例如: 113年度上半年定期檢查" style="background:white;">
                         </div>
                         <div style="flex: 1; min-width: 150px;">
                             <label
@@ -2033,7 +2033,7 @@
     <div id="usersView" class="view-section">
         <div class="content-header" style="justify-content: flex-start; gap: 16px;">
             <div class="content-title">👥 帳號與紀錄</div>
-            <button class="btn btn-primary hidden" id="btnAddUser" onclick="openUserModal('create')">➕ 新增</button>
+            <button class="btn btn-primary" onclick="openUserModal('create')">➕ 新增</button>
         </div>
         <div class="admin-tabs">
             <button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button>
@@ -2535,10 +2535,6 @@
                             document.getElementById('btn-usersView').classList.remove('hidden');
                             document.getElementById('uploadCardBackup').classList.remove('hidden');
                             document.getElementById('exportJsonOption').style.display = 'flex';
-                            
-                            // [FIX] Explicitly show the Add User button if admin
-                            const btnAddUser = document.getElementById('btnAddUser');
-                            if(btnAddUser) btnAddUser.classList.remove('hidden');
                         }
                     }
                 } else window.location.href = '/login.html';
@@ -2897,12 +2893,142 @@
             } catch (e) { console.error(e); msg.innerText = '解析錯誤: ' + e.message; }
         }
 
+        function processParsedItems(items, round, msgElement) {
+            if (msgElement && items.length === 0) { msgElement.innerText = '錯誤：未解析到有效資料'; return; }
+            stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
+
+            if (currentImportMode === 'word') {
+                const stageRadio = document.querySelector('input[name="importStage"]:checked');
+                const stageText = stageRadio && stageRadio.value === 'initial' ? '初次開立' : `第 ${round} 次審查`;
+                const badgeClass = stageRadio && stageRadio.value === 'initial' ? 'new' : 'update';
+
+                document.getElementById('previewModeBadge').innerHTML = `<span class="badge ${badgeClass}">Word 匯入 (${stageText})</span>`;
+                document.getElementById('uploadCardWord').classList.add('hidden');
+                document.getElementById('uploadCardBackup').classList.add('hidden');
+            } else {
+                document.getElementById('previewModeBadge').innerHTML = `<span class="badge active">⚠️ 災難復原模式</span>`;
+                document.getElementById('uploadCardWord').classList.add('hidden');
+                document.getElementById('uploadCardBackup').classList.add('hidden');
+            }
+            renderPreviewTable();
+            document.getElementById('previewContainer').classList.remove('hidden');
+            if (msgElement) msgElement.innerText = '';
+        }
+
+        function renderPreviewTable() {
+            document.getElementById('previewCount').innerText = stagedImportData.length;
+            const tbody = document.getElementById('previewBody');
+            tbody.innerHTML = stagedImportData.map(item => {
+                const statusBadge = item._importStatus === 'new' ? `<span class="badge new">新增</span>` : `<span class="badge update">更新</span>`;
+                let progress = `[審查] ${item.review || '-'}<br>[辦理] ${item.handling || '-'}`;
+                return `<tr>
+                    <td>${statusBadge}</td>
+                    <td style="font-weight:600;color:var(--primary);">${item.number}</td>
+                    <td>${item.unit}</td>
+                    <td><div class="preview-content-box">${stripHtml(item.content)}</div></td>
+                    <td><div class="preview-content-box">${stripHtml(progress)}</div></td>
+                </tr>`;
+            }).join('');
+        }
+
+        function cancelImport() {
+            stagedImportData = [];
+            document.getElementById('previewContainer').classList.add('hidden');
+            document.getElementById('uploadCardWord').classList.remove('hidden');
+            if (currentUser && currentUser.role === 'admin') { document.getElementById('uploadCardBackup').classList.remove('hidden'); }
+            document.getElementById('wordInput').value = '';
+            document.getElementById('backupInput').value = '';
+            document.getElementById('importStatusWord').innerText = '';
+            document.getElementById('importStatusBackup').innerText = '';
+        }
+
+        async function confirmImport() {
+            const count = stagedImportData.length;
+            const isBackup = currentImportMode === 'backup';
+            const msg = isBackup ? `⚠️ 警告：即將進行「災難復原」，這將覆蓋或新增 ${count} 筆資料。\n確定要執行嗎？` : `確定要匯入 ${count} 筆資料嗎？`;
+            if (!confirm(msg)) return;
+
+            let round = 1;
+            let issueDate = '';
+            let replyDate = '';
+            let responseDate = '';
+
+            if (!isBackup) {
+                const stage = document.querySelector('input[name="importStage"]:checked').value;
+
+                if (stage === 'initial') {
+                    round = 1;
+                    issueDate = document.getElementById('importIssueDate').value;
+                } else {
+                    round = document.getElementById('importRoundSelect').value;
+                    replyDate = document.getElementById('importReplyDate').value;
+                    responseDate = document.getElementById('importResponseDate').value;
+                }
+            }
+
+            const planName = isBackup ? '' : document.getElementById('importPlanName').value;
+
+            let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
+                if (currentImportMode === 'word') {
+                    if (!item.planName && planName) item.planName = planName;
+                    const stage = document.querySelector('input[name="importStage"]:checked') ? document.querySelector('input[name="importStage"]:checked').value : 'initial';
+                    if (!item.issueDate && stage === 'initial') item.issueDate = issueDate;
+                }
+                return item;
+            });
+
+            try {
+                const res = await fetch('/api/issues/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: cleanData,
+                        round: round,
+                        reviewDate: responseDate,
+                        replyDate: replyDate,
+                        mode: currentImportMode
+                    })
+                });
+                if (res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); loadPlanOptions(); } else { showToast('匯入失敗', 'error'); }
+            } catch (e) { showToast('Error: ' + e.message, 'error'); }
+        }
+
+        function switchDataTab(tab) { document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); document.getElementById('tab-data-batch').classList.toggle('hidden', tab !== 'batch'); if (tab === 'batch' && document.querySelectorAll('#batchGridBody tr').length === 0) initBatchGrid(); }
+
         // --- User modal submit & password strength ---
         document.getElementById('uPwd')?.addEventListener('input', updatePwdStrength); document.getElementById('uPwdConfirm')?.addEventListener('input', updatePwdStrength);
         function updatePwdStrength() { const p = document.getElementById('uPwd').value || ''; const conf = document.getElementById('uPwdConfirm').value || ''; let score = 0; if (p.length >= 8) score++; if (/[A-Z]/.test(p)) score++; if (/[0-9]/.test(p)) score++; if (/[^A-Za-z0-9]/.test(p)) score++; const texts = ['弱', '偏弱', '一般', '良好', '強']; document.getElementById('pwdStrength').innerText = `密碼強度: ${texts[Math.min(score, 4)]} ${conf && p !== conf ? '(密碼不相符)' : ''}`; }
 
         // User CRUD
-        async function openUserModal(mode, id) { const m = document.getElementById('userModal'), t = document.getElementById('userModalTitle'), e = document.getElementById('uEmail'); if (mode === 'create') { t.innerText = '新增'; document.getElementById('targetUserId').value = ''; document.getElementById('uName').value = ''; e.value = ''; e.disabled = false; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('pwdHint').innerText = ''; document.getElementById('uRole').value = 'viewer'; } else { const u = userList.find(x => x.id === id) || {}; t.innerText = '編輯'; document.getElementById('targetUserId').value = u.id || ''; document.getElementById('uName').value = u.name || ''; e.value = u.username || ''; e.disabled = true; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdHint').innerText = '(留空不改)'; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('uRole').value = u.role || 'viewer'; } m.classList.add('open'); }
+        async function openUserModal(mode, id) { 
+            const m = document.getElementById('userModal'), t = document.getElementById('userModalTitle'), e = document.getElementById('uEmail'); 
+            
+            // [Added] Ensure modal inputs are reset
+            document.getElementById('uPwd').value = ''; 
+            document.getElementById('uPwdConfirm').value = ''; 
+            document.getElementById('pwdStrength').innerText = '密碼強度: -'; 
+            
+            if (mode === 'create') { 
+                t.innerText = '新增'; 
+                document.getElementById('targetUserId').value = ''; 
+                document.getElementById('uName').value = ''; 
+                e.value = ''; 
+                e.disabled = false; 
+                document.getElementById('pwdHint').innerText = ''; 
+                document.getElementById('uRole').value = 'viewer'; 
+            } else { 
+                const u = userList.find(x => x.id === id) || {}; 
+                t.innerText = '編輯'; 
+                document.getElementById('targetUserId').value = u.id || ''; 
+                document.getElementById('uName').value = u.name || ''; 
+                e.value = u.username || ''; 
+                e.disabled = true; 
+                document.getElementById('pwdHint').innerText = '(留空不改)'; 
+                document.getElementById('uRole').value = u.role || 'viewer'; 
+            } 
+            m.classList.add('open'); 
+        }
+        
         async function submitUser() { const id = document.getElementById('targetUserId').value, name = document.getElementById('uName').value, email = document.getElementById('uEmail').value, pwd = document.getElementById('uPwd').value, pwdConfirm = document.getElementById('uPwdConfirm').value, role = document.getElementById('uRole').value; if (!id) { if (!email) return showToast('請輸入帳號', 'error'); if (!pwd) return showToast('請輸入密碼', 'error'); if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: email, name, password: pwd, role }) }); const j = await res.json(); if (res.ok) { showToast('新增成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(1); } else showToast(j.error || '新增失敗', 'error'); } else { const payload = { name, role }; if (pwd) { if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); payload.password = pwd; } const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const j = await res.json(); if (res.ok) { showToast('更新成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(usersPage); } else showToast(j.error || '更新失敗', 'error'); } }
         async function deleteUser(id) { if (!confirm('確定?')) return; const res = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if (res.ok) { showToast('刪除成功'); loadUsersPage(1); } else showToast('刪除失敗', 'error'); }
 
