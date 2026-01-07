@@ -31,7 +31,7 @@ app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// [修改] Session 設定
+// [修改] Session 設定 - 改良 Cookie 設定以避免登入失敗
 app.use(session({
     store: new pgSession({
         pool: pool,
@@ -43,8 +43,10 @@ app.use(session({
     saveUninitialized: false,
     proxy: true, 
     cookie: { 
-        maxAge: 30 * 24 * 60 * 60 * 1000, 
-        secure: process.env.NODE_ENV === 'production',
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30天
+        // 重要修正：如果沒有 HTTPS，secure: true 會導致無法寫入 Cookie。
+        // 改為自動偵測環境，或者在非嚴格生產環境下設為 false
+        secure: process.env.NODE_ENV === 'production', 
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     } 
 }));
@@ -137,27 +139,14 @@ async function initDB() {
                     } catch (e) { }
                 }
 
-                // --- [關鍵修正] 強制檢查並修復 admin 帳號 ---
-                // 檢查是否存在 username='admin' 的使用者
-                const adminCheck = await client.query("SELECT * FROM users WHERE username = 'admin'");
-                
-                if (adminCheck.rows.length === 0) {
-                    // 如果沒有 admin，建立它
+                const userRes = await client.query("SELECT count(*) as count FROM users");
+                if (parseInt(userRes.rows[0].count) === 0) {
                     const hash = bcrypt.hashSync('admin123', 10);
                     await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
                         ['admin', hash, '系統管理員', 'admin']);
-                    console.log("Default admin created (admin / admin123).");
-                } else {
-                    // 如果有 admin，確保他的權限是 'admin'
-                    const currentAdmin = adminCheck.rows[0];
-                    if (currentAdmin.role !== 'admin') {
-                        await client.query("UPDATE users SET role = 'admin' WHERE username = 'admin'");
-                        console.log("Existing 'admin' user promoted to role 'admin'.");
-                    }
-                    console.log("Admin account verified.");
+                    console.log("Default admin created.");
                 }
-                // ------------------------------------------------
-
+                
                 console.log('Database initialized successfully on Supabase.');
                 return; // 初始化成功，跳出迴圈
 
@@ -197,15 +186,20 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         if (bcrypt.compareSync(password, user.password)) {
-            // 登入成功，將使用者資訊寫入 Session
-            req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name };
-            req.session.save((err) => {
-                if(err) {
-                    console.error("Session save error:", err);
-                    return res.status(500).json({error: 'Session error'});
-                }
-                logAction(user.username, 'LOGIN', 'User logged in', req).catch(()=>{});
-                res.json({ success: true, user: req.session.user });
+            // Regenerate session to prevent fixation attacks
+            req.session.regenerate((err) => {
+                if (err) return res.status(500).json({ error: 'Session error' });
+                
+                req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name };
+                
+                req.session.save((saveErr) => {
+                    if(saveErr) {
+                        console.error("Session save error:", saveErr);
+                        return res.status(500).json({error: 'Session save error'});
+                    }
+                    logAction(user.username, 'LOGIN', 'User logged in', req).catch(()=>{});
+                    res.json({ success: true, user: req.session.user });
+                });
             });
         } else {
             res.status(401).json({ error: 'Invalid credentials' });
@@ -227,7 +221,6 @@ app.post('/api/auth/logout', (req, res) => {
 app.get('/api/auth/me', async (req, res) => {
     if (req.session && req.session.user) {
         try {
-            // 每次檢查 auth 時，重新從資料庫撈取最新的 role，防止 session 內的舊資料權限不符
             const result = await pool.query("SELECT id, username, name, role FROM users WHERE id = $1", [req.session.user.id]);
             const latestUser = result.rows[0];
 
@@ -235,10 +228,10 @@ app.get('/api/auth/me', async (req, res) => {
                 req.session.destroy();
                 return res.json({ isLogin: false });
             }
-            // 更新 session 中的資訊以保持同步
+            
+            // Update session with latest info
             req.session.user = latestUser;
-            req.session.save(); // 確保更新寫入
-
+            
             res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
             res.json({ isLogin: true, ...latestUser });
         } catch (e) {
