@@ -26,9 +26,8 @@ if (databaseUrl) {
         url.searchParams.delete('sslmode');
         databaseUrl = url.toString();
     } catch (e) {
-        // 若 URL 解析失敗，繼續使用原始 URL
+        // 若 URL 解析失敗，繼續使用原始 URL（databaseUrl 已為 process.env.DATABASE_URL）
         console.warn('Warning: Could not parse DATABASE_URL, using original URL:', e.message);
-        databaseUrl = process.env.DATABASE_URL;
     }
 }
 
