@@ -1,4 +1,4 @@
-// [新增] 強制 Node.js 優先使用 IPv4 解析，解決 Render 連線 Supabase 的 ENETUNREACH 問題
+// [Added] Force Node.js to prefer IPv4 resolution to solve ENETUNREACH issues on some platforms (like Render + Supabase)
 require('dns').setDefaultResultOrder('ipv4first');
 
 const express = require('express');
@@ -6,7 +6,7 @@ const { Pool } = require('pg');
 const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
-// [新增] 引入 pg-simple session store
+// [Added] pg-simple session store
 const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcrypt');
 const { GoogleGenerativeAI } = require("@google/generative-ai"); 
@@ -18,20 +18,20 @@ app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
 
-// [修改] 初始化 PostgreSQL 連線池
+// [Modified] Initialize PostgreSQL Connection Pool
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }, // 允許自簽憑證
+    ssl: { rejectUnauthorized: false }, // Allow self-signed certs
     max: 20, 
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000, // 稍微拉長連線逾時時間
+    connectionTimeoutMillis: 5000,
 });
 
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// [修改] Session 設定 - 改良 Cookie 設定以避免登入失敗
+// [Modified] Session Configuration
 app.use(session({
     store: new pgSession({
         pool: pool,
@@ -43,10 +43,8 @@ app.use(session({
     saveUninitialized: false,
     proxy: true, 
     cookie: { 
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30天
-        // 重要修正：如果沒有 HTTPS，secure: true 會導致無法寫入 Cookie。
-        // 改為自動偵測環境，或者在非嚴格生產環境下設為 false
-        secure: process.env.NODE_ENV === 'production', 
+        maxAge: 30 * 24 * 60 * 60 * 1000, 
+        secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     } 
 }));
@@ -59,16 +57,16 @@ const requireAuth = (req, res, next) => {
     }
 };
 
-// --- 資料庫初始化 ---
+// --- Database Initialization ---
 async function initDB() {
-    // [修改] 增加重試機制，因為第一次連線有時會因為網路冷啟動而失敗
     let retries = 5;
     while (retries > 0) {
         try {
             const client = await pool.connect();
             try {
-                console.log('Connected to Supabase PostgreSQL. Checking schema...');
+                console.log('Connected to PostgreSQL. Checking schema...');
 
+                // Session Table
                 await client.query(`
                     CREATE TABLE IF NOT EXISTS session (
                         sid varchar NOT NULL COLLATE "default",
@@ -83,6 +81,7 @@ async function initDB() {
                     await client.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON session (expire)`);
                 } catch (e) {}
 
+                // Issues Table
                 await client.query(`CREATE TABLE IF NOT EXISTS issues (
                     id SERIAL PRIMARY KEY,
                     number TEXT UNIQUE,
@@ -102,6 +101,7 @@ async function initDB() {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
+                // Users Table
                 await client.query(`CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
                     username TEXT UNIQUE,
@@ -111,6 +111,7 @@ async function initDB() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
+                // Logs Table
                 await client.query(`CREATE TABLE IF NOT EXISTS logs (
                     id SERIAL PRIMARY KEY,
                     username TEXT,
@@ -121,6 +122,7 @@ async function initDB() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
+                // Add missing columns if they don't exist
                 const newColumns = [];
                 for (let i = 2; i <= 20; i++) {
                     newColumns.push({ name: `handling${i}`, type: 'TEXT' });
@@ -139,6 +141,7 @@ async function initDB() {
                     } catch (e) { }
                 }
 
+                // Create Default Admin if no users exist
                 const userRes = await client.query("SELECT count(*) as count FROM users");
                 if (parseInt(userRes.rows[0].count) === 0) {
                     const hash = bcrypt.hashSync('admin123', 10);
@@ -147,8 +150,8 @@ async function initDB() {
                     console.log("Default admin created.");
                 }
                 
-                console.log('Database initialized successfully on Supabase.');
-                return; // 初始化成功，跳出迴圈
+                console.log('Database initialized successfully.');
+                return;
 
             } catch (err) {
                 console.error('Init DB Schema Error:', err);
@@ -159,7 +162,7 @@ async function initDB() {
         } catch (connErr) {
             console.error(`Connection failed, retrying... (${retries} left)`, connErr.message);
             retries--;
-            await new Promise(res => setTimeout(res, 2000)); // 等待 2 秒後重試
+            await new Promise(res => setTimeout(res, 2000));
         }
     }
     throw new Error('Could not connect to database after multiple retries.');
@@ -186,20 +189,14 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         if (bcrypt.compareSync(password, user.password)) {
-            // Regenerate session to prevent fixation attacks
-            req.session.regenerate((err) => {
-                if (err) return res.status(500).json({ error: 'Session error' });
-                
-                req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name };
-                
-                req.session.save((saveErr) => {
-                    if(saveErr) {
-                        console.error("Session save error:", saveErr);
-                        return res.status(500).json({error: 'Session save error'});
-                    }
-                    logAction(user.username, 'LOGIN', 'User logged in', req).catch(()=>{});
-                    res.json({ success: true, user: req.session.user });
-                });
+            req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name };
+            req.session.save((err) => {
+                if(err) {
+                    console.error("Session save error:", err);
+                    return res.status(500).json({error: 'Session error'});
+                }
+                logAction(user.username, 'LOGIN', 'User logged in', req).catch(()=>{});
+                res.json({ success: true, user: req.session.user });
             });
         } else {
             res.status(401).json({ error: 'Invalid credentials' });
@@ -228,10 +225,7 @@ app.get('/api/auth/me', async (req, res) => {
                 req.session.destroy();
                 return res.json({ isLogin: false });
             }
-            
-            // Update session with latest info
             req.session.user = latestUser;
-            
             res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
             res.json({ isLogin: true, ...latestUser });
         } catch (e) {
@@ -418,6 +412,8 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
     }
 });
 
+// --- User Management API ---
+
 app.get('/api/users', requireAuth, async (req, res) => {
     if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
@@ -437,9 +433,12 @@ app.get('/api/users', requireAuth, async (req, res) => {
 });
 
 app.post('/api/users', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     const { username, password, name, role } = req.body;
     try {
+        // Basic Validation
+        if (!username || !password) return res.status(400).json({error: 'Username and password required'});
+        
         const hash = bcrypt.hashSync(password, 10);
         await pool.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", [username, hash, name, role]);
         res.json({success:true});
@@ -447,7 +446,7 @@ app.post('/api/users', requireAuth, async (req, res) => {
 });
 
 app.put('/api/users/:id', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     const { name, password, role } = req.body;
     const id = req.params.id;
     try {
@@ -462,7 +461,7 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
 });
 
 app.delete('/api/users/:id', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     if(parseInt(req.params.id) === req.session.user.id) return res.status(400).json({error:'Cannot self delete'});
     try {
         await pool.query("DELETE FROM users WHERE id=$1", [req.params.id]);
@@ -470,8 +469,10 @@ app.delete('/api/users/:id', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// --- Admin Logs API ---
+
 app.get('/api/admin/logs', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     try {
         const { rows } = await pool.query("SELECT * FROM logs WHERE action='LOGIN' ORDER BY login_time DESC LIMIT 50");
         res.json({data:rows, total:rows.length, page:1, pages:1});
@@ -479,7 +480,7 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
 });
 
 app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     try {
         const { rows } = await pool.query("SELECT * FROM logs WHERE action!='LOGIN' ORDER BY created_at DESC LIMIT 50");
         res.json({data:rows, total:rows.length, page:1, pages:1});
@@ -487,13 +488,13 @@ app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
 });
 
 app.delete('/api/admin/logs', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     await pool.query("DELETE FROM logs WHERE action='LOGIN'");
     res.json({success:true});
 });
 
 app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
-    if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
+    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     await pool.query("DELETE FROM logs WHERE action!='LOGIN'");
     res.json({success:true});
 });
