@@ -18,9 +18,23 @@ app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
 
+// [新增] 處理 DATABASE_URL，移除 sslmode 參數以避免覆蓋 ssl 設定
+let databaseUrl = process.env.DATABASE_URL;
+if (databaseUrl && databaseUrl.includes('sslmode=')) {
+    try {
+        const url = new URL(databaseUrl);
+        url.searchParams.delete('sslmode');
+        databaseUrl = url.toString();
+        console.log('Removed sslmode parameter from DATABASE_URL to ensure ssl settings are honored');
+    } catch (e) {
+        console.warn('Failed to parse DATABASE_URL, using original:', e.message);
+        databaseUrl = process.env.DATABASE_URL;
+    }
+}
+
 // [修改] 初始化 PostgreSQL 連線池
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: databaseUrl,
     ssl: { rejectUnauthorized: false }, // 允許自簽憑證
     max: 20, 
     idleTimeoutMillis: 30000,
