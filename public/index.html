@@ -24,7 +24,7 @@
         }
 
         body {
-            display: none;
+            display: none; /* JS 載入後會改為 flex */
             font-family: 'Inter', 'Noto Sans TC', sans-serif;
             background-color: #f8fafc;
             flex-direction: column;
@@ -114,10 +114,6 @@
         .filter-toggle-btn:hover {
             background: #e2e8f0;
             color: var(--primary);
-        }
-
-        .filter-toggle-btn:active {
-            transform: scale(0.95);
         }
 
         /* User Menu */
@@ -1947,7 +1943,7 @@
                                 class="filter-input" placeholder="例如: 113-TRA-1-A01-N01" oninput="autoFillFromNumber()">
                         </div>
                         <div class="form-group"><label>年度 (必填)</label><input type="number" id="manualYear"
-                                class="filter-input" placeholder="���動帶入"></div>
+                                class="filter-input" placeholder="自動帶入"></div>
                     </div>
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                         <div class="form-group"><label>機構 (必填)</label><input type="text" id="manualUnit"
@@ -2350,12 +2346,13 @@
 
         function togglePwdVisibility(inputId, btn) { const input = document.getElementById(inputId); if (input.type === 'password') { input.type = 'text'; btn.innerText = '🚫'; } else { input.type = 'password'; btn.innerText = '👁️'; } }
 
+        // [New] Toggle Advanced Filters
         function toggleAdvancedFilters(btn) {
             const panel = document.getElementById('advancedFilters');
             const isShown = panel.classList.contains('show');
             if (isShown) {
                 panel.classList.remove('show');
-                btn.innerText = '⬇��� 顯示更多篩選條件';
+                btn.innerText = '⬇️ 顯示更多篩選條件';
             } else {
                 panel.classList.add('show');
                 btn.innerText = '⬆️ 收合篩選條件';
@@ -2385,6 +2382,7 @@
         // [Updated] Map & Parser
         const ORG_MAP = { "T": "臺鐵", "H": "高鐵", "A": "林鐵", "S": "糖鐵", "TRC": "臺鐵", "HSR": "高鐵", "AFR": "林鐵", "TSC": "糖鐵" };
         const INSPECTION_MAP = { "1": "定期檢查", "2": "例行性檢查", "3": "特別檢查", "4": "臨時檢查" };
+        // [Verified] Division Map includes all requested codes
         const DIVISION_MAP = { "A": "運務", "B": "工務", "C": "機務", "D": "電務", "E": "安全", "F": "審核", "G": "災防", "OP": "運轉", "CP": "土木", "EM": "機電" };
         const KIND_MAP = { "N": "缺失事項", "O": "觀察事項", "R": "建議事項" };
         const FILLED_MARKS = ["■", "☑", "☒", "✔", "✅", "●", "◉", "✓"]; var EMPTY_MARKS = ["□", "☐", "◻", "○", "◯", "◇", "△"];
@@ -2412,28 +2410,53 @@
 
         function normalizeMultiline(s) { s = String(s || ""); return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
 
+        // [修正與增強] 內容清理與切割：只抓取最新的回覆內容
         function sanitizeContent(html) {
             if (!html) return "";
             var s = String(html);
+
+            // 1. 先做基礎清理，移除多餘的樣式標籤，保留換行結構
             s = s.replace(/<\s*br\s*\/?>/gi, "\n")
                 .replace(/<\s*\/p\s*>/gi, "\n")
                 .replace(/<\s*p[^>]*>/gi, "")
-                .replace(/<[^>]+>/g, "");
+                .replace(/<[^>]+>/g, ""); // 移除剩餘所有 HTML 標籤
+
+            // 2. 正規化空白與特殊字元
             s = s.replace(/&nbsp;/g, " ")
                 .replace(/[\u200B-\u200D\uFEFF]/g, "")
                 .trim();
+
+            // 3. [關鍵邏輯] 智慧切割：抓取「最上面」的內容
             var lines = s.split('\n');
             var resultLines = [];
             var hasContent = false;
+
             for (var i = 0; i < lines.length; i++) {
                 var line = lines[i].trim();
+
+                // 略過開頭的空行
                 if (!hasContent && line.length === 0) continue;
-                if (/^[-=_]{3,}/.test(line)) break;
-                if (hasContent && /^(\d{2,3}[./-]\d{1,2}[./-]\d{1,2})/.test(line)) break;
-                if (hasContent && /^(前次|上次|第\d+次)(辦理|審查|回復|說明)/.test(line)) break;
+
+                // 遇到常見的分隔線符號，視為舊資料開始，直接結束截取
+                if (/^[-=_]{3,}/.test(line)) {
+                    break;
+                }
+
+                // 遇到明顯的「日期標籤」且不是第一行時，視為舊資料的開始
+                if (hasContent && /^(\d{2,3}[./-]\d{1,2}[./-]\d{1,2})/.test(line)) {
+                    break;
+                }
+
+                // 遇到「前次」、「上次」關鍵字開頭，視為舊資料
+                if (hasContent && /^(前次|上次|第\d+次)(辦理|審查|回復|說明)/.test(line)) {
+                    break;
+                }
+
+                // 加入有效行
                 resultLines.push(line);
                 if (line.length > 0) hasContent = true;
             }
+
             return resultLines.join("\n").trim();
         }
 
@@ -2480,27 +2503,19 @@
         function switchView(viewId) {
             document.querySelectorAll('.view-section').forEach(el => {
                 el.classList.remove('active');
-                // Ensure display property is handled correctly for visibility
-                el.style.display = 'none';
             });
-            document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
-
-            const target = document.getElementById(viewId);
-            if (target) {
-                target.style.display = 'flex'; // Use flex for layout consistency
-                // Small delay to allow display change to apply before opacity transition
-                requestAnimationFrame(() => {
-                    target.classList.add('active');
-                });
-            }
-
+            document.getElementById(viewId).classList.add('active');
+            
+            document.querySelectorAll('.sidebar-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
             const btn = document.getElementById('btn-' + viewId);
-            if (btn) btn.classList.add('active');
+            if(btn) btn.classList.add('active');
 
-            if (window.innerWidth <= 768) {
-                document.getElementById('filtersPanel').classList.remove('open');
-                document.getElementById('filterBackdrop').classList.remove('visible');
-                document.getElementById('filterBackdrop').style.display = 'none';
+            if(viewId === 'searchView') {
+                loadIssuesPage(1);
+            } else if (viewId === 'usersView') {
+                loadUsersPage(1);
             }
         }
 
@@ -2515,7 +2530,10 @@
                 loadPlanOptions();
                 initImportRoundOptions();
                 await loadIssuesPage(1);
-                loadUsersPage(1);
+                // Preload users if needed
+                if(currentUser.role === 'admin') {
+                    loadUsersPage(1);
+                }
             }
         });
 
@@ -2993,7 +3011,7 @@
             } catch (e) { showToast('Error: ' + e.message, 'error'); }
         }
 
-        function switchDataTab(tab) { document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); document.getElementById('tab-data-batch').classList.toggle('hidden', tab !== 'batch'); document.getElementById('tab-data-plans').classList.toggle('hidden', tab !== 'plans'); if (tab === 'batch' && document.querySelectorAll('#batchGridBody tr').length === 0) initBatchGrid(); if (tab === 'plans') loadPlansList(); }
+        function switchDataTab(tab) { document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); document.getElementById('tab-data-batch').classList.toggle('hidden', tab !== 'batch'); if (tab === 'batch' && document.querySelectorAll('#batchGridBody tr').length === 0) initBatchGrid(); }
 
         // --- Batch Edit Logic ---
         function initBatchGrid() {
@@ -3135,73 +3153,6 @@
                 } else {
                     const j = await res.json();
                     showToast('新增失敗: ' + (j.error || '不明錯誤'), 'error');
-                }
-            } catch (e) {
-                showToast('Error: ' + e.message, 'error');
-            }
-        }
-
-        // --- Plans Management ---
-        async function loadPlansList() {
-            const tbody = document.getElementById('planListBody');
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#999;">載入中...</td></tr>';
-            try {
-                const res = await fetch('/api/options/plans_details?t=' + Date.now());
-                const json = await res.json();
-                if (json.data && json.data.length > 0) {
-                    tbody.innerHTML = json.data.map(p => `
-                        <tr>
-                            <td>${p.year}</td>
-                            <td style="font-weight:600; color:#334155;">${p.name}</td>
-                            <td style="text-align:center;">
-                                <button class="btn btn-danger btn-sm" onclick="deletePlan('${p.id}')">🗑️</button>
-                            </td>
-                        </tr>
-                    `).join('');
-                } else {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#999;">目前沒有建立任何計畫</td></tr>';
-                }
-            } catch (e) {
-                console.error(e);
-                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:red;">載入失敗</td></tr>';
-            }
-        }
-
-        async function savePlans() {
-            const year = document.getElementById('newPlanYear').value.trim();
-            const name = document.getElementById('newPlanName').value.trim();
-            if (!year || !name) return showToast('請填寫完整資訊', 'error');
-
-            try {
-                const res = await fetch('/api/options/plans', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ year, name })
-                });
-                if (res.ok) {
-                    showToast('新增計畫成功');
-                    document.getElementById('newPlanYear').value = '';
-                    document.getElementById('newPlanName').value = '';
-                    loadPlansList();
-                    loadPlanOptions(); // Refresh dropdowns
-                } else {
-                    showToast('新增失敗', 'error');
-                }
-            } catch (e) {
-                showToast('Error: ' + e.message, 'error');
-            }
-        }
-
-        async function deletePlan(id) {
-            if (!confirm('確定要刪除此計畫嗎？\n注意：這不會刪除已關聯的開立事項，但會移除選項。')) return;
-            try {
-                const res = await fetch(`/api/options/plans/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    showToast('已刪除');
-                    loadPlansList();
-                    loadPlanOptions();
-                } else {
-                    showToast('刪除失敗', 'error');
                 }
             } catch (e) {
                 showToast('Error: ' + e.message, 'error');
@@ -3429,16 +3380,8 @@
                 if (cachedGlobalStats) updateChartsData(cachedGlobalStats);
             } catch (e) { console.error("Chart Init Error:", e); }
         }
-        async function runAiInEdit(btn) { btn.disabled = true; btn.innerText = 'AI 分析中...'; const handlingTxt = document.getElementById('editHandling').value, r = [{ handling: handlingTxt, review: '(待審查)' }]; try { if (!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); const cleanContent = stripHtml(currentEditItem.content); const res = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: cleanContent, rounds: r }) }); const j = await res.json(); if (!res.ok) throw new Error(j.error || 'AI 分析失敗'); if (j.success) { document.getElementById('aiBox').style.display = 'block'; document.getElementById('aiPreviewText').innerText = j.analysis; document.getElementById('aiResBadge').innerHTML = j.fulfill.includes('是') || j.fulfill.includes('Yes') ? '✅ 判定解決' : '⚠️ 判定未解決'; } else { throw new Error(j.error || 'AI 分析失敗'); } } catch (e) { showToast(e.message, 'error'); } finally { btn.disabled = false; btn.innerText = '🤖 AI 智能分析'; } }
-        function applyAiSuggestion() { const txt = document.getElementById('aiPreviewText').innerText; if (txt) document.getElementById('editReview').value = txt; }
-        async function saveEdit() { const id = document.getElementById('editId').value, round = document.getElementById('editRound').value, handling = document.getElementById('editHandling').value, review = document.getElementById('editReview').value, status = document.getElementById('editStatus').value, replyDate = document.getElementById('editReplyDate').value, responseDate = document.getElementById('editResponseDate').value; try { const res = await fetch(`/api/issues/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ round: parseInt(round), handling, review, status, replyDate, responseDate }) }); if (res.ok) { showToast('更新成功'); closeDrawer(); loadIssuesPage(issuesPage); } else { const j = await res.json(); showToast(j.error || '更新失敗', 'error'); } } catch (e) { showToast('Error: ' + e.message, 'error'); } }
-        async function deleteIssue(id) { if (!confirm('確定要刪除此事項嗎？此操作無法復原。')) return; try { const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' }); if (res.ok) { showToast('已刪除'); loadIssuesPage(issuesPage); } else { showToast('刪除失敗', 'error'); } } catch (e) { showToast('Error: ' + e.message, 'error'); } }
-        async function deleteIssueFromDrawer() { if (!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
-        
-        // Batch Delete
-        function toggleAllCheckboxes() { const master = document.getElementById('selectAll'); const state = master.checked; document.querySelectorAll('.issue-check').forEach(cb => cb.checked = state); updateBatchUI(); }
-        function updateBatchUI() { const count = document.querySelectorAll('.issue-check:checked').length; const container = document.getElementById('batchActionContainer'); const badge = document.getElementById('selectedCountBadge'); if (count > 0) { container.style.display = 'block'; badge.innerText = `(${count})`; } else { container.style.display = 'none'; } }
-        async function batchDeleteIssues() { const selected = Array.from(document.querySelectorAll('.issue-check:checked')).map(cb => cb.value); if (selected.length === 0) return; if (!confirm(`確定要刪除選取的 ${selected.length} 筆事項嗎？此操作無法復原！`)) return; try { const res = await fetch('/api/issues/batch-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: selected }) }); if (res.ok) { showToast(`已刪除 ${selected.length} 筆資料`); loadIssuesPage(issuesPage); } else { showToast('批次刪除失敗', 'error'); } } catch (e) { showToast('Error: ' + e.message, 'error'); } }
+        async function runAiInEdit(btn) { btn.disabled = true; btn.innerText = 'AI 分析中...'; const handlingTxt = document.getElementById('editHandling').value, r = [{ handling: handlingTxt, review: '(待審查)' }]; try { if (!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); const cleanContent = stripHtml(currentEditItem.content); const res = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: cleanContent, rounds: r }) }); const j = await res.json(); if (res.ok && j.result) { document.getElementById('aiBox').style.display = 'block'; document.getElementById('aiPreviewText').innerText = j.result; document.getElementById('aiResBadge').innerHTML = j.fulfill && j.fulfill.includes('是') ? `<span class="ai-tag yes">✅ 符合</span>` : `<span class="ai-tag no">⚠️ 需注意</span>`; } else { showToast('AI 分析失敗', 'error'); } } catch (e) { showToast('AI Error: ' + e.message, 'error'); } finally { btn.disabled = false; btn.innerText = '🤖 AI 智能分析'; } }
+        function applyAiSuggestion() { const txt = document.getElementById('aiPreviewText').innerText; if (txt) { document.getElementById('editReview').value = txt; showToast('已帶入 AI 建議'); } }
     </script>
 </body>
 
