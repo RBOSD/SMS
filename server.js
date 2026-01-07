@@ -1,8 +1,4 @@
-// [核彈級修正] 強制 Node.js 全域忽略 SSL 憑證驗證
-// 這是解決 "self-signed certificate in certificate chain" 最有效的方法
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
-// [網路修正] 強制優先使用 IPv4，解決 Render 的 ENETUNREACH 問題
+// [新增] 強制 Node.js 優先使用 IPv4 解析，解決 Render 連線 Supabase 的 ENETUNREACH 問題
 require('dns').setDefaultResultOrder('ipv4first');
 
 const express = require('express');
@@ -10,6 +6,7 @@ const { Pool } = require('pg');
 const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
+// [新增] 引入 pg-simple session store
 const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcrypt');
 const { GoogleGenerativeAI } = require("@google/generative-ai"); 
@@ -21,23 +18,20 @@ app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
 
-// [修正] 初始化 PostgreSQL 連線池
+// [修改] 初始化 PostgreSQL 連線池
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    // 這裡再次設定 SSL 忽略，作為雙重保險
-    ssl: {
-        rejectUnauthorized: false
-    },
+    ssl: { rejectUnauthorized: false }, // 允許自簽憑證
     max: 20, 
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000, // 延長連線逾時
+    connectionTimeoutMillis: 5000, // 稍微拉長連線逾時時間
 });
 
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// [修正] Session 設定
+// [修改] Session 設定
 app.use(session({
     store: new pgSession({
         pool: pool,
@@ -65,15 +59,14 @@ const requireAuth = (req, res, next) => {
 
 // --- 資料庫初始化 ---
 async function initDB() {
+    // [修改] 增加重試機制，因為第一次連線有時會因為網路冷啟動而失敗
     let retries = 5;
     while (retries > 0) {
         try {
-            // 嘗試連線
             const client = await pool.connect();
             try {
                 console.log('Connected to Supabase PostgreSQL. Checking schema...');
 
-                // 1. Session 表
                 await client.query(`
                     CREATE TABLE IF NOT EXISTS session (
                         sid varchar NOT NULL COLLATE "default",
@@ -88,7 +81,6 @@ async function initDB() {
                     await client.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON session (expire)`);
                 } catch (e) {}
 
-                // 2. Issues 表
                 await client.query(`CREATE TABLE IF NOT EXISTS issues (
                     id SERIAL PRIMARY KEY,
                     number TEXT UNIQUE,
@@ -108,7 +100,6 @@ async function initDB() {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
-                // 3. Users 表
                 await client.query(`CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
                     username TEXT UNIQUE,
@@ -118,7 +109,6 @@ async function initDB() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
-                // 4. Logs 表
                 await client.query(`CREATE TABLE IF NOT EXISTS logs (
                     id SERIAL PRIMARY KEY,
                     username TEXT,
@@ -129,7 +119,6 @@ async function initDB() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
-                // 5. 動態欄位補強
                 const newColumns = [];
                 for (let i = 2; i <= 20; i++) {
                     newColumns.push({ name: `handling${i}`, type: 'TEXT' });
@@ -148,7 +137,6 @@ async function initDB() {
                     } catch (e) { }
                 }
 
-                // 6. 建立預設 Admin
                 const userRes = await client.query("SELECT count(*) as count FROM users");
                 if (parseInt(userRes.rows[0].count) === 0) {
                     const hash = bcrypt.hashSync('admin123', 10);
@@ -158,7 +146,7 @@ async function initDB() {
                 }
                 
                 console.log('Database initialized successfully on Supabase.');
-                return; // 成功，結束函式
+                return; // 初始化成功，跳出迴圈
 
             } catch (err) {
                 console.error('Init DB Schema Error:', err);
@@ -169,7 +157,7 @@ async function initDB() {
         } catch (connErr) {
             console.error(`Connection failed, retrying... (${retries} left)`, connErr.message);
             retries--;
-            await new Promise(res => setTimeout(res, 3000)); // 等待 3 秒後重試
+            await new Promise(res => setTimeout(res, 2000)); // 等待 2 秒後重試
         }
     }
     throw new Error('Could not connect to database after multiple retries.');
