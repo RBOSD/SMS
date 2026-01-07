@@ -1,4 +1,4 @@
-// [新增] 強制 Node.js 優先使用 IPv4 解析，解決 Render 連線 Supabase 的 ENETUNREACH 問題
+// [重要] 強制 Node.js 優先使用 IPv4 解析，解決 Render 連線 Supabase 的 ENETUNREACH 問題
 require('dns').setDefaultResultOrder('ipv4first');
 
 const express = require('express');
@@ -6,7 +6,7 @@ const { Pool } = require('pg');
 const bodyParser = require('body-parser');
 const path = require('path');
 const session = require('express-session');
-// [新增] 引入 pg-simple session store
+// 引入 pg-simple session store，將 Session 存入資料庫
 const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcrypt');
 const { GoogleGenerativeAI } = require("@google/generative-ai"); 
@@ -14,41 +14,46 @@ require('dotenv').config();
 
 const app = express();
 
+// 信任 Proxy，這對於 Render 等雲端環境非常重要
 app.set('trust proxy', 1); 
 
 const PORT = process.env.PORT || 3000;
 
-// [修改] 初始化 PostgreSQL 連線池
+// [修正重點] 初始化 PostgreSQL 連線池
+// 針對 "self-signed certificate" 錯誤進行了設定
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }, // 允許自簽憑證
-    max: 20, 
+    ssl: { 
+        rejectUnauthorized: false // 允許 Supabase 的自簽憑證，解決連線錯誤
+    },
+    max: 20, // 最大連線數
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000, // 稍微拉長連線逾時時間
+    connectionTimeoutMillis: 10000, // 增加連線逾時時間到 10 秒
 });
 
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// [修改] Session 設定
+// Session 設定
 app.use(session({
     store: new pgSession({
-        pool: pool,
-        tableName: 'session',
-        createTableIfMissing: true 
+        pool: pool,                // 使用上方的連線池
+        tableName: 'session',      // 資料庫表名
+        createTableIfMissing: true // 若無此表則自動建立
     }),
     secret: process.env.SESSION_SECRET || 'sms-secret-key-pg-final-v3',
     resave: false,
     saveUninitialized: false,
     proxy: true, 
     cookie: { 
-        maxAge: 30 * 24 * 60 * 60 * 1000, 
-        secure: process.env.NODE_ENV === 'production',
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 天
+        secure: process.env.NODE_ENV === 'production', // 生產環境強制 HTTPS
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     } 
 }));
 
+// 權限檢查 Middleware
 const requireAuth = (req, res, next) => {
     if (req.session && req.session.user) {
         next();
@@ -59,7 +64,6 @@ const requireAuth = (req, res, next) => {
 
 // --- 資料庫初始化 ---
 async function initDB() {
-    // [修改] 增加重試機制，因為第一次連線有時會因為網路冷啟動而失敗
     let retries = 5;
     while (retries > 0) {
         try {
@@ -67,20 +71,22 @@ async function initDB() {
             try {
                 console.log('Connected to Supabase PostgreSQL. Checking schema...');
 
+                // 1. 建立 Session 表
                 await client.query(`
-                    CREATE TABLE IF NOT EXISTS session (
-                        sid varchar NOT NULL COLLATE "default",
-                        sess json NOT NULL,
-                        expire timestamp(6) NOT NULL
+                    CREATE TABLE IF NOT EXISTS "session" (
+                        "sid" varchar NOT NULL COLLATE "default",
+                        "sess" json NOT NULL,
+                        "expire" timestamp(6) NOT NULL
                     ) WITH (OIDS=FALSE);
                 `);
                 try {
-                    await client.query(`ALTER TABLE session ADD CONSTRAINT session_pkey PRIMARY KEY (sid) NOT DEFERRABLE INITIALLY IMMEDIATE`);
+                    await client.query(`ALTER TABLE "session" ADD CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE`);
                 } catch (e) {}
                 try {
-                    await client.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON session (expire)`);
+                    await client.query(`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")`);
                 } catch (e) {}
 
+                // 2. 建立 Issues 表
                 await client.query(`CREATE TABLE IF NOT EXISTS issues (
                     id SERIAL PRIMARY KEY,
                     number TEXT UNIQUE,
@@ -100,6 +106,7 @@ async function initDB() {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
+                // 3. 建立 Users 表
                 await client.query(`CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
                     username TEXT UNIQUE,
@@ -109,6 +116,7 @@ async function initDB() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
+                // 4. 建立 Logs 表
                 await client.query(`CREATE TABLE IF NOT EXISTS logs (
                     id SERIAL PRIMARY KEY,
                     username TEXT,
@@ -119,6 +127,7 @@ async function initDB() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
+                // 5. 動態補強欄位 (歷程與日期)
                 const newColumns = [];
                 for (let i = 2; i <= 20; i++) {
                     newColumns.push({ name: `handling${i}`, type: 'TEXT' });
@@ -134,19 +143,20 @@ async function initDB() {
                 for (const col of newColumns) {
                     try {
                         await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
-                    } catch (e) { }
+                    } catch (e) { /* 忽略已存在的錯誤 */ }
                 }
 
+                // 6. 建立預設 Admin (如果沒有任何使用者)
                 const userRes = await client.query("SELECT count(*) as count FROM users");
                 if (parseInt(userRes.rows[0].count) === 0) {
                     const hash = bcrypt.hashSync('admin123', 10);
                     await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
                         ['admin', hash, '系統管理員', 'admin']);
-                    console.log("Default admin created.");
+                    console.log("Default admin created: admin / admin123");
                 }
                 
                 console.log('Database initialized successfully on Supabase.');
-                return; // 初始化成功，跳出迴圈
+                return; // 成功後跳出
 
             } catch (err) {
                 console.error('Init DB Schema Error:', err);
@@ -157,12 +167,13 @@ async function initDB() {
         } catch (connErr) {
             console.error(`Connection failed, retrying... (${retries} left)`, connErr.message);
             retries--;
-            await new Promise(res => setTimeout(res, 2000)); // 等待 2 秒後重試
+            await new Promise(res => setTimeout(res, 2000)); // 等待 2 秒
         }
     }
     throw new Error('Could not connect to database after multiple retries.');
 }
 
+// Log 記錄輔助函式
 async function logAction(username, action, details, req) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     try {
@@ -173,6 +184,7 @@ async function logAction(username, action, details, req) {
 
 // --- API Routes ---
 
+// 1. 登入
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -185,6 +197,8 @@ app.post('/api/auth/login', async (req, res) => {
 
         if (bcrypt.compareSync(password, user.password)) {
             req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name };
+            
+            // 手動儲存 Session 以確保寫入資料庫
             req.session.save((err) => {
                 if(err) {
                     console.error("Session save error:", err);
@@ -202,6 +216,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// 登出
 app.post('/api/auth/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) return res.status(500).json({ error: 'Logout failed' });
@@ -210,6 +225,7 @@ app.post('/api/auth/logout', (req, res) => {
     });
 });
 
+// 取得當前使用者資訊 (強制從資料庫刷新權限)
 app.get('/api/auth/me', async (req, res) => {
     if (req.session && req.session.user) {
         try {
@@ -232,6 +248,7 @@ app.get('/api/auth/me', async (req, res) => {
     }
 });
 
+// 更新個人資料
 app.put('/api/auth/profile', requireAuth, async (req, res) => {
     const { name, password } = req.body;
     const id = req.session.user.id;
@@ -246,6 +263,7 @@ app.put('/api/auth/profile', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 2. AI 審查 API
 app.post('/api/gemini', async (req, res) => {
     const { content, rounds } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
@@ -278,6 +296,7 @@ app.post('/api/gemini', async (req, res) => {
     }
 });
 
+// 3. 事項查詢 (CRUD)
 app.get('/api/issues', requireAuth, async (req, res) => {
     const { page = 1, pageSize = 20, q, year, unit, status, itemKindCode, division, inspectionCategory, planName, sortField, sortDir } = req.query;
     const limit = parseInt(pageSize);
@@ -311,6 +330,8 @@ app.get('/api/issues', requireAuth, async (req, res) => {
         const sRes = await pool.query("SELECT status, count(*) as count FROM issues GROUP BY status");
         const uRes = await pool.query("SELECT unit, count(*) as count FROM issues GROUP BY unit");
         const yRes = await pool.query("SELECT year, count(*) as count FROM issues GROUP BY year");
+        
+        // 取得最新更新時間
         const tRes = await pool.query("SELECT max(updated_at) as updated, max(created_at) as latest FROM issues");
         const latestTime = tRes.rows[0] ? (tRes.rows[0].updated || tRes.rows[0].latest) : null;
 
@@ -407,6 +428,7 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
     }
 });
 
+// 4. Users API (Admin Only)
 app.get('/api/users', requireAuth, async (req, res) => {
     if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
@@ -414,9 +436,11 @@ app.get('/api/users', requireAuth, async (req, res) => {
     const offset = (page-1)*limit;
     let where = ["1=1"], params = [], idx = 1;
     if(q) { where.push(`(username LIKE $${idx} OR name LIKE $${idx})`); params.push(`%${q}%`); idx++; }
+    
     const safeSortFields = ['id', 'username', 'name', 'role', 'created_at'];
     const safeField = safeSortFields.includes(sortField) ? sortField : 'id';
     const order = `${safeField} ${sortDir==='desc'?'DESC':'ASC'}`;
+    
     try {
         const cRes = await pool.query(`SELECT count(*) FROM users WHERE ${where.join(" AND ")}`, params);
         const total = parseInt(cRes.rows[0].count);
@@ -459,6 +483,7 @@ app.delete('/api/users/:id', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Logs API (Admin Only)
 app.get('/api/admin/logs', requireAuth, async (req, res) => {
     if(req.session.user.role!=='admin') return res.status(403).json({error:'Denied'});
     try {
@@ -487,6 +512,7 @@ app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
     res.json({success:true});
 });
 
+// 計畫名稱下拉選單
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
         const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");
