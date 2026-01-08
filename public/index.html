@@ -2520,6 +2520,11 @@
             if(btn) btn.classList.add('active');
     // [新增] 切換頁面時滾動到頂部
     window.scrollTo(0, 0);
+	// 隱藏/顯示 dashboard
+const dashboard = document.getElementById('dashboardSection');
+if (dashboard) {
+    dashboard.style.display = (viewId === 'searchView') ? 'block' : 'none';
+}
     const mainContent = document. querySelector('.main-content');
     if (mainContent) mainContent.scrollTop = 0;
 
