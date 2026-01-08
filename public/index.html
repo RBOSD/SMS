@@ -967,15 +967,23 @@
             color: #475569;
         }
 
-        .view-section {
-            display: none;
-            width: 100%;
-            flex-direction: column;
-        }
+ .view-section {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+}
 
-        .view-section.active {
-            display: flex;
-        }
+.view-section.active {
+    display: flex;
+}
+
+.view-section:not(.active) {
+    display: none !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    position:  absolute !important;
+    visibility: hidden ! important;
+}
 
         /* NEW: Single Row Metadata */
         .detail-header-row {
