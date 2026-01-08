@@ -266,7 +266,7 @@ app.post('/api/gemini', async (req, res) => {
         【待改善事項內容】：${content}
         【上一回合審查意見】：${previousReview}
         【本次機構辦理情形】：${latestRound.handling || '無'}
-        【回覆格式要求】：JSON: {"fulfill": "Yes/No", "reason": "100字內簡評"}
+        【回覆格式要求】：JSON: {"fulfill": "Yes/No", "result": "100字內簡評"}
         `;
         const result = await model.generateContent(prompt);
         const response = await result.response;
