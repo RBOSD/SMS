@@ -584,16 +584,62 @@ app.delete('/api/users/:id', requireAuth, async (req, res) => {
 app.get('/api/admin/logs', requireAuth, async (req, res) => {
     if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     try {
-        const { rows } = await pool.query("SELECT * FROM logs WHERE action='LOGIN' ORDER BY login_time DESC LIMIT 50");
-        res.json({data:rows, total:rows.length, page:1, pages:1});
+        const { page = 1, pageSize = 50, q } = req.query;
+        const limit = parseInt(pageSize);
+        const offset = (parseInt(page) - 1) * limit;
+        let where = ["action='LOGIN'"];
+        let params = [];
+        let idx = 1;
+        
+        if (q) {
+            where.push(`(username LIKE $${idx} OR ip_address LIKE $${idx})`);
+            params.push(`%${q}%`);
+            idx++;
+        }
+        
+        const whereClause = where.join(' AND ');
+        const countQuery = `SELECT COUNT(*) FROM logs WHERE ${whereClause}`;
+        const dataQuery = `SELECT * FROM logs WHERE ${whereClause} ORDER BY login_time DESC LIMIT $${idx} OFFSET $${idx + 1}`;
+        
+        const countResult = await pool.query(countQuery, params);
+        const total = parseInt(countResult.rows[0].count);
+        const pages = Math.ceil(total / limit);
+        
+        params.push(limit, offset);
+        const { rows } = await pool.query(dataQuery, params);
+        
+        res.json({data:rows, total, page:parseInt(page), pages});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
     if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     try {
-        const { rows } = await pool.query("SELECT * FROM logs WHERE action!='LOGIN' ORDER BY created_at DESC LIMIT 50");
-        res.json({data:rows, total:rows.length, page:1, pages:1});
+        const { page = 1, pageSize = 50, q } = req.query;
+        const limit = parseInt(pageSize);
+        const offset = (parseInt(page) - 1) * limit;
+        let where = ["action!='LOGIN'"];
+        let params = [];
+        let idx = 1;
+        
+        if (q) {
+            where.push(`(username LIKE $${idx} OR action LIKE $${idx} OR details LIKE $${idx})`);
+            params.push(`%${q}%`);
+            idx++;
+        }
+        
+        const whereClause = where.join(' AND ');
+        const countQuery = `SELECT COUNT(*) FROM logs WHERE ${whereClause}`;
+        const dataQuery = `SELECT * FROM logs WHERE ${whereClause} ORDER BY created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`;
+        
+        const countResult = await pool.query(countQuery, params);
+        const total = parseInt(countResult.rows[0].count);
+        const pages = Math.ceil(total / limit);
+        
+        params.push(limit, offset);
+        const { rows } = await pool.query(dataQuery, params);
+        
+        res.json({data:rows, total, page:parseInt(page), pages});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

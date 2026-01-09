@@ -483,20 +483,92 @@ if (dashboard) {
         function renderUsers() { document.getElementById('usersTableBody').innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name || '-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id !== currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); }
         function usersSortBy(field) { if (usersSortField === field) usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; else { usersSortField = field; usersSortDir = 'asc'; } loadUsersPage(1); }
 
-        async function loadLogsPage(page = 1) { logsPage = page; const q = document.getElementById('loginSearch').value || ''; const params = new URLSearchParams({ page: logsPage, pageSize: logsPageSize, q, _t: Date.now() }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/logs?' + params.toString()); if (!res.ok) { showToast('載入登入紀錄失敗', 'error'); return; } const j = await res.json(); currentLogs.login = j.data || []; logsTotal = j.total || 0; logsPages = j.pages || 1; document.getElementById('logsTableBody').innerHTML = currentLogs.login.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="IP">${l.ip_address || '-'}</td></tr>`).join(''); renderPagination('logsPagination', logsPage, logsPages, 'loadLogsPage'); } catch (e) { console.error(e); showToast('載入登入紀錄錯誤', 'error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
-        async function loadActionsPage(page = 1) { actionsPage = page; const q = document.getElementById('actionSearch').value || ''; const params = new URLSearchParams({ page: actionsPage, pageSize: actionsPageSize, q, _t: Date.now() }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/action_logs?' + params.toString()); if (!res.ok) { showToast('載入操作紀錄失敗', 'error'); return; } const j = await res.json(); currentLogs.action = j.data || []; actionsTotal = j.total || 0; actionsPages = j.pages || 1; document.getElementById('actionsTableBody').innerHTML = currentLogs.action.map(l => `<tr><td data-label="時間" style="padding:12px;white-space:nowrap;">${new Date(l.created_at).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="動作"><span class="badge new">${l.action}</span></td><td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td></tr>`).join(''); renderPagination('actionsPagination', actionsPage, actionsPages, 'loadActionsPage'); } catch (e) { console.error(e); showToast('載入操作紀錄錯誤', 'error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
+        async function loadLogsPage(page = 1) {
+            const loginSearchEl = document.getElementById('loginSearch');
+            if (!loginSearchEl) {
+                console.warn('loginSearch element not found');
+                return;
+            }
+            logsPage = page;
+            const q = loginSearchEl.value || '';
+            const params = new URLSearchParams({ page: logsPage, pageSize: logsPageSize, q, _t: Date.now() });
+            const logsLoadingEl = document.getElementById('logsLoading');
+            if (logsLoadingEl) logsLoadingEl.style.display = 'block';
+            try {
+                const res = await fetch('/api/admin/logs?' + params.toString());
+                if (!res.ok) {
+                    showToast('載入登入紀錄失敗', 'error');
+                    return;
+                }
+                const j = await res.json();
+                currentLogs.login = j.data || [];
+                logsTotal = j.total || 0;
+                logsPages = j.pages || 1;
+                const logsTableBody = document.getElementById('logsTableBody');
+                if (logsTableBody) {
+                    logsTableBody.innerHTML = currentLogs.login.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="IP">${l.ip_address || '-'}</td></tr>`).join('');
+                }
+                renderPagination('logsPagination', logsPage, logsPages, 'loadLogsPage');
+            } catch (e) {
+                console.error(e);
+                showToast('載入登入紀錄錯誤', 'error');
+            } finally {
+                if (logsLoadingEl) logsLoadingEl.style.display = 'none';
+            }
+        }
+        
+        async function loadActionsPage(page = 1) {
+            const actionSearchEl = document.getElementById('actionSearch');
+            if (!actionSearchEl) {
+                console.warn('actionSearch element not found');
+                return;
+            }
+            actionsPage = page;
+            const q = actionSearchEl.value || '';
+            const params = new URLSearchParams({ page: actionsPage, pageSize: actionsPageSize, q, _t: Date.now() });
+            const logsLoadingEl = document.getElementById('logsLoading');
+            if (logsLoadingEl) logsLoadingEl.style.display = 'block';
+            try {
+                const res = await fetch('/api/admin/action_logs?' + params.toString());
+                if (!res.ok) {
+                    showToast('載入操作紀錄失敗', 'error');
+                    return;
+                }
+                const j = await res.json();
+                currentLogs.action = j.data || [];
+                actionsTotal = j.total || 0;
+                actionsPages = j.pages || 1;
+                const actionsTableBody = document.getElementById('actionsTableBody');
+                if (actionsTableBody) {
+                    actionsTableBody.innerHTML = currentLogs.action.map(l => `<tr><td data-label="時間" style="padding:12px;white-space:nowrap;">${new Date(l.created_at).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="動作"><span class="badge new">${l.action}</span></td><td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td></tr>`).join('');
+                }
+                renderPagination('actionsPagination', actionsPage, actionsPages, 'loadActionsPage');
+            } catch (e) {
+                console.error(e);
+                showToast('載入操作紀錄錯誤', 'error');
+            } finally {
+                if (logsLoadingEl) logsLoadingEl.style.display = 'none';
+            }
+        }
 
         function exportLogs(type) { const data = type === 'login' ? currentLogs.login : currentLogs.action; if (!data || data.length === 0) return showToast('無資料可匯出', 'error'); let csvContent = '\uFEFF'; if (type === 'login') { csvContent += "時間,帳號,IP位址\n"; data.forEach(row => { csvContent += `"${new Date(row.login_time).toLocaleString('zh-TW')}","${row.username}","${row.ip_address}"\n`; }); } else { csvContent += "時間,帳號,動作,詳細內容\n"; data.forEach(row => { csvContent += `"${new Date(row.created_at).toLocaleString('zh-TW')}","${row.username}","${row.action}","${(row.details || '').replace(/"/g, '""')}"\n`; }); } const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `${type}_logs_${new Date().toISOString().slice(0, 10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
         // 清除篩選條件（不會刪除資料庫記錄）
         function clearLogsFilter(type) {
             if (type === 'login') {
-                document.getElementById('loginSearch').value = '';
-                loadLogsPage(1);
+                const loginSearchEl = document.getElementById('loginSearch');
+                if (loginSearchEl) {
+                    loginSearchEl.value = '';
+                    loadLogsPage(1);
+                    showToast('已清除篩選條件');
+                }
             } else {
-                document.getElementById('actionSearch').value = '';
-                loadActionsPage(1);
+                const actionSearchEl = document.getElementById('actionSearch');
+                if (actionSearchEl) {
+                    actionSearchEl.value = '';
+                    loadActionsPage(1);
+                    showToast('已清除篩選條件');
+                }
             }
-            showToast('已清除篩選條件');
         }
         
         // 刪除資料庫記錄（根據選擇：刪除舊記錄或全部）
