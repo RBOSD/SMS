@@ -1,0 +1,99 @@
+<div class="content-header users-header">
+    <div class="content-title">帳號與紀錄</div>
+    <button class="btn btn-primary users-add-btn" onclick="openUserModal('create')" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff; backdrop-filter: blur(10px);">新增</button>
+</div>
+<div class="admin-tabs">
+    <button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button>
+    <button class="admin-tab-btn" onclick="switchAdminTab('logs')">登入紀錄</button>
+    <button class="admin-tab-btn" onclick="switchAdminTab('actions')">操作歷程</button>
+</div>
+
+<!-- Users Tab -->
+<div id="tab-users" class="main-card">
+    <div
+        style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border);">
+        <input id="userSearch" class="filter-input" placeholder="搜尋姓名、帳號..." style="max-width:300px;"
+            oninput="loadUsersPage(1)">
+        <select id="usersPageSize" class="page-size-select" onchange="loadUsersPage(1)">
+            <option value="10">10 筆/頁</option>
+            <option value="20" selected>20 筆/頁</option>
+            <option value="50">50 筆/頁</option>
+        </select>
+        <div style="margin-left:auto;">
+            <button class="btn btn-outline" onclick="loadUsersPage(1)">搜尋</button>
+        </div>
+    </div>
+    <div id="usersPaginationTop" class="pagination-bar"
+        style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
+    <div class="data-container">
+        <table class="user-table">
+            <thead>
+                <tr>
+                    <th style="padding:16px;" onclick="usersSortBy('name')">姓名</th>
+                    <th onclick="usersSortBy('username')">帳號</th>
+                    <th onclick="usersSortBy('role')">權限</th>
+                    <th onclick="usersSortBy('created_at')">註冊時間</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+        </table>
+    </div>
+    <div id="usersPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
+</div>
+
+<!-- Login Logs Tab -->
+<div id="tab-logs" class="main-card hidden">
+    <div
+        style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff;">
+        <input id="loginSearch" class="filter-input" placeholder="搜尋帳號或 IP" style="width:240px;"
+            oninput="loadLogsPage(1)">
+        <button class="btn btn-outline btn-sm" onclick="exportLogs('login')">匯出 CSV</button>
+        <button class="btn btn-danger btn-sm" onclick="clearLogs('login')">清除紀錄</button>
+    </div>
+    <div id="logsPaginationTop" class="pagination-bar"
+        style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
+    <div class="data-container">
+        <table class="user-table">
+            <thead>
+                <tr>
+                    <th style="padding:16px;">時間</th>
+                    <th>帳號</th>
+                    <th>IP 位址</th>
+                </tr>
+            </thead>
+            <tbody id="logsTableBody"></tbody>
+        </table>
+    </div>
+    <div id="logsPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
+</div>
+
+<!-- Action Logs Tab -->
+<div id="tab-actions" class="main-card hidden">
+    <div
+        style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff;">
+        <input id="actionSearch" class="filter-input" placeholder="搜尋帳號或操作" style="width:240px;"
+            oninput="loadActionsPage(1)">
+        <button class="btn btn-outline btn-sm" onclick="exportLogs('action')">匯出 CSV</button>
+        <button class="btn btn-danger btn-sm" onclick="clearLogs('action')">清除紀錄</button>
+    </div>
+    <div id="actionsPaginationTop" class="pagination-bar"
+        style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
+    <div class="data-container">
+        <table class="user-table">
+            <thead>
+                <tr>
+                    <th style="padding:16px;">時間</th>
+                    <th>帳號</th>
+                    <th>動作</th>
+                    <th>詳細內容</th>
+                </tr>
+            </thead>
+            <tbody id="actionsTableBody"></tbody>
+        </table>
+    </div>
+    <div id="actionsPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;">
+    </div>
+</div>
+
+<div id="logsLoading" style="display:none; padding:30px; text-align:center; color:#64748b;">⏳ 載入紀錄中...</div>

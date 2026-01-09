@@ -181,11 +181,16 @@
             }
         }
 
-        function switchView(viewId) {
+        async function switchView(viewId) {
             document.querySelectorAll('.view-section').forEach(el => {
                 el.classList.remove('active');
             });
-            document.getElementById(viewId).classList.add('active');
+            const viewElement = document.getElementById(viewId);
+            if (!viewElement) {
+                console.error('View element not found:', viewId);
+                return;
+            }
+            viewElement.classList.add('active');
             
             document.querySelectorAll('.sidebar-btn').forEach(btn => {
                 btn.classList.remove('active');
@@ -208,6 +213,26 @@ if (dashboard) {
         onToggleSidebar();
     }
 
+            // 動態載入視圖內容
+            const viewMap = {
+                'importView': '/views/import-view.html',
+                'usersView': '/views/users-view.html'
+            };
+            
+            if (viewMap[viewId] && !viewElement.dataset.loaded) {
+                try {
+                    const response = await fetch(viewMap[viewId]);
+                    if (response.ok) {
+                        const html = await response.text();
+                        viewElement.innerHTML = html;
+                        viewElement.dataset.loaded = 'true';
+                    } else {
+                        console.error('Failed to load view:', viewId);
+                    }
+                } catch (error) {
+                    console.error('Error loading view:', viewId, error);
+                }
+            }
 
             if(viewId === 'searchView') {
                 loadIssuesPage(1);
