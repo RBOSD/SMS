@@ -305,9 +305,17 @@
                                     id="prevReviewText"></div>
                             </div>
 
-                            <!-- 機構辦理情形 -->
+                            <!-- 上一回合機構辦理情形參考 -->
+                            <div id="prevHandlingBox" style="display:none; margin-bottom:16px;">
+                                <div style="font-size:12px;color:#059669;margin-bottom:6px;font-weight:700;">📝 第<span
+                                        id="prevHandlingRoundNum"></span>次機構辦理情形參考：</div>
+                                <div style="background:#ecfdf5;padding:12px;border-radius:8px;font-size:14px;color:#047857;border:1px solid #a7f3d0;line-height:1.5;max-height:150px;overflow-y:auto;white-space:pre-wrap;"
+                                    id="prevHandlingText"></div>
+                            </div>
+
+                            <!-- 機構辦理情形（當前回合） -->
                             <div class="form-group" style="margin-bottom:0;">
-                                <label style="margin-bottom:6px;">機構辦理情形</label>
+                                <label style="margin-bottom:6px;">機構辦理情形（第 <span id="currentRoundNum">1</span> 次）</label>
                                 <textarea id="editHandling" class="filter-input" rows="8"
                                     style="background:#ffffff;line-height:1.5;resize:vertical;max-height:300px;"
                                     placeholder="請輸入機構辦理情形..."></textarea>

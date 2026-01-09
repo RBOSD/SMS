@@ -1345,6 +1345,10 @@ if (dashboard) {
             document.getElementById('editReplyDate').value = replyDate;
             document.getElementById('editResponseDate').value = responseDate;
             
+            // 更新當前回合顯示
+            const currentRoundNumEl = document.getElementById('currentRoundNum');
+            if (currentRoundNumEl) currentRoundNumEl.textContent = round;
+            
             // 顯示上一回合的審查意見（如果有）
             const prevRound = round - 1;
             if (prevRound >= 1) {
@@ -1361,9 +1365,25 @@ if (dashboard) {
                 } else if (prevBox) {
                     prevBox.style.display = 'none';
                 }
+                
+                // 顯示上一回合的機構辦理情形（如果有）
+                const prevHandling = currentEditItem['handling' + prevSuffix] || '';
+                const prevHandlingBox = document.getElementById('prevHandlingBox');
+                const prevHandlingText = document.getElementById('prevHandlingText');
+                const prevHandlingRoundNum = document.getElementById('prevHandlingRoundNum');
+                
+                if (prevHandling && prevHandlingBox && prevHandlingText && prevHandlingRoundNum) {
+                    prevHandlingBox.style.display = 'block';
+                    prevHandlingRoundNum.textContent = prevRound;
+                    prevHandlingText.textContent = prevHandling;
+                } else if (prevHandlingBox) {
+                    prevHandlingBox.style.display = 'none';
+                }
             } else {
                 const prevBox = document.getElementById('prevReviewBox');
                 if (prevBox) prevBox.style.display = 'none';
+                const prevHandlingBox = document.getElementById('prevHandlingBox');
+                if (prevHandlingBox) prevHandlingBox.style.display = 'none';
             }
             
             // 清除 AI 分析結果（因為回合改變了）
