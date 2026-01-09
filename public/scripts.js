@@ -226,6 +226,10 @@ if (dashboard) {
                         const html = await response.text();
                         viewElement.innerHTML = html;
                         viewElement.dataset.loaded = 'true';
+                        // 視圖載入完成後，設置 admin 專屬元素
+                        if (viewId === 'importView') {
+                            setupAdminElements();
+                        }
                     } else {
                         console.error('Failed to load view:', viewId);
                     }
@@ -243,19 +247,37 @@ if (dashboard) {
 
         document.addEventListener('DOMContentLoaded', async () => {
             console.log("App init...");
-            await checkAuth();
-            if (currentUser) {
-                document.body.style.display = 'flex';
-                initListeners();
-                initEditForm();
-                initCharts();
-                loadPlanOptions();
-                initImportRoundOptions();
-                await loadIssuesPage(1);
-                // Preload users if needed
-                if(currentUser.role === 'admin') {
-                    loadUsersPage(1);
+            try {
+                await checkAuth();
+                if (currentUser) {
+                    // 確保 body 可見
+                    document.body.style.display = 'flex';
+                    // 確保 searchView 可見
+                    const searchView = document.getElementById('searchView');
+                    if (searchView) {
+                        searchView.classList.add('active');
+                        // 隱藏其他視圖
+                        document.querySelectorAll('.view-section').forEach(el => {
+                            if (el.id !== 'searchView') {
+                                el.classList.remove('active');
+                            }
+                        });
+                    }
+                    initListeners();
+                    initEditForm();
+                    initCharts();
+                    loadPlanOptions();
+                    initImportRoundOptions();
+                    await loadIssuesPage(1);
+                    // Preload users if needed
+                    if(currentUser.role === 'admin') {
+                        loadUsersPage(1);
+                    }
                 }
+            } catch (error) {
+                console.error('初始化錯誤:', error);
+                // 即使出錯也嘗試顯示頁面
+                document.body.style.display = 'flex';
             }
         });
 
@@ -270,15 +292,31 @@ if (dashboard) {
                     if (nameEl) nameEl.innerText = data.name || data.username;
                     if (roleEl) roleEl.innerText = getRoleName(data.role);
                     if (['admin', 'manager'].includes(data.role)) {
-                        document.getElementById('btn-importView').classList.remove('hidden');
+                        const btnImport = document.getElementById('btn-importView');
+                        if (btnImport) btnImport.classList.remove('hidden');
                         if (data.role === 'admin') {
-                            document.getElementById('btn-usersView').classList.remove('hidden');
-                            document.getElementById('uploadCardBackup').classList.remove('hidden');
-                            document.getElementById('exportJsonOption').style.display = 'flex';
+                            const btnUsers = document.getElementById('btn-usersView');
+                            if (btnUsers) btnUsers.classList.remove('hidden');
+                            // 這些元素現在在動態載入的視圖中，會在視圖載入後處理
                         }
                     }
                 } else window.location.href = '/login.html';
             } catch (e) { window.location.href = '/login.html'; }
+        }
+        
+        // 在視圖載入後設置 admin 專屬元素的函數
+        function setupAdminElements() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            
+            const uploadCardBackup = document.getElementById('uploadCardBackup');
+            if (uploadCardBackup) {
+                uploadCardBackup.classList.remove('hidden');
+            }
+            
+            const exportJsonOption = document.getElementById('exportJsonOption');
+            if (exportJsonOption) {
+                exportJsonOption.style.display = 'flex';
+            }
         }
 
         function renderPagination(containerId, currentPage, totalPages, onPageChange) {
