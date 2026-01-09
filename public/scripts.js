@@ -487,7 +487,20 @@ if (dashboard) {
         async function loadActionsPage(page = 1) { actionsPage = page; const q = document.getElementById('actionSearch').value || ''; const params = new URLSearchParams({ page: actionsPage, pageSize: actionsPageSize, q, _t: Date.now() }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/action_logs?' + params.toString()); if (!res.ok) { showToast('載入操作紀錄失敗', 'error'); return; } const j = await res.json(); currentLogs.action = j.data || []; actionsTotal = j.total || 0; actionsPages = j.pages || 1; document.getElementById('actionsTableBody').innerHTML = currentLogs.action.map(l => `<tr><td data-label="時間" style="padding:12px;white-space:nowrap;">${new Date(l.created_at).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="動作"><span class="badge new">${l.action}</span></td><td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td></tr>`).join(''); renderPagination('actionsPagination', actionsPage, actionsPages, 'loadActionsPage'); } catch (e) { console.error(e); showToast('載入操作紀錄錯誤', 'error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
 
         function exportLogs(type) { const data = type === 'login' ? currentLogs.login : currentLogs.action; if (!data || data.length === 0) return showToast('無資料可匯出', 'error'); let csvContent = '\uFEFF'; if (type === 'login') { csvContent += "時間,帳號,IP位址\n"; data.forEach(row => { csvContent += `"${new Date(row.login_time).toLocaleString('zh-TW')}","${row.username}","${row.ip_address}"\n`; }); } else { csvContent += "時間,帳號,動作,詳細內容\n"; data.forEach(row => { csvContent += `"${new Date(row.created_at).toLocaleString('zh-TW')}","${row.username}","${row.action}","${(row.details || '').replace(/"/g, '""')}"\n`; }); } const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `${type}_logs_${new Date().toISOString().slice(0, 10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
-        async function clearLogs(type) { if (!confirm(`確定要清空所有「${type === 'login' ? '登入' : '操作'}」紀錄嗎？此動作無法復原！`)) return; const endpoint = type === 'login' ? '/api/admin/logs' : '/api/admin/action_logs'; try { const res = await fetch(endpoint, { method: 'DELETE' }); if (res.ok) { showToast('紀錄已清空'); if (type === 'login') loadLogsPage(1); else loadActionsPage(1); } else showToast('清除失敗', 'error'); } catch (e) { showToast('Error: ' + e.message, 'error'); } }
+        // 清除篩選條件（不會刪除資料庫記錄）
+        function clearLogsFilter(type) {
+            if (type === 'login') {
+                document.getElementById('loginSearch').value = '';
+                loadLogsPage(1);
+            } else {
+                document.getElementById('actionSearch').value = '';
+                loadActionsPage(1);
+            }
+            showToast('已清除篩選條件');
+        }
+        
+        // 刪除資料庫中的所有記錄
+        async function clearLogs(type) { if (!confirm(`確定要刪除資料庫中所有「${type === 'login' ? '登入' : '操作'}」紀錄嗎？此動作無法復原！`)) return; const endpoint = type === 'login' ? '/api/admin/logs' : '/api/admin/action_logs'; try { const res = await fetch(endpoint, { method: 'DELETE' }); if (res.ok) { showToast('資料庫記錄已全部刪除'); if (type === 'login') loadLogsPage(1); else loadActionsPage(1); } else showToast('刪除失敗', 'error'); } catch (e) { showToast('Error: ' + e.message, 'error'); } }
         
         async function cleanupOldLogs(type) {
             const daysSelect = document.getElementById(type === 'login' ? 'loginCleanupDays' : 'actionCleanupDays');
@@ -503,7 +516,7 @@ if (dashboard) {
             }
             
             const logTypeName = type === 'login' ? '登入' : '操作';
-            if (!confirm(`確定要清除 ${days} 天前的「${logTypeName}」紀錄嗎？此動作無法復原！\n\n將保留最近 ${days} 天的記錄，刪除更早的記錄。`)) {
+            if (!confirm(`確定要刪除資料庫中 ${days} 天前的「${logTypeName}」紀錄嗎？此動作無法復原！\n\n將保留最近 ${days} 天的記錄，刪除更早的記錄。`)) {
                 return;
             }
             
@@ -516,11 +529,11 @@ if (dashboard) {
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    showToast(`已清除 ${data.deleted || 0} 筆 ${days} 天前的${logTypeName}紀錄`);
+                    showToast(`已刪除資料庫中 ${data.deleted || 0} 筆 ${days} 天前的${logTypeName}紀錄`);
                     if (type === 'login') loadLogsPage(1);
                     else loadActionsPage(1);
                 } else {
-                    showToast(data.error || '清除失敗', 'error');
+                    showToast(data.error || '刪除失敗', 'error');
                 }
             } catch (e) {
                 showToast('Error: ' + e.message, 'error');

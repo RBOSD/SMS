@@ -49,6 +49,7 @@
         <input id="loginSearch" class="filter-input" placeholder="搜尋帳號或 IP" style="width:240px;"
             oninput="loadLogsPage(1)">
         <button class="btn btn-outline btn-sm" onclick="exportLogs('login')">匯出 CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="clearLogsFilter('login')">清除篩選</button>
         <div style="display:flex; gap:8px; align-items:center;">
             <select id="loginCleanupDays" class="filter-input" style="width:140px; padding:6px 10px; font-size:13px;">
                 <option value="30">保留30天</option>
@@ -60,9 +61,9 @@
             </select>
             <input id="loginCustomDays" type="number" min="1" placeholder="天數" 
                 class="filter-input hidden" style="width:80px; padding:6px 10px; font-size:13px;">
-            <button class="btn btn-warning btn-sm" onclick="cleanupOldLogs('login')">清除舊記錄</button>
+            <button class="btn btn-warning btn-sm" onclick="cleanupOldLogs('login')">刪除舊記錄</button>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="clearLogs('login')">清除全部</button>
+        <button class="btn btn-danger btn-sm" onclick="clearLogs('login')">刪除全部記錄</button>
     </div>
     <div id="logsPaginationTop" class="pagination-bar"
         style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
@@ -88,6 +89,7 @@
         <input id="actionSearch" class="filter-input" placeholder="搜尋帳號或操作" style="width:240px;"
             oninput="loadActionsPage(1)">
         <button class="btn btn-outline btn-sm" onclick="exportLogs('action')">匯出 CSV</button>
+        <button class="btn btn-outline btn-sm" onclick="clearLogsFilter('action')">清除篩選</button>
         <div style="display:flex; gap:8px; align-items:center;">
             <select id="actionCleanupDays" class="filter-input" style="width:140px; padding:6px 10px; font-size:13px;">
                 <option value="30">保留30天</option>
@@ -99,9 +101,9 @@
             </select>
             <input id="actionCustomDays" type="number" min="1" placeholder="天數" 
                 class="filter-input hidden" style="width:80px; padding:6px 10px; font-size:13px;">
-            <button class="btn btn-warning btn-sm" onclick="cleanupOldLogs('action')">清除舊記錄</button>
+            <button class="btn btn-warning btn-sm" onclick="cleanupOldLogs('action')">刪除舊記錄</button>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="clearLogs('action')">清除全部</button>
+        <button class="btn btn-danger btn-sm" onclick="clearLogs('action')">刪除全部記錄</button>
     </div>
     <div id="actionsPaginationTop" class="pagination-bar"
         style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
