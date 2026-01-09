@@ -1346,13 +1346,20 @@ if (dashboard) {
             document.getElementById('editReplyDate').value = replyDate;
             document.getElementById('editResponseDate').value = responseDate;
             
-            // 顯示當前回合的機構辦理情形（只讀，作為參考）
+            // 顯示第N-1次機構辦理情形（只讀，作為參考）
+            // 撰寫第N次審查時，右側顯示第N-1次機構辦理情形
+            // 第1次審查時顯示第1次機構辦理情形（機構先回復，才進行第1次審查）
+            // 第N次審查時（N>1）顯示第N-1次機構辦理情形
+            const displayHandlingRound = round === 1 ? 1 : round - 1;
+            const displayHandlingSuffix = displayHandlingRound === 1 ? '' : displayHandlingRound;
+            const displayHandling = currentEditItem['handling' + displayHandlingSuffix] || '';
+            
             const currentHandlingDisplay = document.getElementById('currentHandlingDisplay');
             const currentHandlingRoundNum = document.getElementById('currentHandlingRoundNum');
             if (currentHandlingDisplay && currentHandlingRoundNum) {
-                currentHandlingRoundNum.textContent = round;
-                if (handling && handling.trim()) {
-                    currentHandlingDisplay.textContent = handling;
+                currentHandlingRoundNum.textContent = displayHandlingRound;
+                if (displayHandling && displayHandling.trim()) {
+                    currentHandlingDisplay.textContent = displayHandling;
                     currentHandlingDisplay.style.color = '#047857';
                 } else {
                     currentHandlingDisplay.textContent = '（尚未有機構辦理情形）';
