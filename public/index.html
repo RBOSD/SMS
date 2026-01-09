@@ -2197,8 +2197,8 @@
                         <div style="background:#f8fafc;padding:16px;border-radius:12px;font-size:14px;margin-bottom:20px;line-height:1.6;border:1px solid #e2e8f0;"
                             id="editContentDisplay"></div>
                         <div id="prevReviewBox" style="display:none; margin-bottom:20px;">
-                            <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 上一回合 (<span
-                                    id="prevRoundNum"></span>) 審查意見參考：</div>
+                            <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 第<span
+                                    id="prevRoundNum"></span>次審查意見參考：</div>
                             <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;"
                                 id="prevReviewText"></div>
                         </div>
@@ -3333,7 +3333,21 @@ if (dashboard) {
                 document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; 
                 const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; 
                 document.getElementById('editStatus').value = st; 
-                document.getElementById('editRound').value = 1; 
+                
+                // 計算已經審查的最高次數，然後自動跳到下一次
+                let highestRound = 0;
+                for (let i = 1; i <= 20; i++) {
+                    const suffix = i === 1 ? '' : i;
+                    const hasHandling = currentEditItem['handling' + suffix] && currentEditItem['handling' + suffix].trim();
+                    const hasReview = currentEditItem['review' + suffix] && currentEditItem['review' + suffix].trim();
+                    if (hasHandling || hasReview) {
+                        highestRound = i;
+                    }
+                }
+                // 跳到下一次審查（如果最高是第2次，就跳到第3次）
+                const nextRound = highestRound + 1;
+                document.getElementById('editRound').value = nextRound;
+                
                 document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); 
                 // 清除 AI 分析結果
                 const aiBox = document.getElementById('aiBox');
