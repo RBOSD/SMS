@@ -318,14 +318,26 @@
             letter-spacing: -0.5px;
         }
 
-        /* 帳號管理頁面按鈕位置調整 - 電腦版不要那麼靠右 */
+        /* 帳號管理頁面按鈕位置調整 */
         .users-header {
-            justify-content: flex-start;
-            gap: 24px;
+            justify-content: space-between;
+            gap: 16px;
         }
 
         .users-add-btn {
-            margin-left: auto;
+            flex-shrink: 0;
+        }
+
+        /* 電腦版：按鈕不要那麼靠右，更靠近標題 */
+        @media (min-width: 769px) {
+            .users-header {
+                justify-content: flex-start;
+                gap: 24px;
+            }
+            
+            .users-add-btn {
+                margin-left: 0;
+            }
         }
 
         /* Dashboard */
@@ -3592,10 +3604,17 @@ if (dashboard) {
                 datasets: [{ 
                     label: '案件', 
                     data: uSorted.map(x => parseInt(x.count)), 
-                    backgroundColor: 'var(--primary-gradient-start)',  // 使用與標題漸變一致的顏色
+                    backgroundColor: '#667eea',  // 使用與標題漸變一致的顏色（直接使用顏色值，避免 CSS 變數問題）
                     borderRadius: 8 
                 }] 
             }; 
+            // 確保更新時保留顏色設定
+            if (charts.unit.options && charts.unit.options.scales) {
+                charts.unit.options.scales.x.ticks.color = '#64748b';
+                charts.unit.options.scales.y.ticks.color = '#64748b';
+                charts.unit.options.scales.x.grid.color = '#e2e8f0';
+                charts.unit.options.scales.y.grid.color = '#e2e8f0';
+            }
             charts.unit.update();
             
             // 趨勢圖表：使用主色調的變體
@@ -3605,12 +3624,22 @@ if (dashboard) {
                 datasets: [{ 
                     label: '開立事項數', 
                     data: tSorted.map(x => parseInt(x.count)), 
-                    borderColor: 'var(--primary-gradient-start)',  // 使用與標題漸變一致的顏色
+                    borderColor: '#667eea',  // 使用與標題漸變一致的顏色（直接使用顏色值）
                     backgroundColor: 'rgba(102, 126, 234, 0.1)', 
                     tension: 0.3, 
                     fill: true 
                 }] 
             }; 
+            // 確保更新時保留顏色設定
+            if (charts.trend.options && charts.trend.options.scales) {
+                charts.trend.options.scales.x.ticks.color = '#64748b';
+                charts.trend.options.scales.y.ticks.color = '#64748b';
+                charts.trend.options.scales.x.grid.color = '#e2e8f0';
+                charts.trend.options.scales.y.grid.color = '#e2e8f0';
+            }
+            if (charts.trend.options && charts.trend.options.plugins && charts.trend.options.plugins.title) {
+                charts.trend.options.plugins.title.color = '#64748b';
+            }
             charts.trend.update();
         }
 
