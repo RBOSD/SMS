@@ -33,6 +33,8 @@
         :root {
             --primary: #2563eb;
             --primary-light: #eff6ff;
+            --primary-gradient-start: #667eea;
+            --primary-gradient-end: #764ba2;
             --bg-body: #f8fafc;
             --bg-card: #ffffff;
             --text-main: #0f172a;
@@ -41,6 +43,7 @@
             --header-h: 60px;
             --danger: #ef4444;
             --success: #10b981;
+            --warning: #f59e0b;
         }
 
         *,
@@ -298,7 +301,7 @@
             align-items: center;
             margin-bottom: 24px;
             padding: 20px 24px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
             border-radius: 16px;
             box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.3);
             flex-shrink: 0;
@@ -620,9 +623,6 @@
             color: var(--primary);
         }
 
-        .sidebar-btn span {
-            font-size: 18px;
-        }
 
         .admin-tabs {
             display: flex;
@@ -655,7 +655,7 @@
         }
 
         .admin-tab-btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary-gradient-start) 0%, var(--primary-gradient-end) 100%);
             color: #ffffff;
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
             transform: translateY(-1px);
@@ -1533,11 +1533,11 @@
                 <div class="sidebar-title">功能選單</div>
                 <button class="sidebar-close-btn" onclick="onToggleSidebar()">×</button>
             </div>
-            <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')"><span>📊</span>
+            <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')">
                 查詢看板</button>
-            <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')"><span>📂</span>
+            <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')">
                 資料管理</button>
-            <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')"><span>👥</span>
+            <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')">
                 帳號管理</button>
         </aside>
 
@@ -1607,7 +1607,7 @@
                                     <option value="自行列管">自行列管</option>
                                 </select></div>
                             <div style="display:flex;gap:8px;align-self:flex-end;">
-                                <button class="btn btn-primary" onclick="applyFilters()">🔍 搜尋</button>
+                                <button class="btn btn-primary" onclick="applyFilters()">搜尋</button>
                                 <button class="btn btn-outline" onclick="resetFilters()">重設</button>
                             </div>
                         </div>
@@ -1652,11 +1652,11 @@
                             <div style="display:flex; gap:12px; align-items:center;">
                                 <div id="batchActionContainer" style="display:none;">
                                     <button class="btn btn-danger btn-sm" onclick="batchDeleteIssues()">
-                                        <i style="margin-right:4px">🗑️</i> 批次刪除 <span id="selectedCountBadge"></span>
+                                        批次刪除 <span id="selectedCountBadge"></span>
                                     </button>
                                 </div>
                                 <div style="font-size:13px;color:#64748b;display:flex;align-items:center;gap:6px;">
-                                    <span>📅</span> <span id="dataTimestamp">...</span>
+                                    <span id="dataTimestamp">...</span>
                                 </div>
                             </div>
                             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
@@ -1709,15 +1709,15 @@
 
             <div id="importView" class="view-section">
                 <div class="content-header" style="justify-content: flex-start;">
-                    <div class="content-title">📂 資料管理</div>
+                    <div class="content-title">資料管理</div>
                 </div>
 
                 <div class="admin-tabs">
-                    <button class="admin-tab-btn active" onclick="switchDataTab('import')">📥 批次匯入</button>
+                    <button class="admin-tab-btn active" onclick="switchDataTab('import')">批次匯入</button>
                     <!-- [新增] 批次建檔 -->
-                    <button class="admin-tab-btn" onclick="switchDataTab('batch')">🏗️ 批次建檔</button>
-                    <button class="admin-tab-btn" onclick="switchDataTab('manual')">✍️ 手動新增</button>
-                    <button class="admin-tab-btn" onclick="switchDataTab('export')">📤 資料匯出</button>
+                    <button class="admin-tab-btn" onclick="switchDataTab('batch')">批次建檔</button>
+                    <button class="admin-tab-btn" onclick="switchDataTab('manual')">手動新增</button>
+                    <button class="admin-tab-btn" onclick="switchDataTab('export')">資料匯出</button>
                 </div>
 
                 <!-- Tab 1: Import -->
@@ -1745,13 +1745,13 @@
                                         style="cursor:pointer; display:flex; align-items:center; gap:8px; background:#f0f9ff; padding:10px 16px; border-radius:8px; border:1px solid #bae6fd; color:#0369a1; flex:1;">
                                         <input type="radio" name="importStage" value="initial" checked
                                             onchange="onImportStageChange()">
-                                        <span style="font-weight:700;">🆕 初次開立 (新案)</span>
+                                        <span style="font-weight:700;">初次開立 (新案)</span>
                                     </label>
                                     <label
                                         style="cursor:pointer; display:flex; align-items:center; gap:8px; background:#fdf2f8; padding:10px 16px; border-radius:8px; border:1px solid #fbcfe8; color:#be185d; flex:1;">
                                         <input type="radio" name="importStage" value="review"
                                             onchange="onImportStageChange()">
-                                        <span style="font-weight:700;">🔄 後續審查 (第 N 次)</span>
+                                        <span style="font-weight:700;">後續審查 (第 N 次)</span>
                                     </label>
                                 </div>
                             </div>
@@ -1845,7 +1845,7 @@
                                     style="color:var(--primary);">0</span> 筆) <span id="previewModeBadge"></span></div>
                             <div style="display:flex;gap:10px;"><button class="btn btn-outline"
                                     onclick="cancelImport()">取消</button><button class="btn btn-primary"
-                                    onclick="confirmImport()">✅ 確認寫入資料庫</button></div>
+                                    onclick="confirmImport()">確認寫入資料庫</button></div>
                         </div>
                         <div class="main-card">
                             <div class="data-container">
@@ -1893,7 +1893,7 @@
                                 style="background:white;">
                         </div>
                         <div style="flex:0 0 auto;">
-                            <button class="btn btn-primary" onclick="initBatchGrid()">🔄 重置表格</button>
+                            <button class="btn btn-primary" onclick="initBatchGrid()">重置表格</button>
                         </div>
                     </div>
 
@@ -1923,7 +1923,7 @@
                         <div
                             style="padding:16px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:center;">
                             <button class="btn btn-outline" style="width:100%; border-style:dashed;"
-                                onclick="addBatchRow()">➕ 新增一列</button>
+                                onclick="addBatchRow()">新增一列</button>
                         </div>
                     </div>
 
@@ -1952,7 +1952,7 @@
                             <!-- [新增] 連續新增開關 -->
                             <label
                                 style="font-size:13px; color:#2563eb; display:flex; align-items:center; gap:6px; cursor:pointer;">
-                                <input type="checkbox" id="manualContinuousMode"> 🔒 連續新增模式 (鎖定計畫與機構)
+                                <input type="checkbox" id="manualContinuousMode"> 連續新增模式 (鎖定計畫與機構)
                             </label>
                         </div>
                         <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
@@ -2023,7 +2023,6 @@
             <!-- Tab 3: Export -->
             <div id="tab-data-export" class="hidden">
                 <div class="detail-card" style="max-width:800px; text-align:center; padding:40px;">
-                    <div style="font-size:40px; margin-bottom:16px;">📤</div>
                     <h3 style="margin-top:0; color:#334155;">匯出所有資料</h3>
                     <p style="color:#64748b; margin-bottom:24px;">將系統中所有開立事項匯出。<br>CSV 適合 Excel 編輯，JSON 適合系統備份與還原。</p>
 
@@ -2057,8 +2056,8 @@
             </div>
     <div id="usersView" class="view-section">
         <div class="content-header" style="justify-content: space-between; gap: 16px;">
-            <div class="content-title">👥 帳號與紀錄</div>
-            <button class="btn btn-primary" onclick="openUserModal('create')" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff; backdrop-filter: blur(10px);">➕ 新增</button>
+            <div class="content-title">帳號與紀錄</div>
+            <button class="btn btn-primary" onclick="openUserModal('create')" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff; backdrop-filter: blur(10px);">新增</button>
         </div>
         <div class="admin-tabs">
             <button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button>
@@ -2078,7 +2077,7 @@
                     <option value="50">50 筆/頁</option>
                 </select>
                 <div style="margin-left:auto;">
-                    <button class="btn btn-outline" onclick="loadUsersPage(1)">🔍</button>
+                    <button class="btn btn-outline" onclick="loadUsersPage(1)">搜尋</button>
                 </div>
             </div>
             <div id="usersPaginationTop" class="pagination-bar"
@@ -2106,8 +2105,8 @@
                 style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff;">
                 <input id="loginSearch" class="filter-input" placeholder="搜尋帳號或 IP" style="width:240px;"
                     oninput="loadLogsPage(1)">
-                <button class="btn btn-outline btn-sm" onclick="exportLogs('login')">📥 匯出 CSV</button>
-                <button class="btn btn-danger btn-sm" onclick="clearLogs('login')">🗑️ 清除紀錄</button>
+                <button class="btn btn-outline btn-sm" onclick="exportLogs('login')">匯出 CSV</button>
+                <button class="btn btn-danger btn-sm" onclick="clearLogs('login')">清除紀錄</button>
             </div>
             <div id="logsPaginationTop" class="pagination-bar"
                 style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
@@ -2132,8 +2131,8 @@
                 style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff;">
                 <input id="actionSearch" class="filter-input" placeholder="搜尋帳號或操作" style="width:240px;"
                     oninput="loadActionsPage(1)">
-                <button class="btn btn-outline btn-sm" onclick="exportLogs('action')">📥 匯出 CSV</button>
-                <button class="btn btn-danger btn-sm" onclick="clearLogs('action')">🗑️ 清除紀錄</button>
+                <button class="btn btn-outline btn-sm" onclick="exportLogs('action')">匯出 CSV</button>
+                <button class="btn btn-danger btn-sm" onclick="clearLogs('action')">清除紀錄</button>
             </div>
             <div id="actionsPaginationTop" class="pagination-bar"
                 style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
@@ -2191,7 +2190,7 @@
 
                 <div
                     style="font-weight:700;margin:24px 0 20px;font-size:18px;color:#0f172a;display:flex;align-items:center;gap:8px;">
-                    <span>📅</span> 歷程紀錄
+                    歷程紀錄
                 </div>
 
                 <div id="dTimeline" style="position: relative;"></div>
@@ -3555,13 +3554,45 @@ if (dashboard) {
         function updateChartsData(stats) {
             if (!charts.status || !charts.unit || !charts.trend) return;
             if (!stats) return;
-            const colorMap = { '持續列管': '#ef4444', '解除列管': '#10b981', '自行列管': '#f59e0b' };
+            // 統一顏色方案：使用與主色調一致的顏色
+            const colorMap = { 
+                '持續列管': '#ef4444',  // 紅色 - 危險/警告
+                '解除列管': '#10b981',  // 綠色 - 成功
+                '自行列管': '#f59e0b'   // 橙色 - 警告
+            };
             const sLabels = stats.status.map(x => x.status).filter(s => s && s !== 'Open');
             const sData = stats.status.filter(x => x.status && x.status !== 'Open').map(x => parseInt(x.count));
             const sColors = sLabels.map(label => colorMap[label] || '#cbd5e1');
-            charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: sColors }] }; charts.status.update();
-            const uSorted = stats.unit.sort((a, b) => parseInt(b.count) - parseInt(a.count)); charts.unit.data = { labels: uSorted.map(x => x.unit), datasets: [{ label: '案件', data: uSorted.map(x => parseInt(x.count)), backgroundColor: '#0ea5e9', borderRadius: 8 }] }; charts.unit.update();
-            const tSorted = stats.year.sort((a, b) => a.year.localeCompare(b.year)); charts.trend.data = { labels: tSorted.map(x => x.year), datasets: [{ label: '開立事項數', data: tSorted.map(x => parseInt(x.count)), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] }; charts.trend.update();
+            charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: sColors }] }; 
+            charts.status.update();
+            
+            // 單位圖表：使用主色調的變體
+            const uSorted = stats.unit.sort((a, b) => parseInt(b.count) - parseInt(a.count)); 
+            charts.unit.data = { 
+                labels: uSorted.map(x => x.unit), 
+                datasets: [{ 
+                    label: '案件', 
+                    data: uSorted.map(x => parseInt(x.count)), 
+                    backgroundColor: 'var(--primary-gradient-start)',  // 使用與標題漸變一致的顏色
+                    borderRadius: 8 
+                }] 
+            }; 
+            charts.unit.update();
+            
+            // 趨勢圖表：使用主色調的變體
+            const tSorted = stats.year.sort((a, b) => a.year.localeCompare(b.year)); 
+            charts.trend.data = { 
+                labels: tSorted.map(x => x.year), 
+                datasets: [{ 
+                    label: '開立事項數', 
+                    data: tSorted.map(x => parseInt(x.count)), 
+                    borderColor: 'var(--primary-gradient-start)',  // 使用與標題漸變一致的顏色
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)', 
+                    tension: 0.3, 
+                    fill: true 
+                }] 
+            }; 
+            charts.trend.update();
         }
 
         function initCharts() {
