@@ -242,6 +242,8 @@ async function logAction(username, action, details, req) {
 }
 
 // --- API Routes ---
+
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
     const { username, password } = req.body;
     try {
         const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
