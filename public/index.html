@@ -286,15 +286,35 @@
                 </div>
                 <div class="review-grid">
                     <div class="review-left">
-                        <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">開立事項內容</div>
-                        <div style="background:#f8fafc;padding:16px;border-radius:12px;font-size:14px;margin-bottom:20px;line-height:1.6;border:1px solid #e2e8f0;"
-                            id="editContentDisplay"></div>
-                        <div id="prevReviewBox" style="display:none; margin-bottom:20px;">
-                            <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 第<span
-                                    id="prevRoundNum"></span>次審查意見參考：</div>
-                            <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;"
-                                id="prevReviewText"></div>
+                        <!-- 參考資料區：開立事項內容、審查意見參考、機構辦理情形 -->
+                        <div style="margin-bottom:24px;">
+                            <div style="font-size:13px;color:#64748b;margin-bottom:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">📋 參考資料</div>
+                            
+                            <!-- 開立事項內容 -->
+                            <div style="margin-bottom:16px;">
+                                <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">開立事項內容</div>
+                                <div style="background:#f8fafc;padding:16px;border-radius:12px;font-size:14px;line-height:1.6;border:1px solid #e2e8f0;max-height:200px;overflow-y:auto;"
+                                    id="editContentDisplay"></div>
+                            </div>
+
+                            <!-- 第幾次審查意見參考 -->
+                            <div id="prevReviewBox" style="display:none; margin-bottom:16px;">
+                                <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 第<span
+                                        id="prevRoundNum"></span>次審查意見參考：</div>
+                                <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;max-height:150px;overflow-y:auto;"
+                                    id="prevReviewText"></div>
+                            </div>
+
+                            <!-- 機構辦理情形 -->
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label style="margin-bottom:6px;">機構辦理情形</label>
+                                <textarea id="editHandling" class="filter-input" rows="8"
+                                    style="background:#ffffff;line-height:1.5;resize:vertical;max-height:300px;"
+                                    placeholder="請輸入機構辦理情形..."></textarea>
+                            </div>
                         </div>
+
+                        <!-- 設定區：第幾次審查、日期設定 -->
                         <div class="form-group"><label>第幾次審查</label><select id="editRound" class="filter-select"
                                 onchange="loadRoundData()"></select></div>
 
@@ -313,11 +333,6 @@
                                         placeholder="例: 1130615" style="font-size:13px;padding:6px;">
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="form-group" style="flex:1;display:flex;flex-direction:column;">
-                            <label>機構辦理情形</label><textarea id="editHandling" class="filter-input" rows="10"
-                                style="background:#ffffff;line-height:1.5;flex:1;min-height:200px;resize:vertical;"></textarea>
                         </div>
                     </div>
                     <div class="review-right">
