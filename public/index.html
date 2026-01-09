@@ -316,6 +316,16 @@
             letter-spacing: -0.5px;
         }
 
+        /* 帳號管理頁面按鈕位置調整 - 電腦版不要那麼靠右 */
+        .users-header {
+            justify-content: flex-start;
+            gap: 24px;
+        }
+
+        .users-add-btn {
+            margin-left: auto;
+        }
+
         /* Dashboard */
         .dashboard-section {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1499,6 +1509,12 @@
                 top: 80px;
                 width: auto;
             }
+
+            /* 手機版：帳號管理頁面按鈕保持靠右 */
+            .users-header {
+                justify-content: space-between;
+                gap: 16px;
+            }
         }
     </style>
 </head>
@@ -2055,9 +2071,9 @@
                 </div>
             </div>
     <div id="usersView" class="view-section">
-        <div class="content-header" style="justify-content: space-between; gap: 16px;">
+        <div class="content-header users-header">
             <div class="content-title">帳號與紀錄</div>
-            <button class="btn btn-primary" onclick="openUserModal('create')" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff; backdrop-filter: blur(10px);">新增</button>
+            <button class="btn btn-primary users-add-btn" onclick="openUserModal('create')" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff; backdrop-filter: blur(10px);">新增</button>
         </div>
         <div class="admin-tabs">
             <button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button>
@@ -3598,9 +3614,9 @@ if (dashboard) {
         function initCharts() {
             try {
                 const c1 = document.getElementById('statusChart'), c2 = document.getElementById('unitChart'), c3 = document.getElementById('trendChart');
-                if (c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if (!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#333', font: { weight: 'bold' } } } } }); }
-                if (c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); }
-                if (c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } }); }
+                if (c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#64748b', font: { size: 12 } } }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if (!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#64748b', font: { weight: '600', size: 12 } } } } }); }
+                if (c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } }, y: { ticks: { color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } } } } }); }
+                if (c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢', color: '#64748b', font: { size: 14, weight: '600' } } }, scales: { x: { ticks: { color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } }, y: { beginAtZero: true, ticks: { stepSize: 1, color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } } } } }); }
                 if (cachedGlobalStats) updateChartsData(cachedGlobalStats);
             } catch (e) { console.error("Chart Init Error:", e); }
         }
