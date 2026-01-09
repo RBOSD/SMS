@@ -1349,14 +1349,11 @@ if (dashboard) {
             const currentRoundNumEl = document.getElementById('currentRoundNum');
             if (currentRoundNumEl) currentRoundNumEl.textContent = round;
             
-            // 處理上一回合的資料（用於左側和右側顯示）
+            // 顯示上一回合的審查意見（如果有，且不是第1次）
             const prevRound = round - 1;
             if (prevRound >= 1) {
                 const prevSuffix = prevRound === 1 ? '' : prevRound;
                 const prevReview = currentEditItem['review' + prevSuffix] || '';
-                const prevHandling = currentEditItem['handling' + prevSuffix] || '';
-                
-                // 左側：顯示前次審查意見（如果有）
                 const prevBox = document.getElementById('prevReviewBox');
                 const prevText = document.getElementById('prevReviewText');
                 const prevRoundNum = document.getElementById('prevRoundNum');
@@ -1368,51 +1365,10 @@ if (dashboard) {
                 } else if (prevBox) {
                     prevBox.style.display = 'none';
                 }
-                
-                // 左側：顯示前次機構辦理情形（如果有）
-                const prevHandlingBox = document.getElementById('prevHandlingBox');
-                const prevHandlingText = document.getElementById('prevHandlingText');
-                const prevHandlingRoundNum = document.getElementById('prevHandlingRoundNum');
-                
-                if (prevHandling && prevHandlingBox && prevHandlingText && prevHandlingRoundNum) {
-                    prevHandlingBox.style.display = 'block';
-                    prevHandlingRoundNum.textContent = prevRound;
-                    prevHandlingText.textContent = prevHandling;
-                } else if (prevHandlingBox) {
-                    prevHandlingBox.style.display = 'none';
-                }
-                
-                // 右側：顯示前次機構辦理情形作為撰寫參考
-                const prevHandlingBoxRight = document.getElementById('prevHandlingBoxRight');
-                const prevHandlingTextRight = document.getElementById('prevHandlingTextRight');
-                
-                if (prevHandling && prevHandlingBoxRight && prevHandlingTextRight) {
-                    prevHandlingBoxRight.style.display = 'block';
-                    prevHandlingTextRight.textContent = prevHandling;
-                } else if (prevHandlingBoxRight) {
-                    prevHandlingBoxRight.style.display = 'none';
-                }
-                
-                // 右側：顯示前次審查意見作為撰寫參考
-                const prevReviewBoxRight = document.getElementById('prevReviewBoxRight');
-                const prevReviewTextRight = document.getElementById('prevReviewTextRight');
-                
-                if (prevReview && prevReviewBoxRight && prevReviewTextRight) {
-                    prevReviewBoxRight.style.display = 'block';
-                    prevReviewTextRight.textContent = prevReview;
-                } else if (prevReviewBoxRight) {
-                    prevReviewBoxRight.style.display = 'none';
-                }
             } else {
-                // 第1次審查，隱藏所有前次資料
+                // 第1次審查，隱藏前次審查意見
                 const prevBox = document.getElementById('prevReviewBox');
                 if (prevBox) prevBox.style.display = 'none';
-                const prevHandlingBox = document.getElementById('prevHandlingBox');
-                if (prevHandlingBox) prevHandlingBox.style.display = 'none';
-                const prevHandlingBoxRight = document.getElementById('prevHandlingBoxRight');
-                if (prevHandlingBoxRight) prevHandlingBoxRight.style.display = 'none';
-                const prevReviewBoxRight = document.getElementById('prevReviewBoxRight');
-                if (prevReviewBoxRight) prevReviewBoxRight.style.display = 'none';
             }
             
             // 清除 AI 分析結果（因為回合改變了）

@@ -286,7 +286,7 @@
                 </div>
                 <div class="review-grid">
                     <div class="review-left">
-                        <!-- 參考資料區（只讀）：開立事項內容、前次審查意見、前次機構辦理情形 -->
+                        <!-- 參考資料區（只讀）：開立事項內容、前次審查意見 -->
                         <div style="margin-bottom:24px;">
                             <div style="font-size:13px;color:#64748b;margin-bottom:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">📋 參考資料</div>
                             
@@ -297,20 +297,12 @@
                                     id="editContentDisplay"></div>
                             </div>
 
-                            <!-- 前次審查意見參考（第1次則不顯示） -->
-                            <div id="prevReviewBox" style="display:none; margin-bottom:16px;">
+                            <!-- 前次審查意見參考（若無則不顯示） -->
+                            <div id="prevReviewBox" style="display:none; margin-bottom:0;">
                                 <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 第<span
                                         id="prevRoundNum"></span>次審查意見：</div>
                                 <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;max-height:200px;overflow-y:auto;white-space:pre-wrap;"
                                     id="prevReviewText"></div>
-                            </div>
-
-                            <!-- 前次機構辦理情形 -->
-                            <div id="prevHandlingBox" style="display:none; margin-bottom:0;">
-                                <div style="font-size:12px;color:#059669;margin-bottom:6px;font-weight:700;">📝 第<span
-                                        id="prevHandlingRoundNum"></span>次機構辦理情形：</div>
-                                <div style="background:#ecfdf5;padding:12px;border-radius:8px;font-size:14px;color:#047857;border:1px solid #a7f3d0;line-height:1.5;max-height:250px;overflow-y:auto;white-space:pre-wrap;"
-                                    id="prevHandlingText"></div>
                             </div>
                         </div>
 
@@ -344,24 +336,6 @@
                         </div>
                     </div>
                     <div class="review-right">
-                        <!-- 右側參考區：顯示前次資料作為撰寫參考 -->
-                        <div style="margin-bottom:20px;">
-                            <div style="font-size:13px;color:#64748b;margin-bottom:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">📝 撰寫參考</div>
-                            
-                            <!-- 前次機構辦理情形（在右側作為參考） -->
-                            <div id="prevHandlingBoxRight" style="display:none; margin-bottom:16px;">
-                                <div style="font-size:12px;color:#059669;margin-bottom:6px;font-weight:700;">📋 前次機構辦理情形：</div>
-                                <div style="background:#ecfdf5;padding:12px;border-radius:8px;font-size:14px;color:#047857;border:1px solid #a7f3d0;line-height:1.5;max-height:180px;overflow-y:auto;white-space:pre-wrap;"
-                                    id="prevHandlingTextRight"></div>
-                            </div>
-
-                            <!-- 前次審查意見（在右側作為參考） -->
-                            <div id="prevReviewBoxRight" style="display:none; margin-bottom:0;">
-                                <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 前次審查意見：</div>
-                                <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;max-height:180px;overflow-y:auto;white-space:pre-wrap;"
-                                    id="prevReviewTextRight"></div>
-                            </div>
-                        </div>
                         <div class="form-group"><label>審查結果</label><select id="editStatus" class="filter-select">
                                 <option value="持續列管">🔴 持續列管</option>
                                 <option value="解除列管">🟢 解除列管</option>
