@@ -2381,7 +2381,14 @@
             t.innerHTML = String(h);
             return t.textContent || t.innerText || "";
         }
-        function getLatest(i, p) { for (let k = 20; k >= 1; k--) { const key = k === 1 ? p : `${p}${k}`; if (i[key]) return i[key]; } return null; }
+        function getLatest(i, p) { 
+            // 支持無限次，動態查找（從200開始向下找，實際應該不會超過這個數字）
+            for (let k = 200; k >= 1; k--) { 
+                const key = k === 1 ? p : `${p}${k}`; 
+                if (i[key]) return i[key]; 
+            } 
+            return null; 
+        }
         function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' }; return map[r] || r; }
         function extractNumberFromCell(cell) { if (!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); return whole.trim(); }
 
@@ -2501,7 +2508,8 @@
             const s = document.getElementById('importRoundSelect');
             if (!s) return;
             s.innerHTML = '';
-            for (let i = 1; i <= 20; i++) {
+            // 支援無限次審查，先建立前 100 次選項
+            for (let i = 1; i <= 100; i++) {
                 s.innerHTML += `<option value="${i}">第 ${i} 次審查</option>`;
             }
         }
@@ -2879,9 +2887,11 @@ if (dashboard) {
                             issueDate: i.issueDate
                         };
 
-                        for (let k = 1; k <= 20; k++) {
-                            if (i[`handling${k}`]) newItem[`handling${k}`] = i[`handling${k}`];
-                            if (i[`review${k}`]) newItem[`review${k}`] = i[`review${k}`];
+                        // 支持無限次，動態查找（從1到200，實際應該不會超過這個數字）
+                        for (let k = 1; k <= 200; k++) {
+                            const suffix = k === 1 ? '' : k;
+                            if (i[`handling${suffix}`]) newItem[`handling${suffix}`] = i[`handling${suffix}`];
+                            if (i[`review${suffix}`]) newItem[`review${suffix}`] = i[`review${suffix}`];
                         }
 
                         const potentialHandling = i['完整辦理情形歷程'] || i.fullHandling || i.handling || i['辦理情形'] || '';
@@ -3285,7 +3295,12 @@ if (dashboard) {
                     csvContent += baseHeader + ",最新辦理情形,最新審查意見\n";
                     data.forEach(item => {
                         let latestH = '', latestR = '';
-                        for (let i = 20; i >= 1; i--) { if (!latestH && (item[i === 1 ? 'handling' : `handling${i}`])) latestH = item[i === 1 ? 'handling' : `handling${i}`]; if (!latestR && (item[i === 1 ? 'review' : `review${i}`])) latestR = item[i === 1 ? 'review' : `review${i}`]; }
+                        // 支持無限次，動態查找最新資料（從200向下找）
+                        for (let i = 200; i >= 1; i--) { 
+                            const suffix = i === 1 ? '' : i;
+                            if (!latestH && (item[`handling${suffix}`])) latestH = item[`handling${suffix}`]; 
+                            if (!latestR && (item[`review${suffix}`])) latestR = item[`review${suffix}`]; 
+                        }
 
                         csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(latestH)},${clean(latestR)}\n`;
                     });
@@ -3293,9 +3308,12 @@ if (dashboard) {
                     csvContent += baseHeader + ",完整辦理情形歷程,完整審查意見歷程\n";
                     data.forEach(item => {
                         let fullH = [], fullR = [];
-                        for (let i = 1; i <= 20; i++) {
-                            const valH = item[i === 1 ? 'handling' : `handling${i}`], valR = item[i === 1 ? 'review' : `review${i}`];
-                            if (valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`); if (valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`);
+                        // 支持無限次，動態查找（從1到200，實際應該不會超過這個數字）
+                        for (let i = 1; i <= 200; i++) {
+                            const suffix = i === 1 ? '' : i;
+                            const valH = item[`handling${suffix}`], valR = item[`review${suffix}`];
+                            if (valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`); 
+                            if (valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`);
                         }
                         const joinedH = fullH.length > 0 ? fullH.join("\n-------------------\n") : "";
                         const joinedR = fullR.length > 0 ? fullR.join("\n-------------------\n") : "";
@@ -3334,9 +3352,10 @@ if (dashboard) {
                 const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; 
                 document.getElementById('editStatus').value = st; 
                 
-                // 計算已經審查的最高次數，然後自動跳到下一次
+                // 計算已經審查的最高次數，然後自動跳到下一次（支持無限次）
                 let highestRound = 0;
-                for (let i = 1; i <= 20; i++) {
+                // 動態查找所有可能的回合（檢查所有欄位）
+                for (let i = 1; i <= 200; i++) {
                     const suffix = i === 1 ? '' : i;
                     const hasHandling = currentEditItem['handling' + suffix] && currentEditItem['handling' + suffix].trim();
                     const hasReview = currentEditItem['review' + suffix] && currentEditItem['review' + suffix].trim();
@@ -3346,6 +3365,8 @@ if (dashboard) {
                 }
                 // 跳到下一次審查（如果最高是第2次，就跳到第3次）
                 const nextRound = highestRound + 1;
+                // 確保選項存在
+                ensureRoundOption(nextRound);
                 document.getElementById('editRound').value = nextRound;
                 
                 document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); 
@@ -3362,7 +3383,32 @@ if (dashboard) {
                 loadRoundData();
             }
         }
-        function initEditForm() { const s = document.getElementById('editRound'); if (!s || s.options.length > 0) return; for (let i = 1; i <= 20; i++) { const o = document.createElement('option'); o.value = i; o.text = `第 ${i} 次`; s.add(o); } }
+        function initEditForm() { 
+            const s = document.getElementById('editRound'); 
+            if (!s || s.options.length > 0) return; 
+            // 支援無限次審查，先建立前 100 次選項（如果需要更多，可以動態添加）
+            for (let i = 1; i <= 100; i++) { 
+                const o = document.createElement('option'); 
+                o.value = i; 
+                o.text = `第 ${i} 次`; 
+                s.add(o); 
+            } 
+        }
+        
+        // 動態添加更多審查次數選項（如果需要超過 100 次）
+        function ensureRoundOption(round) {
+            const s = document.getElementById('editRound');
+            if (!s) return;
+            const maxRound = Math.max(...Array.from(s.options).map(o => parseInt(o.value) || 0));
+            if (round > maxRound) {
+                for (let i = maxRound + 1; i <= round + 10; i++) {
+                    const o = document.createElement('option');
+                    o.value = i;
+                    o.text = `第 ${i} 次`;
+                    s.add(o);
+                }
+            }
+        }
 
         function openDetail(id, isEdit) {
             currentEditItem = currentData.find(d => String(d.id) === String(id)); if (!currentEditItem) return;
@@ -3384,7 +3430,8 @@ if (dashboard) {
 
             let h = '';
             let firstRecord = true;
-            for (let i = 20; i >= 1; i--) {
+            // 支持無限次，動態查找（從200開始向下找，實際應該不會超過這個數字）
+            for (let i = 200; i >= 1; i--) {
                 const suffix = i === 1 ? '' : i;
                 const ha = currentEditItem['handling' + suffix], re = currentEditItem['review' + suffix];
                 const replyDate = currentEditItem['reply_date_r' + i];

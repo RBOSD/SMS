@@ -124,11 +124,12 @@ async function initDB() {
 
                 // Add missing columns if they don't exist
                 const newColumns = [];
-                for (let i = 2; i <= 20; i++) {
+                // 支持無限次審查，預先創建前 100 次欄位（如果需要更多可以動態創建）
+                for (let i = 2; i <= 100; i++) {
                     newColumns.push({ name: `handling${i}`, type: 'TEXT' });
                     newColumns.push({ name: `review${i}`, type: 'TEXT' });
                 }
-                for (let i = 1; i <= 20; i++) {
+                for (let i = 1; i <= 100; i++) {
                     newColumns.push({ name: `reply_date_r${i}`, type: 'TEXT' });
                     newColumns.push({ name: `response_date_r${i}`, type: 'TEXT' });
                 }
@@ -340,9 +341,28 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
     const replyField = `reply_date_r${r}`;
     const respField = `response_date_r${r}`;
     try {
+        // 先查詢 issue number
+        const issueRes = await pool.query("SELECT number FROM issues WHERE id=$1", [id]);
+        const issueNumber = issueRes.rows[0]?.number || `ID:${id}`;
+        
+        // 如果超過預設欄位範圍（100次），動態創建欄位
+        if (r > 100) {
+            try {
+                await pool.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${hField} TEXT`);
+                await pool.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${rField} TEXT`);
+                await pool.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${replyField} TEXT`);
+                await pool.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${respField} TEXT`);
+            } catch (colError) {
+                // 忽略欄位已存在的錯誤
+                if (!colError.message.includes('already exists')) {
+                    console.error('Error creating columns:', colError);
+                }
+            }
+        }
+        
         await pool.query(`UPDATE issues SET status=$1, ${hField}=$2, ${rField}=$3, ${replyField}=$4, ${respField}=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6`, 
             [status, handling, review, replyDate, responseDate, id]);
-        logAction(req.session.user.username, 'UPDATE', `Updated issue ${id}`, req);
+        logAction(req.session.user.username, 'UPDATE', `更新列管事項：編號 ${issueNumber}`, req);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -350,7 +370,12 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
 app.delete('/api/issues/:id', requireAuth, async (req, res) => {
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
     try {
+        // 先查詢 issue number 再刪除
+        const issueRes = await pool.query("SELECT number FROM issues WHERE id=$1", [req.params.id]);
+        const issueNumber = issueRes.rows[0]?.number || `ID:${req.params.id}`;
+        
         await pool.query("DELETE FROM issues WHERE id=$1", [req.params.id]);
+        logAction(req.session.user.username, 'DELETE', `刪除列管事項：編號 ${issueNumber}`, req);
         res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -359,8 +384,13 @@ app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
     const { ids } = req.body;
     try {
+        // 先查詢所有要刪除的編號
+        const issueRes = await pool.query("SELECT number FROM issues WHERE id = ANY($1)", [ids]);
+        const numbers = issueRes.rows.map(r => r.number).filter(Boolean);
+        const numberList = numbers.length > 0 ? numbers.join(', ') : `${ids.length} 筆`;
+        
         await pool.query("DELETE FROM issues WHERE id = ANY($1)", [ids]);
-        logAction(req.session.user.username, 'BATCH_DELETE', `Deleted ${ids.length} items`, req);
+        logAction(req.session.user.username, 'BATCH_DELETE', `批次刪除列管事項：${numberList} (共 ${ids.length} 筆)`, req);
         res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
