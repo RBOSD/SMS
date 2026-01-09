@@ -286,39 +286,31 @@
                 </div>
                 <div class="review-grid">
                     <div class="review-left">
-                        <!-- 參考資料區：開立事項內容、審查意見參考、機構辦理情形 -->
+                        <!-- 參考資料區（只讀）：開立事項內容、前次審查意見、前次機構辦理情形 -->
                         <div style="margin-bottom:24px;">
                             <div style="font-size:13px;color:#64748b;margin-bottom:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">📋 參考資料</div>
                             
                             <!-- 開立事項內容 -->
                             <div style="margin-bottom:16px;">
                                 <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">開立事項內容</div>
-                                <div style="background:#f8fafc;padding:16px;border-radius:12px;font-size:14px;line-height:1.6;border:1px solid #e2e8f0;max-height:200px;overflow-y:auto;"
+                                <div style="background:#f8fafc;padding:16px;border-radius:12px;font-size:14px;line-height:1.6;border:1px solid #e2e8f0;max-height:250px;overflow-y:auto;"
                                     id="editContentDisplay"></div>
                             </div>
 
-                            <!-- 第幾次審查意見參考 -->
+                            <!-- 前次審查意見參考（第1次則不顯示） -->
                             <div id="prevReviewBox" style="display:none; margin-bottom:16px;">
                                 <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 第<span
-                                        id="prevRoundNum"></span>次審查意見參考：</div>
-                                <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;max-height:150px;overflow-y:auto;"
+                                        id="prevRoundNum"></span>次審查意見：</div>
+                                <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;max-height:200px;overflow-y:auto;white-space:pre-wrap;"
                                     id="prevReviewText"></div>
                             </div>
 
-                            <!-- 上一回合機構辦理情形參考 -->
-                            <div id="prevHandlingBox" style="display:none; margin-bottom:16px;">
+                            <!-- 前次機構辦理情形 -->
+                            <div id="prevHandlingBox" style="display:none; margin-bottom:0;">
                                 <div style="font-size:12px;color:#059669;margin-bottom:6px;font-weight:700;">📝 第<span
-                                        id="prevHandlingRoundNum"></span>次機構辦理情形參考：</div>
-                                <div style="background:#ecfdf5;padding:12px;border-radius:8px;font-size:14px;color:#047857;border:1px solid #a7f3d0;line-height:1.5;max-height:150px;overflow-y:auto;white-space:pre-wrap;"
+                                        id="prevHandlingRoundNum"></span>次機構辦理情形：</div>
+                                <div style="background:#ecfdf5;padding:12px;border-radius:8px;font-size:14px;color:#047857;border:1px solid #a7f3d0;line-height:1.5;max-height:250px;overflow-y:auto;white-space:pre-wrap;"
                                     id="prevHandlingText"></div>
-                            </div>
-
-                            <!-- 機構辦理情形（當前回合） -->
-                            <div class="form-group" style="margin-bottom:0;">
-                                <label style="margin-bottom:6px;">機構辦理情形（第 <span id="currentRoundNum">1</span> 次）</label>
-                                <textarea id="editHandling" class="filter-input" rows="8"
-                                    style="background:#ffffff;line-height:1.5;resize:vertical;max-height:300px;"
-                                    placeholder="請輸入機構辦理情形..."></textarea>
                             </div>
                         </div>
 
@@ -342,8 +334,34 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- 機構辦理情形（當前回合） -->
+                        <div class="form-group" style="margin-top:20px;">
+                            <label style="margin-bottom:6px;">機構辦理情形（第 <span id="currentRoundNum">1</span> 次）</label>
+                            <textarea id="editHandling" class="filter-input" rows="6"
+                                style="background:#ffffff;line-height:1.5;resize:vertical;"
+                                placeholder="請輸入機構辦理情形..."></textarea>
+                        </div>
                     </div>
                     <div class="review-right">
+                        <!-- 右側參考區：顯示前次資料作為撰寫參考 -->
+                        <div style="margin-bottom:20px;">
+                            <div style="font-size:13px;color:#64748b;margin-bottom:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">📝 撰寫參考</div>
+                            
+                            <!-- 前次機構辦理情形（在右側作為參考） -->
+                            <div id="prevHandlingBoxRight" style="display:none; margin-bottom:16px;">
+                                <div style="font-size:12px;color:#059669;margin-bottom:6px;font-weight:700;">📋 前次機構辦理情形：</div>
+                                <div style="background:#ecfdf5;padding:12px;border-radius:8px;font-size:14px;color:#047857;border:1px solid #a7f3d0;line-height:1.5;max-height:180px;overflow-y:auto;white-space:pre-wrap;"
+                                    id="prevHandlingTextRight"></div>
+                            </div>
+
+                            <!-- 前次審查意見（在右側作為參考） -->
+                            <div id="prevReviewBoxRight" style="display:none; margin-bottom:0;">
+                                <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 前次審查意見：</div>
+                                <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;max-height:180px;overflow-y:auto;white-space:pre-wrap;"
+                                    id="prevReviewTextRight"></div>
+                            </div>
+                        </div>
                         <div class="form-group"><label>審查結果</label><select id="editStatus" class="filter-select">
                                 <option value="持續列管">🔴 持續列管</option>
                                 <option value="解除列管">🟢 解除列管</option>
