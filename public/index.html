@@ -2647,7 +2647,7 @@ if (dashboard) {
                     }
                     let updateTxt = '-'; const lr = getLatest(item, 'review'), lh = getLatest(item, 'handling'); if (lr) updateTxt = `[審] ${stripHtml(lr).slice(0, 80)}`; else if (lh) updateTxt = `[回] ${stripHtml(lh).slice(0, 80)}`;
                     let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if (item.aiResult && item.aiResult.status === 'done') { const f = String(item.aiResult.fulfill || ''); const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes ? 'yes' : 'no'}">${isYes ? '✅' : '⚠️'} ${f}</div>`; }
-                    const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : '';
+                    const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',false)">✏️ 編輯</button>` : '';
                     const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
                     const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
 
@@ -3320,7 +3320,34 @@ if (dashboard) {
         function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
         async function submitProfile() { const name = document.getElementById('myProfileName').value, pwd = document.getElementById('myProfilePwd').value; try { const res = await fetch('/api/auth/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password: pwd }) }); if (res.ok) { showToast('更新成功，請重新登入'); document.getElementById('profileModal').classList.remove('open'); logout(); } else { const j = await res.json(); showToast(j.error || '更新失敗', 'error'); } } catch (e) { showToast('更新失敗', 'error'); } }
 
-        function toggleEditMode(edit) { document.getElementById('viewModeContent').classList.toggle('hidden', edit); document.getElementById('editModeContent').classList.toggle('hidden', !edit); document.getElementById('drawerTitle').innerText = edit ? "編輯事項" : "詳細資料"; if (edit) { document.getElementById('editId').value = currentEditItem.id; document.getElementById('editHeaderNumber').innerText = currentEditItem.number; document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; document.getElementById('editStatus').value = st; document.getElementById('editRound').value = 1; document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); aiBox.style.display = 'none';loadRoundData();}}
+        function toggleEditMode(edit) { 
+            document.getElementById('viewModeContent').classList.toggle('hidden', edit); 
+            document.getElementById('editModeContent').classList.toggle('hidden', !edit); 
+            document.getElementById('drawerTitle').innerText = edit ? "編輯事項" : "詳細資料"; 
+            if (edit) { 
+                if (!currentEditItem) return;
+                // 清除所有編輯欄位，避免前一個事項的資料殘留
+                document.getElementById('editId').value = currentEditItem.id; 
+                document.getElementById('editHeaderNumber').innerText = currentEditItem.number; 
+                document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; 
+                document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; 
+                const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; 
+                document.getElementById('editStatus').value = st; 
+                document.getElementById('editRound').value = 1; 
+                document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); 
+                // 清除 AI 分析結果
+                const aiBox = document.getElementById('aiBox');
+                if (aiBox) aiBox.style.display = 'none';
+                document.getElementById('aiPreviewText').innerText = '';
+                document.getElementById('aiResBadge').innerHTML = '';
+                // 清除編輯欄位，loadRoundData 會重新載入正確的資料
+                document.getElementById('editReview').value = '';
+                document.getElementById('editHandling').value = '';
+                document.getElementById('editReplyDate').value = '';
+                document.getElementById('editResponseDate').value = '';
+                loadRoundData();
+            }
+        }
         function initEditForm() { const s = document.getElementById('editRound'); if (!s || s.options.length > 0) return; for (let i = 1; i <= 20; i++) { const o = document.createElement('option'); o.value = i; o.text = `第 ${i} 次`; s.add(o); } }
 
         function openDetail(id, isEdit) {
@@ -3402,8 +3429,143 @@ if (dashboard) {
                 if (cachedGlobalStats) updateChartsData(cachedGlobalStats);
             } catch (e) { console.error("Chart Init Error:", e); }
         }
-        async function runAiInEdit(btn) { btn.disabled = true; btn.innerText = 'AI 分析中...'; const handlingTxt = document.getElementById('editHandling').value, r = [{ handling: handlingTxt, review: '(待審查)' }]; try { if (!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); const cleanContent = stripHtml(currentEditItem.content); const res = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: cleanContent, rounds: r }) }); const j = await res.json(); if (res.ok && j.result) { document.getElementById('aiBox').style.display = 'block'; document.getElementById('aiPreviewText').innerText = j.result; document.getElementById('aiResBadge').innerHTML = j.fulfill && j.fulfill.includes('是') ? `<span class="ai-tag yes">✅ 符合</span>` : `<span class="ai-tag no">⚠️ 需注意</span>`; } else { showToast('AI 分析失敗', 'error'); } } catch (e) { showToast('AI Error: ' + e.message, 'error'); } finally { btn.disabled = false; btn.innerText = '🤖 AI 智能分析'; } }
-        function applyAiSuggestion() { const txt = document.getElementById('aiPreviewText').innerText; if (txt) { document.getElementById('editReview').value = txt; showToast('已帶入 AI 建議'); } }
+        function loadRoundData() {
+            if (!currentEditItem) return;
+            const round = parseInt(document.getElementById('editRound').value) || 1;
+            const suffix = round === 1 ? '' : round;
+            
+            // 載入該回合的資料
+            const handling = currentEditItem['handling' + suffix] || '';
+            const review = currentEditItem['review' + suffix] || '';
+            const replyDate = currentEditItem['reply_date_r' + round] || '';
+            const responseDate = currentEditItem['response_date_r' + round] || '';
+            
+            document.getElementById('editHandling').value = handling;
+            document.getElementById('editReview').value = review;
+            document.getElementById('editReplyDate').value = replyDate;
+            document.getElementById('editResponseDate').value = responseDate;
+            
+            // 顯示上一回合的審查意見（如果有）
+            const prevRound = round - 1;
+            if (prevRound >= 1) {
+                const prevSuffix = prevRound === 1 ? '' : prevRound;
+                const prevReview = currentEditItem['review' + prevSuffix] || '';
+                const prevBox = document.getElementById('prevReviewBox');
+                const prevText = document.getElementById('prevReviewText');
+                const prevRoundNum = document.getElementById('prevRoundNum');
+                
+                if (prevReview && prevBox && prevText && prevRoundNum) {
+                    prevBox.style.display = 'block';
+                    prevRoundNum.textContent = prevRound;
+                    prevText.textContent = prevReview;
+                } else if (prevBox) {
+                    prevBox.style.display = 'none';
+                }
+            } else {
+                const prevBox = document.getElementById('prevReviewBox');
+                if (prevBox) prevBox.style.display = 'none';
+            }
+            
+            // 清除 AI 分析結果（因為回合改變了）
+            const aiBox = document.getElementById('aiBox');
+            if (aiBox) aiBox.style.display = 'none';
+            document.getElementById('aiPreviewText').innerText = '';
+            document.getElementById('aiResBadge').innerHTML = '';
+        }
+
+        async function saveEdit() {
+            if (!currentEditItem) {
+                showToast('找不到目前編輯的事項', 'error');
+                return;
+            }
+            
+            const id = document.getElementById('editId').value;
+            const status = document.getElementById('editStatus').value;
+            const round = parseInt(document.getElementById('editRound').value) || 1;
+            const handling = document.getElementById('editHandling').value.trim();
+            const review = document.getElementById('editReview').value.trim();
+            const replyDate = document.getElementById('editReplyDate').value.trim();
+            const responseDate = document.getElementById('editResponseDate').value.trim();
+            
+            if (!id) {
+                showToast('找不到事項 ID', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/issues/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status,
+                        round,
+                        handling,
+                        review,
+                        replyDate: replyDate || null,
+                        responseDate: responseDate || null
+                    })
+                });
+                
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json.success) {
+                        showToast('儲存成功！');
+                        // 重新載入資料
+                        await loadIssuesPage(issuesPage);
+                        // 更新 currentEditItem
+                        currentEditItem = currentData.find(d => String(d.id) === String(id));
+                        if (currentEditItem) {
+                            // 重新載入回合資料以反映最新的儲存結果
+                            loadRoundData();
+                        }
+                    } else {
+                        showToast('儲存失敗', 'error');
+                    }
+                } else {
+                    const json = await res.json();
+                    showToast(json.error || '儲存失敗', 'error');
+                }
+            } catch (e) {
+                console.error('Save error:', e);
+                showToast('儲存時發生錯誤: ' + e.message, 'error');
+            }
+        }
+
+        async function runAiInEdit(btn) { 
+            btn.disabled = true; 
+            btn.innerText = 'AI 分析中...'; 
+            const handlingTxt = document.getElementById('editHandling').value; 
+            const r = [{ handling: handlingTxt, review: '(待審查)' }]; 
+            try { 
+                if (!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); 
+                const cleanContent = stripHtml(currentEditItem.content); 
+                const res = await fetch('/api/gemini', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ content: cleanContent, rounds: r }) 
+                }); 
+                const j = await res.json(); 
+                if (res.ok && j.result) { 
+                    document.getElementById('aiBox').style.display = 'block'; 
+                    document.getElementById('aiPreviewText').innerText = j.result; 
+                    document.getElementById('aiResBadge').innerHTML = j.fulfill && j.fulfill.includes('是') ? `<span class="ai-tag yes">✅ 符合</span>` : `<span class="ai-tag no">⚠️ 需注意</span>`; 
+                } else { 
+                    showToast('AI 分析失敗', 'error'); 
+                } 
+            } catch (e) { 
+                showToast('AI Error: ' + e.message, 'error'); 
+            } finally { 
+                btn.disabled = false; 
+                btn.innerText = '🤖 AI 智能分析'; 
+            } 
+        }
+        function applyAiSuggestion() { 
+            const txt = document.getElementById('aiPreviewText').innerText; 
+            if (txt) { 
+                document.getElementById('editReview').value = txt; 
+                showToast('已帶入 AI 建議'); 
+            } 
+        }
     </script>
 </body>
 
