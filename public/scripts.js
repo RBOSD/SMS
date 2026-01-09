@@ -1142,19 +1142,36 @@ if (dashboard) {
                 const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; 
                 document.getElementById('editStatus').value = st; 
                 
-                // 計算已經審查的最高次數，然後自動跳到下一次（支持無限次）
-                let highestRound = 0;
-                // 動態查找所有可能的回合（檢查所有欄位）
+                // 計算應該進行第幾次審查（支持無限次）
+                // 邏輯：找到最高的機構辦理情形，檢查是否有對應的審查意見
+                // 如果沒有，就應該進行該次的審查；如果有，就進行下一次的審查
+                let nextRound = 1;
+                let highestHandlingRound = 0;
+                
+                // 先找到最高的機構辦理情形
                 for (let i = 1; i <= 200; i++) {
                     const suffix = i === 1 ? '' : i;
                     const hasHandling = currentEditItem['handling' + suffix] && currentEditItem['handling' + suffix].trim();
-                    const hasReview = currentEditItem['review' + suffix] && currentEditItem['review' + suffix].trim();
-                    if (hasHandling || hasReview) {
-                        highestRound = i;
+                    if (hasHandling) {
+                        highestHandlingRound = i;
                     }
                 }
-                // 跳到下一次審查（如果最高是第2次，就跳到第3次）
-                const nextRound = highestRound + 1;
+                
+                // 檢查最高的機構辦理情形是否有對應的審查意見
+                if (highestHandlingRound > 0) {
+                    const suffix = highestHandlingRound === 1 ? '' : highestHandlingRound;
+                    const hasReview = currentEditItem['review' + suffix] && currentEditItem['review' + suffix].trim();
+                    if (hasReview) {
+                        // 如果有審查意見，就進行下一次審查
+                        nextRound = highestHandlingRound + 1;
+                    } else {
+                        // 如果沒有審查意見，就進行該次審查
+                        nextRound = highestHandlingRound;
+                    }
+                } else {
+                    // 如果沒有任何機構辦理情形，就進行第1次審查
+                    nextRound = 1;
+                }
                 // 確保選項存在
                 ensureRoundOption(nextRound);
                 document.getElementById('editRound').value = nextRound;
@@ -1221,10 +1238,12 @@ if (dashboard) {
             let h = '';
             let firstRecord = true;
             // 支持無限次，動態查找（從200開始向下找，實際應該不會超過這個數字）
+            // 第N次辦理情形區塊應該包含：第N次機構辦理情形 + 第N次審查意見
             for (let i = 200; i >= 1; i--) {
                 const suffix = i === 1 ? '' : i;
-                // 第N次辦理情形應該包含：第N次機構辦理情形 + 第N次審查意見
+                // 第N次機構辦理情形
                 const ha = currentEditItem['handling' + suffix];
+                // 第N次審查意見（第N次機構辦理情形後，會進行第N次審查）
                 const re = currentEditItem['review' + suffix];
                 const replyDate = currentEditItem['reply_date_r' + i];
                 const responseDate = currentEditItem['response_date_r' + i];
@@ -1241,7 +1260,7 @@ if (dashboard) {
                         dateInfo += `</div>`;
                     }
 
-                    // 第N次辦理情形區塊：先顯示機構辦理情形，再顯示審查意見
+                    // 第N次辦理情形區塊：先顯示第N次機構辦理情形，再顯示第N+1次審查意見
                     h += `<div class="timeline-item">
                         <div class="timeline-dot"></div>
                         <div class="timeline-title">第 ${i} 次辦理情形 ${latestBadge}</div>
@@ -1350,11 +1369,10 @@ if (dashboard) {
             document.getElementById('editReplyDate').value = replyDate;
             document.getElementById('editResponseDate').value = responseDate;
             
-            // 顯示第N-1次機構辦理情形（只讀，作為參考）
-            // 撰寫第N次審查時，右側顯示第N-1次機構辦理情形
-            // 第1次審查時顯示第1次機構辦理情形（機構先回復，才進行第1次審查）
-            // 第N次審查時（N>1）顯示第N-1次機構辦理情形
-            const displayHandlingRound = round === 1 ? 1 : round - 1;
+            // 顯示第N次機構辦理情形（只讀，作為參考）
+            // 撰寫第N次審查時，右側顯示第N次機構辦理情形
+            // 因為第N次機構辦理情形後，會進行第N次審查
+            const displayHandlingRound = round;
             const displayHandlingSuffix = displayHandlingRound === 1 ? '' : displayHandlingRound;
             const displayHandling = currentEditItem['handling' + displayHandlingSuffix] || '';
             
