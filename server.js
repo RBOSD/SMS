@@ -592,7 +592,12 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
         let idx = 1;
         
         if (q) {
-            where.push(`(username LIKE $${idx} OR ip_address LIKE $${idx})`);
+            // 搜尋所有欄位：username, ip_address, login_time (轉換為文字格式)
+            where.push(`(
+                username LIKE $${idx} OR 
+                ip_address LIKE $${idx} OR 
+                CAST(login_time AS TEXT) LIKE $${idx}
+            )`);
             params.push(`%${q}%`);
             idx++;
         }
@@ -623,7 +628,13 @@ app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
         let idx = 1;
         
         if (q) {
-            where.push(`(username LIKE $${idx} OR action LIKE $${idx} OR details LIKE $${idx})`);
+            // 搜尋所有欄位：username, action, details, created_at (轉換為文字格式)
+            where.push(`(
+                username LIKE $${idx} OR 
+                action LIKE $${idx} OR 
+                details LIKE $${idx} OR
+                CAST(created_at AS TEXT) LIKE $${idx}
+            )`);
             params.push(`%${q}%`);
             idx++;
         }

@@ -552,25 +552,6 @@ if (dashboard) {
         }
 
         function exportLogs(type) { const data = type === 'login' ? currentLogs.login : currentLogs.action; if (!data || data.length === 0) return showToast('無資料可匯出', 'error'); let csvContent = '\uFEFF'; if (type === 'login') { csvContent += "時間,帳號,IP位址\n"; data.forEach(row => { csvContent += `"${new Date(row.login_time).toLocaleString('zh-TW')}","${row.username}","${row.ip_address}"\n`; }); } else { csvContent += "時間,帳號,動作,詳細內容\n"; data.forEach(row => { csvContent += `"${new Date(row.created_at).toLocaleString('zh-TW')}","${row.username}","${row.action}","${(row.details || '').replace(/"/g, '""')}"\n`; }); } const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `${type}_logs_${new Date().toISOString().slice(0, 10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
-        // 清除篩選條件（不會刪除資料庫記錄）
-        function clearLogsFilter(type) {
-            if (type === 'login') {
-                const loginSearchEl = document.getElementById('loginSearch');
-                if (loginSearchEl) {
-                    loginSearchEl.value = '';
-                    loadLogsPage(1);
-                    showToast('已清除篩選條件');
-                }
-            } else {
-                const actionSearchEl = document.getElementById('actionSearch');
-                if (actionSearchEl) {
-                    actionSearchEl.value = '';
-                    loadActionsPage(1);
-                    showToast('已清除篩選條件');
-                }
-            }
-        }
-        
         // 刪除資料庫記錄（根據選擇：刪除舊記錄或全部）
         async function deleteLogsFromDB(type) {
             const daysSelect = document.getElementById(type === 'login' ? 'loginCleanupDays' : 'actionCleanupDays');
