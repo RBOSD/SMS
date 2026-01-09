@@ -535,6 +535,7 @@ app.post('/api/users', requireAuth, async (req, res) => {
         
         const hash = bcrypt.hashSync(password, 10);
         await pool.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", [username, hash, name, role]);
+        logAction(req.session.user.username, 'CREATE_USER', `新增使用者：${name} (${username})，權限：${role}`, req);
         res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -544,11 +545,19 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
     const { name, password, role } = req.body;
     const id = req.params.id;
     try {
+        // 先查詢使用者資訊以便記錄
+        const userRes = await pool.query("SELECT username, name FROM users WHERE id=$1", [id]);
+        const targetUser = userRes.rows[0];
+        const targetUsername = targetUser ? targetUser.username : `ID:${id}`;
+        const targetName = targetUser ? targetUser.name : '未知';
+        
         if (password) {
             const hash = bcrypt.hashSync(password, 10);
             await pool.query("UPDATE users SET name=$1, role=$2, password=$3 WHERE id=$4", [name, role, hash, id]);
+            logAction(req.session.user.username, 'UPDATE_USER', `修改使用者：${targetName} (${targetUsername})，已更新姓名、權限和密碼`, req);
         } else {
             await pool.query("UPDATE users SET name=$1, role=$2 WHERE id=$3", [name, role, id]);
+            logAction(req.session.user.username, 'UPDATE_USER', `修改使用者：${targetName} (${targetUsername})，已更新姓名和權限`, req);
         }
         res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -558,7 +567,14 @@ app.delete('/api/users/:id', requireAuth, async (req, res) => {
     if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
     if(parseInt(req.params.id) === req.session.user.id) return res.status(400).json({error:'Cannot self delete'});
     try {
+        // 先查詢使用者資訊以便記錄
+        const userRes = await pool.query("SELECT username, name FROM users WHERE id=$1", [req.params.id]);
+        const targetUser = userRes.rows[0];
+        const targetUsername = targetUser ? targetUser.username : `ID:${req.params.id}`;
+        const targetName = targetUser ? targetUser.name : '未知';
+        
         await pool.query("DELETE FROM users WHERE id=$1", [req.params.id]);
+        logAction(req.session.user.username, 'DELETE_USER', `刪除使用者：${targetName} (${targetUsername})`, req);
         res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
