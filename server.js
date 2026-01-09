@@ -592,11 +592,13 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
         let idx = 1;
         
         if (q) {
-            // 搜尋所有欄位：username, ip_address, login_time (轉換為文字格式)
+            // 搜尋所有欄位：username, ip_address, details, login_time, created_at
             where.push(`(
-                username LIKE $${idx} OR 
-                ip_address LIKE $${idx} OR 
-                CAST(login_time AS TEXT) LIKE $${idx}
+                COALESCE(username, '') LIKE $${idx} OR 
+                COALESCE(ip_address, '') LIKE $${idx} OR 
+                COALESCE(details, '') LIKE $${idx} OR
+                COALESCE(CAST(login_time AS TEXT), '') LIKE $${idx} OR
+                COALESCE(CAST(created_at AS TEXT), '') LIKE $${idx}
             )`);
             params.push(`%${q}%`);
             idx++;
@@ -628,12 +630,13 @@ app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
         let idx = 1;
         
         if (q) {
-            // 搜尋所有欄位：username, action, details, created_at (轉換為文字格式)
+            // 搜尋所有欄位：username, action, details, ip_address, created_at
             where.push(`(
-                username LIKE $${idx} OR 
-                action LIKE $${idx} OR 
-                details LIKE $${idx} OR
-                CAST(created_at AS TEXT) LIKE $${idx}
+                COALESCE(username, '') LIKE $${idx} OR 
+                COALESCE(action, '') LIKE $${idx} OR 
+                COALESCE(details, '') LIKE $${idx} OR
+                COALESCE(ip_address, '') LIKE $${idx} OR
+                COALESCE(CAST(created_at AS TEXT), '') LIKE $${idx}
             )`);
             params.push(`%${q}%`);
             idx++;
