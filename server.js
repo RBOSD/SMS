@@ -609,6 +609,51 @@ app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
     res.json({success:true});
 });
 
+// 根據時間範圍清除舊記錄
+app.post('/api/admin/logs/cleanup', requireAuth, async (req, res) => {
+    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+    try {
+        const { days } = req.body;
+        if (!days || days < 1) {
+            return res.status(400).json({error:'請提供有效的保留天數（至少1天）'});
+        }
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - parseInt(days));
+        
+        const result = await pool.query(
+            "DELETE FROM logs WHERE action='LOGIN' AND login_time < $1",
+            [cutoffDate]
+        );
+        
+        logAction(req.session.user.username, 'CLEANUP_LOGS', `清除 ${days} 天前的登入紀錄，刪除 ${result.rowCount} 筆`, req);
+        res.json({success:true, deleted: result.rowCount});
+    } catch (e) {
+        res.status(500).json({error: e.message});
+    }
+});
+
+app.post('/api/admin/action_logs/cleanup', requireAuth, async (req, res) => {
+    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+    try {
+        const { days } = req.body;
+        if (!days || days < 1) {
+            return res.status(400).json({error:'請提供有效的保留天數（至少1天）'});
+        }
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - parseInt(days));
+        
+        const result = await pool.query(
+            "DELETE FROM logs WHERE action!='LOGIN' AND created_at < $1",
+            [cutoffDate]
+        );
+        
+        logAction(req.session.user.username, 'CLEANUP_ACTION_LOGS', `清除 ${days} 天前的操作紀錄，刪除 ${result.rowCount} 筆`, req);
+        res.json({success:true, deleted: result.rowCount});
+    } catch (e) {
+        res.status(500).json({error: e.message});
+    }
+});
+
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
         const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");

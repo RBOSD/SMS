@@ -229,6 +229,9 @@ if (dashboard) {
                         // 視圖載入完成後，設置 admin 專屬元素
                         if (viewId === 'importView') {
                             setupAdminElements();
+                        } else if (viewId === 'usersView') {
+                            // 設置清除舊記錄的UI
+                            setTimeout(() => setupCleanupDaysSelect(), 100);
                         }
                     } else {
                         console.error('Failed to load view:', viewId);
@@ -236,12 +239,17 @@ if (dashboard) {
                 } catch (error) {
                     console.error('Error loading view:', viewId, error);
                 }
+            } else if (viewId === 'usersView' && viewElement.dataset.loaded) {
+                // 如果視圖已經載入，也要設置清除舊記錄的UI
+                setTimeout(() => setupCleanupDaysSelect(), 100);
             }
 
             if(viewId === 'searchView') {
                 loadIssuesPage(1);
             } else if (viewId === 'usersView') {
                 loadUsersPage(1);
+                // 設置清除舊記錄的UI
+                setTimeout(() => setupCleanupDaysSelect(), 100);
             }
         }
 
@@ -480,6 +488,65 @@ if (dashboard) {
 
         function exportLogs(type) { const data = type === 'login' ? currentLogs.login : currentLogs.action; if (!data || data.length === 0) return showToast('無資料可匯出', 'error'); let csvContent = '\uFEFF'; if (type === 'login') { csvContent += "時間,帳號,IP位址\n"; data.forEach(row => { csvContent += `"${new Date(row.login_time).toLocaleString('zh-TW')}","${row.username}","${row.ip_address}"\n`; }); } else { csvContent += "時間,帳號,動作,詳細內容\n"; data.forEach(row => { csvContent += `"${new Date(row.created_at).toLocaleString('zh-TW')}","${row.username}","${row.action}","${(row.details || '').replace(/"/g, '""')}"\n`; }); } const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `${type}_logs_${new Date().toISOString().slice(0, 10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
         async function clearLogs(type) { if (!confirm(`確定要清空所有「${type === 'login' ? '登入' : '操作'}」紀錄嗎？此動作無法復原！`)) return; const endpoint = type === 'login' ? '/api/admin/logs' : '/api/admin/action_logs'; try { const res = await fetch(endpoint, { method: 'DELETE' }); if (res.ok) { showToast('紀錄已清空'); if (type === 'login') loadLogsPage(1); else loadActionsPage(1); } else showToast('清除失敗', 'error'); } catch (e) { showToast('Error: ' + e.message, 'error'); } }
+        
+        async function cleanupOldLogs(type) {
+            const daysSelect = document.getElementById(type === 'login' ? 'loginCleanupDays' : 'actionCleanupDays');
+            const customDaysInput = document.getElementById(type === 'login' ? 'loginCustomDays' : 'actionCustomDays');
+            let days = parseInt(daysSelect.value);
+            
+            if (daysSelect.value === 'custom') {
+                days = parseInt(customDaysInput.value);
+                if (!days || days < 1) {
+                    showToast('請輸入有效的保留天數（至少1天）', 'error');
+                    return;
+                }
+            }
+            
+            const logTypeName = type === 'login' ? '登入' : '操作';
+            if (!confirm(`確定要清除 ${days} 天前的「${logTypeName}」紀錄嗎？此動作無法復原！\n\n將保留最近 ${days} 天的記錄，刪除更早的記錄。`)) {
+                return;
+            }
+            
+            const endpoint = type === 'login' ? '/api/admin/logs/cleanup' : '/api/admin/action_logs/cleanup';
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ days })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(`已清除 ${data.deleted || 0} 筆 ${days} 天前的${logTypeName}紀錄`);
+                    if (type === 'login') loadLogsPage(1);
+                    else loadActionsPage(1);
+                } else {
+                    showToast(data.error || '清除失敗', 'error');
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+        
+        // 處理自訂天數輸入框的顯示/隱藏
+        function setupCleanupDaysSelect() {
+            const loginSelect = document.getElementById('loginCleanupDays');
+            const actionSelect = document.getElementById('actionCleanupDays');
+            const loginCustom = document.getElementById('loginCustomDays');
+            const actionCustom = document.getElementById('actionCustomDays');
+            
+            if (loginSelect) {
+                loginSelect.addEventListener('change', function() {
+                    loginCustom.classList.toggle('hidden', this.value !== 'custom');
+                    if (this.value !== 'custom') loginCustom.value = '';
+                });
+            }
+            if (actionSelect) {
+                actionSelect.addEventListener('change', function() {
+                    actionCustom.classList.toggle('hidden', this.value !== 'custom');
+                    if (this.value !== 'custom') actionCustom.value = '';
+                });
+            }
+        }
 
         function switchAdminTab(tab) { document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users'); document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs'); document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions'); if (tab === 'logs') loadLogsPage(1); if (tab === 'actions') loadActionsPage(1); }
 
