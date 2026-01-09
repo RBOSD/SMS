@@ -1340,14 +1340,25 @@ if (dashboard) {
             const replyDate = currentEditItem['reply_date_r' + round] || '';
             const responseDate = currentEditItem['response_date_r' + round] || '';
             
+            // 儲存到隱藏的輸入框（用於儲存時提交）
             document.getElementById('editHandling').value = handling;
             document.getElementById('editReview').value = review;
             document.getElementById('editReplyDate').value = replyDate;
             document.getElementById('editResponseDate').value = responseDate;
             
-            // 更新當前回合顯示
-            const currentRoundNumEl = document.getElementById('currentRoundNum');
-            if (currentRoundNumEl) currentRoundNumEl.textContent = round;
+            // 顯示當前回合的機構辦理情形（只讀，作為參考）
+            const currentHandlingDisplay = document.getElementById('currentHandlingDisplay');
+            const currentHandlingRoundNum = document.getElementById('currentHandlingRoundNum');
+            if (currentHandlingDisplay && currentHandlingRoundNum) {
+                currentHandlingRoundNum.textContent = round;
+                if (handling && handling.trim()) {
+                    currentHandlingDisplay.textContent = handling;
+                    currentHandlingDisplay.style.color = '#047857';
+                } else {
+                    currentHandlingDisplay.textContent = '（尚未有機構辦理情形）';
+                    currentHandlingDisplay.style.color = '#94a3b8';
+                }
+            }
             
             // 顯示上一回合的審查意見（如果有，且不是第1次）
             const prevRound = round - 1;
