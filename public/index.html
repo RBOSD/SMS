@@ -226,13 +226,14 @@
             width: 280px;
             background: var(--bg-card);
             box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
-            padding: 80px 20px 20px 20px;
+            padding: 20px;
             z-index: 1000;
             transform: translateX(-100%);
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             flex-direction: column;
             gap: 12px;
+            overflow-y: auto;
         }
 
         .filters-panel.open {
@@ -259,9 +260,10 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
             border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
         }
 
         .sidebar-title {
@@ -1211,15 +1213,16 @@
 
             /* Header Optimizations */
             .brand-title {
-                display: none;
+                font-size: 14px;
+                max-width: 200px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
-            /* Hide full title */
+            /* 手機版不隱藏標題，只縮小字體 */
             .brand::after {
-                content: "SMS";
-                font-weight: 700;
-                font-size: 18px;
-                color: var(--text-main);
+                display: none;
             }
 
             .app-header {
