@@ -1223,10 +1223,13 @@ if (dashboard) {
             // 支持無限次，動態查找（從200開始向下找，實際應該不會超過這個數字）
             for (let i = 200; i >= 1; i--) {
                 const suffix = i === 1 ? '' : i;
-                const ha = currentEditItem['handling' + suffix], re = currentEditItem['review' + suffix];
+                // 第N次辦理情形應該包含：第N次機構辦理情形 + 第N次審查意見
+                const ha = currentEditItem['handling' + suffix];
+                const re = currentEditItem['review' + suffix];
                 const replyDate = currentEditItem['reply_date_r' + i];
                 const responseDate = currentEditItem['response_date_r' + i];
 
+                // 只要有機構辦理情形或審查意見，就顯示該次辦理情形
                 if (ha || re) {
                     const latestBadge = firstRecord ? '<span class="badge new" style="margin-left:8px;font-size:11px;">最新進度</span>' : '';
 
@@ -1238,12 +1241,13 @@ if (dashboard) {
                         dateInfo += `</div>`;
                     }
 
+                    // 第N次辦理情形區塊：先顯示機構辦理情形，再顯示審查意見
                     h += `<div class="timeline-item">
                         <div class="timeline-dot"></div>
                         <div class="timeline-title">第 ${i} 次辦理情形 ${latestBadge}</div>
                         ${dateInfo}
-                        ${ha ? `<div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#334155;border:1px solid #e2e8f0;margin-bottom:12px;">${ha}</div>` : ''}
-                        ${re ? `<div style="background:#fff;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#334155;border:1px solid #e2e8f0;border-left:3px solid var(--primary);"><strong>審查意見：</strong><br>${re}</div>` : ''}
+                        ${ha ? `<div style="background:#ecfdf5;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#047857;border:1px solid #a7f3d0;margin-bottom:12px;white-space:pre-wrap;"><strong>📝 機構辦理情形：</strong><br>${ha}</div>` : ''}
+                        ${re ? `<div style="background:#fff;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#334155;border:1px solid #e2e8f0;border-left:3px solid var(--primary);white-space:pre-wrap;"><strong>👀 審查意見：</strong><br>${re}</div>` : ''}
                     </div>`;
                     firstRecord = false;
                 }
