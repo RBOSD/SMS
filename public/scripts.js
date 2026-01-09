@@ -499,12 +499,35 @@ if (dashboard) {
             showToast('已清除篩選條件');
         }
         
-        // 刪除資料庫中的所有記錄
-        async function clearLogs(type) { if (!confirm(`確定要刪除資料庫中所有「${type === 'login' ? '登入' : '操作'}」紀錄嗎？此動作無法復原！`)) return; const endpoint = type === 'login' ? '/api/admin/logs' : '/api/admin/action_logs'; try { const res = await fetch(endpoint, { method: 'DELETE' }); if (res.ok) { showToast('資料庫記錄已全部刪除'); if (type === 'login') loadLogsPage(1); else loadActionsPage(1); } else showToast('刪除失敗', 'error'); } catch (e) { showToast('Error: ' + e.message, 'error'); } }
-        
-        async function cleanupOldLogs(type) {
+        // 刪除資料庫記錄（根據選擇：刪除舊記錄或全部）
+        async function deleteLogsFromDB(type) {
             const daysSelect = document.getElementById(type === 'login' ? 'loginCleanupDays' : 'actionCleanupDays');
             const customDaysInput = document.getElementById(type === 'login' ? 'loginCustomDays' : 'actionCustomDays');
+            const logTypeName = type === 'login' ? '登入' : '操作';
+            
+            // 如果選擇"刪除全部"
+            if (daysSelect.value === 'all') {
+                if (!confirm(`確定要刪除資料庫中所有「${logTypeName}」紀錄嗎？此動作無法復原！`)) {
+                    return;
+                }
+                
+                const endpoint = type === 'login' ? '/api/admin/logs' : '/api/admin/action_logs';
+                try {
+                    const res = await fetch(endpoint, { method: 'DELETE' });
+                    if (res.ok) {
+                        showToast('資料庫記錄已全部刪除');
+                        if (type === 'login') loadLogsPage(1);
+                        else loadActionsPage(1);
+                    } else {
+                        showToast('刪除失敗', 'error');
+                    }
+                } catch (e) {
+                    showToast('Error: ' + e.message, 'error');
+                }
+                return;
+            }
+            
+            // 刪除指定天數前的記錄
             let days = parseInt(daysSelect.value);
             
             if (daysSelect.value === 'custom') {
@@ -515,7 +538,6 @@ if (dashboard) {
                 }
             }
             
-            const logTypeName = type === 'login' ? '登入' : '操作';
             if (!confirm(`確定要刪除資料庫中 ${days} 天前的「${logTypeName}」紀錄嗎？此動作無法復原！\n\n將保留最近 ${days} 天的記錄，刪除更早的記錄。`)) {
                 return;
             }

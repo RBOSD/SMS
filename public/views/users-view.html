@@ -58,12 +58,12 @@
                 <option value="180">保留180天</option>
                 <option value="365">保留365天</option>
                 <option value="custom">自訂天數</option>
+                <option value="all">刪除全部</option>
             </select>
             <input id="loginCustomDays" type="number" min="1" placeholder="天數" 
                 class="filter-input hidden" style="width:80px; padding:6px 10px; font-size:13px;">
-            <button class="btn btn-warning btn-sm" onclick="cleanupOldLogs('login')">刪除舊記錄</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteLogsFromDB('login')">刪除資料庫記錄</button>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="clearLogs('login')">刪除全部記錄</button>
     </div>
     <div id="logsPaginationTop" class="pagination-bar"
         style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
@@ -98,12 +98,12 @@
                 <option value="180">保留180天</option>
                 <option value="365">保留365天</option>
                 <option value="custom">自訂天數</option>
+                <option value="all">刪除全部</option>
             </select>
             <input id="actionCustomDays" type="number" min="1" placeholder="天數" 
                 class="filter-input hidden" style="width:80px; padding:6px 10px; font-size:13px;">
-            <button class="btn btn-warning btn-sm" onclick="cleanupOldLogs('action')">刪除舊記錄</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteLogsFromDB('action')">刪除資料庫記錄</button>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="clearLogs('action')">刪除全部記錄</button>
     </div>
     <div id="actionsPaginationTop" class="pagination-bar"
         style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
