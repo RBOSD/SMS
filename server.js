@@ -9,7 +9,8 @@ const session = require('express-session');
 // [Added] pg-simple session store
 const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcrypt');
-const { GoogleGenerativeAI } = require("@google/generative-ai"); 
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const rateLimit = require('express-rate-limit');
 require('dotenv').config(); 
 
 const app = express();
@@ -38,7 +39,18 @@ app.use(session({
         tableName: 'session',
         createTableIfMissing: true 
     }),
-    secret: process.env.SESSION_SECRET || 'sms-secret-key-pg-final-v3',
+    secret: (() => {
+        const secret = process.env.SESSION_SECRET;
+        if (!secret || secret === 'sms-secret-key-pg-final-v3') {
+            console.error('警告: SESSION_SECRET 環境變數未設定或使用預設值！');
+            console.error('請在 .env 檔案中設定一個隨機且複雜的 SESSION_SECRET');
+            console.error('可以使用命令產生: openssl rand -base64 32');
+            if (process.env.NODE_ENV === 'production') {
+                throw new Error('SESSION_SECRET environment variable is required in production');
+            }
+        }
+        return secret || 'sms-secret-key-pg-final-v3-dev-only';
+    })(),
     resave: false,
     saveUninitialized: false,
     proxy: true, 
@@ -56,6 +68,21 @@ const requireAuth = (req, res, next) => {
         res.status(401).json({ error: 'Unauthorized' });
     }
 };
+
+// 對所有 API 路由套用速率限制（除了已經有特定限制的路由）
+// 注意：這個中間件必須放在 session 之後
+app.use('/api/', (req, res, next) => {
+    // 登入路由使用 loginLimiter，不需要再次限制
+    if (req.path === '/auth/login') {
+        return next();
+    }
+    // Gemini API 使用 geminiLimiter
+    if (req.path === '/gemini') {
+        return next();
+    }
+    // 其他 API 使用通用限制
+    return apiLimiter(req, res, next);
+});
 
 // --- Database Initialization ---
 async function initDB() {
@@ -145,10 +172,18 @@ async function initDB() {
                 // Create Default Admin if no users exist
                 const userRes = await client.query("SELECT count(*) as count FROM users");
                 if (parseInt(userRes.rows[0].count) === 0) {
-                    const hash = bcrypt.hashSync('admin123', 10);
+                    // 使用環境變數提供預設密碼，或在首次登入後強制修改
+                    const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || 
+                        require('crypto').randomBytes(16).toString('hex');
+                    const hash = bcrypt.hashSync(defaultPassword, 10);
                     await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
                         ['admin', hash, '系統管理員', 'admin']);
-                    console.log("Default admin created.");
+                    console.log("===========================================");
+                    console.log("警告: 已建立預設管理員帳號");
+                    console.log("帳號: admin");
+                    console.log("密碼: " + (process.env.DEFAULT_ADMIN_PASSWORD ? "使用環境變數設定" : defaultPassword));
+                    console.log("請立即登入並修改密碼！");
+                    console.log("===========================================");
                 }
                 
                 console.log('Database initialized successfully.');
@@ -169,6 +204,35 @@ async function initDB() {
     throw new Error('Could not connect to database after multiple retries.');
 }
 
+// Rate Limiting 設定
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 分鐘
+    max: 5, // 最多 5 次登入嘗試
+    message: { error: '登入嘗試過多，請 15 分鐘後再試' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => {
+        // 開發環境可以放寬限制
+        return process.env.NODE_ENV === 'development';
+    }
+});
+
+const apiLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 分鐘
+    max: 100, // 最多 100 次請求
+    message: { error: 'API 調用過於頻繁，請稍後再試' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const geminiLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 分鐘
+    max: 20, // 最多 20 次 AI 分析請求
+    message: { error: 'AI 分析請求過於頻繁，請稍後再試' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 async function logAction(username, action, details, req) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     try {
@@ -178,8 +242,6 @@ async function logAction(username, action, details, req) {
 }
 
 // --- API Routes ---
-
-app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
         const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
@@ -252,7 +314,7 @@ app.put('/api/auth/profile', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/gemini', async (req, res) => {
+app.post('/api/gemini', geminiLimiter, async (req, res) => {
     const { content, rounds } = req.body;
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: '後端未設定 GEMINI_API_KEY' });
