@@ -296,17 +296,21 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            margin-bottom: 24px;
+            padding: 20px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.3);
             flex-shrink: 0;
             min-height: 30px;
         }
 
         .content-title {
-            font-size: 20px;
+            font-size: 24px;
             font-weight: 700;
-            color: var(--text-main);
+            color: #ffffff;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            letter-spacing: -0.5px;
         }
 
         /* Dashboard */
@@ -406,12 +410,18 @@
             background: white;
             border-radius: 16px;
             border: 1px solid var(--border);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
             overflow: hidden;
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .main-card:hover {
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
         }
 
         /* Filters Optimization */
@@ -616,26 +626,39 @@
 
         .admin-tabs {
             display: flex;
-            gap: 10px;
-            margin-bottom: 16px;
-            border-bottom: 1px solid #e2e8f0;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 8px;
+            background: #f8fafc;
+            border-radius: 12px;
             overflow-x: auto;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
         }
 
         .admin-tab-btn {
-            padding: 10px 16px;
-            background: none;
+            padding: 12px 20px;
+            background: transparent;
             border: none;
-            border-bottom: 2px solid transparent;
+            border-radius: 8px;
             font-weight: 600;
+            font-size: 14px;
             color: #64748b;
             cursor: pointer;
             white-space: nowrap;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .admin-tab-btn:hover {
+            background: rgba(37, 99, 235, 0.08);
+            color: var(--primary);
         }
 
         .admin-tab-btn.active {
-            color: var(--primary);
-            border-bottom-color: var(--primary);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            transform: translateY(-1px);
         }
 
         .data-container {
@@ -2033,9 +2056,9 @@
                 </div>
             </div>
     <div id="usersView" class="view-section">
-        <div class="content-header" style="justify-content: flex-start; gap: 16px;">
+        <div class="content-header" style="justify-content: space-between; gap: 16px;">
             <div class="content-title">👥 帳號與紀錄</div>
-            <button class="btn btn-primary" onclick="openUserModal('create')">➕ 新增</button>
+            <button class="btn btn-primary" onclick="openUserModal('create')" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff; backdrop-filter: blur(10px);">➕ 新增</button>
         </div>
         <div class="admin-tabs">
             <button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button>
@@ -2608,8 +2631,15 @@ if (dashboard) {
             const inspection = document.getElementById('filterInspection') ? document.getElementById('filterInspection').value : '';
             const planName = document.getElementById('filterPlan') ? document.getElementById('filterPlan').value : '';
 
-            let sortField = 'created_at', sortDir = 'desc';
-            if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
+            // 預設以年度最新排序（降序）
+            let sortField = 'year', sortDir = 'desc';
+            if (sortState.field) { 
+                if (sortState.field === 'number') sortField = 'title'; 
+                else if (sortState.field === 'year') sortField = 'year'; 
+                else if (sortState.field === 'unit') sortField = 'unit'; 
+                else if (sortState.field === 'status') sortField = 'status'; 
+                sortDir = sortState.dir || 'asc'; 
+            }
 
             const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, planName, sortField, sortDir, _t: Date.now() });
 
@@ -2634,6 +2664,59 @@ if (dashboard) {
         function sortData(field) { if (sortState.field === field) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc'; else { sortState.field = field; sortState.dir = 'asc'; } loadIssuesPage(1); updateSortUI(); }
         function updateSortUI() { document.querySelectorAll('th').forEach(th => { th.classList.remove('sort-asc', 'sort-desc'); if (th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc'); }); }
         function renderStats(stats) { const s = stats.status; const total = s.reduce((sum, item) => sum + parseInt(item.count), 0); const active = s.find(x => x.status === '持續列管')?.count || 0; const resolved = s.filter(x => ['解除列管', '自行列管'].includes(x.status)).reduce((sum, x) => sum + parseInt(x.count), 0); document.getElementById('countTotal').innerText = total; document.getElementById('countActive').innerText = active; document.getElementById('countResolved').innerText = resolved; }
+        
+        function updateBatchUI() {
+            const checkboxes = document.querySelectorAll('.issue-check:checked');
+            const count = checkboxes.length;
+            const container = document.getElementById('batchActionContainer');
+            const badge = document.getElementById('selectedCountBadge');
+            
+            if (count > 0) {
+                container.style.display = 'block';
+                badge.textContent = `(${count})`;
+            } else {
+                container.style.display = 'none';
+                badge.textContent = '';
+            }
+        }
+        
+        function toggleAllCheckboxes() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.issue-check');
+            checkboxes.forEach(cb => cb.checked = selectAll.checked);
+            updateBatchUI();
+        }
+        
+        async function batchDeleteIssues() {
+            const checkboxes = document.querySelectorAll('.issue-check:checked');
+            if (checkboxes.length === 0) {
+                showToast('請至少選擇一筆資料', 'error');
+                return;
+            }
+            
+            const ids = Array.from(checkboxes).map(cb => cb.value);
+            if (!confirm(`確定要刪除 ${ids.length} 筆資料嗎？此操作無法復原！`)) {
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/issues/batch-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids })
+                });
+                
+                if (res.ok) {
+                    showToast(`成功刪除 ${ids.length} 筆資料`);
+                    loadIssuesPage(issuesPage);
+                } else {
+                    const json = await res.json();
+                    showToast(json.error || '刪除失敗', 'error');
+                }
+            } catch (e) {
+                showToast('刪除時發生錯誤: ' + e.message, 'error');
+            }
+        }
 
         function renderTable() {
             const tbody = document.getElementById('dataBody'); tbody.innerHTML = '';
