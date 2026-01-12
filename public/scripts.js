@@ -1880,20 +1880,40 @@ if (dashboard) {
             if (viewHandlingBox) viewHandlingBox.style.display = 'none';
             
             if (selectedValue === 'latest') {
-                // 顯示最新進度
-                const latest = getLatestReviewOrHandling(currentEditItem);
-                if (latest) {
-                    if (latest.type === 'review') {
+                // 顯示最新進度 - 找出最高輪次，同時顯示該輪次的審查意見和辦理情形
+                let maxRound = 0;
+                
+                // 找出最高的輪次
+                for (let k = 200; k >= 1; k--) {
+                    const suffix = k === 1 ? '' : k;
+                    const hasHandling = currentEditItem['handling' + suffix] && currentEditItem['handling' + suffix].trim();
+                    const hasReview = currentEditItem['review' + suffix] && currentEditItem['review' + suffix].trim();
+                    if (hasHandling || hasReview) {
+                        maxRound = k;
+                        break;
+                    }
+                }
+                
+                if (maxRound > 0) {
+                    const suffix = maxRound === 1 ? '' : maxRound;
+                    const handling = currentEditItem['handling' + suffix] || '';
+                    const review = currentEditItem['review' + suffix] || '';
+                    
+                    // 顯示審查意見
+                    if (review && review.trim()) {
                         const viewReviewRoundNum = document.getElementById('viewReviewRoundNum');
                         const viewReviewText = document.getElementById('viewReviewText');
-                        if (viewReviewRoundNum) viewReviewRoundNum.textContent = latest.round;
-                        if (viewReviewText) viewReviewText.textContent = latest.content;
+                        if (viewReviewRoundNum) viewReviewRoundNum.textContent = maxRound;
+                        if (viewReviewText) viewReviewText.textContent = review;
                         if (viewReviewBox) viewReviewBox.style.display = 'block';
-                    } else {
+                    }
+                    
+                    // 顯示辦理情形
+                    if (handling && handling.trim()) {
                         const viewHandlingRoundNum = document.getElementById('viewHandlingRoundNum');
                         const viewHandlingText = document.getElementById('viewHandlingText');
-                        if (viewHandlingRoundNum) viewHandlingRoundNum.textContent = latest.round;
-                        if (viewHandlingText) viewHandlingText.textContent = latest.content;
+                        if (viewHandlingRoundNum) viewHandlingRoundNum.textContent = maxRound;
+                        if (viewHandlingText) viewHandlingText.textContent = handling;
                         if (viewHandlingBox) viewHandlingBox.style.display = 'block';
                     }
                 }
