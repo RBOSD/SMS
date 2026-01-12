@@ -325,77 +325,77 @@
                         <textarea id="editHandling" style="display:none;"></textarea>
                     </div>
                     <div class="review-right">
-                        <!-- 審查設定區：合併審查輪次和日期設定 -->
-                        <div class="form-group"
-                            style="background:#ffffff; padding:16px; border-radius:10px; border:2px solid #667eea; box-shadow:0 4px 12px rgba(102,126,234,0.15);">
-                            <label style="margin-bottom:14px; color:#1e293b; font-weight:600; font-size:14px; display:flex; align-items:center; gap:6px;">📋 審查設定 <span style="font-size:11px; color:#ef4444; font-weight:400;">(必填)</span></label>
-                            
-                            <!-- 審查輪次 -->
-                            <div style="margin-bottom:16px;">
-                                <div style="font-size:12px;color:#475569;margin-bottom:6px;font-weight:600;">審查輪次</div>
-                                <div style="display:flex;align-items:center;gap:8px;">
-                                    <span id="editRoundDisplay" style="padding:6px 12px;background:#f1f5f9;border-radius:6px;border:1px solid #e2e8f0;color:#334155;font-weight:500;font-size:13px;min-width:70px;text-align:center;">第 1 次</span>
-                                    <input type="hidden" id="editRound" value="1">
-                                </div>
-                            </div>
-                            
-                            <!-- 歷程日期設定 -->
-                            <div>
-                                <div style="font-size:12px;color:#475569;margin-bottom:8px;font-weight:600;">歷程日期</div>
-                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
-                                    <div>
-                                        <div style="font-size:11px;color:#64748b;margin-bottom:4px;font-weight:500;">機構回復日期</div>
-                                        <input type="text" id="editReplyDate" class="filter-input" placeholder="例: 1130601"
-                                            style="font-size:13px;padding:10px;border:2px solid #94a3b8;background:#fff;transition:all 0.2s;font-weight:500;">
-                                    </div>
-                                    <div>
-                                        <div style="font-size:11px;color:#64748b;margin-bottom:4px;font-weight:500;">本次函復日期</div>
-                                        <input type="text" id="editResponseDate" class="filter-input"
-                                            placeholder="例: 1130615" style="font-size:13px;padding:10px;border:2px solid #94a3b8;background:#fff;transition:all 0.2s;font-weight:500;">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 當前回合機構辦理情形（只讀，作為參考） -->
-                        <div style="margin-bottom:20px;">
-                            <div style="font-size:12px;color:#059669;margin-bottom:6px;font-weight:700;">📝 第 <span id="currentHandlingRoundNum">1</span> 次機構辦理情形：</div>
-                            <div id="currentHandlingDisplay" style="background:#ecfdf5;padding:12px;border-radius:8px;font-size:14px;color:#047857;border:1px solid #a7f3d0;line-height:1.5;min-height:100px;max-height:250px;overflow-y:auto;white-space:pre-wrap;"
+                        <!-- 參考資料：當前回合機構辦理情形 -->
+                        <div style="margin-bottom:24px; background:#f8fafc; padding:16px; border-radius:10px; border:1px solid #e2e8f0;">
+                            <div style="font-size:12px;color:#64748b;margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">📋 參考資料</div>
+                            <div style="font-size:12px;color:#059669;margin-bottom:8px;font-weight:600;">第 <span id="currentHandlingRoundNum">1</span> 次機構辦理情形</div>
+                            <div id="currentHandlingDisplay" style="background:#ffffff;padding:12px;border-radius:8px;font-size:14px;color:#334155;border:1px solid #cbd5e1;line-height:1.6;min-height:80px;max-height:200px;overflow-y:auto;white-space:pre-wrap;"
                                 >（尚未有機構辦理情形）</div>
                         </div>
 
-                        <div class="form-group"><label>審查結果</label><select id="editStatus" class="filter-select">
-                                <option value="持續列管">🔴 持續列管</option>
-                                <option value="解除列管">🟢 解除列管</option>
-                                <option value="自行列管">🟠 自行列管</option>
-                            </select></div>
-                        <div class="form-group" style="flex:1;display:flex;flex-direction:column;">
-                            <div
-                                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                                <label style="margin-bottom:0;">審查意見</label><button class="btn btn-ai"
-                                    style="padding:4px 10px;font-size:11px;" onclick="runAiInEdit(this)">🤖 AI
-                                    智能分析</button>
+                        <!-- 審查作業區：統一的輸入區塊 -->
+                        <div style="background:#ffffff; padding:20px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px;">
+                            <div style="font-size:13px;color:#1e293b;margin-bottom:20px;font-weight:600;display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:2px solid #f1f5f9;">
+                                ✍️ 審查作業
+                                <span style="font-size:11px;color:#ef4444;font-weight:400;margin-left:4px;">(必填)</span>
                             </div>
-                            <div id="aiBox"
-                                style="background:#f0f9ff;padding:16px;border-radius:8px;border:1px solid #bae6fd;margin-bottom:16px;display:none;">
-                                <div style="font-size:13px;margin-bottom:8px;font-weight:bold;color:#0369a1;">💡 AI
-                                    分析建議：</div>
-                                <div id="aiPreviewText"
-                                    style="background:white; padding:12px; border:1px solid #e0f2fe; border-radius:6px; font-size:14px; margin-bottom:12px; line-height:1.6; color:#334155;">
+
+                            <!-- 審查輪次與日期設定 -->
+                            <div style="display:grid; grid-template-columns: auto 1fr 1fr; gap:16px; align-items:end; margin-bottom:20px;">
+                                <div>
+                                    <div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:500;">審查輪次</div>
+                                    <span id="editRoundDisplay" style="display:inline-block;padding:10px 14px;background:#f1f5f9;border-radius:8px;border:1px solid #e2e8f0;color:#334155;font-weight:500;font-size:13px;min-width:80px;text-align:center;">第 1 次</span>
+                                    <input type="hidden" id="editRound" value="1">
                                 </div>
-                                <div style="display:flex; align-items:center; justify-content:space-between;"><span
-                                        id="aiResBadge" style="font-size:13px;"></span><button class="btn btn-primary"
-                                        style="font-size:12px;padding:6px 14px;" onclick="applyAiSuggestion()">⬇️
-                                        帶入此意見</button></div>
+                                <div>
+                                    <div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:500;">機構回復日期</div>
+                                    <input type="text" id="editReplyDate" class="filter-input" placeholder="例: 1130601"
+                                        style="font-size:13px;padding:10px;border:1px solid #cbd5e1;background:#fff;transition:all 0.2s;width:100%;">
+                                </div>
+                                <div>
+                                    <div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:500;">本次函復日期</div>
+                                    <input type="text" id="editResponseDate" class="filter-input"
+                                        placeholder="例: 1130615" style="font-size:13px;padding:10px;border:1px solid #cbd5e1;background:#fff;transition:all 0.2s;width:100%;">
+                                </div>
                             </div>
-                            <textarea id="editReview" class="filter-input"
-                                style="flex:1;resize:vertical;line-height:1.5;min-height:200px;"
-                                placeholder="請輸入審查意見..."></textarea>
+
+                            <!-- 審查結果 -->
+                            <div style="margin-bottom:20px;">
+                                <div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:500;">審查結果</div>
+                                <select id="editStatus" class="filter-select" style="width:100%;padding:10px;border:1px solid #cbd5e1;background:#fff;font-size:13px;">
+                                    <option value="持續列管">🔴 持續列管</option>
+                                    <option value="解除列管">🟢 解除列管</option>
+                                    <option value="自行列管">🟠 自行列管</option>
+                                </select>
+                            </div>
+
+                            <!-- 審查意見 -->
+                            <div style="flex:1;display:flex;flex-direction:column;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                    <div style="font-size:11px;color:#64748b;font-weight:500;">審查意見</div>
+                                    <button class="btn btn-ai" style="padding:4px 10px;font-size:11px;" onclick="runAiInEdit(this)">🤖 AI 智能分析</button>
+                                </div>
+                                <div id="aiBox"
+                                    style="background:#f0f9ff;padding:16px;border-radius:8px;border:1px solid #bae6fd;margin-bottom:16px;display:none;">
+                                    <div style="font-size:13px;margin-bottom:8px;font-weight:bold;color:#0369a1;">💡 AI 分析建議：</div>
+                                    <div id="aiPreviewText"
+                                        style="background:white; padding:12px; border:1px solid #e0f2fe; border-radius:6px; font-size:14px; margin-bottom:12px; line-height:1.6; color:#334155;">
+                                    </div>
+                                    <div style="display:flex; align-items:center; justify-content:space-between;"><span
+                                            id="aiResBadge" style="font-size:13px;"></span><button class="btn btn-primary"
+                                            style="font-size:12px;padding:6px 14px;" onclick="applyAiSuggestion()">⬇️ 帶入此意見</button></div>
+                                </div>
+                                <textarea id="editReview" class="filter-input"
+                                    style="flex:1;resize:vertical;line-height:1.6;min-height:200px;padding:12px;border:1px solid #cbd5e1;font-size:14px;"
+                                    placeholder="請輸入審查意見..."></textarea>
+                            </div>
                         </div>
-                        <div style="display:flex;gap:12px;margin-top:auto;padding-top:16px;"><button
-                                class="btn btn-primary" style="flex:1;padding:12px;" onclick="saveEdit()">💾
-                                儲存審查結果</button><button class="btn btn-outline" style="flex:1;padding:12px;"
-                                onclick="toggleEditMode(false)">取消</button></div>
+
+                        <!-- 操作按鈕 -->
+                        <div style="display:flex;gap:12px;margin-top:auto;padding-top:16px;">
+                            <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="saveEdit()">💾 儲存審查結果</button>
+                            <button class="btn btn-outline" style="flex:1;padding:12px;" onclick="toggleEditMode(false)">取消</button>
+                        </div>
                     </div>
                 </div>
             </div>
