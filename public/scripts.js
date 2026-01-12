@@ -5,6 +5,8 @@
         let cachedGlobalStats = null;
         let issuesPage = 1, issuesPageSize = 20, issuesTotal = 0, issuesPages = 1;
         let usersPage = 1, usersPageSize = 20, usersTotal = 0, usersPages = 1, usersSortField = 'id', usersSortDir = 'asc';
+        let plansPage = 1, plansPageSize = 20, plansTotal = 0, plansPages = 1, plansSortField = 'id', plansSortDir = 'desc';
+        let planList = [];
         let logsPage = 1, logsPageSize = 20, logsTotal = 0, logsPages = 1;
         let actionsPage = 1, actionsPageSize = 20, actionsTotal = 0, actionsPages = 1;
         // Current import mode: 'word' (uses param) or 'backup' (ignores param)
@@ -417,7 +419,8 @@ if (dashboard) {
             // 動態載入視圖內容
             const viewMap = {
                 'importView': '/views/import-view.html',
-                'usersView': '/views/users-view.html'
+                'usersView': '/views/users-view.html',
+                'plansView': '/views/plans-view.html'
             };
             
             if (viewMap[viewId] && !viewElement.dataset.loaded) {
@@ -435,6 +438,9 @@ if (dashboard) {
                         } else if (viewId === 'usersView') {
                             // 設置清除舊記錄的UI
                             setTimeout(() => setupCleanupDaysSelect(), 100);
+                        } else if (viewId === 'plansView') {
+                            // 載入計畫列表
+                            setTimeout(() => loadPlansPage(1), 100);
                         }
                     } else {
                         console.error('Failed to load view:', viewId);
@@ -453,6 +459,10 @@ if (dashboard) {
                 loadUsersPage(1);
                 // 設置清除舊記錄的UI
                 setTimeout(() => setupCleanupDaysSelect(), 100);
+            } else if (viewId === 'plansView') {
+                if (viewElement.dataset.loaded) {
+                    loadPlansPage(1);
+                }
             }
         }
 
@@ -1540,6 +1550,140 @@ if (dashboard) {
         async function openUserModal(mode, id) { const m = document.getElementById('userModal'), t = document.getElementById('userModalTitle'), e = document.getElementById('uEmail'); if (mode === 'create') { t.innerText = '新增'; document.getElementById('targetUserId').value = ''; document.getElementById('uName').value = ''; e.value = ''; e.disabled = false; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('pwdHint').innerText = ''; document.getElementById('uRole').value = 'viewer'; } else { const u = userList.find(x => x.id === id) || {}; t.innerText = '編輯'; document.getElementById('targetUserId').value = u.id || ''; document.getElementById('uName').value = u.name || ''; e.value = u.username || ''; e.disabled = true; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdHint').innerText = '(留空不改)'; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('uRole').value = u.role || 'viewer'; } m.classList.add('open'); }
         async function submitUser() { const id = document.getElementById('targetUserId').value, name = document.getElementById('uName').value, email = document.getElementById('uEmail').value, pwd = document.getElementById('uPwd').value, pwdConfirm = document.getElementById('uPwdConfirm').value, role = document.getElementById('uRole').value; if (!id) { if (!email) return showToast('請輸入帳號', 'error'); if (!pwd) return showToast('請輸入密碼', 'error'); if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: email, name, password: pwd, role }) }); const j = await res.json(); if (res.ok) { showToast('新增成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(1); } else showToast(j.error || '新增失敗', 'error'); } else { const payload = { name, role }; if (pwd) { if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); payload.password = pwd; } const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const j = await res.json(); if (res.ok) { showToast('更新成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(usersPage); } else showToast(j.error || '更新失敗', 'error'); } }
         async function deleteUser(id) { if (!confirm('確定?')) return; const res = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if (res.ok) { showToast('刪除成功'); loadUsersPage(1); } else showToast('刪除失敗', 'error'); }
+
+        // Plan Management
+        async function loadPlansPage(page = 1) {
+            plansPage = page;
+            plansPageSize = parseInt(document.getElementById('plansPageSize').value, 10);
+            const q = document.getElementById('planSearch').value || '';
+            const year = document.getElementById('planYearFilter').value || '';
+            const status = document.getElementById('planStatusFilter').value || '';
+            const params = new URLSearchParams({ page: plansPage, pageSize: plansPageSize, q, year, status, sortField: plansSortField, sortDir: plansSortDir, _t: Date.now() });
+            try {
+                const res = await fetch('/api/plans?' + params.toString());
+                if (!res.ok) { showToast('載入計畫失敗', 'error'); return; }
+                const j = await res.json();
+                planList = j.data || [];
+                plansTotal = j.total || 0;
+                plansPages = j.pages || 1;
+                renderPlans();
+                renderPagination('plansPagination', plansPage, plansPages, 'loadPlansPage');
+                // 更新年度選項
+                updatePlanYearOptions();
+            } catch (e) {
+                console.error(e);
+                showToast('載入計畫錯誤', 'error');
+            }
+        }
+        function renderPlans() {
+            const tbody = document.getElementById('plansTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = planList.map(p => {
+                const statusBadge = p.status === 'active' ? '<span class="badge active">進行中</span>' : 
+                                   p.status === 'completed' ? '<span class="badge resolved">已完成</span>' : 
+                                   '<span class="badge self">已歸檔</span>';
+                return `<tr>
+                    <td data-label="計畫名稱" style="padding:12px;font-weight:600;">${p.name || '-'}</td>
+                    <td data-label="年度">${p.year || '-'}</td>
+                    <td data-label="事項數量">${p.issue_count || 0}</td>
+                    <td data-label="狀態">${statusBadge}</td>
+                    <td data-label="建立時間">${new Date(p.created_at).toLocaleDateString('zh-TW')}</td>
+                    <td data-label="操作">
+                        <button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openPlanModal('edit', ${p.id})">✏️</button>
+                        <button class="btn btn-danger" style="padding:2px 6px;" onclick="deletePlan(${p.id})">🗑️</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+        function plansSortBy(field) {
+            if (plansSortField === field) plansSortDir = plansSortDir === 'asc' ? 'desc' : 'asc';
+            else { plansSortField = field; plansSortDir = 'asc'; }
+            loadPlansPage(1);
+        }
+        function updatePlanYearOptions() {
+            const yearSet = new Set();
+            planList.forEach(p => { if (p.year) yearSet.add(p.year); });
+            const years = Array.from(yearSet).sort((a, b) => b.localeCompare(a));
+            const select = document.getElementById('planYearFilter');
+            if (select) {
+                const currentValue = select.value;
+                const firstOption = select.options[0].outerHTML;
+                select.innerHTML = firstOption + years.map(y => `<option value="${y}">${y}年</option>`).join('');
+                if (currentValue) select.value = currentValue;
+            }
+        }
+        function openPlanModal(mode, id) {
+            const m = document.getElementById('planModal');
+            const t = document.getElementById('planModalTitle');
+            if (mode === 'create') {
+                t.innerText = '新增檢查計畫';
+                document.getElementById('targetPlanId').value = '';
+                document.getElementById('planName').value = '';
+                document.getElementById('planYear').value = '';
+                document.getElementById('planDescription').value = '';
+                document.getElementById('planStartDate').value = '';
+                document.getElementById('planEndDate').value = '';
+                document.getElementById('planStatus').value = 'active';
+            } else {
+                const p = planList.find(x => x.id === id) || {};
+                t.innerText = '編輯檢查計畫';
+                document.getElementById('targetPlanId').value = p.id || '';
+                document.getElementById('planName').value = p.name || '';
+                document.getElementById('planYear').value = p.year || '';
+                document.getElementById('planDescription').value = p.description || '';
+                document.getElementById('planStartDate').value = p.start_date ? p.start_date.split('T')[0] : '';
+                document.getElementById('planEndDate').value = p.end_date ? p.end_date.split('T')[0] : '';
+                document.getElementById('planStatus').value = p.status || 'active';
+            }
+            m.classList.add('open');
+        }
+        function closePlanModal() {
+            document.getElementById('planModal').classList.remove('open');
+        }
+        async function submitPlan() {
+            const id = document.getElementById('targetPlanId').value;
+            const name = document.getElementById('planName').value.trim();
+            const year = document.getElementById('planYear').value.trim();
+            const description = document.getElementById('planDescription').value.trim();
+            const startDate = document.getElementById('planStartDate').value;
+            const endDate = document.getElementById('planEndDate').value;
+            const status = document.getElementById('planStatus').value;
+            if (!name) return showToast('請輸入計畫名稱', 'error');
+            if (!year) return showToast('請輸入年度', 'error');
+            const payload = { name, year, description, startDate, endDate, status };
+            try {
+                const url = id ? `/api/plans/${id}` : '/api/plans';
+                const method = id ? 'PUT' : 'POST';
+                const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const j = await res.json();
+                if (res.ok) {
+                    showToast(id ? '更新成功' : '新增成功');
+                    closePlanModal();
+                    loadPlansPage(id ? plansPage : 1);
+                    loadPlanOptions(); // 重新載入計畫選項
+                } else {
+                    showToast(j.error || (id ? '更新失敗' : '新增失敗'), 'error');
+                }
+            } catch (e) {
+                showToast('操作失敗', 'error');
+            }
+        }
+        async function deletePlan(id) {
+            if (!confirm('確定要刪除這個計畫嗎？')) return;
+            try {
+                const res = await fetch(`/api/plans/${id}`, { method: 'DELETE' });
+                const j = await res.json();
+                if (res.ok) {
+                    showToast('刪除成功');
+                    loadPlansPage(1);
+                    loadPlanOptions(); // 重新載入計畫選項
+                } else {
+                    showToast(j.error || '刪除失敗', 'error');
+                }
+            } catch (e) {
+                showToast('刪除失敗', 'error');
+            }
+        }
 
         // Profile
         function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }

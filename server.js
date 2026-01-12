@@ -138,6 +138,25 @@ async function initDB() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
+                // Inspection Plans Table
+                await client.query(`CREATE TABLE IF NOT EXISTS inspection_plans (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    year TEXT NOT NULL,
+                    description TEXT,
+                    start_date DATE,
+                    end_date DATE,
+                    status TEXT DEFAULT 'active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )`);
+                try {
+                    await client.query(`CREATE INDEX IF NOT EXISTS idx_plans_year ON inspection_plans(year)`);
+                } catch (e) {}
+                try {
+                    await client.query(`CREATE INDEX IF NOT EXISTS idx_plans_status ON inspection_plans(status)`);
+                } catch (e) {}
+
                 // Logs Table
                 await client.query(`CREATE TABLE IF NOT EXISTS logs (
                     id SERIAL PRIMARY KEY,
@@ -716,9 +735,145 @@ app.post('/api/admin/action_logs/cleanup', requireAuth, async (req, res) => {
 
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
-        const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");
-        res.set('Cache-Control', 'no-store');
-        res.json({ data: result.rows.map(r => r.plan_name) });
+        // 優先從 inspection_plans 表取得資料，如果沒有資料則從 issues 表取得（向後兼容）
+        const planResult = await pool.query("SELECT name FROM inspection_plans WHERE status = 'active' ORDER BY year DESC, name DESC");
+        if (planResult.rows.length > 0) {
+            res.set('Cache-Control', 'no-store');
+            res.json({ data: planResult.rows.map(r => r.name) });
+        } else {
+            // 向後兼容：如果 inspection_plans 表沒有資料，則從 issues 表取得
+            const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");
+            res.set('Cache-Control', 'no-store');
+            res.json({ data: result.rows.map(r => r.plan_name) });
+        }
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Inspection Plans Management API ---
+
+app.get('/api/plans', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+    const { page=1, pageSize=20, q, year, status, sortField='id', sortDir='desc' } = req.query;
+    const limit = parseInt(pageSize);
+    const offset = (page-1)*limit;
+    let where = ["1=1"], params = [], idx = 1;
+    if(q) { where.push(`(name LIKE $${idx} OR description LIKE $${idx})`); params.push(`%${q}%`); idx++; }
+    if(year) { where.push(`year = $${idx}`); params.push(year); idx++; }
+    if(status) { where.push(`status = $${idx}`); params.push(status); idx++; }
+    const safeSortFields = ['id', 'name', 'year', 'status', 'created_at', 'updated_at'];
+    const safeField = safeSortFields.includes(sortField) ? sortField : 'id';
+    const order = `${safeField} ${sortDir==='asc'?'ASC':'DESC'}`;
+    try {
+        const cRes = await pool.query(`SELECT count(*) FROM inspection_plans WHERE ${where.join(" AND ")}`, params);
+        const total = parseInt(cRes.rows[0].count);
+        const dRes = await pool.query(`SELECT id, name, year, description, start_date, end_date, status, created_at, updated_at FROM inspection_plans WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
+        
+        // 取得每個計畫的事項數量
+        const plansWithCounts = await Promise.all(dRes.rows.map(async (plan) => {
+            const countRes = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1", [plan.name]);
+            return { ...plan, issue_count: parseInt(countRes.rows[0].count) };
+        }));
+        
+        res.json({data: plansWithCounts, total, page: parseInt(page), pages: Math.ceil(total/limit)});
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/plans/:id', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+    try {
+        const result = await pool.query("SELECT id, name, year, description, start_date, end_date, status, created_at, updated_at FROM inspection_plans WHERE id = $1", [req.params.id]);
+        if (result.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
+        res.json(result.rows[0]);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/plans/:id/issues', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+    try {
+        const planResult = await pool.query("SELECT name FROM inspection_plans WHERE id = $1", [req.params.id]);
+        if (planResult.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
+        const planName = planResult.rows[0].name;
+        
+        const { page=1, pageSize=20 } = req.query;
+        const limit = parseInt(pageSize);
+        const offset = (page-1)*limit;
+        
+        const countRes = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1", [planName]);
+        const total = parseInt(countRes.rows[0].count);
+        const dataRes = await pool.query("SELECT * FROM issues WHERE plan_name = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3", [planName, limit, offset]);
+        
+        res.json({data: dataRes.rows, total, page: parseInt(page), pages: Math.ceil(total/limit)});
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/plans', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+    const { name, year, description, startDate, endDate, status } = req.body;
+    try {
+        if (!name || !year) return res.status(400).json({error: 'Name and year are required'});
+        
+        await pool.query("INSERT INTO inspection_plans (name, year, description, start_date, end_date, status) VALUES ($1, $2, $3, $4, $5, $6)", 
+            [name, year, description || null, startDate || null, endDate || null, status || 'active']);
+        logAction(req.session.user.username, 'CREATE_PLAN', `新增檢查計畫：${name}`, req);
+        res.json({success:true});
+    } catch (e) { 
+        if (e.code === '23505') { // Unique violation
+            res.status(400).json({ error: '計畫名稱已存在' });
+        } else {
+            res.status(500).json({ error: e.message });
+        }
+    }
+});
+
+app.put('/api/plans/:id', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+    const { name, year, description, startDate, endDate, status } = req.body;
+    const id = req.params.id;
+    try {
+        // 先查詢計畫資訊以便記錄
+        const planRes = await pool.query("SELECT name FROM inspection_plans WHERE id=$1", [id]);
+        if (planRes.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
+        const oldName = planRes.rows[0].name;
+        
+        if (!name || !year) return res.status(400).json({error: 'Name and year are required'});
+        
+        // 如果名稱改變，需要更新相關事項的 plan_name
+        if (name !== oldName) {
+            await pool.query("UPDATE issues SET plan_name = $1 WHERE plan_name = $2", [name, oldName]);
+        }
+        
+        await pool.query("UPDATE inspection_plans SET name=$1, year=$2, description=$3, start_date=$4, end_date=$5, status=$6, updated_at=CURRENT_TIMESTAMP WHERE id=$7", 
+            [name, year, description || null, startDate || null, endDate || null, status || 'active', id]);
+        logAction(req.session.user.username, 'UPDATE_PLAN', `修改檢查計畫：${oldName} → ${name}`, req);
+        res.json({success:true});
+    } catch (e) { 
+        if (e.code === '23505') { // Unique violation
+            res.status(400).json({ error: '計畫名稱已存在' });
+        } else {
+            res.status(500).json({ error: e.message });
+        }
+    }
+});
+
+app.delete('/api/plans/:id', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+    try {
+        // 先查詢計畫資訊以便記錄
+        const planRes = await pool.query("SELECT name FROM inspection_plans WHERE id=$1", [req.params.id]);
+        if (planRes.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
+        const planName = planRes.rows[0].name;
+        
+        // 檢查是否有關聯事項
+        const issueCount = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1", [planName]);
+        const count = parseInt(issueCount.rows[0].count);
+        
+        if (count > 0) {
+            return res.status(400).json({error: `無法刪除計畫，因為尚有 ${count} 筆相關開立事項。請先刪除或轉移相關事項。`});
+        }
+        
+        await pool.query("DELETE FROM inspection_plans WHERE id=$1", [req.params.id]);
+        logAction(req.session.user.username, 'DELETE_PLAN', `刪除檢查計畫：${planName}`, req);
+        res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

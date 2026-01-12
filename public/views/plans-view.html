@@ -1,0 +1,90 @@
+<div class="content-header users-header">
+    <div class="content-title">檢查計畫管理</div>
+    <button class="btn btn-primary users-add-btn" onclick="openPlanModal('create')" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff; backdrop-filter: blur(10px);">新增計畫</button>
+</div>
+
+<div id="tab-plans" class="main-card">
+    <div
+        style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
+        <input id="planSearch" class="filter-input" placeholder="搜尋計畫名稱、描述..." style="max-width:300px;"
+            oninput="loadPlansPage(1)">
+        <select id="planYearFilter" class="filter-select" style="width:120px;" onchange="loadPlansPage(1)">
+            <option value="">全部年度</option>
+            <!-- JavaScript 會自動產生選項 -->
+        </select>
+        <select id="planStatusFilter" class="filter-select" style="width:120px;" onchange="loadPlansPage(1)">
+            <option value="">全部狀態</option>
+            <option value="active">進行中</option>
+            <option value="completed">已完成</option>
+            <option value="archived">已歸檔</option>
+        </select>
+        <select id="plansPageSize" class="page-size-select" onchange="loadPlansPage(1)">
+            <option value="10">10 筆/頁</option>
+            <option value="20" selected>20 筆/頁</option>
+            <option value="50">50 筆/頁</option>
+        </select>
+        <div style="margin-left:auto;">
+            <button class="btn btn-outline" onclick="loadPlansPage(1)">搜尋</button>
+        </div>
+    </div>
+    <div id="plansPaginationTop" class="pagination-bar"
+        style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
+    <div class="data-container">
+        <table class="user-table">
+            <thead>
+                <tr>
+                    <th style="padding:16px;" onclick="plansSortBy('name')">計畫名稱</th>
+                    <th onclick="plansSortBy('year')">年度</th>
+                    <th>事項數量</th>
+                    <th onclick="plansSortBy('status')">狀態</th>
+                    <th onclick="plansSortBy('created_at')">建立時間</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="plansTableBody"></tbody>
+        </table>
+    </div>
+    <div id="plansPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
+</div>
+
+<!-- Plan Modal -->
+<div class="modal-overlay" id="planModal">
+    <div class="modal-box" style="max-width:600px;">
+        <h3 style="margin-top:0;" id="planModalTitle">檢查計畫</h3>
+        <input type="hidden" id="targetPlanId">
+        <div class="form-group">
+            <label>計畫名稱 <span style="color:#ef4444;">*</span></label>
+            <input type="text" id="planName" class="filter-input" placeholder="例如: 113年度上半年定期檢查">
+        </div>
+        <div class="form-group">
+            <label>年度 <span style="color:#ef4444;">*</span></label>
+            <input type="text" id="planYear" class="filter-input" placeholder="例如: 113">
+        </div>
+        <div class="form-group">
+            <label>計畫描述</label>
+            <textarea id="planDescription" class="filter-input" rows="3" placeholder="選填：計畫描述..."></textarea>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+            <div class="form-group">
+                <label>開始日期</label>
+                <input type="date" id="planStartDate" class="filter-input">
+            </div>
+            <div class="form-group">
+                <label>結束日期</label>
+                <input type="date" id="planEndDate" class="filter-input">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>狀態</label>
+            <select id="planStatus" class="filter-select">
+                <option value="active">進行中</option>
+                <option value="completed">已完成</option>
+                <option value="archived">已歸檔</option>
+            </select>
+        </div>
+        <div style="display:flex;gap:12px;margin-top:24px;">
+            <button class="btn btn-primary" style="flex:1;" onclick="submitPlan()">儲存</button>
+            <button class="btn btn-outline" style="flex:1;" onclick="closePlanModal()">取消</button>
+        </div>
+    </div>
+</div>
