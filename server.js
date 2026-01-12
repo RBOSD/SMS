@@ -889,7 +889,9 @@ app.post('/api/plans/import', requireAuth, async (req, res) => {
     const { data } = req.body; // 接收解析後的 CSV 資料
     if (!data || !Array.isArray(data)) return res.status(400).json({error: '無效的資料格式'});
     
-    const results = { success: 0, failed: 0, errors: [] };
+    console.log(`[匯入檢查計畫] 收到 ${data.length} 筆資料`);
+    
+    const results = { success: 0, failed: 0, errors: [], skipped: 0 };
     
     for (let i = 0; i < data.length; i++) {
         const row = data[i];
@@ -908,26 +910,46 @@ app.post('/api/plans/import', requireAuth, async (req, res) => {
             }
         }
         
-        // 跳過空行
+        // 跳過完全空行
         if (!name && !year) {
+            results.skipped++;
             continue;
         }
         
+        // 檢查必填欄位
         if (!name || !year) {
             results.failed++;
-            results.errors.push(`第 ${i + 2} 行：計畫名稱和年度為必填（目前：計畫名稱="${name}"，年度="${year}"）`);
+            results.errors.push(`第 ${i + 2} 行：計畫名稱和年度為必填（目前：計畫名稱="${name || '(空白)'}"，年度="${year || '(空白)'}"）`);
+            continue;
+        }
+        
+        // 驗證年度格式（應該是3位數字，例如：113）
+        if (!/^\d{3}$/.test(year)) {
+            results.failed++;
+            results.errors.push(`第 ${i + 2} 行（${name}）：年度格式錯誤，應為3位數字（例如：113），目前為"${year}"`);
             continue;
         }
         
         try {
-            await pool.query("INSERT INTO inspection_plans (name, year) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET year = EXCLUDED.year, updated_at = CURRENT_TIMESTAMP", 
-                [name, year]);
-            results.success++;
+            // 使用 ON CONFLICT 處理重複名稱的情況（更新年度）
+            const insertResult = await pool.query(
+                "INSERT INTO inspection_plans (name, year) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET year = EXCLUDED.year, updated_at = CURRENT_TIMESTAMP RETURNING id", 
+                [name, year]
+            );
+            
+            if (insertResult.rows.length > 0) {
+                results.success++;
+                console.log(`[匯入檢查計畫] 成功：${name} (年度: ${year})`);
+            }
         } catch (e) {
             results.failed++;
-            results.errors.push(`第 ${i + 1} 行（${name}）：${e.message}`);
+            const errorMsg = `第 ${i + 2} 行（${name}）：${e.message}`;
+            results.errors.push(errorMsg);
+            console.error(`[匯入檢查計畫] 失敗：`, errorMsg);
         }
     }
+    
+    console.log(`[匯入檢查計畫] 完成：成功 ${results.success} 筆，失敗 ${results.failed} 筆，跳過 ${results.skipped} 筆`);
     
     if (results.success > 0) {
         logAction(req.session.user.username, 'IMPORT_PLANS', `匯入檢查計畫：成功 ${results.success} 筆，失敗 ${results.failed} 筆`, req);

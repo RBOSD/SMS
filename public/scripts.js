@@ -363,9 +363,25 @@
 
         async function loadPlanOptions() {
             try {
-                const res = await fetch('/api/options/plans?t=' + Date.now());
+                const res = await fetch('/api/options/plans?t=' + Date.now(), {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
+                if (!res.ok) {
+                    console.error('載入計畫選項失敗：', res.status, res.statusText);
+                    return;
+                }
+                
                 const json = await res.json();
-                if (!json.data || json.data.length === 0) return;
+                if (!json.data || json.data.length === 0) {
+                    console.warn('沒有找到任何檢查計畫');
+                    return;
+                }
+                
+                console.log('載入計畫選項：', json.data.length, '筆');
                 
                 // 更新所有計畫選擇下拉選單
                 const selectIds = ['filterPlan', 'importPlanName', 'batchPlanName', 'manualPlanName'];
@@ -373,9 +389,36 @@
                     const select = document.getElementById(selectId);
                     if (select) {
                         const currentValue = select.value;
+                        // 保留第一個選項（通常是「全部計畫」或「請選擇計畫」）
                         const firstOption = select.options[0] ? select.options[0].outerHTML : '';
-                        select.innerHTML = firstOption + json.data.map(p => `<option value="${p}">${p}</option>`).join('');
-                        if (currentValue) select.value = currentValue;
+                            // 建立完整的選項列表（避免重複）
+                            const existingValues = new Set();
+                            if (firstOption) {
+                                // 從第一個選項中提取值
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = firstOption;
+                                const firstOpt = tempDiv.querySelector('option');
+                                if (firstOpt && firstOpt.value) {
+                                    existingValues.add(firstOpt.value);
+                                }
+                            }
+                            
+                            // 建立所有選項（包括現有的和新加入的）
+                            const allOptions = json.data.map(p => {
+                                if (!existingValues.has(p)) {
+                                    existingValues.add(p);
+                                    return `<option value="${p}">${p}</option>`;
+                                }
+                                return '';
+                            }).filter(opt => opt).join('');
+                            
+                            // 完全重建選項列表，確保所有計畫都顯示
+                            select.innerHTML = firstOption + allOptions;
+                        
+                        // 恢復之前選擇的值
+                        if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+                            select.value = currentValue;
+                        }
                     }
                 });
             } catch (e) {
@@ -1743,8 +1786,18 @@ if (dashboard) {
                                 return showToast('CSV 解析錯誤：' + (results.errors[0]?.message || '未知錯誤'), 'error');
                             }
                             
+                            // 顯示解析結果統計
+                            console.log('CSV 解析結果：', {
+                                totalRows: results.data.length,
+                                errors: results.errors.length,
+                                sampleRow: results.data[0]
+                            });
+                            
                             // 過濾掉空行，支援多種欄位名稱
-                            const validData = results.data.filter(row => {
+                            const validData = [];
+                            const invalidRows = [];
+                            
+                            results.data.forEach((row, index) => {
                                 // 嘗試各種可能的欄位名稱
                                 let name = '';
                                 let year = '';
@@ -1757,11 +1810,38 @@ if (dashboard) {
                                         year = String(row[key] || '').trim();
                                     }
                                 }
-                                return name && year;
+                                
+                                if (name && year) {
+                                    validData.push({ name, year });
+                                } else {
+                                    // 記錄無效行的資訊（用於調試）
+                                    if (name || year) {
+                                        invalidRows.push({
+                                            row: index + 2, // +2 因為有標題行且從0開始
+                                            name: name || '(空白)',
+                                            year: year || '(空白)'
+                                        });
+                                    }
+                                }
+                            });
+                            
+                            // 顯示調試資訊
+                            if (invalidRows.length > 0) {
+                                console.warn('無效的資料行：', invalidRows);
+                            }
+                            
+                            console.log('有效資料統計：', {
+                                valid: validData.length,
+                                invalid: invalidRows.length,
+                                total: results.data.length
                             });
                             
                             if (validData.length === 0) {
-                                return showToast('CSV 檔案中沒有有效的資料', 'error');
+                                let errorMsg = 'CSV 檔案中沒有有效的資料';
+                                if (invalidRows.length > 0) {
+                                    errorMsg += `\n發現 ${invalidRows.length} 筆資料缺少必要欄位（計畫名稱或年度）`;
+                                }
+                                return showToast(errorMsg, 'error');
                             }
                             
                             try {
@@ -1793,12 +1873,34 @@ if (dashboard) {
                                         msg += `，失敗 ${j.failed} 筆`;
                                         if (j.errors && j.errors.length > 0) {
                                             console.warn('匯入錯誤詳情：', j.errors);
+                                            // 顯示前5個錯誤
+                                            const errorPreview = j.errors.slice(0, 5).join('\n');
+                                            if (j.errors.length > 5) {
+                                                msg += `\n（前5個錯誤：${errorPreview}...）`;
+                                            } else {
+                                                msg += `\n（錯誤：${errorPreview}）`;
+                                            }
                                         }
                                     }
-                                    showToast(msg);
+                                    
+                                    // 顯示詳細統計
+                                    console.log('匯入統計：', {
+                                        成功: j.success,
+                                        失敗: j.failed,
+                                        總計: validData.length
+                                    });
+                                    
+                                    showToast(msg, j.failed > 0 ? 'warning' : 'success');
                                     closePlanImportModal();
-                                    loadPlansPage(1);
-                                    loadPlanOptions();
+                                    
+                                    // 重新載入計畫列表和選項
+                                    await loadPlansPage(1);
+                                    await loadPlanOptions();
+                                    
+                                    // 確保選項已更新
+                                    setTimeout(() => {
+                                        loadPlanOptions();
+                                    }, 500);
                                 } else {
                                     showToast(j.error || '匯入失敗', 'error');
                                 }
