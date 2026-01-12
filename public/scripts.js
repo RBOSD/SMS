@@ -524,6 +524,8 @@ if (dashboard) {
                     if (['admin', 'manager'].includes(data.role)) {
                         const btnImport = document.getElementById('btn-importView');
                         if (btnImport) btnImport.classList.remove('hidden');
+                        const btnPlans = document.getElementById('btn-plansView');
+                        if (btnPlans) btnPlans.classList.remove('hidden');
                         if (data.role === 'admin') {
                             const btnUsers = document.getElementById('btn-usersView');
                             if (btnUsers) btnUsers.classList.remove('hidden');
