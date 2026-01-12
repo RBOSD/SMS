@@ -5,7 +5,7 @@
         let cachedGlobalStats = null;
         let issuesPage = 1, issuesPageSize = 20, issuesTotal = 0, issuesPages = 1;
         let usersPage = 1, usersPageSize = 20, usersTotal = 0, usersPages = 1, usersSortField = 'id', usersSortDir = 'asc';
-        let plansPage = 1, plansPageSize = 20, plansTotal = 0, plansPages = 1, plansSortField = 'id', plansSortDir = 'desc';
+        let plansPage = 1, plansPageSize = 20, plansTotal = 0, plansPages = 1, plansSortField = 'year', plansSortDir = 'desc';
         let planList = [];
         let logsPage = 1, logsPageSize = 20, logsTotal = 0, logsPages = 1;
         let actionsPage = 1, actionsPageSize = 20, actionsTotal = 0, actionsPages = 1;
@@ -380,6 +380,48 @@
                 });
             } catch (e) {
                 console.error("Load plans failed", e);
+            }
+        }
+        
+        // 批次建檔：當選擇計畫時，自動帶入年度
+        async function handleBatchPlanChange() {
+            const planName = this.value;
+            const yearInput = document.getElementById('batchYear');
+            if (!planName || !yearInput) return;
+            
+            try {
+                const planRes = await fetch('/api/plans?' + new URLSearchParams({ q: planName, pageSize: 1 }).toString());
+                const planData = await planRes.json();
+                if (planData.data && planData.data.length > 0) {
+                    yearInput.value = planData.data[0].year || '';
+                } else {
+                    // 如果找不到，嘗試從計畫名稱中提取年度（例如：113年度上半年定期檢查 -> 113）
+                    const yearMatch = planName.match(/(\d{3})年度/);
+                    if (yearMatch) yearInput.value = yearMatch[1];
+                }
+            } catch (e) {
+                console.error("Get plan year failed", e);
+            }
+        }
+        
+        // 手動新增：當選擇計畫時，自動帶入年度
+        async function handleManualPlanChange() {
+            const planName = this.value;
+            const yearDisplay = document.getElementById('manualYearDisplay');
+            if (!planName || !yearDisplay) return;
+            
+            try {
+                const planRes = await fetch('/api/plans?' + new URLSearchParams({ q: planName, pageSize: 1 }).toString());
+                const planData = await planRes.json();
+                if (planData.data && planData.data.length > 0) {
+                    yearDisplay.value = planData.data[0].year || '';
+                } else {
+                    // 如果找不到，嘗試從計畫名稱中提取年度
+                    const yearMatch = planName.match(/(\d{3})年度/);
+                    if (yearMatch) yearDisplay.value = yearMatch[1];
+                }
+            } catch (e) {
+                console.error("Get plan year failed", e);
             }
         }
 
@@ -1245,6 +1287,9 @@ if (dashboard) {
             }
 
             const planName = isBackup ? '' : document.getElementById('importPlanName').value;
+            if (!isBackup && !planName) {
+                return showToast('請選擇檢查計畫', 'error');
+            }
 
             let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
                 if (currentImportMode === 'word') {
@@ -1355,8 +1400,9 @@ if (dashboard) {
         async function saveBatchItems() {
             const planName = document.getElementById('batchPlanName').value.trim();
             const issueDate = document.getElementById('batchIssueDate').value.trim();
+            const batchYear = document.getElementById('batchYear') ? document.getElementById('batchYear').value.trim() : '';
 
-            if (!planName) return showToast('請填寫檢查計畫名稱', 'error');
+            if (!planName) return showToast('請選擇檢查計畫', 'error');
             if (!issueDate) return showToast('請填寫初次發函日期', 'error');
 
             const rows = document.querySelectorAll('#batchGridBody tr');
@@ -1437,7 +1483,10 @@ if (dashboard) {
             const val = document.getElementById('manualNumber').value;
             const info = parseItemNumber(val);
             if (info) {
-                if (info.yearRoc) document.getElementById('manualYear').value = info.yearRoc;
+                if (info.yearRoc) {
+                    const yearDisplay = document.getElementById('manualYearDisplay');
+                    if (yearDisplay) yearDisplay.value = info.yearRoc;
+                }
                 if (info.orgCode) {
                     const name = ORG_MAP[info.orgCode] || info.orgCode;
                     if (name && name !== '?') document.getElementById('manualUnit').value = name;
@@ -1458,7 +1507,8 @@ if (dashboard) {
 
         async function submitManualIssue() {
             const number = document.getElementById('manualNumber').value.trim();
-            const year = document.getElementById('manualYear').value.trim();
+            const yearDisplay = document.getElementById('manualYearDisplay');
+            const year = yearDisplay ? yearDisplay.value.trim() : '';
             const unit = document.getElementById('manualUnit').value.trim();
             const division = document.getElementById('manualDivision').value;
             const inspection = document.getElementById('manualInspection').value;
@@ -1497,7 +1547,8 @@ if (dashboard) {
                         document.getElementById('manualNumber').focus();
                     } else {
                         document.getElementById('manualNumber').value = '';
-                        document.getElementById('manualYear').value = '';
+                        const yearDisplay = document.getElementById('manualYearDisplay');
+                        if (yearDisplay) yearDisplay.value = '';
                         document.getElementById('manualUnit').value = '';
                         document.getElementById('manualDivision').value = '';
                         document.getElementById('manualInspection').value = '';
@@ -1604,8 +1655,8 @@ if (dashboard) {
             if (!tbody) return;
             tbody.innerHTML = planList.map(p => {
                 return `<tr>
+                    <td data-label="年度" style="padding:12px;font-weight:600;">${p.year || '-'}</td>
                     <td data-label="計畫名稱" style="padding:12px;font-weight:600;">${p.name || '-'}</td>
-                    <td data-label="年度">${p.year || '-'}</td>
                     <td data-label="事項數量">${p.issue_count || 0}</td>
                     <td data-label="建立時間">${new Date(p.created_at).toLocaleDateString('zh-TW')}</td>
                     <td data-label="操作">

@@ -257,8 +257,14 @@ const geminiLimiter = rateLimit({
 async function logAction(username, action, details, req) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     try {
-        await pool.query("INSERT INTO logs (username, action, details, ip_address, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)", 
-            [username, action, details, ip]);
+        // 如果是登入動作，同時寫入 login_time
+        if (action === 'LOGIN') {
+            await pool.query("INSERT INTO logs (username, action, details, ip_address, login_time, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", 
+                [username, action, details, ip]);
+        } else {
+            await pool.query("INSERT INTO logs (username, action, details, ip_address, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)", 
+                [username, action, details, ip]);
+        }
     } catch (e) { console.error("Log error:", e); }
 }
 
