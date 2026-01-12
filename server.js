@@ -931,15 +931,29 @@ app.post('/api/plans/import', requireAuth, async (req, res) => {
         }
         
         try {
-            // 使用 ON CONFLICT 處理重複名稱的情況（更新年度）
-            const insertResult = await pool.query(
-                "INSERT INTO inspection_plans (name, year) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET year = EXCLUDED.year, updated_at = CURRENT_TIMESTAMP RETURNING id", 
-                [name, year]
-            );
+            // 先檢查是否已存在
+            const checkRes = await pool.query("SELECT id FROM inspection_plans WHERE name = $1", [name]);
+            const exists = checkRes.rows.length > 0;
             
-            if (insertResult.rows.length > 0) {
+            if (exists) {
+                // 如果已存在，更新年度
+                await pool.query(
+                    "UPDATE inspection_plans SET year = $1, updated_at = CURRENT_TIMESTAMP WHERE name = $2", 
+                    [year, name]
+                );
                 results.success++;
-                console.log(`[匯入檢查計畫] 成功：${name} (年度: ${year})`);
+                console.log(`[匯入檢查計畫] 更新：${name} (年度: ${year})`);
+            } else {
+                // 如果不存在，新增
+                const insertResult = await pool.query(
+                    "INSERT INTO inspection_plans (name, year) VALUES ($1, $2) RETURNING id", 
+                    [name, year]
+                );
+                
+                if (insertResult.rows.length > 0) {
+                    results.success++;
+                    console.log(`[匯入檢查計畫] 新增：${name} (年度: ${year})`);
+                }
             }
         } catch (e) {
             results.failed++;

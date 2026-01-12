@@ -513,8 +513,7 @@ if (dashboard) {
             // 動態載入視圖內容
             const viewMap = {
                 'importView': '/views/import-view.html',
-                'usersView': '/views/users-view.html',
-                'plansView': '/views/plans-view.html'
+                'usersView': '/views/users-view.html'
             };
             
             if (viewMap[viewId] && !viewElement.dataset.loaded) {
@@ -532,9 +531,6 @@ if (dashboard) {
                         } else if (viewId === 'usersView') {
                             // 設置清除舊記錄的UI
                             setTimeout(() => setupCleanupDaysSelect(), 100);
-                        } else if (viewId === 'plansView') {
-                            // 載入計畫列表
-                            setTimeout(() => loadPlansPage(1), 100);
                         }
                     } else {
                         console.error('Failed to load view:', viewId);
@@ -553,10 +549,6 @@ if (dashboard) {
                 loadUsersPage(1);
                 // 設置清除舊記錄的UI
                 setTimeout(() => setupCleanupDaysSelect(), 100);
-            } else if (viewId === 'plansView') {
-                if (viewElement.dataset.loaded) {
-                    loadPlansPage(1);
-                }
             }
         }
 
@@ -1837,16 +1829,26 @@ if (dashboard) {
                             console.log('有效資料統計：', {
                                 valid: validData.length,
                                 invalid: invalidRows.length,
-                                total: results.data.length
+                                total: results.data.length,
+                                validData: validData // 顯示所有有效資料
                             });
+                            
+                            // 顯示詳細的解析結果
+                            if (validData.length > 0) {
+                                console.log('將要匯入的資料：', validData);
+                            }
                             
                             if (validData.length === 0) {
                                 let errorMsg = 'CSV 檔案中沒有有效的資料';
                                 if (invalidRows.length > 0) {
                                     errorMsg += `\n發現 ${invalidRows.length} 筆資料缺少必要欄位（計畫名稱或年度）`;
+                                    console.error('無效行詳情：', invalidRows);
                                 }
                                 return showToast(errorMsg, 'error');
                             }
+                            
+                            // 顯示即將匯入的資料數量
+                            showToast(`準備匯入 ${validData.length} 筆檢查計畫資料...`, 'info');
                             
                             try {
                                 const res = await fetch('/api/plans/import', {
@@ -1873,6 +1875,9 @@ if (dashboard) {
                                 const j = await res.json();
                                 if (res.ok) {
                                     let msg = `匯入完成：成功 ${j.success} 筆`;
+                                    if (j.skipped > 0) {
+                                        msg += `，跳過空行 ${j.skipped} 筆`;
+                                    }
                                     if (j.failed > 0) {
                                         msg += `，失敗 ${j.failed} 筆`;
                                         if (j.errors && j.errors.length > 0) {
@@ -1891,8 +1896,15 @@ if (dashboard) {
                                     console.log('匯入統計：', {
                                         成功: j.success,
                                         失敗: j.failed,
-                                        總計: validData.length
+                                        跳過: j.skipped || 0,
+                                        前端有效資料: validData.length,
+                                        後端處理: j
                                     });
+                                    
+                                    // 如果成功筆數少於有效資料筆數，顯示警告
+                                    if (j.success < validData.length) {
+                                        msg += `\n⚠️ 注意：前端解析到 ${validData.length} 筆有效資料，但只成功匯入 ${j.success} 筆。可能是因為資料庫中已有重複的計畫名稱。`;
+                                    }
                                     
                                     showToast(msg, j.failed > 0 ? 'warning' : 'success');
                                     closePlanImportModal();
