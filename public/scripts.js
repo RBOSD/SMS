@@ -385,6 +385,8 @@ if (dashboard) {
                         // 視圖載入完成後，設置 admin 專屬元素
                         if (viewId === 'importView') {
                             setupAdminElements();
+                            // [Added] 設置導入視圖的事件監聽器
+                            setTimeout(() => setupImportListeners(), 100);
                         } else if (viewId === 'usersView') {
                             // 設置清除舊記錄的UI
                             setTimeout(() => setupCleanupDaysSelect(), 100);
@@ -481,6 +483,28 @@ if (dashboard) {
             if (exportJsonOption) {
                 exportJsonOption.style.display = 'flex';
             }
+        }
+        
+        // [Added] 設置導入視圖的事件監聽器
+        function setupImportListeners() {
+            const wordInputEl = document.getElementById('wordInput');
+            const importIssueDateEl = document.getElementById('importIssueDate');
+            
+            if (wordInputEl) {
+                // 移除舊的事件監聽器（如果有的話），然後添加新的
+                wordInputEl.removeEventListener('change', checkImportReady);
+                wordInputEl.addEventListener('change', checkImportReady);
+            }
+            
+            if (importIssueDateEl) {
+                importIssueDateEl.removeEventListener('input', checkImportReady);
+                importIssueDateEl.removeEventListener('keyup', checkImportReady);
+                importIssueDateEl.addEventListener('input', checkImportReady);
+                importIssueDateEl.addEventListener('keyup', checkImportReady);
+            }
+            
+            // 初始化按鈕狀態
+            checkImportReady();
         }
 
         function renderPagination(containerId, currentPage, totalPages, onPageChange) {
@@ -922,7 +946,11 @@ if (dashboard) {
         }
 
         function checkImportReady() {
-            const f = document.getElementById('wordInput').files[0];
+            const wordInputEl = document.getElementById('wordInput');
+            const btnParseWordEl = document.getElementById('btnParseWord');
+            if (!wordInputEl || !btnParseWordEl) return;
+            
+            const f = wordInputEl.files[0];
             if (currentImportMode === 'backup') return;
 
             const stageRadio = document.querySelector('input[name="importStage"]:checked');
@@ -932,16 +960,18 @@ if (dashboard) {
             let valid = false;
 
             if (stage === 'initial') {
-                const d = document.getElementById('importIssueDate').value.trim();
+                const importIssueDateEl = document.getElementById('importIssueDate');
+                const d = importIssueDateEl ? importIssueDateEl.value.trim() : '';
                 valid = (d.length > 0);
             } else {
                 valid = true;
             }
 
-            document.getElementById('wordInput').disabled = !valid;
-            document.getElementById('btnParseWord').disabled = !valid || !f;
+            // [修正] 允許先選擇文件，不限制文件選擇框
+            // wordInputEl.disabled = !valid;  // 移除這行，允許隨時選擇文件
+            // [修正] 只有在日期未填寫且沒有文件時才禁用按鈕
+            btnParseWordEl.disabled = !valid || !f;
         }
-        document.getElementById('wordInput').addEventListener('change', checkImportReady);
 
         async function previewWord() {
             const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRoundSelect') ? document.getElementById('importRoundSelect').value : 1, msg = document.getElementById('importStatusWord');
