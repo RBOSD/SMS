@@ -151,12 +151,12 @@ async function initDB() {
 
                 // Add missing columns if they don't exist
                 const newColumns = [];
-                // 支持無限次審查，預先創建前 100 次欄位（如果需要更多可以動態創建）
-                for (let i = 2; i <= 100; i++) {
+                // 支持無限次審查，預先創建前 30 次欄位（如果需要更多可以動態創建）
+                for (let i = 2; i <= 30; i++) {
                     newColumns.push({ name: `handling${i}`, type: 'TEXT' });
                     newColumns.push({ name: `review${i}`, type: 'TEXT' });
                 }
-                for (let i = 1; i <= 100; i++) {
+                for (let i = 1; i <= 30; i++) {
                     newColumns.push({ name: `reply_date_r${i}`, type: 'TEXT' });
                     newColumns.push({ name: `response_date_r${i}`, type: 'TEXT' });
                 }
@@ -409,8 +409,8 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
         const issueRes = await pool.query("SELECT number FROM issues WHERE id=$1", [id]);
         const issueNumber = issueRes.rows[0]?.number || `ID:${id}`;
         
-        // 如果超過預設欄位範圍（100次），動態創建欄位
-        if (r > 100) {
+        // 如果超過預設欄位範圍（30次），動態創建欄位
+        if (r > 30) {
             try {
                 await pool.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${hField} TEXT`);
                 await pool.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS ${rField} TEXT`);

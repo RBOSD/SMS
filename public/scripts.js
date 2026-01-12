@@ -175,8 +175,8 @@
             const s = document.getElementById('importRoundSelect');
             if (!s) return;
             s.innerHTML = '';
-            // 支援無限次審查，先建立前 100 次選項
-            for (let i = 1; i <= 100; i++) {
+            // 支援無限次審查，先建立前 30 次選項
+            for (let i = 1; i <= 30; i++) {
                 s.innerHTML += `<option value="${i}">第 ${i} 次審查</option>`;
             }
         }
@@ -1327,9 +1327,13 @@ if (dashboard) {
                     // 如果沒有任何機構辦理情形，就進行第1次審查
                     nextRound = 1;
                 }
-                // 確保選項存在
-                ensureRoundOption(nextRound);
+                // 設置審查次數（隱藏的 input 用於保存）
                 document.getElementById('editRound').value = nextRound;
+                // 更新顯示文字
+                const roundDisplay = document.getElementById('editRoundDisplay');
+                if (roundDisplay) {
+                    roundDisplay.textContent = `第 ${nextRound} 次`;
+                }
                 
                 document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); 
                 // 清除 AI 分析結果
@@ -1346,20 +1350,13 @@ if (dashboard) {
             }
         }
         function initEditForm() { 
-            const s = document.getElementById('editRound'); 
-            if (!s || s.options.length > 0) return; 
-            // 支援無限次審查，先建立前 100 次選項（如果需要更多，可以動態添加）
-            for (let i = 1; i <= 100; i++) { 
-                const o = document.createElement('option'); 
-                o.value = i; 
-                o.text = `第 ${i} 次`; 
-                s.add(o); 
-            } 
+            // 審查次數現在是只讀顯示，不再需要初始化下拉選項
+            // 保留此函數以保持代碼兼容性
         }
         
-        // 動態添加更多審查次數選項（如果需要超過 100 次）
+        // 動態添加更多審查次數選項（如果需要超過 100 次，用於隱藏的 select）
         function ensureRoundOption(round) {
-            const s = document.getElementById('editRound');
+            const s = document.getElementById('editRoundSelect');
             if (!s) return;
             const maxRound = Math.max(...Array.from(s.options).map(o => parseInt(o.value) || 0));
             if (round > maxRound) {

@@ -307,8 +307,13 @@
                         </div>
 
                         <!-- 設定區：第幾次審查、日期設定 -->
-                        <div class="form-group"><label>第幾次審查</label><select id="editRound" class="filter-select"
-                                onchange="loadRoundData()"></select></div>
+                        <div class="form-group">
+                            <label>第幾次審查</label>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span id="editRoundDisplay" style="padding:8px 12px;background:#f1f5f9;border-radius:8px;border:1px solid #e2e8f0;color:#334155;font-weight:500;min-width:80px;text-align:center;">第 1 次</span>
+                                <input type="hidden" id="editRound" value="1">
+                            </div>
+                        </div>
 
                         <div class="form-group"
                             style="background:#f1f5f9; padding:12px; border-radius:8px; border:1px solid #e2e8f0;">
