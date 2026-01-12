@@ -229,7 +229,8 @@
         function canonicalNumber(info) {
             if (!info) return "";
             if (info.scheme === "TRC-v2") {
-                var seq = String(parseInt(info.itemSeq || "0", 10));
+                // [修正] 保留原始序號，不要去掉前導零
+                var seq = info.itemSeq || "0";
                 return (info.yearRoc + "-" + info.orgCodeRaw + "-" + 
                         info.inspectCode + "-" + (info.period || "") + "-" + 
                         info.divisionCode + "-" + info.kindCode + seq).toUpperCase();
@@ -504,6 +505,9 @@ if (dashboard) {
                 importIssueDateEl.addEventListener('input', checkImportReady);
                 importIssueDateEl.addEventListener('keyup', checkImportReady);
             }
+            
+            // [Added] 初始化審查次數選項
+            initImportRoundOptions();
             
             // 初始化按鈕狀態（但不禁用文件選擇框）
             checkImportReady();
