@@ -365,10 +365,19 @@
             try {
                 const res = await fetch('/api/options/plans?t=' + Date.now());
                 const json = await res.json();
-                const list = document.getElementById('planOptionsList');
-                if (list && json.data) {
-                    list.innerHTML = json.data.map(p => `<option value="${p}">`).join('');
-                }
+                if (!json.data || json.data.length === 0) return;
+                
+                // 更新所有計畫選擇下拉選單
+                const selectIds = ['filterPlan', 'importPlanName', 'batchPlanName', 'manualPlanName'];
+                selectIds.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    if (select) {
+                        const currentValue = select.value;
+                        const firstOption = select.options[0] ? select.options[0].outerHTML : '';
+                        select.innerHTML = firstOption + json.data.map(p => `<option value="${p}">${p}</option>`).join('');
+                        if (currentValue) select.value = currentValue;
+                    }
+                });
             } catch (e) {
                 console.error("Load plans failed", e);
             }

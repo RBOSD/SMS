@@ -103,12 +103,13 @@
                                 <input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字...">
                             </div>
 
-                            <!-- [新增] 檢查計畫篩選 (使用 datalist 實現可選可搜) -->
+                            <!-- [修改] 檢查計畫篩選 (改為下拉選單) -->
                             <div class="search-item" style="flex:1.5; min-width: 200px;">
-                                <label>檢查計畫 (可輸入或下拉)</label>
-                                <input type="text" id="filterPlan" list="planOptionsList" class="filter-input"
-                                    placeholder="選擇或輸入計畫名稱..." onchange="applyFilters()">
-                                <datalist id="planOptionsList"></datalist>
+                                <label>檢查計畫</label>
+                                <select id="filterPlan" class="filter-select" onchange="applyFilters()">
+                                    <option value="">全部計畫</option>
+                                    <!-- JavaScript 會自動產生選項 -->
+                                </select>
                             </div>
 
                             <div class="search-item"><label>年度</label><select id="filterYear"
