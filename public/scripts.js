@@ -1842,13 +1842,14 @@ if (dashboard) {
             const select = document.getElementById('viewRoundSelect');
             if (!select) return;
             
-            // 找出所有有內容的輪次
+            // 找出所有同時有審查意見和辦理情形的輪次（完整內容）
             const rounds = [];
             for (let i = 200; i >= 1; i--) {
                 const suffix = i === 1 ? '' : i;
                 const hasHandling = currentEditItem['handling' + suffix] && currentEditItem['handling' + suffix].trim();
                 const hasReview = currentEditItem['review' + suffix] && currentEditItem['review' + suffix].trim();
-                if (hasHandling || hasReview) {
+                // 只包含同時有兩個內容的輪次
+                if (hasHandling && hasReview) {
                     rounds.push(i);
                 }
             }
@@ -1880,15 +1881,16 @@ if (dashboard) {
             if (viewHandlingBox) viewHandlingBox.style.display = 'none';
             
             if (selectedValue === 'latest') {
-                // 顯示最新進度 - 找出最高輪次，同時顯示該輪次的審查意見和辦理情形
+                // 顯示最新進度 - 找出最高輪次，且該輪次必須同時有審查意見和辦理情形
                 let maxRound = 0;
                 
-                // 找出最高的輪次
+                // 找出最高的完整輪次（同時有審查意見和辦理情形）
                 for (let k = 200; k >= 1; k--) {
                     const suffix = k === 1 ? '' : k;
                     const hasHandling = currentEditItem['handling' + suffix] && currentEditItem['handling' + suffix].trim();
                     const hasReview = currentEditItem['review' + suffix] && currentEditItem['review' + suffix].trim();
-                    if (hasHandling || hasReview) {
+                    // 只選擇同時有兩個內容的輪次
+                    if (hasHandling && hasReview) {
                         maxRound = k;
                         break;
                     }
