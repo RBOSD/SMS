@@ -56,6 +56,50 @@
             } 
             return null; 
         }
+        
+        // [Added] 獲取最新的審查或辦理情形（比較輪次）
+        function getLatestReviewOrHandling(item) {
+            let latestReviewRound = 0;
+            let latestHandlingRound = 0;
+            let latestReview = null;
+            let latestHandling = null;
+            
+            // 查找最新的審查意見
+            for (let k = 200; k >= 1; k--) {
+                const key = k === 1 ? 'review' : `review${k}`;
+                if (item[key] && item[key].trim()) {
+                    latestReviewRound = k;
+                    latestReview = item[key];
+                    break;
+                }
+            }
+            
+            // 查找最新的辦理情形
+            for (let k = 200; k >= 1; k--) {
+                const key = k === 1 ? 'handling' : `handling${k}`;
+                if (item[key] && item[key].trim()) {
+                    latestHandlingRound = k;
+                    latestHandling = item[key];
+                    break;
+                }
+            }
+            
+            // 比較輪次，選擇輪次更高的
+            if (latestReviewRound > latestHandlingRound) {
+                return { type: 'review', content: latestReview, round: latestReviewRound };
+            } else if (latestHandlingRound > latestReviewRound) {
+                return { type: 'handling', content: latestHandling, round: latestHandlingRound };
+            } else if (latestReviewRound > 0 && latestReviewRound === latestHandlingRound) {
+                // 輪次相同，優先顯示審查（因為審查在辦理之後）
+                return { type: 'review', content: latestReview, round: latestReviewRound };
+            } else if (latestReview) {
+                return { type: 'review', content: latestReview, round: latestReviewRound };
+            } else if (latestHandling) {
+                return { type: 'handling', content: latestHandling, round: latestHandlingRound };
+            }
+            
+            return null;
+        }
         function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' }; return map[r] || r; }
         // [Enhanced] 改進編號提取，支持從帶換行的儲存格中提取編號
         function extractNumberFromCell(cell) {
@@ -538,7 +582,9 @@ if (dashboard) {
                 if (sortState.field === 'number') sortField = 'title'; 
                 else if (sortState.field === 'year') sortField = 'year'; 
                 else if (sortState.field === 'unit') sortField = 'unit'; 
-                else if (sortState.field === 'status') sortField = 'status'; 
+                else if (sortState.field === 'status') sortField = 'status';
+                else if (sortState.field === 'content') sortField = 'content';
+                else if (sortState.field === 'latest') sortField = 'updated_at'; // 最新辦理/審查情形使用更新時間排序
                 sortDir = sortState.dir || 'asc'; 
             }
 
@@ -637,7 +683,13 @@ if (dashboard) {
                         const stClass = st === '持續列管' ? 'active' : (st === '解除列管' ? 'resolved' : 'self');
                         badge = `<span class="badge ${stClass}">${st}</span>`;
                     }
-                    let updateTxt = '-'; const lr = getLatest(item, 'review'), lh = getLatest(item, 'handling'); if (lr) updateTxt = `[審] ${stripHtml(lr).slice(0, 80)}`; else if (lh) updateTxt = `[回] ${stripHtml(lh).slice(0, 80)}`;
+                    // [修正] 顯示最新的審查或辦理情形（比較輪次）
+                    let updateTxt = '-';
+                    const latest = getLatestReviewOrHandling(item);
+                    if (latest) {
+                        const prefix = latest.type === 'review' ? '[審]' : '[回]';
+                        updateTxt = `${prefix} ${stripHtml(latest.content).slice(0, 80)}`;
+                    }
                     let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if (item.aiResult && item.aiResult.status === 'done') { const f = String(item.aiResult.fulfill || ''); const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes ? 'yes' : 'no'}">${isYes ? '✅' : '⚠️'} ${f}</div>`; }
                     const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',false)">✏️ 編輯</button>` : '';
                     const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
@@ -1778,6 +1830,96 @@ if (dashboard) {
             if (aiBox) aiBox.style.display = 'none';
             document.getElementById('aiPreviewText').innerText = '';
             document.getElementById('aiResBadge').innerHTML = '';
+            
+            // [Added] 初始化查看輪次選擇下拉選單
+            initViewRoundSelect();
+        }
+        
+        // [Added] 初始化查看輪次選擇下拉選單
+        function initViewRoundSelect() {
+            if (!currentEditItem) return;
+            
+            const select = document.getElementById('viewRoundSelect');
+            if (!select) return;
+            
+            // 找出所有有內容的輪次
+            const rounds = [];
+            for (let i = 200; i >= 1; i--) {
+                const suffix = i === 1 ? '' : i;
+                const hasHandling = currentEditItem['handling' + suffix] && currentEditItem['handling' + suffix].trim();
+                const hasReview = currentEditItem['review' + suffix] && currentEditItem['review' + suffix].trim();
+                if (hasHandling || hasReview) {
+                    rounds.push(i);
+                }
+            }
+            
+            // 生成選項（從最新到最舊）
+            select.innerHTML = '<option value="latest">最新進度</option>';
+            rounds.forEach(r => {
+                select.innerHTML += `<option value="${r}">第 ${r} 次</option>`;
+            });
+            
+            // 預設選擇最新進度
+            select.value = 'latest';
+            onViewRoundChange();
+        }
+        
+        // [Added] 當查看輪次選擇改變時
+        function onViewRoundChange() {
+            if (!currentEditItem) return;
+            
+            const select = document.getElementById('viewRoundSelect');
+            if (!select) return;
+            
+            const selectedValue = select.value;
+            
+            // 隱藏所有查看區塊
+            const viewReviewBox = document.getElementById('viewReviewBox');
+            const viewHandlingBox = document.getElementById('viewHandlingBox');
+            if (viewReviewBox) viewReviewBox.style.display = 'none';
+            if (viewHandlingBox) viewHandlingBox.style.display = 'none';
+            
+            if (selectedValue === 'latest') {
+                // 顯示最新進度
+                const latest = getLatestReviewOrHandling(currentEditItem);
+                if (latest) {
+                    if (latest.type === 'review') {
+                        const viewReviewRoundNum = document.getElementById('viewReviewRoundNum');
+                        const viewReviewText = document.getElementById('viewReviewText');
+                        if (viewReviewRoundNum) viewReviewRoundNum.textContent = latest.round;
+                        if (viewReviewText) viewReviewText.textContent = latest.content;
+                        if (viewReviewBox) viewReviewBox.style.display = 'block';
+                    } else {
+                        const viewHandlingRoundNum = document.getElementById('viewHandlingRoundNum');
+                        const viewHandlingText = document.getElementById('viewHandlingText');
+                        if (viewHandlingRoundNum) viewHandlingRoundNum.textContent = latest.round;
+                        if (viewHandlingText) viewHandlingText.textContent = latest.content;
+                        if (viewHandlingBox) viewHandlingBox.style.display = 'block';
+                    }
+                }
+            } else {
+                // 顯示指定輪次
+                const round = parseInt(selectedValue, 10);
+                const suffix = round === 1 ? '' : round;
+                const handling = currentEditItem['handling' + suffix] || '';
+                const review = currentEditItem['review' + suffix] || '';
+                
+                if (review && review.trim()) {
+                    const viewReviewRoundNum = document.getElementById('viewReviewRoundNum');
+                    const viewReviewText = document.getElementById('viewReviewText');
+                    if (viewReviewRoundNum) viewReviewRoundNum.textContent = round;
+                    if (viewReviewText) viewReviewText.textContent = review;
+                    if (viewReviewBox) viewReviewBox.style.display = 'block';
+                }
+                
+                if (handling && handling.trim()) {
+                    const viewHandlingRoundNum = document.getElementById('viewHandlingRoundNum');
+                    const viewHandlingText = document.getElementById('viewHandlingText');
+                    if (viewHandlingRoundNum) viewHandlingRoundNum.textContent = round;
+                    if (viewHandlingText) viewHandlingText.textContent = handling;
+                    if (viewHandlingBox) viewHandlingBox.style.display = 'block';
+                }
+            }
         }
 
         async function saveEdit() {

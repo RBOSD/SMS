@@ -297,12 +297,27 @@
                                     id="editContentDisplay"></div>
                             </div>
 
-                            <!-- 前次審查意見參考（若無則不顯示） -->
-                            <div id="prevReviewBox" style="display:none; margin-bottom:0;">
-                                <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 第<span
-                                        id="prevRoundNum"></span>次審查意見：</div>
+                            <!-- [新增] 選擇查看哪一次的審查及回復內容 -->
+                            <div style="margin-bottom:16px;">
+                                <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">選擇查看內容</div>
+                                <select id="viewRoundSelect" class="filter-select" onchange="onViewRoundChange()" style="font-size:13px;padding:6px;">
+                                    <option value="latest">最新進度</option>
+                                    <!-- JavaScript 會自動產生選項 -->
+                                </select>
+                            </div>
+                            
+                            <!-- 查看的審查意見（根據選擇顯示） -->
+                            <div id="viewReviewBox" style="display:none; margin-bottom:16px;">
+                                <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 第<span id="viewReviewRoundNum"></span>次審查意見：</div>
                                 <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;max-height:200px;overflow-y:auto;white-space:pre-wrap;"
-                                    id="prevReviewText"></div>
+                                    id="viewReviewText"></div>
+                            </div>
+                            
+                            <!-- 查看的機構辦理情形（根據選擇顯示） -->
+                            <div id="viewHandlingBox" style="display:none; margin-bottom:0;">
+                                <div style="font-size:12px;color:#059669;margin-bottom:6px;font-weight:700;">📝 第<span id="viewHandlingRoundNum"></span>次機構辦理情形：</div>
+                                <div style="background:#ecfdf5;padding:12px;border-radius:8px;font-size:14px;color:#047857;border:1px solid #a7f3d0;line-height:1.5;max-height:200px;overflow-y:auto;white-space:pre-wrap;"
+                                    id="viewHandlingText"></div>
                             </div>
                         </div>
 
