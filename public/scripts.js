@@ -491,6 +491,8 @@ if (dashboard) {
             const importIssueDateEl = document.getElementById('importIssueDate');
             
             if (wordInputEl) {
+                // [修正] 確保文件選擇框是啟用的
+                wordInputEl.disabled = false;
                 // 移除舊的事件監聽器（如果有的話），然後添加新的
                 wordInputEl.removeEventListener('change', checkImportReady);
                 wordInputEl.addEventListener('change', checkImportReady);
@@ -503,7 +505,7 @@ if (dashboard) {
                 importIssueDateEl.addEventListener('keyup', checkImportReady);
             }
             
-            // 初始化按鈕狀態
+            // 初始化按鈕狀態（但不禁用文件選擇框）
             checkImportReady();
         }
 
