@@ -57,38 +57,194 @@
             return null; 
         }
         function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' }; return map[r] || r; }
-        function extractNumberFromCell(cell) { if (!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); return whole.trim(); }
+        // [Enhanced] 改進編號提取，支持從帶換行的儲存格中提取編號
+        function extractNumberFromCell(cell) {
+            if (!cell) return "";
+            var whole = normalizeCodeString(cell.innerText || cell.textContent || "");
+            
+            // 1. 先嘗試直接提取 TRC-v2 格式 (123-TRC-1-7-OP-N12)
+            var mB = whole.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/);
+            if (mB) return (mB[1] || "").toUpperCase();
+            
+            // 2. 嘗試 THAS-v1 格式 (13T1-A01-N01)
+            var mA = whole.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/);
+            if (mA) return (mA[1] || "").toUpperCase();
+            
+            // 3. 處理帶 <br> 的情況，分行匹配
+            var rawHtml = cell.innerHTML || "";
+            var lines = normalizeCodeString(rawHtml.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<[^>]*>/g, "")).split("\n");
+            for (var i = 0; i < lines.length; i++) {
+                var line = (lines[i] || "").trim();
+                if (!line) continue;
+                var m1 = line.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/);
+                if (m1) return (m1[1] || "").toUpperCase();
+                var m2 = line.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/);
+                if (m2) return (m2[1] || "").toUpperCase();
+            }
+            
+            return whole.trim();
+        }
 
         // [Updated] Map & Parser
         const ORG_MAP = { "T": "臺鐵", "H": "高鐵", "A": "林鐵", "S": "糖鐵", "TRC": "臺鐵", "HSR": "高鐵", "AFR": "林鐵", "TSC": "糖鐵" };
+        // [Added] 機構交叉映射表（THAS-v1 ↔ TRC-v2）
+        const ORG_CROSSWALK = { "T": "TRC", "H": "HSR", "A": "AFR", "S": "TSC", "TRC": "TRC", "HSR": "HSR", "AFR": "AFR", "TSC": "TSC" };
         const INSPECTION_MAP = { "1": "定期檢查", "2": "例行性檢查", "3": "特別檢查", "4": "臨時檢查" };
         // [Verified] Division Map includes all requested codes
         const DIVISION_MAP = { "A": "運務", "B": "工務", "C": "機務", "D": "電務", "E": "安全", "F": "審核", "G": "災防", "OP": "運轉", "CP": "土木", "EM": "機電" };
         const KIND_MAP = { "N": "缺失事項", "O": "觀察事項", "R": "建議事項" };
         const FILLED_MARKS = ["■", "☑", "☒", "✔", "✅", "●", "◉", "✓"]; var EMPTY_MARKS = ["□", "☐", "◻", "○", "◯", "◇", "△"];
 
+        // [Enhanced] 改進編號解析，支持 scheme 和 period 字段
         function parseItemNumber(numberStr) {
             var raw = normalizeCodeString(numberStr || "");
             if (!raw) return null;
+            
+            // 1. THAS-v1 格式：13T1-A01-N01 (2位年+T+类别-部门+序号-类型+序号)
+            var m = raw.match(/^(\d{2})([THAS])([1-4])\-([A-G])(\d{2})\-([NOR])(\d{2})$/i);
+            if (m) {
+                var yy = parseInt(m[1], 10);
+                var rocYear = 100 + yy;
+                var orgCode = m[2].toUpperCase();
+                var itemSeq = m[7];
+                var divisionSeq = m[5];
+                return {
+                    scheme: "THAS-v1",
+                    raw: raw,
+                    yearRoc: rocYear,
+                    orgCode: orgCode,
+                    orgCodeRaw: orgCode,
+                    inspectCode: m[3],
+                    divCode: m[4].toUpperCase(),
+                    divisionCode: m[4].toUpperCase(),
+                    divisionSeq: divisionSeq,
+                    kindCode: m[6].toUpperCase(),
+                    itemSeq: itemSeq,
+                    period: ""
+                };
+            }
+            
+            // 2. TRC-v2 格式：123-TRC-1-7-OP-N12 (3位年-机构-类别-期数-部门-类型序号)
+            m = raw.match(/^(\d{3})-([A-Z]{3})-([1-4])-(\d+)-([A-Z]{2,3})-([NOR])(\d{1,3})$/i);
+            if (m) {
+                var rocYear2 = parseInt(m[1], 10);
+                var orgCode2 = m[2].toUpperCase();
+                var period = m[4];
+                var itemSeq2 = m[7];
+                return {
+                    scheme: "TRC-v2",
+                    raw: raw,
+                    yearRoc: rocYear2,
+                    orgCode: orgCode2,
+                    orgCodeRaw: orgCode2,
+                    inspectCode: m[3],
+                    divCode: m[5].toUpperCase(),
+                    divisionCode: m[5].toUpperCase(),
+                    divisionSeq: "",
+                    kindCode: m[6].toUpperCase(),
+                    itemSeq: itemSeq2,
+                    period: period
+                };
+            }
+            
+            // 3. 長格式（兼容舊格式）：123-TRC-1-7-OP-N12 (支持 3-4 位機構代碼)
             var cleanRaw = raw.replace(/[^a-zA-Z0-9\-]/g, "");
             var mLong = cleanRaw.match(/^(\d{3})-([A-Z]{3,4})-([0-9])-(\d+)-([A-Z]{2,4})-([NOR])(\d+)$/i);
             if (mLong) {
-                return { raw: mLong[0], yearRoc: parseInt(mLong[1], 10), orgCode: mLong[2].toUpperCase(), inspectCode: mLong[3], divCode: mLong[5].toUpperCase(), kindCode: mLong[6].toUpperCase() };
+                return {
+                    scheme: "TRC-v2",
+                    raw: mLong[0],
+                    yearRoc: parseInt(mLong[1], 10),
+                    orgCode: mLong[2].toUpperCase(),
+                    orgCodeRaw: mLong[2].toUpperCase(),
+                    inspectCode: mLong[3],
+                    divCode: mLong[5].toUpperCase(),
+                    divisionCode: mLong[5].toUpperCase(),
+                    divisionSeq: "",
+                    kindCode: mLong[6].toUpperCase(),
+                    itemSeq: mLong[7],
+                    period: mLong[4]
+                };
             }
+            
+            // 4. 短格式（兼容舊格式）：13T1-A01-N01 (支持 2-3 位年份)
             var mShort = cleanRaw.match(/^(\d{2,3})([A-Z])([0-9])-([A-Z])(\d{2})-([NOR])(\d{2})$/i);
             if (mShort) {
                 var yy = parseInt(mShort[1], 10);
                 var rocYear = (yy < 1000) ? (yy + (yy < 100 ? 100 : 0)) : (yy - 1911);
-                return { raw: mShort[0], yearRoc: rocYear, orgCode: mShort[2].toUpperCase(), inspectCode: mShort[3], divCode: mShort[4].toUpperCase(), kindCode: mShort[6].toUpperCase() };
+                return {
+                    scheme: "THAS-v1",
+                    raw: mShort[0],
+                    yearRoc: rocYear,
+                    orgCode: mShort[2].toUpperCase(),
+                    orgCodeRaw: mShort[2].toUpperCase(),
+                    inspectCode: mShort[3],
+                    divCode: mShort[4].toUpperCase(),
+                    divisionCode: mShort[4].toUpperCase(),
+                    divisionSeq: mShort[5],
+                    kindCode: mShort[6].toUpperCase(),
+                    itemSeq: mShort[7],
+                    period: ""
+                };
             }
+            
+            // 5. 寬鬆匹配（fallback）
             var mLoose = cleanRaw.match(/(\d{2,3}).*([NOR])\d+/i);
             if (mLoose) {
-                return { raw: mLoose[0], yearRoc: parseInt(mLoose[1], 10), orgCode: "?", inspectCode: "?", divCode: "?", kindCode: mLoose[2].toUpperCase() };
+                return {
+                    scheme: "",
+                    raw: mLoose[0],
+                    yearRoc: parseInt(mLoose[1], 10),
+                    orgCode: "?",
+                    orgCodeRaw: "?",
+                    inspectCode: "?",
+                    divCode: "?",
+                    divisionCode: "?",
+                    divisionSeq: "",
+                    kindCode: mLoose[2].toUpperCase(),
+                    itemSeq: "",
+                    period: ""
+                };
             }
-            return { raw: cleanRaw, yearRoc: "", orgCode: "", inspectCode: "", divCode: "", kindCode: "" };
+            
+            return {
+                scheme: "",
+                raw: cleanRaw,
+                yearRoc: "",
+                orgCode: "",
+                orgCodeRaw: "",
+                inspectCode: "",
+                divCode: "",
+                divisionCode: "",
+                divisionSeq: "",
+                kindCode: "",
+                itemSeq: "",
+                period: ""
+            };
         }
 
         function normalizeMultiline(s) { s = String(s || ""); return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
+        
+        // [Added] 編號規範化函數（參考轉換工具）
+        function canonicalNumber(info) {
+            if (!info) return "";
+            if (info.scheme === "TRC-v2") {
+                var seq = String(parseInt(info.itemSeq || "0", 10));
+                return (info.yearRoc + "-" + info.orgCodeRaw + "-" + 
+                        info.inspectCode + "-" + (info.period || "") + "-" + 
+                        info.divisionCode + "-" + info.kindCode + seq).toUpperCase();
+            }
+            if (info.scheme === "THAS-v1") {
+                var yy = String(info.yearRoc - 100);
+                yy = ("0" + yy).slice(-2);
+                var seq2 = String(parseInt(info.itemSeq || "0", 10));
+                seq2 = ("0" + seq2).slice(-2);
+                return (yy + info.orgCodeRaw + info.inspectCode + "-" + 
+                        info.divisionCode + (info.divisionSeq || "") + "-" + 
+                        info.kindCode + seq2).toUpperCase();
+            }
+            return (info.raw || "").toUpperCase();
+        }
 
         // [修正與增強] 內容清理與切割：只抓取最新的回覆內容
         function sanitizeContent(html) {
@@ -686,23 +842,41 @@ if (dashboard) {
                         var cells = rows[r].querySelectorAll("td,th");
                         if (cells.length < 2) continue;
 
-                        var rawNumText = cells[col.number] ? (cells[col.number].innerText || cells[col.number].textContent || "") : "";
+                        var rawNumText = extractNumberFromCell(cells[col.number]);
                         var info = parseItemNumber(rawNumText);
                         if (!info || !info.raw) continue;
 
-                        var unitName = ORG_MAP[info.orgCode] || info.orgCode || "";
+                        var orgUnifiedCode = ORG_CROSSWALK[info.orgCodeRaw] || info.orgCodeRaw || info.orgCode || "";
+                        var orgCodeToUse = info.orgCodeRaw || info.orgCode || "";
+                        var unitName = ORG_MAP[orgCodeToUse] || orgCodeToUse || "";
                         var inspectName = INSPECTION_MAP[info.inspectCode] || info.inspectCode || "";
-                        var divName = DIVISION_MAP[info.divCode] || info.divCode || "";
+                        var divCodeToUse = info.divisionCode || info.divCode || "";
+                        var divName = DIVISION_MAP[divCodeToUse] || divCodeToUse || "";
                         var kindName = KIND_MAP[info.kindCode] || "其他";
+                        
+                        // 使用規範化編號（如果解析成功），否則使用原始編號
+                        var canonicalNum = canonicalNumber(info);
+                        var finalNumber = canonicalNum || info.raw.toUpperCase();
 
                         var item = {
-                            number: info.raw.toUpperCase(),
-                            year: String(info.yearRoc),
+                            number: finalNumber,
+                            rawNumber: info.raw.toUpperCase(),
+                            scheme: info.scheme || "",
+                            year: String(info.yearRoc || ""),
+                            yearRoc: info.yearRoc || "",
                             unit: unitName,
-                            itemKindCode: info.kindCode,
+                            orgCodeRaw: orgCodeToUse,
+                            orgUnifiedCode: orgUnifiedCode,
+                            orgName: unitName,
+                            itemKindCode: info.kindCode || "",
                             category: kindName,
+                            inspectionCategoryCode: info.inspectCode || "",
                             inspectionCategoryName: inspectName,
+                            divisionCode: divCodeToUse,
                             divisionName: divName,
+                            divisionSeq: info.divisionSeq || "",
+                            itemSeq: info.itemSeq || "",
+                            period: info.period || "",
                             content: "",
                             handling: "",
                             status: "持續列管"
