@@ -883,6 +883,59 @@ app.delete('/api/plans/:id', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 檢查計畫 CSV 匯入 API
+app.post('/api/plans/import', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+    const { data } = req.body; // 接收解析後的 CSV 資料
+    if (!data || !Array.isArray(data)) return res.status(400).json({error: '無效的資料格式'});
+    
+    const results = { success: 0, failed: 0, errors: [] };
+    
+    for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        // 支援多種欄位名稱格式（去除空白後比對）
+        let name = '';
+        let year = '';
+        
+        // 嘗試各種可能的欄位名稱
+        for (const key in row) {
+            const cleanKey = key.trim();
+            if (cleanKey === '計畫名稱' || cleanKey === 'name' || cleanKey === 'planName' || cleanKey === '計劃名稱') {
+                name = String(row[key] || '').trim();
+            }
+            if (cleanKey === '年度' || cleanKey === 'year') {
+                year = String(row[key] || '').trim();
+            }
+        }
+        
+        // 跳過空行
+        if (!name && !year) {
+            continue;
+        }
+        
+        if (!name || !year) {
+            results.failed++;
+            results.errors.push(`第 ${i + 2} 行：計畫名稱和年度為必填（目前：計畫名稱="${name}"，年度="${year}"）`);
+            continue;
+        }
+        
+        try {
+            await pool.query("INSERT INTO inspection_plans (name, year) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET year = EXCLUDED.year, updated_at = CURRENT_TIMESTAMP", 
+                [name, year]);
+            results.success++;
+        } catch (e) {
+            results.failed++;
+            results.errors.push(`第 ${i + 1} 行（${name}）：${e.message}`);
+        }
+    }
+    
+    if (results.success > 0) {
+        logAction(req.session.user.username, 'IMPORT_PLANS', `匯入檢查計畫：成功 ${results.success} 筆，失敗 ${results.failed} 筆`, req);
+    }
+    
+    res.json({ success: true, ...results });
+});
+
 async function startServer() {
     try {
         await initDB();

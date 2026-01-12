@@ -1730,22 +1730,72 @@ if (dashboard) {
                         header: true,
                         skipEmptyLines: true,
                         encoding: "UTF-8",
+                        transformHeader: function(header) {
+                            // 統一處理欄位名稱，去除空白
+                            return header.trim();
+                        },
+                        transform: function(value) {
+                            // 去除值的前後空白
+                            return value ? value.trim() : '';
+                        },
                         complete: async function(results) {
                             if (results.errors.length && results.data.length === 0) {
-                                return showToast('CSV 解析錯誤', 'error');
+                                return showToast('CSV 解析錯誤：' + (results.errors[0]?.message || '未知錯誤'), 'error');
                             }
+                            
+                            // 過濾掉空行，支援多種欄位名稱
+                            const validData = results.data.filter(row => {
+                                // 嘗試各種可能的欄位名稱
+                                let name = '';
+                                let year = '';
+                                for (const key in row) {
+                                    const cleanKey = key.trim();
+                                    if (cleanKey === '計畫名稱' || cleanKey === 'name' || cleanKey === 'planName' || cleanKey === '計劃名稱') {
+                                        name = String(row[key] || '').trim();
+                                    }
+                                    if (cleanKey === '年度' || cleanKey === 'year') {
+                                        year = String(row[key] || '').trim();
+                                    }
+                                }
+                                return name && year;
+                            });
+                            
+                            if (validData.length === 0) {
+                                return showToast('CSV 檔案中沒有有效的資料', 'error');
+                            }
+                            
                             try {
                                 const res = await fetch('/api/plans/import', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ data: results.data })
+                                    credentials: 'include', // 確保包含 session cookie
+                                    body: JSON.stringify({ data: validData })
                                 });
+                                
+                                // 檢查回應類型
+                                const contentType = res.headers.get('content-type');
+                                if (!contentType || !contentType.includes('application/json')) {
+                                    const text = await res.text();
+                                    console.error('Server returned non-JSON:', text.substring(0, 200));
+                                    if (res.status === 401) {
+                                        return showToast('匯入錯誤：請先登入系統', 'error');
+                                    } else if (res.status === 403) {
+                                        return showToast('匯入錯誤：您沒有權限執行此操作', 'error');
+                                    } else {
+                                        return showToast('匯入錯誤：伺服器回應格式錯誤（狀態碼：' + res.status + '）', 'error');
+                                    }
+                                }
+                                
                                 const j = await res.json();
                                 if (res.ok) {
-                                    showToast(`匯入完成：成功 ${j.success} 筆，失敗 ${j.failed} 筆`);
-                                    if (j.errors && j.errors.length > 0) {
-                                        console.warn('匯入錯誤：', j.errors);
+                                    let msg = `匯入完成：成功 ${j.success} 筆`;
+                                    if (j.failed > 0) {
+                                        msg += `，失敗 ${j.failed} 筆`;
+                                        if (j.errors && j.errors.length > 0) {
+                                            console.warn('匯入錯誤詳情：', j.errors);
+                                        }
                                     }
+                                    showToast(msg);
                                     closePlanImportModal();
                                     loadPlansPage(1);
                                     loadPlanOptions();
@@ -1753,7 +1803,13 @@ if (dashboard) {
                                     showToast(j.error || '匯入失敗', 'error');
                                 }
                             } catch (e) {
-                                showToast('匯入錯誤：' + e.message, 'error');
+                                console.error('Import error:', e);
+                                let errorMsg = '匯入錯誤：' + e.message;
+                                // 如果錯誤訊息包含 JSON 解析錯誤，提供更清楚的提示
+                                if (e.message.includes('Unexpected token')) {
+                                    errorMsg = '匯入錯誤：伺服器回應格式錯誤，請確認您有登入權限且具有管理員權限';
+                                }
+                                showToast(errorMsg, 'error');
                             }
                         }
                     });
