@@ -1271,7 +1271,21 @@ if (dashboard) {
             } catch (e) { showToast('Error: ' + e.message, 'error'); }
         }
 
-        function switchDataTab(tab) { document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); document.getElementById('tab-data-batch').classList.toggle('hidden', tab !== 'batch'); if (tab === 'batch' && document.querySelectorAll('#batchGridBody tr').length === 0) initBatchGrid(); }
+        function switchDataTab(tab) { 
+            document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); 
+            event.target.classList.add('active'); 
+            document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); 
+            document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); 
+            document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); 
+            document.getElementById('tab-data-batch').classList.toggle('hidden', tab !== 'batch'); 
+            const plansTab = document.getElementById('tab-data-plans');
+            if (plansTab) plansTab.classList.toggle('hidden', tab !== 'plans');
+            if (tab === 'batch' && document.querySelectorAll('#batchGridBody tr').length === 0) initBatchGrid();
+            if (tab === 'plans') {
+                setTimeout(() => loadPlansPage(1), 100);
+                loadPlanOptions();
+            }
+        }
 
         // --- Batch Edit Logic ---
         function initBatchGrid() {
@@ -1568,8 +1582,7 @@ if (dashboard) {
             plansPageSize = parseInt(document.getElementById('plansPageSize').value, 10);
             const q = document.getElementById('planSearch').value || '';
             const year = document.getElementById('planYearFilter').value || '';
-            const status = document.getElementById('planStatusFilter').value || '';
-            const params = new URLSearchParams({ page: plansPage, pageSize: plansPageSize, q, year, status, sortField: plansSortField, sortDir: plansSortDir, _t: Date.now() });
+            const params = new URLSearchParams({ page: plansPage, pageSize: plansPageSize, q, year, sortField: plansSortField, sortDir: plansSortDir, _t: Date.now() });
             try {
                 const res = await fetch('/api/plans?' + params.toString());
                 if (!res.ok) { showToast('載入計畫失敗', 'error'); return; }
@@ -1590,14 +1603,10 @@ if (dashboard) {
             const tbody = document.getElementById('plansTableBody');
             if (!tbody) return;
             tbody.innerHTML = planList.map(p => {
-                const statusBadge = p.status === 'active' ? '<span class="badge active">進行中</span>' : 
-                                   p.status === 'completed' ? '<span class="badge resolved">已完成</span>' : 
-                                   '<span class="badge self">已歸檔</span>';
                 return `<tr>
                     <td data-label="計畫名稱" style="padding:12px;font-weight:600;">${p.name || '-'}</td>
                     <td data-label="年度">${p.year || '-'}</td>
                     <td data-label="事項數量">${p.issue_count || 0}</td>
-                    <td data-label="狀態">${statusBadge}</td>
                     <td data-label="建立時間">${new Date(p.created_at).toLocaleDateString('zh-TW')}</td>
                     <td data-label="操作">
                         <button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openPlanModal('edit', ${p.id})">✏️</button>
@@ -1631,37 +1640,93 @@ if (dashboard) {
                 document.getElementById('targetPlanId').value = '';
                 document.getElementById('planName').value = '';
                 document.getElementById('planYear').value = '';
-                document.getElementById('planDescription').value = '';
-                document.getElementById('planStartDate').value = '';
-                document.getElementById('planEndDate').value = '';
-                document.getElementById('planStatus').value = 'active';
             } else {
                 const p = planList.find(x => x.id === id) || {};
                 t.innerText = '編輯檢查計畫';
                 document.getElementById('targetPlanId').value = p.id || '';
                 document.getElementById('planName').value = p.name || '';
                 document.getElementById('planYear').value = p.year || '';
-                document.getElementById('planDescription').value = p.description || '';
-                document.getElementById('planStartDate').value = p.start_date ? p.start_date.split('T')[0] : '';
-                document.getElementById('planEndDate').value = p.end_date ? p.end_date.split('T')[0] : '';
-                document.getElementById('planStatus').value = p.status || 'active';
             }
-            m.classList.add('open');
+            if (m) m.classList.add('open');
         }
         function closePlanModal() {
-            document.getElementById('planModal').classList.remove('open');
+            const m = document.getElementById('planModal');
+            if (m) m.classList.remove('open');
+        }
+        function openPlanImportModal() {
+            const m = document.getElementById('planImportModal');
+            if (m) {
+                const fileInput = document.getElementById('planImportFile');
+                if (fileInput) fileInput.value = '';
+                m.classList.add('open');
+            }
+        }
+        function closePlanImportModal() {
+            const m = document.getElementById('planImportModal');
+            if (m) m.classList.remove('open');
+        }
+        async function importPlansCSV() {
+            const fileInput = document.getElementById('planImportFile');
+            if (!fileInput) return showToast('找不到檔案選擇器', 'error');
+            const file = fileInput.files[0];
+            if (!file) return showToast('請選擇 CSV 檔案', 'error');
+            
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const csv = e.target.result;
+                    Papa.parse(csv, {
+                        header: true,
+                        skipEmptyLines: true,
+                        encoding: "UTF-8",
+                        complete: async function(results) {
+                            if (results.errors.length && results.data.length === 0) {
+                                return showToast('CSV 解析錯誤', 'error');
+                            }
+                            try {
+                                const res = await fetch('/api/plans/import', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ data: results.data })
+                                });
+                                const j = await res.json();
+                                if (res.ok) {
+                                    showToast(`匯入完成：成功 ${j.success} 筆，失敗 ${j.failed} 筆`);
+                                    if (j.errors && j.errors.length > 0) {
+                                        console.warn('匯入錯誤：', j.errors);
+                                    }
+                                    closePlanImportModal();
+                                    loadPlansPage(1);
+                                    loadPlanOptions();
+                                } else {
+                                    showToast(j.error || '匯入失敗', 'error');
+                                }
+                            } catch (e) {
+                                showToast('匯入錯誤：' + e.message, 'error');
+                            }
+                        }
+                    });
+                } catch (e) {
+                    showToast('讀取檔案錯誤：' + e.message, 'error');
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+        function downloadPlanCSVTemplate() {
+            const csv = '計畫名稱,年度\n113年度上半年定期檢查,113\n113年度下半年定期檢查,113\n114年度上半年定期檢查,114';
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = '檢查計畫匯入範例.csv';
+            link.click();
         }
         async function submitPlan() {
             const id = document.getElementById('targetPlanId').value;
             const name = document.getElementById('planName').value.trim();
             const year = document.getElementById('planYear').value.trim();
-            const description = document.getElementById('planDescription').value.trim();
-            const startDate = document.getElementById('planStartDate').value;
-            const endDate = document.getElementById('planEndDate').value;
-            const status = document.getElementById('planStatus').value;
             if (!name) return showToast('請輸入計畫名稱', 'error');
             if (!year) return showToast('請輸入年度', 'error');
-            const payload = { name, year, description, startDate, endDate, status };
+            const payload = { name, year };
             try {
                 const url = id ? `/api/plans/${id}` : '/api/plans';
                 const method = id ? 'PUT' : 'POST';

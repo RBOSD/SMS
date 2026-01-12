@@ -8,6 +8,7 @@
     <button class="admin-tab-btn" onclick="switchDataTab('batch')">批次建檔</button>
     <button class="admin-tab-btn" onclick="switchDataTab('manual')">手動新增</button>
     <button class="admin-tab-btn" onclick="switchDataTab('export')">資料匯出</button>
+    <button class="admin-tab-btn" onclick="switchDataTab('plans')">檢查計畫管理</button>
 </div>
 
 <!-- Tab 1: Import -->
@@ -345,5 +346,94 @@
         </div>
 
         <button class="btn btn-primary" onclick="exportAllIssues()">執行匯出</button>
+    </div>
+</div>
+
+<!-- Tab 5: Plans Management -->
+<div id="tab-data-plans" class="hidden">
+    <div style="margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0;">檢查計畫管理</h3>
+            <button class="btn btn-primary" onclick="openPlanModal('create')">新增計畫</button>
+        </div>
+        
+        <div class="main-card" style="margin-top:20px;">
+            <div style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
+                <input id="planSearch" class="filter-input" placeholder="搜尋計畫名稱..." style="max-width:300px;"
+                    oninput="loadPlansPage(1)">
+                <select id="planYearFilter" class="filter-select" style="width:120px;" onchange="loadPlansPage(1)">
+                    <option value="">全部年度</option>
+                </select>
+                <select id="plansPageSize" class="page-size-select" onchange="loadPlansPage(1)">
+                    <option value="10">10 筆/頁</option>
+                    <option value="20" selected>20 筆/頁</option>
+                    <option value="50">50 筆/頁</option>
+                </select>
+                <div style="margin-left:auto;">
+                    <button class="btn btn-outline" onclick="loadPlansPage(1)">搜尋</button>
+                    <button class="btn btn-primary" onclick="openPlanImportModal()" style="margin-left:8px;">📥 CSV 匯入</button>
+                </div>
+            </div>
+            <div id="plansPaginationTop" class="pagination-bar" style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
+            <div class="data-container">
+                <table class="user-table">
+                    <thead>
+                        <tr>
+                            <th style="padding:16px;" onclick="plansSortBy('name')">計畫名稱</th>
+                            <th onclick="plansSortBy('year')">年度</th>
+                            <th>事項數量</th>
+                            <th onclick="plansSortBy('created_at')">建立時間</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="plansTableBody"></tbody>
+                </table>
+            </div>
+            <div id="plansPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
+        </div>
+    </div>
+
+    <!-- Plan Modal -->
+    <div class="modal-overlay" id="planModal">
+        <div class="modal-box" style="max-width:600px;">
+            <h3 style="margin-top:0;" id="planModalTitle">檢查計畫</h3>
+            <input type="hidden" id="targetPlanId">
+            <div class="form-group">
+                <label>計畫名稱 <span style="color:#ef4444;">*</span></label>
+                <input type="text" id="planName" class="filter-input" placeholder="例如: 113年度上半年定期檢查">
+            </div>
+            <div class="form-group">
+                <label>年度 <span style="color:#ef4444;">*</span></label>
+                <input type="text" id="planYear" class="filter-input" placeholder="例如: 113">
+            </div>
+            <div style="display:flex;gap:12px;margin-top:24px;">
+                <button class="btn btn-primary" style="flex:1;" onclick="submitPlan()">儲存</button>
+                <button class="btn btn-outline" style="flex:1;" onclick="closePlanModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plan Import Modal -->
+    <div class="modal-overlay" id="planImportModal">
+        <div class="modal-box" style="max-width:600px;">
+            <h3 style="margin-top:0;">CSV 匯入檢查計畫</h3>
+            <div style="margin-bottom:16px; padding:12px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px;">
+                <div style="font-size:13px; color:#0369a1; margin-bottom:8px; font-weight:600;">📋 CSV 格式說明：</div>
+                <div style="font-size:12px; color:#0369a1; line-height:1.6;">
+                    第一行為標題列：<code style="background:#fff;padding:2px 6px;border-radius:4px;">計畫名稱,年度</code><br>
+                    或使用英文：<code style="background:#fff;padding:2px 6px;border-radius:4px;">name,year</code><br>
+                    範例：<code style="background:#fff;padding:2px 6px;border-radius:4px;">113年度上半年定期檢查,113</code>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>選擇 CSV 檔案</label>
+                <input type="file" id="planImportFile" accept=".csv" class="filter-input">
+            </div>
+            <div style="display:flex;gap:12px;margin-top:24px;">
+                <button class="btn btn-primary" style="flex:1;" onclick="importPlansCSV()">📥 執行匯入</button>
+                <button class="btn btn-outline" style="flex:1;" onclick="closePlanImportModal()">取消</button>
+                <button class="btn btn-outline" style="flex:1;" onclick="downloadPlanCSVTemplate()">📥 下載範例檔</button>
+            </div>
+        </div>
     </div>
 </div>
