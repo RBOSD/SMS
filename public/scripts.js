@@ -609,8 +609,6 @@ if (dashboard) {
                     if (['admin', 'manager'].includes(data.role)) {
                         const btnImport = document.getElementById('btn-importView');
                         if (btnImport) btnImport.classList.remove('hidden');
-                        const btnPlans = document.getElementById('btn-plansView');
-                        if (btnPlans) btnPlans.classList.remove('hidden');
                         if (data.role === 'admin') {
                             const btnUsers = document.getElementById('btn-usersView');
                             if (btnUsers) btnUsers.classList.remove('hidden');
@@ -1771,7 +1769,7 @@ if (dashboard) {
                     const csv = e.target.result;
                     Papa.parse(csv, {
                         header: true,
-                        skipEmptyLines: true,
+                        skipEmptyLines: false, // 改為 false，手動處理空行
                         encoding: "UTF-8",
                         transformHeader: function(header) {
                             // 統一處理欄位名稱，去除空白
@@ -1798,6 +1796,13 @@ if (dashboard) {
                             const invalidRows = [];
                             
                             results.data.forEach((row, index) => {
+                                // 檢查是否為完全空行（所有值都為空或只有空白）
+                                const isEmptyRow = Object.values(row).every(val => !val || String(val).trim() === '');
+                                if (isEmptyRow) {
+                                    // 完全空行，跳過
+                                    return;
+                                }
+                                
                                 // 嘗試各種可能的欄位名稱
                                 let name = '';
                                 let year = '';
@@ -1815,13 +1820,12 @@ if (dashboard) {
                                     validData.push({ name, year });
                                 } else {
                                     // 記錄無效行的資訊（用於調試）
-                                    if (name || year) {
-                                        invalidRows.push({
-                                            row: index + 2, // +2 因為有標題行且從0開始
-                                            name: name || '(空白)',
-                                            year: year || '(空白)'
-                                        });
-                                    }
+                                    invalidRows.push({
+                                        row: index + 2, // +2 因為有標題行且從0開始
+                                        name: name || '(空白)',
+                                        year: year || '(空白)',
+                                        rawRow: row
+                                    });
                                 }
                             });
                             
