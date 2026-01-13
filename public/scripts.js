@@ -1974,8 +1974,13 @@ if (dashboard) {
             }
             
             if (subTab === 'year-edit') {
-                // 初始化年度選項
-                initYearEditOptions();
+                // 重置事項修正頁面
+                yearEditIssue = null;
+                yearEditIssueList = [];
+                hideYearEditIssueContent();
+                hideYearEditIssueList();
+                document.getElementById('yearEditEmpty').style.display = 'block';
+                document.getElementById('yearEditNotFound').style.display = 'none';
             }
         }
         
@@ -3705,68 +3710,182 @@ if (dashboard) {
             } 
         }
         
-        // --- 年度編輯功能 ---
+        // --- 事項修正功能 ---
         let yearEditIssue = null; // 儲存當前編輯的事項資料
+        let yearEditIssueList = []; // 儲存當前計畫下的事項列表
         
-        // 初始化（不需要特別初始化）
-        function initYearEditOptions() {
-            // 不需要特別初始化，使用輸入框即可
-        }
-        
-        // 更新載入按鈕狀態
-        function updateYearEditLoadBtn() {
+        // 年度改變時，載入該年度的檢查計畫選項
+        async function onYearEditYearChange() {
             const yearInput = document.getElementById('yearEditYear');
-            const numberInput = document.getElementById('yearEditNumber');
-            const loadBtn = document.getElementById('yearEditLoadBtn');
-            if (yearInput && numberInput && loadBtn) {
-                loadBtn.disabled = !(yearInput.value.trim() && numberInput.value.trim());
-            }
-        }
-        
-        // 載入指定年度和編號的事項
-        async function loadYearEditIssue() {
-            const yearInput = document.getElementById('yearEditYear');
-            const numberInput = document.getElementById('yearEditNumber');
-            const year = yearInput ? yearInput.value.trim() : '';
-            const number = numberInput ? numberInput.value.trim() : '';
+            const planSelect = document.getElementById('yearEditPlanName');
+            if (!yearInput || !planSelect) return;
             
-            if (!year || !number) {
-                showToast('請輸入年度和列管編號', 'error');
+            const year = yearInput.value.trim();
+            
+            // 清空計畫選項和事項列表
+            planSelect.innerHTML = '<option value="">請先選擇年度</option>';
+            yearEditIssueList = [];
+            hideYearEditIssueList();
+            hideYearEditIssueContent();
+            
+            if (!year || year.length !== 3) {
                 return;
             }
             
             try {
-                showToast('查詢中，請稍候...', 'info');
-                // 使用編號和年度查詢
-                const res = await fetch(`/api/issues?page=1&pageSize=1&q=${encodeURIComponent(number)}&year=${year}&_t=${Date.now()}`);
-                if (!res.ok) throw new Error('查詢失敗');
+                // 載入該年度的所有檢查計畫
+                const res = await fetch(`/api/options/plans?year=${year}&_t=${Date.now()}`);
+                if (!res.ok) throw new Error('載入檢查計畫失敗');
                 
                 const json = await res.json();
-                const issues = json.data || [];
+                const plans = json.plans || [];
                 
-                // 精確匹配編號
-                const matchedIssue = issues.find(item => item.number === number && item.year === year);
+                planSelect.innerHTML = '<option value="">請選擇檢查計畫</option>';
+                plans.forEach(plan => {
+                    const option = document.createElement('option');
+                    option.value = `${plan.name}|||${plan.year}`;
+                    option.textContent = plan.name;
+                    planSelect.appendChild(option);
+                });
+            } catch (e) {
+                showToast('載入檢查計畫失敗: ' + e.message, 'error');
+            }
+        }
+        
+        // 檢查計畫改變時，載入該計畫下的事項列表
+        async function onYearEditPlanChange() {
+            const yearInput = document.getElementById('yearEditYear');
+            const planSelect = document.getElementById('yearEditPlanName');
+            if (!yearInput || !planSelect) return;
+            
+            const year = yearInput.value.trim();
+            const planValue = planSelect.value;
+            
+            // 隱藏編輯內容
+            hideYearEditIssueContent();
+            
+            if (!year || !planValue) {
+                hideYearEditIssueList();
+                return;
+            }
+            
+            const [planName, planYear] = planValue.split('|||');
+            
+            try {
+                showToast('載入事項列表中...', 'info');
                 
-                if (!matchedIssue) {
-                    document.getElementById('yearEditIssueContent').style.display = 'none';
+                // 載入該計畫下的所有事項
+                const res = await fetch(`/api/issues?page=1&pageSize=1000&year=${year}&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
+                if (!res.ok) throw new Error('載入事項列表失敗');
+                
+                const json = await res.json();
+                yearEditIssueList = json.data || [];
+                
+                if (yearEditIssueList.length === 0) {
+                    // 沒有事項
                     document.getElementById('yearEditEmpty').style.display = 'none';
                     document.getElementById('yearEditNotFound').style.display = 'block';
-                    showToast('找不到指定的事項', 'error');
-                    return;
+                    document.getElementById('yearEditIssueList').style.display = 'none';
+                } else {
+                    // 顯示事項列表
+                    document.getElementById('yearEditEmpty').style.display = 'none';
+                    document.getElementById('yearEditNotFound').style.display = 'none';
+                    renderYearEditIssueList();
+                    showToast(`已載入 ${yearEditIssueList.length} 個事項`, 'success');
                 }
-                
-                yearEditIssue = matchedIssue;
-                
-                // 更新UI
-                document.getElementById('yearEditEmpty').style.display = 'none';
-                document.getElementById('yearEditNotFound').style.display = 'none';
-                document.getElementById('yearEditIssueContent').style.display = 'block';
-                document.getElementById('yearEditSaveBtn').disabled = false;
-                
-                renderYearEditIssue();
-                showToast('已載入事項資料', 'success');
             } catch (e) {
-                showToast('查詢失敗: ' + e.message, 'error');
+                showToast('載入事項列表失敗: ' + e.message, 'error');
+                hideYearEditIssueList();
+            }
+        }
+        
+        // 渲染事項列表
+        function renderYearEditIssueList() {
+            const container = document.getElementById('yearEditIssueListContainer');
+            const countEl = document.getElementById('yearEditIssueListCount');
+            if (!container) return;
+            
+            if (countEl) {
+                countEl.textContent = yearEditIssueList.length;
+            }
+            
+            if (yearEditIssueList.length === 0) {
+                container.innerHTML = '<div style="padding:40px; text-align:center; color:#94a3b8;">尚無事項</div>';
+                document.getElementById('yearEditIssueList').style.display = 'none';
+                return;
+            }
+            
+            let html = '';
+            yearEditIssueList.forEach((issue, index) => {
+                const contentPreview = stripHtml(issue.content || '').substring(0, 100);
+                html += `
+                    <div class="year-edit-issue-item" 
+                         onclick="loadYearEditIssueFromList(${index})"
+                         style="padding:16px; border-bottom:1px solid #e2e8f0; cursor:pointer; transition:background 0.2s;"
+                         onmouseover="this.style.background='#f8fafc'"
+                         onmouseout="this.style.background='#fff'">
+                        <div style="display:flex; justify-content:space-between; align-items:start; gap:16px;">
+                            <div style="flex:1;">
+                                <div style="font-weight:700; color:#1e40af; font-size:15px; margin-bottom:8px;">
+                                    ${issue.number || '未指定編號'}
+                                </div>
+                                <div style="font-size:13px; color:#64748b; line-height:1.6;">
+                                    ${contentPreview}${contentPreview.length >= 100 ? '...' : ''}
+                                </div>
+                                <div style="margin-top:8px; display:flex; gap:12px; font-size:12px; color:#94a3b8;">
+                                    <span>機構：${issue.unit || ''}</span>
+                                    <span>狀態：${issue.status || ''}</span>
+                                </div>
+                            </div>
+                            <div style="color:#cbd5e1; font-size:20px;">→</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            document.getElementById('yearEditIssueList').style.display = 'block';
+        }
+        
+        // 從列表載入指定事項進入編輯模式
+        function loadYearEditIssueFromList(index) {
+            if (index < 0 || index >= yearEditIssueList.length) return;
+            
+            yearEditIssue = yearEditIssueList[index];
+            
+            // 隱藏列表，顯示編輯內容
+            document.getElementById('yearEditIssueList').style.display = 'none';
+            document.getElementById('yearEditEmpty').style.display = 'none';
+            document.getElementById('yearEditNotFound').style.display = 'none';
+            document.getElementById('yearEditIssueContent').style.display = 'block';
+            document.getElementById('yearEditSaveBtn').disabled = false;
+            
+            renderYearEditIssue();
+            showToast('已載入事項資料', 'success');
+            
+            // 滾動到編輯區域
+            document.getElementById('yearEditIssueContent').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        // 隱藏事項列表
+        function hideYearEditIssueList() {
+            const listEl = document.getElementById('yearEditIssueList');
+            if (listEl) listEl.style.display = 'none';
+        }
+        
+        // 隱藏編輯內容
+        function hideYearEditIssueContent() {
+            const contentEl = document.getElementById('yearEditIssueContent');
+            if (contentEl) contentEl.style.display = 'none';
+        }
+        
+        // 返回事項列表
+        function backToYearEditIssueList() {
+            hideYearEditIssueContent();
+            if (yearEditIssueList.length > 0) {
+                renderYearEditIssueList();
+            } else {
+                document.getElementById('yearEditEmpty').style.display = 'block';
             }
         }
         
