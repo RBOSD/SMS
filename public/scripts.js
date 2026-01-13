@@ -349,8 +349,20 @@
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            const icon = type === 'success' ? '✅' : '⚠️';
-            const title = type === 'success' ? '成功' : '錯誤';
+            let icon, title;
+            if (type === 'success') {
+                icon = '✅';
+                title = '成功';
+            } else if (type === 'warning') {
+                icon = '⚠️';
+                title = '警告';
+            } else if (type === 'info') {
+                icon = 'ℹ️';
+                title = '資訊';
+            } else {
+                icon = '❌';
+                title = '錯誤';
+            }
             toast.className = `toast ${type}`;
             toast.innerHTML = `<div class="toast-icon">${icon}</div><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-msg">${message}</div></div>`;
             container.appendChild(toast);
@@ -1637,8 +1649,29 @@ if (dashboard) {
                         mode: currentImportMode
                     })
                 });
-                if (res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); loadPlanOptions(); } else { showToast('匯入失敗', 'error'); }
-            } catch (e) { showToast('Error: ' + e.message, 'error'); }
+                if (res.ok) { 
+                    showToast('匯入成功！'); 
+                    cancelImport(); 
+                    // 使用 try-catch 包裹後續操作，避免影響成功訊息的顯示
+                    try {
+                        await loadIssuesPage(1); 
+                        await loadPlanOptions(); 
+                    } catch (e) {
+                        console.error('載入資料時發生錯誤（匯入已成功）：', e);
+                    }
+                } else { 
+                    const errorData = await res.json().catch(() => ({}));
+                    showToast(errorData.error || '匯入失敗', 'error'); 
+                }
+            } catch (e) { 
+                // 只有在真正的網路錯誤時才顯示
+                if (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError'))) {
+                    showToast('匯入錯誤：網路連線失敗', 'error'); 
+                } else {
+                    console.error('匯入時發生未預期錯誤：', e);
+                    showToast('匯入時發生錯誤：' + e.message, 'error'); 
+                }
+            }
         }
 
         function switchDataTab(tab) { 
@@ -2282,9 +2315,6 @@ if (dashboard) {
                                 }
                                 return showToast(errorMsg, 'error');
                             }
-                            
-                            // 顯示即將匯入的資料數量
-                            showToast(`準備匯入 ${validData.length} 筆檢查計畫資料...`, 'info');
                             
                             try {
                                 const res = await fetch('/api/plans/import', {

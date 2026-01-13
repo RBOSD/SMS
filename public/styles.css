@@ -1157,6 +1157,14 @@
             border-left-color: var(--danger);
         }
 
+        .toast.warning {
+            border-left-color: #f59e0b;
+        }
+
+        .toast.info {
+            border-left-color: #3b82f6;
+        }
+
         .toast-icon {
             font-size: 20px;
         }
