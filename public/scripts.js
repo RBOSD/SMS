@@ -3861,8 +3861,8 @@ if (dashboard) {
                                 ${round.round === 1 ? '初次開立' : `第 ${round.round} 次審查`}
                             </div>
                             <div style="display:flex; gap:12px; font-size:13px; color:#64748b;">
-                                ${round.replyDate ? `<span>回覆日期：${round.replyDate}</span>` : ''}
-                                ${round.responseDate ? `<span>回應日期：${round.responseDate}</span>` : ''}
+                                ${round.replyDate ? `<span>鐵路機構回復日期：${round.replyDate}</span>` : ''}
+                                ${round.responseDate ? `<span>本次函復日期：${round.responseDate}</span>` : ''}
                             </div>
                         </div>
                         <div style="padding:16px;">
@@ -3880,20 +3880,18 @@ if (dashboard) {
                                 <textarea class="filter-input year-edit-round-review" data-round="${round.round}" 
                                     style="width:100%; min-height:100px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${round.review}</textarea>
                             </div>
-                            ${round.round > 1 ? `
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px;">
                                 <div>
-                                    <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">回覆日期</label>
+                                    <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">鐵路機構回復日期</label>
                                     <input type="text" class="filter-input year-edit-round-reply-date" data-round="${round.round}" 
-                                        value="${round.replyDate}" placeholder="例如: 1130601" style="width:100%;">
+                                        value="${round.replyDate || ''}" placeholder="例如: 1130601" style="width:100%;">
                                 </div>
                                 <div>
-                                    <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">回應日期</label>
+                                    <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">本次函復日期</label>
                                     <input type="text" class="filter-input year-edit-round-response-date" data-round="${round.round}" 
-                                        value="${round.responseDate}" placeholder="例如: 1130615" style="width:100%;">
+                                        value="${round.responseDate || ''}" placeholder="例如: 1130615" style="width:100%;">
                                 </div>
                             </div>
-                            ` : ''}
                         </div>
                     </div>
                 `;
