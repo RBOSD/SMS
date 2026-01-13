@@ -3706,229 +3706,319 @@ if (dashboard) {
         }
         
         // --- 年度編輯功能 ---
-        let yearEditIssues = []; // 儲存當前編輯的事項資料
+        let yearEditIssue = null; // 儲存當前編輯的事項資料
         
-        // 初始化年度選項
-        async function initYearEditOptions() {
-            try {
-                const res = await fetch('/api/issues?page=1&pageSize=1&_t=' + Date.now());
-                if (!res.ok) return;
-                const json = await res.json();
-                const yearSelect = document.getElementById('yearEditYear');
-                if (!yearSelect) return;
-                
-                // 取得所有年度
-                const years = new Set();
-                if (json.globalStats && json.globalStats.year) {
-                    json.globalStats.year.forEach(item => {
-                        if (item.year) years.add(item.year);
-                    });
-                }
-                
-                // 清空並重新填充選項（保留第一個「請選擇年度」）
-                yearSelect.innerHTML = '<option value="">請選擇年度</option>';
-                Array.from(years).sort((a, b) => parseInt(b) - parseInt(a)).forEach(year => {
-                    yearSelect.innerHTML += `<option value="${year}">${year}</option>`;
-                });
-            } catch (e) {
-                console.error('初始化年度選項失敗:', e);
-            }
+        // 初始化（不需要特別初始化）
+        function initYearEditOptions() {
+            // 不需要特別初始化，使用輸入框即可
         }
         
         // 更新載入按鈕狀態
         function updateYearEditLoadBtn() {
-            const yearSelect = document.getElementById('yearEditYear');
+            const yearInput = document.getElementById('yearEditYear');
+            const numberInput = document.getElementById('yearEditNumber');
             const loadBtn = document.getElementById('yearEditLoadBtn');
-            if (yearSelect && loadBtn) {
-                loadBtn.disabled = !yearSelect.value;
+            if (yearInput && numberInput && loadBtn) {
+                loadBtn.disabled = !(yearInput.value.trim() && numberInput.value.trim());
             }
         }
         
-        // 載入指定年度的事項
-        async function loadYearEditIssues() {
-            const yearSelect = document.getElementById('yearEditYear');
-            const selectedYear = yearSelect ? yearSelect.value : '';
-            if (!selectedYear) {
-                showToast('請選擇年度', 'error');
+        // 載入指定年度和編號的事項
+        async function loadYearEditIssue() {
+            const yearInput = document.getElementById('yearEditYear');
+            const numberInput = document.getElementById('yearEditNumber');
+            const year = yearInput ? yearInput.value.trim() : '';
+            const number = numberInput ? numberInput.value.trim() : '';
+            
+            if (!year || !number) {
+                showToast('請輸入年度和列管編號', 'error');
                 return;
             }
             
             try {
-                showToast('載入中，請稍候...', 'info');
-                const res = await fetch(`/api/issues?page=1&pageSize=10000&year=${selectedYear}&sortField=number&sortDir=asc&_t=${Date.now()}`);
-                if (!res.ok) throw new Error('載入失敗');
+                showToast('查詢中，請稍候...', 'info');
+                // 使用編號和年度查詢
+                const res = await fetch(`/api/issues?page=1&pageSize=1&q=${encodeURIComponent(number)}&year=${year}&_t=${Date.now()}`);
+                if (!res.ok) throw new Error('查詢失敗');
                 
                 const json = await res.json();
-                yearEditIssues = json.data || [];
+                const issues = json.data || [];
                 
-                // 更新UI
-                document.getElementById('yearEditCount').textContent = yearEditIssues.length;
-                document.getElementById('yearEditInfo').style.display = 'block';
+                // 精確匹配編號
+                const matchedIssue = issues.find(item => item.number === number && item.year === year);
                 
-                if (yearEditIssues.length === 0) {
-                    document.getElementById('yearEditIssuesList').style.display = 'none';
-                    document.getElementById('yearEditEmpty').style.display = 'block';
-                    document.getElementById('yearEditSaveBtn').style.display = 'none';
-                    showToast('該年度無開立事項', 'warning');
+                if (!matchedIssue) {
+                    document.getElementById('yearEditIssueContent').style.display = 'none';
+                    document.getElementById('yearEditEmpty').style.display = 'none';
+                    document.getElementById('yearEditNotFound').style.display = 'block';
+                    showToast('找不到指定的事項', 'error');
                     return;
                 }
                 
+                yearEditIssue = matchedIssue;
+                
+                // 更新UI
                 document.getElementById('yearEditEmpty').style.display = 'none';
-                document.getElementById('yearEditIssuesList').style.display = 'block';
-                document.getElementById('yearEditSaveBtn').style.display = 'inline-block';
+                document.getElementById('yearEditNotFound').style.display = 'none';
+                document.getElementById('yearEditIssueContent').style.display = 'block';
                 document.getElementById('yearEditSaveBtn').disabled = false;
                 
-                renderYearEditIssues();
-                showToast(`已載入 ${yearEditIssues.length} 筆事項`, 'success');
+                renderYearEditIssue();
+                showToast('已載入事項資料', 'success');
             } catch (e) {
-                showToast('載入失敗: ' + e.message, 'error');
+                showToast('查詢失敗: ' + e.message, 'error');
             }
         }
         
-        // 渲染事項列表
-        function renderYearEditIssues() {
-            const container = document.getElementById('yearEditIssuesContainer');
-            if (!container) return;
+        // 渲染事項詳細內容（包含所有輪次）
+        function renderYearEditIssue() {
+            const container = document.getElementById('yearEditIssueContainer');
+            if (!container || !yearEditIssue) return;
             
-            let html = '';
-            yearEditIssues.forEach((item, index) => {
-                // 取得最新辦理情形和審查意見
-                let latestHandling = '', latestReview = '';
-                for (let i = 200; i >= 1; i--) {
-                    const suffix = i === 1 ? '' : i;
-                    if (!latestHandling && item[`handling${suffix}`]) {
-                        latestHandling = stripHtml(item[`handling${suffix}`] || '');
-                    }
-                    if (!latestReview && item[`review${suffix}`]) {
-                        latestReview = stripHtml(item[`review${suffix}`] || '');
-                    }
-                    if (latestHandling && latestReview) break;
-                }
+            const item = yearEditIssue;
+            
+            // 收集所有輪次的辦理情形和審查意見
+            const rounds = [];
+            for (let i = 1; i <= 200; i++) {
+                const suffix = i === 1 ? '' : i;
+                const handling = item[`handling${suffix}`] || '';
+                const review = item[`review${suffix}`] || '';
+                const replyDate = item[`reply_date_r${i}`] || '';
+                const responseDate = item[`response_date_r${i}`] || '';
                 
-                html += `
-                    <div class="detail-card" style="margin-bottom:20px; border:2px solid #e2e8f0;" data-issue-id="${item.id}">
-                        <div style="background:#f8fafc; padding:16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                if (handling || review || replyDate || responseDate) {
+                    rounds.push({
+                        round: i,
+                        handling: stripHtml(handling),
+                        review: stripHtml(review),
+                        replyDate: replyDate,
+                        responseDate: responseDate
+                    });
+                }
+            }
+            
+            // 如果沒有找到任何輪次，至少顯示第一輪（空）
+            if (rounds.length === 0) {
+                rounds.push({ round: 1, handling: '', review: '', replyDate: '', responseDate: '' });
+            }
+            
+            let html = `
+                <div class="detail-card" style="margin-bottom:20px; border:2px solid #e2e8f0;">
+                    <!-- 基本資訊區塊 -->
+                    <div style="background:#f8fafc; padding:20px; border-bottom:2px solid #e2e8f0;">
+                        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; margin-bottom:16px;">
                             <div>
-                                <div style="font-weight:700; font-size:16px; color:#1e40af; margin-bottom:4px;">${item.number || ''}</div>
-                                <div style="font-size:13px; color:#64748b;">
-                                    ${item.unit || ''} | ${item.divisionName || ''} | ${item.inspectionCategoryName || ''}
+                                <div style="font-weight:700; font-size:18px; color:#1e40af; margin-bottom:8px;">${item.number || ''}</div>
+                                <div style="font-size:14px; color:#64748b; line-height:1.8;">
+                                    <div><strong>年度：</strong>${item.year || ''}</div>
+                                    <div><strong>機構：</strong>${item.unit || ''}</div>
+                                    <div><strong>分組：</strong>${item.divisionName || ''}</div>
+                                    <div><strong>檢查種類：</strong>${item.inspectionCategoryName || ''}</div>
+                                    <div><strong>類型：</strong>${item.category || ''}</div>
+                                    <div><strong>檢查計畫：</strong>${item.plan_name || '未指定'}</div>
                                 </div>
                             </div>
                             <div style="text-align:right;">
-                                <div style="font-size:13px; color:#64748b; margin-bottom:4px;">年度：${item.year || ''}</div>
-                                <span class="badge ${item.status === '持續列管' ? 'active' : (item.status === '解除列管' ? 'resolved' : 'self')}">${item.status || ''}</span>
-                            </div>
-                        </div>
-                        
-                        <div style="padding:20px;">
-                            <div style="margin-bottom:16px;">
-                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">事項內容</label>
-                                <textarea class="filter-input year-edit-content" data-field="content" data-id="${item.id}" 
-                                    style="width:100%; min-height:100px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${stripHtml(item.content || '')}</textarea>
-                            </div>
-                            
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
-                                <div>
+                                <div style="margin-bottom:12px;">
                                     <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">狀態</label>
-                                    <select class="filter-select year-edit-status" data-field="status" data-id="${item.id}">
+                                    <select id="yearEditStatus" class="filter-select" style="width:100%;">
                                         <option value="持續列管" ${item.status === '持續列管' ? 'selected' : ''}>持續列管</option>
                                         <option value="解除列管" ${item.status === '解除列管' ? 'selected' : ''}>解除列管</option>
                                         <option value="自行列管" ${item.status === '自行列管' ? 'selected' : ''}>自行列管</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">檢查計畫</label>
-                                    <input type="text" class="filter-input year-edit-plan" data-field="plan_name" data-id="${item.id}" 
-                                        value="${item.plan_name || ''}" readonly style="background:#f1f5f9; color:#64748b;">
+                                    <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">開立日期</label>
+                                    <input type="text" id="yearEditIssueDate" class="filter-input" value="${item.issue_date || ''}" 
+                                        placeholder="例如: 1130501" style="width:100%;">
                                 </div>
                             </div>
-                            
+                        </div>
+                        
+                        <div>
+                            <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">事項內容</label>
+                            <textarea id="yearEditContent" class="filter-input" 
+                                style="width:100%; min-height:120px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${stripHtml(item.content || '')}</textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- 所有輪次的審查與回復紀錄 -->
+                    <div style="padding:20px;">
+                        <div style="font-weight:700; font-size:16px; color:#334155; margin-bottom:16px; padding-bottom:12px; border-bottom:2px solid #e2e8f0;">
+                            📋 所有審查及回復紀錄（共 ${rounds.length} 輪）
+                        </div>
+                        
+                        <div id="yearEditRoundsContainer">
+            `;
+            
+            // 渲染每個輪次
+            rounds.forEach((round, index) => {
+                const isLast = index === rounds.length - 1;
+                html += `
+                    <div class="detail-card" style="margin-bottom:16px; border:1px solid #e2e8f0; ${isLast ? 'border-left:4px solid #2563eb;' : ''}">
+                        <div style="background:#eff6ff; padding:12px; border-bottom:1px solid #dbeafe; display:flex; justify-content:space-between; align-items:center;">
+                            <div style="font-weight:700; color:#1e40af; font-size:15px;">
+                                ${round.round === 1 ? '初次開立' : `第 ${round.round} 次審查`}
+                            </div>
+                            <div style="display:flex; gap:12px; font-size:13px; color:#64748b;">
+                                ${round.replyDate ? `<span>回覆日期：${round.replyDate}</span>` : ''}
+                                ${round.responseDate ? `<span>回應日期：${round.responseDate}</span>` : ''}
+                            </div>
+                        </div>
+                        <div style="padding:16px;">
                             <div style="margin-bottom:16px;">
-                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">最新辦理情形</label>
-                                <textarea class="filter-input year-edit-handling" data-field="handling" data-id="${item.id}" 
-                                    style="width:100%; min-height:80px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${latestHandling}</textarea>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">
+                                    辦理情形 ${round.round === 1 ? '(初次開立)' : `(第 ${round.round} 次)`}
+                                </label>
+                                <textarea class="filter-input year-edit-round-handling" data-round="${round.round}" 
+                                    style="width:100%; min-height:100px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${round.handling}</textarea>
                             </div>
-                            
                             <div>
-                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">最新審查意見</label>
-                                <textarea class="filter-input year-edit-review" data-field="review" data-id="${item.id}" 
-                                    style="width:100%; min-height:80px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${latestReview}</textarea>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">
+                                    審查意見 ${round.round === 1 ? '(初次開立)' : `(第 ${round.round} 次)`}
+                                </label>
+                                <textarea class="filter-input year-edit-round-review" data-round="${round.round}" 
+                                    style="width:100%; min-height:100px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${round.review}</textarea>
                             </div>
+                            ${round.round > 1 ? `
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px;">
+                                <div>
+                                    <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">回覆日期</label>
+                                    <input type="text" class="filter-input year-edit-round-reply-date" data-round="${round.round}" 
+                                        value="${round.replyDate}" placeholder="例如: 1130601" style="width:100%;">
+                                </div>
+                                <div>
+                                    <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">回應日期</label>
+                                    <input type="text" class="filter-input year-edit-round-response-date" data-round="${round.round}" 
+                                        value="${round.responseDate}" placeholder="例如: 1130615" style="width:100%;">
+                                </div>
+                            </div>
+                            ` : ''}
                         </div>
                     </div>
                 `;
             });
             
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
             container.innerHTML = html;
         }
         
-        // 儲存所有變更
-        async function saveYearEditIssues() {
-            if (yearEditIssues.length === 0) {
+        // 儲存事項變更
+        async function saveYearEditIssue() {
+            if (!yearEditIssue) {
                 showToast('無事項可儲存', 'error');
                 return;
             }
             
-            if (!confirm(`確定要儲存 ${yearEditIssues.length} 筆事項的所有變更嗎？`)) {
+            if (!confirm('確定要儲存所有變更嗎？')) {
                 return;
             }
             
             try {
                 showToast('儲存中，請稍候...', 'info');
-                let successCount = 0;
-                let errorCount = 0;
                 
-                // 逐一更新每個事項
-                for (const item of yearEditIssues) {
-                    const issueId = item.id;
-                    const contentEl = document.querySelector(`.year-edit-content[data-id="${issueId}"]`);
-                    const statusEl = document.querySelector(`.year-edit-status[data-id="${issueId}"]`);
-                    const handlingEl = document.querySelector(`.year-edit-handling[data-id="${issueId}"]`);
-                    const reviewEl = document.querySelector(`.year-edit-review[data-id="${issueId}"]`);
+                const issueId = yearEditIssue.id;
+                const content = document.getElementById('yearEditContent').value.trim();
+                const status = document.getElementById('yearEditStatus').value;
+                const issueDate = document.getElementById('yearEditIssueDate').value.trim();
+                
+                // 收集所有輪次的資料
+                const rounds = [];
+                const roundHandlings = document.querySelectorAll('.year-edit-round-handling');
+                const roundReviews = document.querySelectorAll('.year-edit-round-review');
+                const roundReplyDates = document.querySelectorAll('.year-edit-round-reply-date');
+                const roundResponseDates = document.querySelectorAll('.year-edit-round-response-date');
+                
+                // 找出所有有資料的輪次
+                const roundSet = new Set();
+                roundHandlings.forEach(el => roundSet.add(parseInt(el.dataset.round)));
+                roundReviews.forEach(el => roundSet.add(parseInt(el.dataset.round)));
+                roundReplyDates.forEach(el => roundSet.add(parseInt(el.dataset.round)));
+                roundResponseDates.forEach(el => roundSet.add(parseInt(el.dataset.round)));
+                
+                const sortedRounds = Array.from(roundSet).sort((a, b) => a - b);
+                
+                // 先更新基本資訊（內容、狀態、開立日期）
+                const contentChanged = content !== stripHtml(yearEditIssue.content || '');
+                const statusChanged = status !== yearEditIssue.status;
+                const dateChanged = issueDate !== (yearEditIssue.issue_date || '');
+                
+                if (contentChanged || statusChanged || dateChanged) {
+                    // 更新內容、狀態和開立日期（使用第一輪的 API）
+                    const updateRes = await fetch(`/api/issues/${issueId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            status: status,
+                            round: 1,
+                            handling: '',
+                            review: '',
+                            content: content,
+                            issueDate: issueDate,
+                            replyDate: '',
+                            responseDate: ''
+                        })
+                    });
                     
-                    if (!contentEl || !statusEl) continue;
-                    
-                    const updates = {
-                        content: contentEl.value.trim(),
-                        status: statusEl.value,
-                        handling: handlingEl ? handlingEl.value.trim() : '',
-                        review: reviewEl ? reviewEl.value.trim() : ''
-                    };
-                    
-                    try {
-                        // 更新所有欄位（內容、狀態、辦理情形、審查意見）
-                        const updateRes = await fetch(`/api/issues/${issueId}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                status: updates.status,
-                                round: 1,
-                                handling: updates.handling,
-                                review: updates.review,
-                                content: updates.content,
-                                replyDate: '',
-                                responseDate: ''
-                            })
-                        });
-                        
-                        if (updateRes.ok) {
-                            successCount++;
-                        } else {
-                            const errorData = await updateRes.json().catch(() => ({}));
-                            console.error(`更新事項 ${item.number} 失敗:`, errorData.error || updateRes.statusText);
-                            errorCount++;
-                        }
-                    } catch (e) {
-                        console.error(`更新事項 ${item.number} 失敗:`, e);
-                        errorCount++;
+                    if (!updateRes.ok) {
+                        const errorData = await updateRes.json().catch(() => ({}));
+                        throw new Error(errorData.error || '更新基本資訊失敗');
                     }
                 }
                 
-                if (successCount > 0) {
-                    showToast(`成功儲存 ${successCount} 筆事項${errorCount > 0 ? `，${errorCount} 筆失敗` : ''}`, 
+                // 更新每個輪次
+                let successCount = 0;
+                let errorCount = 0;
+                
+                for (const roundNum of sortedRounds) {
+                    const handlingEl = document.querySelector(`.year-edit-round-handling[data-round="${roundNum}"]`);
+                    const reviewEl = document.querySelector(`.year-edit-round-review[data-round="${roundNum}"]`);
+                    const replyDateEl = document.querySelector(`.year-edit-round-reply-date[data-round="${roundNum}"]`);
+                    const responseDateEl = document.querySelector(`.year-edit-round-response-date[data-round="${roundNum}"]`);
+                    
+                    const handling = handlingEl ? handlingEl.value.trim() : '';
+                    const review = reviewEl ? reviewEl.value.trim() : '';
+                    const replyDate = replyDateEl ? replyDateEl.value.trim() : '';
+                    const responseDate = responseDateEl ? responseDateEl.value.trim() : '';
+                    
+                    // 如果該輪次有資料，則更新
+                    if (handling || review || replyDate || responseDate || roundNum === 1) {
+                        try {
+                            const updateRes = await fetch(`/api/issues/${issueId}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    status: status, // 保持當前狀態
+                                    round: roundNum,
+                                    handling: handling,
+                                    review: review,
+                                    replyDate: replyDate,
+                                    responseDate: responseDate
+                                })
+                            });
+                            
+                            if (updateRes.ok) {
+                                successCount++;
+                            } else {
+                                errorCount++;
+                            }
+                        } catch (e) {
+                            console.error(`更新第 ${roundNum} 輪失敗:`, e);
+                            errorCount++;
+                        }
+                    }
+                }
+                
+                if (successCount > 0 || errorCount === 0) {
+                    showToast(`儲存成功${errorCount > 0 ? `（${errorCount} 個輪次更新失敗）` : ''}`, 
                         errorCount > 0 ? 'warning' : 'success');
                     // 重新載入資料
-                    await loadYearEditIssues();
+                    await loadYearEditIssue();
                 } else {
                     showToast('儲存失敗', 'error');
                 }
