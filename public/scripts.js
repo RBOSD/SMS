@@ -375,32 +375,51 @@
 
         async function loadPlanOptions() {
             try {
-                const res = await fetch('/api/options/plans?t=' + Date.now(), {
-                    cache: 'no-store',
-                    headers: {
-                        'Cache-Control': 'no-cache'
-                    }
-                });
+                // 分別載入所有計畫和有關聯開立事項的計畫
+                const [allPlansRes, plansWithIssuesRes] = await Promise.all([
+                    fetch('/api/options/plans?t=' + Date.now(), {
+                        cache: 'no-store',
+                        headers: { 'Cache-Control': 'no-cache' }
+                    }),
+                    fetch('/api/options/plans?withIssues=true&t=' + Date.now(), {
+                        cache: 'no-store',
+                        headers: { 'Cache-Control': 'no-cache' }
+                    })
+                ]);
                 
-                if (!res.ok) {
-                    console.error('載入計畫選項失敗：', res.status, res.statusText);
+                if (!allPlansRes.ok || !plansWithIssuesRes.ok) {
+                    console.error('載入計畫選項失敗');
                     return;
                 }
                 
-                const json = await res.json();
-                if (!json.data || json.data.length === 0) {
-                    console.warn('沒有找到任何檢查計畫');
-                    return;
-                }
+                const allPlansJson = await allPlansRes.json();
+                const plansWithIssuesJson = await plansWithIssuesRes.json();
                 
                 // 更新所有計畫選擇下拉選單
-                const selectIds = ['filterPlan', 'importPlanName', 'batchPlanName', 'manualPlanName'];
-                selectIds.forEach(selectId => {
+                // filterPlan（查詢看板）只顯示有關聯開立事項的計畫
+                // 其他下拉選單（資料管理頁面）顯示所有計畫
+                const selectIds = [
+                    { id: 'filterPlan', useAllPlans: false }, // 查詢看板：只顯示有關聯開立事項的計畫
+                    { id: 'importPlanName', useAllPlans: true }, // 資料管理：顯示所有計畫
+                    { id: 'batchPlanName', useAllPlans: true },
+                    { id: 'manualPlanName', useAllPlans: true }
+                ];
+                
+                selectIds.forEach(({ id: selectId, useAllPlans }) => {
                     const select = document.getElementById(selectId);
                     if (select) {
                         const currentValue = select.value;
                         // 保留第一個選項（通常是「全部計畫」或「請選擇計畫」）
                         const firstOption = select.options[0] ? select.options[0].outerHTML : '';
+                        
+                        // 根據下拉選單類型選擇資料來源
+                        const planData = useAllPlans ? allPlansJson.data : plansWithIssuesJson.data;
+                        
+                        if (!planData || planData.length === 0) {
+                            // 如果沒有資料，只保留第一個選項
+                            select.innerHTML = firstOption;
+                            return;
+                        }
                         
                         // 處理新的資料格式，按年度分組
                         const yearGroups = new Map(); // key: 年度, value: 該年度下的所有計畫
@@ -416,14 +435,15 @@
                         }
                         
                         // 將計畫按年度分組
-                        json.data.forEach(p => {
+                        planData.forEach(p => {
                             let planName, planYear, planValue, planDisplay;
                             
                             if (typeof p === 'object' && p !== null) {
                                 planName = p.name || '';
                                 planYear = p.year || '';
                                 planValue = p.value || `${planName}|||${planYear}`;
-                                planDisplay = p.display || `${planName}${planYear ? ` (${planYear})` : ''}`;
+                                // 因為已經用年度分組，所以只顯示計畫名稱，不顯示年度
+                                planDisplay = planName;
                             } else {
                                 // 舊格式（字串），向後兼容
                                 planName = p;

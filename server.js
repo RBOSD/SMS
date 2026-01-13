@@ -869,14 +869,28 @@ app.post('/api/admin/action_logs/cleanup', requireAuth, async (req, res) => {
 
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
-        // 優先從 inspection_plans 表取得資料，如果沒有資料則從 issues 表取得（向後兼容）
-        // 返回格式：{ name: "計畫名稱", year: "年度", display: "計畫名稱 (年度)" }
-        const planResult = await pool.query(`
-            SELECT name, year 
-            FROM inspection_plans 
-            WHERE name IS NOT NULL AND name != ''
-            ORDER BY COALESCE(year, '') DESC, name ASC
-        `);
+        const { withIssues } = req.query; // 如果 withIssues=true，只返回有關聯開立事項的計畫
+        
+        let planResult;
+        if (withIssues === 'true') {
+            // 只返回有關聯開立事項的計畫（同時匹配計畫名稱和年度）
+            planResult = await pool.query(`
+                SELECT DISTINCT p.name, p.year 
+                FROM inspection_plans p
+                INNER JOIN issues i ON i.plan_name = p.name AND i.year = p.year
+                WHERE p.name IS NOT NULL AND p.name != ''
+                ORDER BY COALESCE(p.year, '') DESC, p.name ASC
+            `);
+        } else {
+            // 返回所有計畫
+            planResult = await pool.query(`
+                SELECT name, year 
+                FROM inspection_plans 
+                WHERE name IS NOT NULL AND name != ''
+                ORDER BY COALESCE(year, '') DESC, name ASC
+            `);
+        }
+        
         // 查詢計畫選項（日誌已移除，只在需要時記錄錯誤）
         if (planResult.rows.length > 0) {
             res.set('Cache-Control', 'no-store');
