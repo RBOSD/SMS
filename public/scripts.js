@@ -2303,8 +2303,9 @@ if (dashboard) {
                                 
                                 // 嘗試解析 JSON
                                 let j;
-                                const text = await res.text();
+                                let text;
                                 try {
+                                    text = await res.text();
                                     j = JSON.parse(text);
                                 } catch (parseError) {
                                     // 如果解析失敗，檢查狀態碼
@@ -2321,8 +2322,12 @@ if (dashboard) {
                                 }
                                 
                                 // 檢查回應是否成功
-                                if (res.ok && (j.success === true || j.success !== false)) {
-                                    let msg = `匯入完成：成功 ${j.success || 0} 筆`;
+                                // 後端回應格式：{ success: true, successCount: 數字, failed: 數字, errors: [], skipped: 數字 }
+                                if (res.ok && j.success === true) {
+                                    // 取得成功筆數
+                                    const successCount = j.successCount || 0;
+                                    
+                                    let msg = `匯入完成：成功 ${successCount} 筆`;
                                     if (j.skipped > 0) {
                                         msg += `，跳過空行 ${j.skipped} 筆`;
                                     }
@@ -2341,8 +2346,8 @@ if (dashboard) {
                                     }
                                     
                                     // 如果成功筆數少於有效資料筆數，顯示警告
-                                    if (j.success < validData.length) {
-                                        msg += `\n⚠️ 注意：前端解析到 ${validData.length} 筆有效資料，但只成功匯入 ${j.success} 筆。可能是因為資料庫中已有重複的計畫名稱。`;
+                                    if (successCount < validData.length) {
+                                        msg += `\n⚠️ 注意：前端解析到 ${validData.length} 筆有效資料，但只成功匯入 ${successCount} 筆。可能是因為資料庫中已有重複的計畫名稱。`;
                                     }
                                     
                                     showToast(msg, j.failed > 0 ? 'warning' : 'success');
@@ -2356,25 +2361,27 @@ if (dashboard) {
                                     setTimeout(() => {
                                         loadPlanOptions();
                                     }, 500);
+                                    return; // 明確返回，避免繼續執行 catch 區塊
                                 } else {
                                     // 如果狀態碼不是 OK 或 success 為 false
                                     showToast(j.error || '匯入失敗', 'error');
+                                    return; // 明確返回
                                 }
                             } catch (e) {
                                 // 只有在真正的網路錯誤或無法處理的錯誤時才顯示錯誤
-                                // 避免在已經顯示成功訊息後再顯示錯誤
-                                if (e.name === 'TypeError' && e.message.includes('text')) {
+                                // 如果已經在 try 區塊中顯示了成功或錯誤訊息，這裡不應該再顯示
+                                // 檢查錯誤類型，避免重複顯示
+                                if (e.name === 'TypeError' && (e.message.includes('text') || e.message.includes('already been read'))) {
                                     // 如果已經讀取過 text，可能是重複讀取的問題
                                     // 不顯示錯誤，因為可能已經成功匯入了
                                     return;
                                 }
-                                let errorMsg = '匯入錯誤：' + e.message;
-                                if (e.message.includes('Unexpected token') || e.message.includes('JSON')) {
-                                    // JSON 解析錯誤，但可能已經成功匯入
-                                    errorMsg = '匯入可能已完成，但無法解析伺服器回應。請重新整理頁面確認結果。';
-                                    showToast(errorMsg, 'warning');
+                                // 只有在真正的網路錯誤時才顯示
+                                if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+                                    showToast('匯入錯誤：網路連線失敗', 'error');
                                 } else {
-                                    showToast(errorMsg, 'error');
+                                    // 其他未預期的錯誤，但不要顯示，因為可能已經成功匯入了
+                                    console.error('匯入時發生未預期錯誤（可能已成功）：', e);
                                 }
                             }
                         }

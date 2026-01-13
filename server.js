@@ -818,16 +818,19 @@ app.get('/api/plans', requireAuth, async (req, res) => {
     const limit = parseInt(pageSize);
     const offset = (page-1)*limit;
     let where = ["1=1"], params = [], idx = 1;
-    if(q) { where.push(`name LIKE $${idx}`); params.push(`%${q}%`); idx++; }
-    if(year) { where.push(`year = $${idx}`); params.push(year); idx++; }
+    // 使用表別名 p 來避免欄位歧義
+    if(q) { where.push(`p.name LIKE $${idx}`); params.push(`%${q}%`); idx++; }
+    if(year) { where.push(`p.year = $${idx}`); params.push(year); idx++; }
     const safeSortFields = ['id', 'name', 'year', 'created_at', 'updated_at'];
     const safeField = safeSortFields.includes(sortField) ? sortField : 'id';
     // 確保 ORDER BY 欄位在 SELECT 列表中
     // 使用參數化查詢來避免 SQL 注入，但 ORDER BY 不能使用參數，所以需要白名單驗證
     const safeSortDir = sortDir === 'asc' ? 'ASC' : 'DESC';
-    const order = `${safeField} ${safeSortDir}`;
+    // 使用表別名 p 來避免欄位歧義
+    const order = `p.${safeField} ${safeSortDir}`;
     try {
         // 使用單一查詢，使用 LEFT JOIN 一次性獲取計畫和事項數量，避免連接池耗盡
+        // 在 countQuery 中也使用表別名 p
         const countQuery = `SELECT count(DISTINCT p.id) FROM inspection_plans p WHERE ${where.join(" AND ")}`;
         const cRes = await pool.query(countQuery, params);
         const total = parseInt(cRes.rows[0].count);
@@ -1055,7 +1058,14 @@ app.post('/api/plans/import', requireAuth, async (req, res) => {
         logAction(req.session.user.username, 'IMPORT_PLANS', `匯入檢查計畫：成功 ${results.success} 筆，失敗 ${results.failed} 筆，跳過 ${results.skipped || 0} 筆`, req);
     }
     
-    res.json({ success: true, ...results });
+    // 返回結果，使用 successCount 來避免與 success 布林值衝突
+    res.json({ 
+        success: true, 
+        successCount: results.success,
+        failed: results.failed, 
+        errors: results.errors, 
+        skipped: results.skipped 
+    });
 });
 
 async function startServer() {
