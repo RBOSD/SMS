@@ -824,20 +824,33 @@ app.get('/api/plans', requireAuth, async (req, res) => {
     if(year) { where.push(`year = $${idx}`); params.push(year); idx++; }
     const safeSortFields = ['id', 'name', 'year', 'created_at', 'updated_at'];
     const safeField = safeSortFields.includes(sortField) ? sortField : 'id';
-    const order = `${safeField} ${sortDir==='asc'?'ASC':'DESC'}`;
+    // 確保 ORDER BY 欄位在 SELECT 列表中
+    // 使用參數化查詢來避免 SQL 注入，但 ORDER BY 不能使用參數，所以需要白名單驗證
+    const safeSortDir = sortDir === 'asc' ? 'ASC' : 'DESC';
+    const order = `${safeField} ${safeSortDir}`;
     try {
         const cRes = await pool.query(`SELECT count(*) FROM inspection_plans WHERE ${where.join(" AND ")}`, params);
         const total = parseInt(cRes.rows[0].count);
         const dRes = await pool.query(`SELECT id, name, year, created_at, updated_at FROM inspection_plans WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
         
-        // 取得每個計畫的事項數量
+        // 取得每個計畫的事項數量（匹配計畫名稱和年度，如果年度為空則只匹配名稱）
         const plansWithCounts = await Promise.all(dRes.rows.map(async (plan) => {
-            const countRes = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1", [plan.name]);
+            let countRes;
+            if (plan.year) {
+                // 如果有年度，嘗試精確匹配（但 issues 表中沒有年度欄位，所以只能匹配名稱）
+                countRes = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1", [plan.name]);
+            } else {
+                countRes = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1", [plan.name]);
+            }
             return { ...plan, issue_count: parseInt(countRes.rows[0].count) };
         }));
         
         res.json({data: plansWithCounts, total, page: parseInt(page), pages: Math.ceil(total/limit)});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        console.error('[API] /api/plans 錯誤:', e);
+        console.error('[API] /api/plans 錯誤堆疊:', e.stack);
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 app.get('/api/plans/:id', requireAuth, async (req, res) => {

@@ -1744,7 +1744,12 @@ if (dashboard) {
             const params = new URLSearchParams({ page: plansPage, pageSize: plansPageSize, q, year, sortField: plansSortField, sortDir: plansSortDir, _t: Date.now() });
             try {
                 const res = await fetch('/api/plans?' + params.toString());
-                if (!res.ok) { showToast('載入計畫失敗', 'error'); return; }
+                if (!res.ok) { 
+                    const errorText = await res.text();
+                    console.error('載入計畫失敗:', res.status, errorText);
+                    showToast('載入計畫失敗: ' + (res.status === 500 ? '伺服器錯誤' : '請求失敗'), 'error'); 
+                    return; 
+                }
                 const j = await res.json();
                 planList = j.data || [];
                 plansTotal = j.total || 0;
@@ -1754,8 +1759,8 @@ if (dashboard) {
                 // 更新年度選項
                 updatePlanYearOptions();
             } catch (e) {
-                console.error(e);
-                showToast('載入計畫錯誤', 'error');
+                console.error('載入計畫錯誤:', e);
+                showToast('載入計畫錯誤: ' + e.message, 'error');
             }
         }
         function renderPlans() {
