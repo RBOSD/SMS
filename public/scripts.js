@@ -373,53 +373,35 @@
         function showPreview(html, title) { document.getElementById('previewTitle').innerText = title || '內容預覽'; document.getElementById('previewContent').innerHTML = html || '(無內容)'; document.getElementById('previewModal').classList.add('open'); }
         function closePreview() { document.getElementById('previewModal').classList.remove('open'); }
 
+        // 載入計畫選項（資料管理頁面使用：顯示所有計畫）
         async function loadPlanOptions() {
             try {
-                // 分別載入所有計畫和有關聯開立事項的計畫
-                const [allPlansRes, plansWithIssuesRes] = await Promise.all([
-                    fetch('/api/options/plans?t=' + Date.now(), {
-                        cache: 'no-store',
-                        headers: { 'Cache-Control': 'no-cache' }
-                    }),
-                    fetch('/api/options/plans?withIssues=true&t=' + Date.now(), {
-                        cache: 'no-store',
-                        headers: { 'Cache-Control': 'no-cache' }
-                    })
-                ]);
+                const res = await fetch('/api/options/plans?t=' + Date.now(), {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
                 
-                if (!allPlansRes.ok || !plansWithIssuesRes.ok) {
-                    console.error('載入計畫選項失敗');
+                if (!res.ok) {
+                    console.error('載入計畫選項失敗：', res.status, res.statusText);
                     return;
                 }
                 
-                const allPlansJson = await allPlansRes.json();
-                const plansWithIssuesJson = await plansWithIssuesRes.json();
+                const json = await res.json();
+                if (!json.data || json.data.length === 0) {
+                    console.warn('沒有找到任何檢查計畫');
+                    return;
+                }
                 
-                // 更新所有計畫選擇下拉選單
-                // filterPlan（查詢看板）只顯示有關聯開立事項的計畫
-                // 其他下拉選單（資料管理頁面）顯示所有計畫
-                const selectIds = [
-                    { id: 'filterPlan', useAllPlans: false }, // 查詢看板：只顯示有關聯開立事項的計畫
-                    { id: 'importPlanName', useAllPlans: true }, // 資料管理：顯示所有計畫
-                    { id: 'batchPlanName', useAllPlans: true },
-                    { id: 'manualPlanName', useAllPlans: true }
-                ];
-                
-                selectIds.forEach(({ id: selectId, useAllPlans }) => {
+                // 更新資料管理頁面的計畫選擇下拉選單（顯示所有計畫）
+                const selectIds = ['importPlanName', 'batchPlanName', 'manualPlanName'];
+                selectIds.forEach(selectId => {
                     const select = document.getElementById(selectId);
                     if (select) {
                         const currentValue = select.value;
                         // 保留第一個選項（通常是「全部計畫」或「請選擇計畫」）
                         const firstOption = select.options[0] ? select.options[0].outerHTML : '';
-                        
-                        // 根據下拉選單類型選擇資料來源
-                        const planData = useAllPlans ? allPlansJson.data : plansWithIssuesJson.data;
-                        
-                        if (!planData || planData.length === 0) {
-                            // 如果沒有資料，只保留第一個選項
-                            select.innerHTML = firstOption;
-                            return;
-                        }
                         
                         // 處理新的資料格式，按年度分組
                         const yearGroups = new Map(); // key: 年度, value: 該年度下的所有計畫
@@ -435,7 +417,7 @@
                         }
                         
                         // 將計畫按年度分組
-                        planData.forEach(p => {
+                        json.data.forEach(p => {
                             let planName, planYear, planValue, planDisplay;
                             
                             if (typeof p === 'object' && p !== null) {
@@ -506,8 +488,123 @@
                         }
                     }
                 });
+                
+                // 同時更新查詢看板的計畫選項（只顯示有關聯開立事項的計畫）
+                await loadFilterPlanOptions();
             } catch (e) {
                 console.error("Load plans failed", e);
+            }
+        }
+        
+        // 載入查詢看板的計畫選項（只顯示有關聯開立事項的計畫）
+        async function loadFilterPlanOptions() {
+            try {
+                const res = await fetch('/api/options/plans?withIssues=true&t=' + Date.now(), {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
+                if (!res.ok) {
+                    console.error('載入查詢看板計畫選項失敗：', res.status, res.statusText);
+                    return;
+                }
+                
+                const json = await res.json();
+                const select = document.getElementById('filterPlan');
+                if (!select) return;
+                
+                const currentValue = select.value;
+                // 保留第一個選項（「全部計畫」）
+                const firstOption = select.options[0] ? select.options[0].outerHTML : '';
+                
+                if (!json.data || json.data.length === 0) {
+                    // 如果沒有資料，只保留第一個選項
+                    select.innerHTML = firstOption;
+                    return;
+                }
+                
+                // 處理新的資料格式，按年度分組
+                const yearGroups = new Map();
+                const existingValues = new Set();
+                
+                if (firstOption) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = firstOption;
+                    const firstOpt = tempDiv.querySelector('option');
+                    if (firstOpt && firstOpt.value) {
+                        existingValues.add(firstOpt.value);
+                    }
+                }
+                
+                // 將計畫按年度分組
+                json.data.forEach(p => {
+                    let planName, planYear, planValue, planDisplay;
+                    
+                    if (typeof p === 'object' && p !== null) {
+                        planName = p.name || '';
+                        planYear = p.year || '';
+                        planValue = p.value || `${planName}|||${planYear}`;
+                        // 因為已經用年度分組，所以只顯示計畫名稱，不顯示年度
+                        planDisplay = planName;
+                    } else {
+                        planName = p;
+                        planYear = '';
+                        planValue = p;
+                        planDisplay = p;
+                    }
+                    
+                    if (!existingValues.has(planValue) && planName) {
+                        existingValues.add(planValue);
+                        const groupKey = planYear || '未分類';
+                        if (!yearGroups.has(groupKey)) {
+                            yearGroups.set(groupKey, []);
+                        }
+                        yearGroups.get(groupKey).push({ 
+                            value: planValue, 
+                            display: planDisplay, 
+                            name: planName, 
+                            year: planYear 
+                        });
+                    }
+                });
+                
+                // 建立選項 HTML
+                let allOptions = '';
+                
+                // 將年度分組按年度降序排序（最新的在前）
+                const sortedYears = Array.from(yearGroups.keys()).sort((a, b) => {
+                    if (a === '未分類') return 1;
+                    if (b === '未分類') return -1;
+                    const yearA = parseInt(a) || 0;
+                    const yearB = parseInt(b) || 0;
+                    return yearB - yearA;
+                });
+                
+                sortedYears.forEach(year => {
+                    const plans = yearGroups.get(year);
+                    plans.sort((a, b) => {
+                        return (a.name || '').localeCompare(b.name || '', 'zh-TW');
+                    });
+                    
+                    const yearLabel = year === '未分類' ? '未分類' : `${year} 年度`;
+                    allOptions += `<optgroup label="${yearLabel}">`;
+                    plans.forEach(plan => {
+                        allOptions += `<option value="${plan.value}">${plan.display}</option>`;
+                    });
+                    allOptions += `</optgroup>`;
+                });
+                
+                // 完全重建選項列表
+                select.innerHTML = firstOption + allOptions;
+                
+                // 恢復之前選擇的值
+                if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+                    select.value = currentValue;
+                }
+            } catch (e) {
+                console.error("Load filter plan options failed", e);
             }
         }
         
