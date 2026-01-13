@@ -1,4 +1,99 @@
-node_modules/
+# 環境變數檔案（包含敏感資料）
 .env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.test
+
+# Node.js 依賴套件
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json.backup
+
+# 資料庫檔案
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+
+# 日誌檔案
+logs/
 *.log
+npm-debug.log
+yarn-error.log
+lerna-debug.log
+
+# 系統檔案
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE 和編輯器設定
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# 暫存和快取檔案
+tmp/
+temp/
+*.tmp
+.cache/
+.parcel-cache/
+.next/
+out/
+dist/
+build/
+
+# 備份檔案
+*.bak
+*.backup
+*.old
+*.orig
+
+# 測試覆蓋率報告
+coverage/
+.nyc_output/
+*.lcov
+
+# 生產建置檔案（如果有的話）
+dist/
+build/
+
+# 敏感資料檔案
+secrets/
+*.key
+*.pem
+*.cert
+*.crt
+
+# 個人開發檔案
+.idea/
+*.iml
+
+# Python（如果有 Python 腳本）
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.pytest_cache/
