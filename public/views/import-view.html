@@ -14,6 +14,7 @@
         <button class="admin-tab-btn active" onclick="switchIssuesSubTab('import')">批次匯入</button>
         <button class="admin-tab-btn" onclick="switchIssuesSubTab('batch')">批次建檔</button>
         <button class="admin-tab-btn" onclick="switchIssuesSubTab('manual')">手動新增</button>
+        <button class="admin-tab-btn" onclick="switchIssuesSubTab('year-edit')">年度編輯</button>
     </div>
 
     <!-- Sub-tab 1: Word Import -->
@@ -464,5 +465,56 @@
         </div>
 
         <button class="btn btn-primary" onclick="exportAllData()">執行匯出</button>
+    </div>
+</div>
+
+<!-- Sub-tab 4: Year Edit -->
+<div id="subtab-issues-year-edit" class="hidden">
+    <div class="detail-card" style="max-width:1200px;">
+        <div style="margin-bottom:24px;">
+            <h3 style="margin:0 0 8px 0; color:#334155; font-size:18px;">📝 年度開立事項編輯</h3>
+            <p style="color:#64748b; font-size:13px; margin:0;">選擇年度後，可對該年度所有開立事項進行內容編輯與修正。</p>
+        </div>
+        
+        <!-- 年度選擇器 -->
+        <div style="background:#f8fafc; padding:20px; border-radius:8px; margin-bottom:24px; border:1px solid #e2e8f0;">
+            <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+                <div style="flex:1; min-width:200px;">
+                    <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">選擇年度</label>
+                    <select id="yearEditYear" class="filter-select" onchange="updateYearEditLoadBtn()">
+                        <option value="">請選擇年度</option>
+                        <!-- JavaScript 會自動產生選項 -->
+                    </select>
+                </div>
+                <div style="display:flex; gap:12px; align-items:flex-end;">
+                    <button class="btn btn-primary" onclick="loadYearEditIssues()" id="yearEditLoadBtn" disabled>載入事項</button>
+                    <button class="btn btn-success" onclick="saveYearEditIssues()" id="yearEditSaveBtn" disabled style="display:none;">💾 儲存所有變更</button>
+                </div>
+            </div>
+            <div id="yearEditInfo" style="margin-top:12px; padding:12px; background:#eff6ff; border-radius:6px; display:none;">
+                <div style="font-size:13px; color:#1e40af;">
+                    <strong>已載入：</strong><span id="yearEditCount">0</span> 筆開立事項
+                </div>
+            </div>
+        </div>
+        
+        <!-- 事項列表 -->
+        <div id="yearEditIssuesList" style="display:none;">
+            <div style="margin-bottom:16px; padding:12px; background:#fef3c7; border:1px solid #fcd34d; border-radius:6px;">
+                <div style="font-size:13px; color:#92400e;">
+                    <strong>💡 提示：</strong>修改下方事項內容後，點擊「儲存所有變更」按鈕即可批量儲存。每個事項可編輯：內容、狀態、最新辦理情形、最新審查意見。
+                </div>
+            </div>
+            
+            <div id="yearEditIssuesContainer">
+                <!-- 事項列表將由 JavaScript 動態生成 -->
+            </div>
+        </div>
+        
+        <div id="yearEditEmpty" style="text-align:center; padding:60px 20px; color:#94a3b8; display:none;">
+            <div style="font-size:48px; margin-bottom:16px;">📋</div>
+            <div style="font-size:16px; font-weight:500; margin-bottom:8px;">尚未選擇年度或該年度無開立事項</div>
+            <div style="font-size:13px;">請先選擇年度並點擊「載入事項」</div>
+        </div>
     </div>
 </div>

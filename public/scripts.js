@@ -1967,9 +1967,15 @@ if (dashboard) {
             document.getElementById('subtab-issues-import').classList.toggle('hidden', subTab !== 'import');
             document.getElementById('subtab-issues-batch').classList.toggle('hidden', subTab !== 'batch');
             document.getElementById('subtab-issues-manual').classList.toggle('hidden', subTab !== 'manual');
+            document.getElementById('subtab-issues-year-edit').classList.toggle('hidden', subTab !== 'year-edit');
             
             if (subTab === 'batch' && document.querySelectorAll('#batchGridBody tr').length === 0) {
                 initBatchGrid();
+            }
+            
+            if (subTab === 'year-edit') {
+                // 初始化年度選項
+                initYearEditOptions();
             }
         }
         
@@ -3697,4 +3703,236 @@ if (dashboard) {
                 document.getElementById('editReview').value = txt; 
                 showToast('已帶入 AI 建議'); 
             } 
+        }
+        
+        // --- 年度編輯功能 ---
+        let yearEditIssues = []; // 儲存當前編輯的事項資料
+        
+        // 初始化年度選項
+        async function initYearEditOptions() {
+            try {
+                const res = await fetch('/api/issues?page=1&pageSize=1&_t=' + Date.now());
+                if (!res.ok) return;
+                const json = await res.json();
+                const yearSelect = document.getElementById('yearEditYear');
+                if (!yearSelect) return;
+                
+                // 取得所有年度
+                const years = new Set();
+                if (json.globalStats && json.globalStats.year) {
+                    json.globalStats.year.forEach(item => {
+                        if (item.year) years.add(item.year);
+                    });
+                }
+                
+                // 清空並重新填充選項（保留第一個「請選擇年度」）
+                yearSelect.innerHTML = '<option value="">請選擇年度</option>';
+                Array.from(years).sort((a, b) => parseInt(b) - parseInt(a)).forEach(year => {
+                    yearSelect.innerHTML += `<option value="${year}">${year}</option>`;
+                });
+            } catch (e) {
+                console.error('初始化年度選項失敗:', e);
+            }
+        }
+        
+        // 更新載入按鈕狀態
+        function updateYearEditLoadBtn() {
+            const yearSelect = document.getElementById('yearEditYear');
+            const loadBtn = document.getElementById('yearEditLoadBtn');
+            if (yearSelect && loadBtn) {
+                loadBtn.disabled = !yearSelect.value;
+            }
+        }
+        
+        // 載入指定年度的事項
+        async function loadYearEditIssues() {
+            const yearSelect = document.getElementById('yearEditYear');
+            const selectedYear = yearSelect ? yearSelect.value : '';
+            if (!selectedYear) {
+                showToast('請選擇年度', 'error');
+                return;
+            }
+            
+            try {
+                showToast('載入中，請稍候...', 'info');
+                const res = await fetch(`/api/issues?page=1&pageSize=10000&year=${selectedYear}&sortField=number&sortDir=asc&_t=${Date.now()}`);
+                if (!res.ok) throw new Error('載入失敗');
+                
+                const json = await res.json();
+                yearEditIssues = json.data || [];
+                
+                // 更新UI
+                document.getElementById('yearEditCount').textContent = yearEditIssues.length;
+                document.getElementById('yearEditInfo').style.display = 'block';
+                
+                if (yearEditIssues.length === 0) {
+                    document.getElementById('yearEditIssuesList').style.display = 'none';
+                    document.getElementById('yearEditEmpty').style.display = 'block';
+                    document.getElementById('yearEditSaveBtn').style.display = 'none';
+                    showToast('該年度無開立事項', 'warning');
+                    return;
+                }
+                
+                document.getElementById('yearEditEmpty').style.display = 'none';
+                document.getElementById('yearEditIssuesList').style.display = 'block';
+                document.getElementById('yearEditSaveBtn').style.display = 'inline-block';
+                document.getElementById('yearEditSaveBtn').disabled = false;
+                
+                renderYearEditIssues();
+                showToast(`已載入 ${yearEditIssues.length} 筆事項`, 'success');
+            } catch (e) {
+                showToast('載入失敗: ' + e.message, 'error');
+            }
+        }
+        
+        // 渲染事項列表
+        function renderYearEditIssues() {
+            const container = document.getElementById('yearEditIssuesContainer');
+            if (!container) return;
+            
+            let html = '';
+            yearEditIssues.forEach((item, index) => {
+                // 取得最新辦理情形和審查意見
+                let latestHandling = '', latestReview = '';
+                for (let i = 200; i >= 1; i--) {
+                    const suffix = i === 1 ? '' : i;
+                    if (!latestHandling && item[`handling${suffix}`]) {
+                        latestHandling = stripHtml(item[`handling${suffix}`] || '');
+                    }
+                    if (!latestReview && item[`review${suffix}`]) {
+                        latestReview = stripHtml(item[`review${suffix}`] || '');
+                    }
+                    if (latestHandling && latestReview) break;
+                }
+                
+                html += `
+                    <div class="detail-card" style="margin-bottom:20px; border:2px solid #e2e8f0;" data-issue-id="${item.id}">
+                        <div style="background:#f8fafc; padding:16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-weight:700; font-size:16px; color:#1e40af; margin-bottom:4px;">${item.number || ''}</div>
+                                <div style="font-size:13px; color:#64748b;">
+                                    ${item.unit || ''} | ${item.divisionName || ''} | ${item.inspectionCategoryName || ''}
+                                </div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:13px; color:#64748b; margin-bottom:4px;">年度：${item.year || ''}</div>
+                                <span class="badge ${item.status === '持續列管' ? 'active' : (item.status === '解除列管' ? 'resolved' : 'self')}">${item.status || ''}</span>
+                            </div>
+                        </div>
+                        
+                        <div style="padding:20px;">
+                            <div style="margin-bottom:16px;">
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">事項內容</label>
+                                <textarea class="filter-input year-edit-content" data-field="content" data-id="${item.id}" 
+                                    style="width:100%; min-height:100px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${stripHtml(item.content || '')}</textarea>
+                            </div>
+                            
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
+                                <div>
+                                    <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">狀態</label>
+                                    <select class="filter-select year-edit-status" data-field="status" data-id="${item.id}">
+                                        <option value="持續列管" ${item.status === '持續列管' ? 'selected' : ''}>持續列管</option>
+                                        <option value="解除列管" ${item.status === '解除列管' ? 'selected' : ''}>解除列管</option>
+                                        <option value="自行列管" ${item.status === '自行列管' ? 'selected' : ''}>自行列管</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">檢查計畫</label>
+                                    <input type="text" class="filter-input year-edit-plan" data-field="plan_name" data-id="${item.id}" 
+                                        value="${item.plan_name || ''}" readonly style="background:#f1f5f9; color:#64748b;">
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom:16px;">
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">最新辦理情形</label>
+                                <textarea class="filter-input year-edit-handling" data-field="handling" data-id="${item.id}" 
+                                    style="width:100%; min-height:80px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${latestHandling}</textarea>
+                            </div>
+                            
+                            <div>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">最新審查意見</label>
+                                <textarea class="filter-input year-edit-review" data-field="review" data-id="${item.id}" 
+                                    style="width:100%; min-height:80px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${latestReview}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // 儲存所有變更
+        async function saveYearEditIssues() {
+            if (yearEditIssues.length === 0) {
+                showToast('無事項可儲存', 'error');
+                return;
+            }
+            
+            if (!confirm(`確定要儲存 ${yearEditIssues.length} 筆事項的所有變更嗎？`)) {
+                return;
+            }
+            
+            try {
+                showToast('儲存中，請稍候...', 'info');
+                let successCount = 0;
+                let errorCount = 0;
+                
+                // 逐一更新每個事項
+                for (const item of yearEditIssues) {
+                    const issueId = item.id;
+                    const contentEl = document.querySelector(`.year-edit-content[data-id="${issueId}"]`);
+                    const statusEl = document.querySelector(`.year-edit-status[data-id="${issueId}"]`);
+                    const handlingEl = document.querySelector(`.year-edit-handling[data-id="${issueId}"]`);
+                    const reviewEl = document.querySelector(`.year-edit-review[data-id="${issueId}"]`);
+                    
+                    if (!contentEl || !statusEl) continue;
+                    
+                    const updates = {
+                        content: contentEl.value.trim(),
+                        status: statusEl.value,
+                        handling: handlingEl ? handlingEl.value.trim() : '',
+                        review: reviewEl ? reviewEl.value.trim() : ''
+                    };
+                    
+                    try {
+                        // 更新所有欄位（內容、狀態、辦理情形、審查意見）
+                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                status: updates.status,
+                                round: 1,
+                                handling: updates.handling,
+                                review: updates.review,
+                                content: updates.content,
+                                replyDate: '',
+                                responseDate: ''
+                            })
+                        });
+                        
+                        if (updateRes.ok) {
+                            successCount++;
+                        } else {
+                            const errorData = await updateRes.json().catch(() => ({}));
+                            console.error(`更新事項 ${item.number} 失敗:`, errorData.error || updateRes.statusText);
+                            errorCount++;
+                        }
+                    } catch (e) {
+                        console.error(`更新事項 ${item.number} 失敗:`, e);
+                        errorCount++;
+                    }
+                }
+                
+                if (successCount > 0) {
+                    showToast(`成功儲存 ${successCount} 筆事項${errorCount > 0 ? `，${errorCount} 筆失敗` : ''}`, 
+                        errorCount > 0 ? 'warning' : 'success');
+                    // 重新載入資料
+                    await loadYearEditIssues();
+                } else {
+                    showToast('儲存失敗', 'error');
+                }
+            } catch (e) {
+                showToast('儲存時發生錯誤: ' + e.message, 'error');
+            }
         }

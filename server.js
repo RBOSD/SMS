@@ -451,9 +451,9 @@ app.get('/api/issues', requireAuth, async (req, res) => {
 });
 
 app.put('/api/issues/:id', requireAuth, async (req, res) => {
-    const { status, round, handling, review, replyDate, responseDate } = req.body;
+    const { status, round, handling, review, replyDate, responseDate, content } = req.body;
     const id = req.params.id;
-    const r = parseInt(round);
+    const r = parseInt(round) || 1;
     const hField = r === 1 ? 'handling' : `handling${r}`;
     const rField = r === 1 ? 'review' : `review${r}`;
     const replyField = `reply_date_r${r}`;
@@ -478,9 +478,20 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
             }
         }
         
-        await pool.query(`UPDATE issues SET status=$1, ${hField}=$2, ${rField}=$3, ${replyField}=$4, ${respField}=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6`, 
-            [status, handling, review, replyDate, responseDate, id]);
-        const actionDetails = `更新開立事項：編號 ${issueNumber}，第 ${r} 次審查，狀態：${status}`;
+        // 構建更新語句，如果提供了 content 則包含它
+        let updateFields = [`status=$1`, `${hField}=$2`, `${rField}=$3`, `${replyField}=$4`, `${respField}=$5`, `updated_at=CURRENT_TIMESTAMP`];
+        let params = [status, handling || '', review || '', replyDate || '', responseDate || ''];
+        let paramIdx = 6;
+        
+        if (content !== undefined) {
+            updateFields.push(`content=$${paramIdx}`);
+            params.push(content);
+            paramIdx++;
+        }
+        
+        params.push(id);
+        await pool.query(`UPDATE issues SET ${updateFields.join(', ')} WHERE id=$${paramIdx}`, params);
+        const actionDetails = `更新開立事項：編號 ${issueNumber}，第 ${r} 次審查，狀態：${status}${content !== undefined ? '，內容已更新' : ''}`;
         logAction(req.session.user.username, 'UPDATE_ISSUE', actionDetails, req);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
