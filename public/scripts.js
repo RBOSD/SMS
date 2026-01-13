@@ -2027,13 +2027,12 @@ if (dashboard) {
         
         function updateExportFormatOptions() {
             try {
-                const exportDataType = document.querySelector('input[name="exportDataType"]:checked')?.value || 'issues';
                 const exportFormat = document.querySelector('input[name="exportFormat"]:checked')?.value || 'csv';
                 const exportCsvOption = document.getElementById('exportCsvOption');
                 
                 if (exportCsvOption) {
-                    // 如果選擇合併匯出且選擇Excel格式，隱藏CSV選項
-                    if (exportDataType === 'both' && exportFormat === 'excel') {
+                    // 如果選擇Excel格式，隱藏CSV選項
+                    if (exportFormat === 'excel') {
                         exportCsvOption.style.display = 'none';
                         // 如果CSV被選中，自動切換到Excel
                         const csvRadio = document.querySelector('input[name="exportFormat"][value="csv"]');
