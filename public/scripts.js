@@ -1053,6 +1053,21 @@ if (dashboard) {
                 });
                 
                 if (res.ok) {
+                    // 清除所有選中的checkbox
+                    checkboxes.forEach(cb => cb.checked = false);
+                    // 更新批次操作UI
+                    updateBatchUI();
+                    // 重新載入資料
+                    await loadIssuesPage(issuesPage);
+                    showToast(`成功刪除 ${ids.length} 筆資料`, 'success');
+                } else {
+                    const j = await res.json();
+                    showToast('刪除失敗: ' + (j.error || '不明錯誤'), 'error');
+                }
+            } catch (e) {
+                showToast('刪除失敗: ' + e.message, 'error');
+            }
+        } {
                     showToast(`成功刪除 ${ids.length} 筆資料`);
                     loadIssuesPage(issuesPage);
                 } else {
@@ -1970,7 +1985,9 @@ if (dashboard) {
         
         function setupExportOptions() {
             const exportDataTypeRadios = document.querySelectorAll('input[name="exportDataType"]');
+            const exportFormatRadios = document.querySelectorAll('input[name="exportFormat"]');
             const exportIssuesOptions = document.getElementById('exportIssuesOptions');
+            const exportCsvOption = document.getElementById('exportCsvOption');
             
             if (exportDataTypeRadios.length > 0 && exportIssuesOptions) {
                 exportDataTypeRadios.forEach(radio => {
@@ -1984,6 +2001,8 @@ if (dashboard) {
                         } else {
                             exportIssuesOptions.style.display = 'flex';
                         }
+                        // 當選擇合併匯出時，如果選擇Excel格式，隱藏CSV選項
+                        updateExportFormatOptions();
                     });
                 });
                 
@@ -1993,6 +2012,42 @@ if (dashboard) {
                     exportIssuesOptions.style.display = 'none';
                 } else {
                     exportIssuesOptions.style.display = 'flex';
+                }
+            }
+            
+            // 監聽匯出格式變更
+            if (exportFormatRadios.length > 0) {
+                exportFormatRadios.forEach(radio => {
+                    const newRadio = radio.cloneNode(true);
+                    radio.parentNode.replaceChild(newRadio, radio);
+                    
+                    newRadio.addEventListener('change', function() {
+                        updateExportFormatOptions();
+                    });
+                });
+            }
+            
+            // 初始化格式選項顯示
+            updateExportFormatOptions();
+        }
+        
+        function updateExportFormatOptions() {
+            const exportDataType = document.querySelector('input[name="exportDataType"]:checked')?.value || 'issues';
+            const exportFormat = document.querySelector('input[name="exportFormat"]:checked')?.value || 'csv';
+            const exportCsvOption = document.getElementById('exportCsvOption');
+            
+            if (exportCsvOption) {
+                // 如果選擇合併匯出且選擇Excel格式，隱藏CSV選項
+                if (exportDataType === 'both' && exportFormat === 'excel') {
+                    exportCsvOption.style.display = 'none';
+                    // 如果CSV被選中，自動切換到Excel
+                    const csvRadio = document.querySelector('input[name="exportFormat"][value="csv"]');
+                    if (csvRadio && csvRadio.checked) {
+                        const excelRadio = document.querySelector('input[name="exportFormat"][value="excel"]');
+                        if (excelRadio) excelRadio.checked = true;
+                    }
+                } else {
+                    exportCsvOption.style.display = 'flex';
                 }
             }
         }
