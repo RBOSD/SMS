@@ -1628,12 +1628,56 @@ if (dashboard) {
             if (!isBackup && !planValue) {
                 return showToast('請選擇檢查計畫', 'error');
             }
-            // 從計畫選項值中提取計畫名稱
-            const planName = isBackup ? '' : parsePlanValue(planValue).name;
+            // 從計畫選項值中提取計畫名稱和年度
+            const selectedPlan = isBackup ? { name: '', year: '' } : parsePlanValue(planValue);
+            
+            // 取得所有計畫選項，用於根據年度匹配計畫
+            let allPlans = [];
+            try {
+                const plansRes = await fetch('/api/options/plans?t=' + Date.now());
+                if (plansRes.ok) {
+                    const plansJson = await plansRes.json();
+                    allPlans = plansJson.data || [];
+                }
+            } catch (e) {
+                console.warn('無法載入計畫選項，將使用選擇的計畫名稱', e);
+            }
 
             let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
                 if (currentImportMode === 'word') {
-                    if (!item.planName && planName) item.planName = planName;
+                    // 根據開立事項的年度，動態確定應該使用的計畫名稱
+                    if (!item.planName && selectedPlan.name) {
+                        const itemYear = String(item.year || '').trim();
+                        
+                        // 如果開立事項有年度，根據年度查找匹配的計畫
+                        if (itemYear) {
+                            // 查找相同名稱且年度匹配的計畫
+                            const matchedPlan = allPlans.find(p => {
+                                const planName = typeof p === 'object' ? (p.name || '') : String(p || '');
+                                const planYear = typeof p === 'object' ? String(p.year || '') : '';
+                                // 計畫名稱必須與選擇的計畫名稱相同，且年度必須與開立事項的年度匹配
+                                return planName === selectedPlan.name && planYear === itemYear;
+                            });
+                            
+                            if (matchedPlan) {
+                                // 找到匹配的計畫，使用該計畫的名稱
+                                item.planName = typeof matchedPlan === 'object' ? matchedPlan.name : matchedPlan;
+                            } else {
+                                // 沒找到匹配的計畫
+                                // 如果選擇的計畫年度與事項年度匹配，使用選擇的計畫名稱
+                                if (selectedPlan.year && selectedPlan.year === itemYear) {
+                                    item.planName = selectedPlan.name;
+                                } else {
+                                    // 年度不匹配，使用選擇的計畫名稱
+                                    // 這可能會導致不同年度的事項被歸類到同一計畫，但這是用戶選擇的計畫
+                                    item.planName = selectedPlan.name;
+                                }
+                            }
+                        } else {
+                            // 開立事項沒有年度，使用選擇的計畫名稱
+                            item.planName = selectedPlan.name;
+                        }
+                    }
                     const stage = document.querySelector('input[name="importStage"]:checked') ? document.querySelector('input[name="importStage"]:checked').value : 'initial';
                     if (!item.issueDate && stage === 'initial') item.issueDate = issueDate;
                 }
