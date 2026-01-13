@@ -2296,6 +2296,177 @@ if (dashboard) {
                     return;
                 }
 
+                // Excel 格式匯出
+                if (exportFormat === 'excel') {
+                    const wb = XLSX.utils.book_new();
+                    
+                    // 如果選擇合併匯出，創建兩個工作表
+                    if (exportDataType === 'both') {
+                        // 工作表1：檢查計畫
+                        if (plansData.length > 0) {
+                            const plansWSData = [
+                                ['計畫名稱', '年度', '建立時間', '更新時間', '關聯事項數']
+                            ];
+                            plansData.forEach(plan => {
+                                plansWSData.push([
+                                    plan.name || '',
+                                    plan.year || '',
+                                    new Date(plan.created_at).toLocaleString('zh-TW'),
+                                    new Date(plan.updated_at).toLocaleString('zh-TW'),
+                                    plan.issue_count || 0
+                                ]);
+                            });
+                            const plansWS = XLSX.utils.aoa_to_sheet(plansWSData);
+                            XLSX.utils.book_append_sheet(wb, plansWS, '檢查計畫');
+                        }
+                        
+                        // 工作表2：開立事項
+                        if (issuesData.length > 0) {
+                            const issuesWSData = [];
+                            if (exportScope === 'latest') {
+                                issuesWSData.push(['編號', '年度', '機構', '分組', '檢查種類', '類型', '狀態', '事項內容', '最新辦理情形', '最新審查意見']);
+                                issuesData.forEach(item => {
+                                    let latestH = '', latestR = '';
+                                    for (let i = 200; i >= 1; i--) { 
+                                        const suffix = i === 1 ? '' : i;
+                                        if (!latestH && (item[`handling${suffix}`])) latestH = stripHtml(item[`handling${suffix}`] || ''); 
+                                        if (!latestR && (item[`review${suffix}`])) latestR = stripHtml(item[`review${suffix}`] || ''); 
+                                    }
+                                    issuesWSData.push([
+                                        item.number || '',
+                                        item.year || '',
+                                        item.unit || '',
+                                        item.divisionName || '',
+                                        item.inspectionCategoryName || '',
+                                        item.category || '',
+                                        item.status || '',
+                                        stripHtml(item.content || ''),
+                                        latestH,
+                                        latestR
+                                    ]);
+                                });
+                            } else {
+                                issuesWSData.push(['編號', '年度', '機構', '分組', '檢查種類', '類型', '狀態', '事項內容', '完整辦理情形歷程', '完整審查意見歷程']);
+                                issuesData.forEach(item => {
+                                    let fullH = [], fullR = [];
+                                    for (let i = 1; i <= 200; i++) {
+                                        const suffix = i === 1 ? '' : i;
+                                        const valH = item[`handling${suffix}`], valR = item[`review${suffix}`];
+                                        if (valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`); 
+                                        if (valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`);
+                                    }
+                                    const joinedH = fullH.length > 0 ? fullH.join("\n-------------------\n") : "";
+                                    const joinedR = fullR.length > 0 ? fullR.join("\n-------------------\n") : "";
+                                    issuesWSData.push([
+                                        item.number || '',
+                                        item.year || '',
+                                        item.unit || '',
+                                        item.divisionName || '',
+                                        item.inspectionCategoryName || '',
+                                        item.category || '',
+                                        item.status || '',
+                                        stripHtml(item.content || ''),
+                                        joinedH,
+                                        joinedR
+                                    ]);
+                                });
+                            }
+                            const issuesWS = XLSX.utils.aoa_to_sheet(issuesWSData);
+                            XLSX.utils.book_append_sheet(wb, issuesWS, '開立事項');
+                        }
+                    } else if (exportDataType === 'plans') {
+                        // 僅匯出檢查計畫
+                        const plansWSData = [
+                            ['計畫名稱', '年度', '建立時間', '更新時間', '關聯事項數']
+                        ];
+                        plansData.forEach(plan => {
+                            plansWSData.push([
+                                plan.name || '',
+                                plan.year || '',
+                                new Date(plan.created_at).toLocaleString('zh-TW'),
+                                new Date(plan.updated_at).toLocaleString('zh-TW'),
+                                plan.issue_count || 0
+                            ]);
+                        });
+                        const plansWS = XLSX.utils.aoa_to_sheet(plansWSData);
+                        XLSX.utils.book_append_sheet(wb, plansWS, '檢查計畫');
+                    } else {
+                        // 僅匯出開立事項
+                        const issuesWSData = [];
+                        if (exportScope === 'latest') {
+                            issuesWSData.push(['編號', '年度', '機構', '分組', '檢查種類', '類型', '狀態', '事項內容', '最新辦理情形', '最新審查意見']);
+                            issuesData.forEach(item => {
+                                let latestH = '', latestR = '';
+                                for (let i = 200; i >= 1; i--) { 
+                                    const suffix = i === 1 ? '' : i;
+                                    if (!latestH && (item[`handling${suffix}`])) latestH = stripHtml(item[`handling${suffix}`] || ''); 
+                                    if (!latestR && (item[`review${suffix}`])) latestR = stripHtml(item[`review${suffix}`] || ''); 
+                                }
+                                issuesWSData.push([
+                                    item.number || '',
+                                    item.year || '',
+                                    item.unit || '',
+                                    item.divisionName || '',
+                                    item.inspectionCategoryName || '',
+                                    item.category || '',
+                                    item.status || '',
+                                    stripHtml(item.content || ''),
+                                    latestH,
+                                    latestR
+                                ]);
+                            });
+                        } else {
+                            issuesWSData.push(['編號', '年度', '機構', '分組', '檢查種類', '類型', '狀態', '事項內容', '完整辦理情形歷程', '完整審查意見歷程']);
+                            issuesData.forEach(item => {
+                                let fullH = [], fullR = [];
+                                for (let i = 1; i <= 200; i++) {
+                                    const suffix = i === 1 ? '' : i;
+                                    const valH = item[`handling${suffix}`], valR = item[`review${suffix}`];
+                                    if (valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`); 
+                                    if (valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`);
+                                }
+                                const joinedH = fullH.length > 0 ? fullH.join("\n-------------------\n") : "";
+                                const joinedR = fullR.length > 0 ? fullR.join("\n-------------------\n") : "";
+                                issuesWSData.push([
+                                    item.number || '',
+                                    item.year || '',
+                                    item.unit || '',
+                                    item.divisionName || '',
+                                    item.inspectionCategoryName || '',
+                                    item.category || '',
+                                    item.status || '',
+                                    stripHtml(item.content || ''),
+                                    joinedH,
+                                    joinedR
+                                ]);
+                            });
+                        }
+                        const issuesWS = XLSX.utils.aoa_to_sheet(issuesWSData);
+                        XLSX.utils.book_append_sheet(wb, issuesWS, '開立事項');
+                    }
+                    
+                    // 生成 Excel 檔案
+                    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    let fileName = '';
+                    if (exportDataType === 'issues') {
+                        const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory';
+                        fileName = `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                    } else if (exportDataType === 'plans') {
+                        fileName = `SMS_Plans_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                    } else {
+                        fileName = `SMS_AllData_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                    }
+                    link.download = fileName;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('Excel 匯出完成', 'success');
+                    return;
+                }
+
                 // CSV 格式匯出
                 let csvContent = '\uFEFF';
                 
