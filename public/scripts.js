@@ -391,6 +391,8 @@
                 const json = await res.json();
                 if (!json.data || json.data.length === 0) {
                     console.warn('沒有找到任何檢查計畫');
+                    // 即使沒有計畫，也要嘗試載入查詢看板的計畫選項
+                    await loadFilterPlanOptions();
                     return;
                 }
                 
@@ -513,7 +515,10 @@
                 
                 const json = await res.json();
                 const select = document.getElementById('filterPlan');
-                if (!select) return;
+                if (!select) {
+                    console.warn('找不到 filterPlan 元素');
+                    return;
+                }
                 
                 const currentValue = select.value;
                 // 保留第一個選項（「全部計畫」）
@@ -521,9 +526,12 @@
                 
                 if (!json.data || json.data.length === 0) {
                     // 如果沒有資料，只保留第一個選項
+                    console.log('查詢看板：沒有找到有關聯開立事項的計畫');
                     select.innerHTML = firstOption;
                     return;
                 }
+                
+                console.log('查詢看板：找到', json.data.length, '個有關聯開立事項的計畫', json.data);
                 
                 // 處理新的資料格式，按年度分組
                 const yearGroups = new Map();
@@ -799,7 +807,9 @@ if (dashboard) {
                     initListeners();
                     initEditForm();
                     initCharts();
-                    loadPlanOptions();
+                    loadPlanOptions(); // 這會自動調用 loadFilterPlanOptions()
+                    // 確保查詢看板的計畫選項也被載入
+                    loadFilterPlanOptions();
                     initImportRoundOptions();
                     
                     // 如果目標視圖是 searchView，載入資料
