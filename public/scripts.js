@@ -1975,9 +1975,7 @@ if (dashboard) {
         
         function setupExportOptions() {
             const exportDataTypeRadios = document.querySelectorAll('input[name="exportDataType"]');
-            const exportFormatRadios = document.querySelectorAll('input[name="exportFormat"]');
             const exportIssuesOptions = document.getElementById('exportIssuesOptions');
-            const exportCsvOption = document.getElementById('exportCsvOption');
             
             if (exportDataTypeRadios.length > 0 && exportIssuesOptions) {
                 exportDataTypeRadios.forEach(radio => {
@@ -1991,8 +1989,6 @@ if (dashboard) {
                         } else {
                             exportIssuesOptions.style.display = 'flex';
                         }
-                        // 當選擇合併匯出時，如果選擇Excel格式，隱藏CSV選項
-                        updateExportFormatOptions();
                     });
                 });
                 
@@ -2003,50 +1999,6 @@ if (dashboard) {
                 } else {
                     exportIssuesOptions.style.display = 'flex';
                 }
-            }
-            
-            // 監聽匯出格式變更
-            if (exportFormatRadios.length > 0) {
-                exportFormatRadios.forEach(radio => {
-                    const newRadio = radio.cloneNode(true);
-                    radio.parentNode.replaceChild(newRadio, radio);
-                    
-                    newRadio.addEventListener('change', function() {
-                        updateExportFormatOptions();
-                    });
-                });
-            }
-            
-            // 初始化格式選項顯示（延遲執行，確保元素已載入）
-            try {
-                updateExportFormatOptions();
-            } catch (e) {
-                console.warn('setupExportOptions error:', e);
-            }
-        }
-        
-        function updateExportFormatOptions() {
-            try {
-                const exportFormat = document.querySelector('input[name="exportFormat"]:checked')?.value || 'csv';
-                const exportCsvOption = document.getElementById('exportCsvOption');
-                
-                if (exportCsvOption) {
-                    // 如果選擇Excel格式，隱藏CSV選項
-                    if (exportFormat === 'excel') {
-                        exportCsvOption.style.display = 'none';
-                        // 如果CSV被選中，自動切換到Excel
-                        const csvRadio = document.querySelector('input[name="exportFormat"][value="csv"]');
-                        if (csvRadio && csvRadio.checked) {
-                            const excelRadio = document.querySelector('input[name="exportFormat"][value="excel"]');
-                            if (excelRadio) excelRadio.checked = true;
-                        }
-                    } else {
-                        exportCsvOption.style.display = 'flex';
-                    }
-                }
-            } catch (e) {
-                // 忽略錯誤，避免影響頁面載入
-                console.warn('updateExportFormatOptions error:', e);
             }
         }
 
@@ -2295,10 +2247,9 @@ if (dashboard) {
             try {
                 const exportDataType = document.querySelector('input[name="exportDataType"]:checked')?.value || 'issues';
                 const exportScope = document.querySelector('input[name="exportScope"]:checked')?.value || 'latest';
-                const exportFormat = document.querySelector('input[name="exportFormat"]:checked').value;
+                const exportFormat = document.querySelector('input[name="exportFormat"]:checked')?.value || 'excel';
                 showToast('準備匯出中，請稍候...', 'info');
                 
-                const clean = (t) => `"${String(t || '').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
                 let issuesData = [];
                 let plansData = [];
                 
@@ -2520,77 +2471,10 @@ if (dashboard) {
                     return;
                 }
 
-                // CSV 格式匯出
-                let csvContent = '\uFEFF';
-                
-                if (exportDataType === 'both') {
-                    // 合併匯出：先匯出檢查計畫，再匯出開立事項
-                    // 檢查計畫
-                    csvContent += "=== 檢查計畫 ===\n";
-                    csvContent += "計畫名稱,年度,建立時間,更新時間,關聯事項數\n";
-                    plansData.forEach(plan => {
-                        csvContent += `${clean(plan.name)},${clean(plan.year)},${clean(new Date(plan.created_at).toLocaleString('zh-TW'))},${clean(new Date(plan.updated_at).toLocaleString('zh-TW'))},${clean(plan.issue_count || 0)}\n`;
-                    });
-                    
-                    csvContent += "\n=== 開立事項 ===\n";
+                // 如果格式不是 Excel 或 JSON，預設使用 Excel
+                if (exportFormat !== 'excel' && exportFormat !== 'json') {
+                    showToast('不支援的匯出格式，將使用 Excel 格式', 'warning');
                 }
-                
-                // 開立事項
-                if (exportDataType === 'issues' || exportDataType === 'both') {
-                    const baseHeader = "編號,年度,機構,分組,檢查種類,類型,狀態,事項內容";
-                    
-                    if (exportScope === 'latest') {
-                        csvContent += baseHeader + ",最新辦理情形,最新審查意見\n";
-                        issuesData.forEach(item => {
-                            let latestH = '', latestR = '';
-                            for (let i = 200; i >= 1; i--) { 
-                                const suffix = i === 1 ? '' : i;
-                                if (!latestH && (item[`handling${suffix}`])) latestH = item[`handling${suffix}`]; 
-                                if (!latestR && (item[`review${suffix}`])) latestR = item[`review${suffix}`]; 
-                            }
-                            csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(latestH)},${clean(latestR)}\n`;
-                        });
-                    } else {
-                        csvContent += baseHeader + ",完整辦理情形歷程,完整審查意見歷程\n";
-                        issuesData.forEach(item => {
-                            let fullH = [], fullR = [];
-                            for (let i = 1; i <= 200; i++) {
-                                const suffix = i === 1 ? '' : i;
-                                const valH = item[`handling${suffix}`], valR = item[`review${suffix}`];
-                                if (valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`); 
-                                if (valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`);
-                            }
-                            const joinedH = fullH.length > 0 ? fullH.join("\n-------------------\n") : "";
-                            const joinedR = fullR.length > 0 ? fullR.join("\n-------------------\n") : "";
-                            csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(joinedH)},${clean(joinedR)}\n`;
-                        });
-                    }
-                }
-                
-                // 僅匯出檢查計畫
-                if (exportDataType === 'plans') {
-                    csvContent += "計畫名稱,年度,建立時間,更新時間,關聯事項數\n";
-                    plansData.forEach(plan => {
-                        csvContent += `${clean(plan.name)},${clean(plan.year)},${clean(new Date(plan.created_at).toLocaleString('zh-TW'))},${clean(new Date(plan.updated_at).toLocaleString('zh-TW'))},${clean(plan.issue_count || 0)}\n`;
-                    });
-                }
-                
-                const link = document.createElement("a");
-                link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })));
-                let fileName = '';
-                if (exportDataType === 'issues') {
-                    const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory';
-                    fileName = `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
-                } else if (exportDataType === 'plans') {
-                    fileName = `SMS_Plans_${new Date().toISOString().slice(0, 10)}.csv`;
-                } else {
-                    fileName = `SMS_AllData_${new Date().toISOString().slice(0, 10)}.csv`;
-                }
-                link.setAttribute("download", fileName);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showToast('CSV 匯出完成', 'success');
             } catch (e) { 
                 showToast('匯出失敗: ' + e.message, 'error'); 
             }
