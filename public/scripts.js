@@ -2104,22 +2104,42 @@ if (dashboard) {
                 // 逐一刪除（因為需要記錄每個計畫的名稱）
                 let successCount = 0;
                 let failCount = 0;
+                const errors = [];
                 
                 for (const id of ids) {
-                    const res = await fetch(`/api/plans/${id}`, { method: 'DELETE' });
-                    if (res.ok) {
-                        successCount++;
-                    } else {
+                    try {
+                        const res = await fetch(`/api/plans/${id}`, { method: 'DELETE' });
+                        const j = await res.json().catch(() => ({}));
+                        
+                        if (res.ok) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                            const plan = planList.find(p => p.id === id);
+                            const planName = plan ? `${plan.name}${plan.year ? ` (${plan.year})` : ''}` : `ID:${id}`;
+                            errors.push(`${planName}: ${j.error || '刪除失敗'}`);
+                        }
+                    } catch (e) {
                         failCount++;
+                        const plan = planList.find(p => p.id === id);
+                        const planName = plan ? `${plan.name}${plan.year ? ` (${plan.year})` : ''}` : `ID:${id}`;
+                        errors.push(`${planName}: ${e.message}`);
                     }
                 }
                 
                 if (successCount > 0) {
-                    showToast(`成功刪除 ${successCount} 筆${failCount > 0 ? `，失敗 ${failCount} 筆` : ''}`);
+                    let msg = `成功刪除 ${successCount} 筆`;
+                    if (failCount > 0) {
+                        msg += `，失敗 ${failCount} 筆`;
+                        if (errors.length > 0) {
+                            console.warn('刪除錯誤詳情：', errors);
+                        }
+                    }
+                    showToast(msg, failCount > 0 ? 'warning' : 'success');
                     loadPlansPage(plansPage);
                     loadPlanOptions();
                 } else {
-                    showToast('刪除失敗', 'error');
+                    showToast(`刪除失敗：${errors.length > 0 ? errors[0] : '未知錯誤'}`, 'error');
                 }
             } catch (e) {
                 showToast('刪除時發生錯誤: ' + e.message, 'error');

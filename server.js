@@ -948,9 +948,10 @@ app.delete('/api/plans/:id', requireAuth, async (req, res) => {
     if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
     try {
         // 先查詢計畫資訊以便記錄
-        const planRes = await pool.query("SELECT name FROM inspection_plans WHERE id=$1", [req.params.id]);
+        const planRes = await pool.query("SELECT name, year FROM inspection_plans WHERE id=$1", [req.params.id]);
         if (planRes.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
         const planName = planRes.rows[0].name;
+        const planYear = planRes.rows[0].year || '';
         
         // 檢查是否有關聯事項
         const issueCount = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1", [planName]);
@@ -961,10 +962,12 @@ app.delete('/api/plans/:id', requireAuth, async (req, res) => {
         }
         
         await pool.query("DELETE FROM inspection_plans WHERE id=$1", [req.params.id]);
-        const planYear = planResult.rows[0]?.year || '';
         logAction(req.session.user.username, 'DELETE_PLAN', `刪除檢查計畫：${planName}${planYear ? ` (年度：${planYear})` : ''}`, req);
         res.json({success:true});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        // 錯誤已在伺服器 log 中記錄
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 // 檢查計畫 CSV 匯入 API
