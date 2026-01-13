@@ -382,6 +382,7 @@
                 }
                 
                 console.log('載入計畫選項：', json.data.length, '筆');
+                console.log('計畫選項內容：', json.data);
                 
                 // 更新所有計畫選擇下拉選單
                 const selectIds = ['filterPlan', 'importPlanName', 'batchPlanName', 'manualPlanName'];
@@ -813,7 +814,32 @@ if (dashboard) {
         }
 
         function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }
-        async function loadUsersPage(page = 1) { usersPage = page; usersPageSize = parseInt(document.getElementById('usersPageSize').value, 10); const q = document.getElementById('userSearch').value || ''; const params = new URLSearchParams({ page: usersPage, pageSize: usersPageSize, q, sortField: usersSortField, sortDir: usersSortDir, _t: Date.now() }); try { const res = await fetch('/api/users?' + params.toString()); if (!res.ok) { showToast('載入使用者失敗', 'error'); return; } const j = await res.json(); userList = j.data || []; usersTotal = j.total || 0; usersPages = j.pages || 1; renderUsers(); renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage'); } catch (e) { console.error(e); showToast('載入使用者錯誤', 'error'); } }
+        async function loadUsersPage(page = 1) { 
+            usersPage = page; 
+            const usersPageSizeEl = document.getElementById('usersPageSize');
+            if (!usersPageSizeEl) {
+                console.warn('usersPageSize element not found, using default');
+                usersPageSize = 20;
+            } else {
+                usersPageSize = parseInt(usersPageSizeEl.value, 10) || 20;
+            }
+            const userSearchEl = document.getElementById('userSearch');
+            const q = userSearchEl ? (userSearchEl.value || '') : ''; 
+            const params = new URLSearchParams({ page: usersPage, pageSize: usersPageSize, q, sortField: usersSortField, sortDir: usersSortDir, _t: Date.now() }); 
+            try { 
+                const res = await fetch('/api/users?' + params.toString()); 
+                if (!res.ok) { showToast('載入使用者失敗', 'error'); return; } 
+                const j = await res.json(); 
+                userList = j.data || []; 
+                usersTotal = j.total || 0; 
+                usersPages = j.pages || 1; 
+                renderUsers(); 
+                renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage'); 
+            } catch (e) { 
+                console.error(e); 
+                showToast('載入使用者錯誤', 'error'); 
+            } 
+        }
         function renderUsers() { document.getElementById('usersTableBody').innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name || '-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id !== currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); }
         function usersSortBy(field) { if (usersSortField === field) usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; else { usersSortField = field; usersSortDir = 'asc'; } loadUsersPage(1); }
 
