@@ -2290,23 +2290,31 @@ if (dashboard) {
                                     body: JSON.stringify({ data: validData })
                                 });
                                 
-                                // 檢查回應類型
-                                const contentType = res.headers.get('content-type');
-                                if (!contentType || !contentType.includes('application/json')) {
+                                // 先檢查 HTTP 狀態碼
+                                if (res.status === 401) {
+                                    return showToast('匯入錯誤：請先登入系統', 'error');
+                                } else if (res.status === 403) {
+                                    return showToast('匯入錯誤：您沒有權限執行此操作', 'error');
+                                }
+                                
+                                // 嘗試解析 JSON（即使 Content-Type 不正確）
+                                let j;
+                                try {
                                     const text = await res.text();
-                                    console.error('Server returned non-JSON:', text.substring(0, 200));
-                                    if (res.status === 401) {
-                                        return showToast('匯入錯誤：請先登入系統', 'error');
-                                    } else if (res.status === 403) {
-                                        return showToast('匯入錯誤：您沒有權限執行此操作', 'error');
+                                    j = JSON.parse(text);
+                                } catch (parseError) {
+                                    // 如果解析失敗，檢查狀態碼
+                                    if (res.ok) {
+                                        // 如果狀態碼是 OK，但解析失敗，可能是格式問題，但實際可能已成功
+                                        return showToast('匯入完成，但無法解析伺服器回應。請重新整理頁面確認結果。', 'warning');
                                     } else {
                                         return showToast('匯入錯誤：伺服器回應格式錯誤（狀態碼：' + res.status + '）', 'error');
                                     }
                                 }
                                 
-                                const j = await res.json();
-                                if (res.ok) {
-                                    let msg = `匯入完成：成功 ${j.success} 筆`;
+                                // 檢查回應是否成功
+                                if (res.ok && j.success !== false) {
+                                    let msg = `匯入完成：成功 ${j.success || 0} 筆`;
                                     if (j.skipped > 0) {
                                         msg += `，跳過空行 ${j.skipped} 筆`;
                                     }
@@ -2314,17 +2322,15 @@ if (dashboard) {
                                         msg += `，失敗 ${j.failed} 筆`;
                                         if (j.errors && j.errors.length > 0) {
                                             // 錯誤詳情已在伺服器 log 中記錄
-                                            // 顯示前5個錯誤
-                                            const errorPreview = j.errors.slice(0, 5).join('\n');
-                                            if (j.errors.length > 5) {
-                                                msg += `\n（前5個錯誤：${errorPreview}...）`;
+                                            // 顯示前3個錯誤（避免訊息過長）
+                                            const errorPreview = j.errors.slice(0, 3).join('；');
+                                            if (j.errors.length > 3) {
+                                                msg += `\n（前3個錯誤：${errorPreview}...）`;
                                             } else {
                                                 msg += `\n（錯誤：${errorPreview}）`;
                                             }
                                         }
                                     }
-                                    
-                                    // 統計資訊已在伺服器 log 中記錄
                                     
                                     // 如果成功筆數少於有效資料筆數，顯示警告
                                     if (j.success < validData.length) {
@@ -2343,16 +2349,20 @@ if (dashboard) {
                                         loadPlanOptions();
                                     }, 500);
                                 } else {
+                                    // 如果狀態碼不是 OK 或 success 為 false
                                     showToast(j.error || '匯入失敗', 'error');
                                 }
                             } catch (e) {
-                                console.error('Import error:', e);
+                                // 只有在真正的網路錯誤或無法處理的錯誤時才顯示錯誤
+                                // 如果已經成功匯入，不應該顯示錯誤
                                 let errorMsg = '匯入錯誤：' + e.message;
-                                // 如果錯誤訊息包含 JSON 解析錯誤，提供更清楚的提示
-                                if (e.message.includes('Unexpected token')) {
-                                    errorMsg = '匯入錯誤：伺服器回應格式錯誤，請確認您有登入權限且具有管理員權限';
+                                if (e.message.includes('Unexpected token') || e.message.includes('JSON')) {
+                                    // JSON 解析錯誤，但可能已經成功匯入
+                                    errorMsg = '匯入可能已完成，但無法解析伺服器回應。請重新整理頁面確認結果。';
+                                    showToast(errorMsg, 'warning');
+                                } else {
+                                    showToast(errorMsg, 'error');
                                 }
-                                showToast(errorMsg, 'error');
                             }
                         }
                     });
