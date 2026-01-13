@@ -815,6 +815,13 @@ if (dashboard) {
 
         function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }
         async function loadUsersPage(page = 1) { 
+            // 檢查是否在 usersView 中
+            const usersView = document.getElementById('usersView');
+            if (!usersView || !usersView.classList.contains('active')) {
+                // 如果不在 usersView，不執行載入
+                return;
+            }
+            
             usersPage = page; 
             const usersPageSizeEl = document.getElementById('usersPageSize');
             if (!usersPageSizeEl) {
@@ -834,13 +841,23 @@ if (dashboard) {
                 usersTotal = j.total || 0; 
                 usersPages = j.pages || 1; 
                 renderUsers(); 
-                renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage'); 
+                const usersPaginationEl = document.getElementById('usersPagination');
+                if (usersPaginationEl) {
+                    renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage'); 
+                }
             } catch (e) { 
                 console.error(e); 
                 showToast('載入使用者錯誤', 'error'); 
             } 
         }
-        function renderUsers() { document.getElementById('usersTableBody').innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name || '-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id !== currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); }
+        function renderUsers() { 
+            const tbody = document.getElementById('usersTableBody');
+            if (!tbody) {
+                console.warn('usersTableBody element not found');
+                return;
+            }
+            tbody.innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name || '-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id !== currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); 
+        }
         function usersSortBy(field) { if (usersSortField === field) usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; else { usersSortField = field; usersSortDir = 'asc'; } loadUsersPage(1); }
 
         async function loadLogsPage(page = 1) {

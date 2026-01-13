@@ -744,21 +744,29 @@ app.post('/api/admin/action_logs/cleanup', requireAuth, async (req, res) => {
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
         // 優先從 inspection_plans 表取得資料，如果沒有資料則從 issues 表取得（向後兼容）
-        const planResult = await pool.query("SELECT DISTINCT name FROM inspection_plans ORDER BY year DESC, name ASC");
+        // 使用 COALESCE 處理 NULL 值，確保排序不會出錯
+        const planResult = await pool.query(`
+            SELECT DISTINCT name 
+            FROM inspection_plans 
+            WHERE name IS NOT NULL AND name != ''
+            ORDER BY COALESCE(year, '') DESC, name ASC
+        `);
         console.log(`[API] /api/options/plans: 查詢到 ${planResult.rows.length} 筆計畫`);
         if (planResult.rows.length > 0) {
             res.set('Cache-Control', 'no-store');
-            const planNames = planResult.rows.map(r => r.name);
+            const planNames = planResult.rows.map(r => r.name).filter(name => name && name.trim() !== '');
             console.log(`[API] /api/options/plans: 返回 ${planNames.length} 筆計畫名稱:`, planNames);
             res.json({ data: planNames });
         } else {
             // 向後兼容：如果 inspection_plans 表沒有資料，則從 issues 表取得
             const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");
             res.set('Cache-Control', 'no-store');
-            res.json({ data: result.rows.map(r => r.plan_name) });
+            const planNames = result.rows.map(r => r.plan_name).filter(name => name && name.trim() !== '');
+            res.json({ data: planNames });
         }
     } catch (e) { 
         console.error('[API] /api/options/plans 錯誤:', e);
+        console.error('[API] 錯誤堆疊:', e.stack);
         res.status(500).json({ error: e.message }); 
     }
 });
