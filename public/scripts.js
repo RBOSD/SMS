@@ -1631,34 +1631,52 @@ if (dashboard) {
             // 從計畫選項值中提取計畫名稱和年度
             const selectedPlan = isBackup ? { name: '', year: '' } : parsePlanValue(planValue);
             
-            // 檢查是否有年度不匹配的開立事項（僅在非備份模式下檢查）
-            if (!isBackup && selectedPlan.year) {
-                const selectedYear = String(selectedPlan.year).trim();
-                const mismatchedYears = [];
-                stagedImportData.forEach((item, index) => {
-                    const itemYear = String(item.year || '').trim();
-                    if (itemYear && itemYear !== selectedYear) {
-                        mismatchedYears.push({ index: index + 1, year: itemYear });
+            // 取得所有計畫選項，用於根據年度匹配計畫
+            let allPlans = [];
+            if (!isBackup) {
+                try {
+                    const plansRes = await fetch('/api/options/plans?t=' + Date.now());
+                    if (plansRes.ok) {
+                        const plansJson = await plansRes.json();
+                        allPlans = plansJson.data || [];
                     }
-                });
-                
-                if (mismatchedYears.length > 0) {
-                    const yearsList = [...new Set(mismatchedYears.map(m => m.year))].join('、');
-                    const warningMsg = `⚠️ 警告：您選擇的計畫是「${selectedPlan.name} (${selectedYear})」，但匯入的開立事項中有 ${mismatchedYears.length} 筆年度不匹配（年度：${yearsList}）。\n\n這些事項仍會使用選擇的計畫名稱，但可能導致不同年度的事項被歸類到同一計畫。\n\n是否繼續匯入？`;
-                    if (!confirm(warningMsg)) {
-                        return; // 用戶取消匯入
-                    }
+                } catch (e) {
+                    console.warn('無法載入計畫選項，將使用選擇的計畫名稱', e);
                 }
             }
 
             let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
                 if (currentImportMode === 'word') {
-                    // 直接使用用戶選擇的計畫名稱
-                    // 用戶選擇了「上半年定期檢查 (113)」，就應該綁定到這個計畫
-                    // 所有開立事項都使用選擇的計畫名稱
+                    // 根據開立事項的年度，自動匹配到相同名稱但對應年度的計畫
+                    // 例如：選擇「上半年定期檢查 (113)」，113年度的事項綁定到「上半年定期檢查 (113)」
+                    // 114年度的事項應該綁定到「上半年定期檢查 (114)」（如果存在）
                     if (!item.planName && selectedPlan.name) {
-                        // 直接使用選擇的計畫名稱
-                        item.planName = selectedPlan.name;
+                        const itemYear = String(item.year || '').trim();
+                        
+                        if (itemYear) {
+                            // 查找相同名稱且年度匹配的計畫
+                            const matchedPlan = allPlans.find(p => {
+                                const planName = typeof p === 'object' ? String(p.name || '').trim() : String(p || '').trim();
+                                const planYear = typeof p === 'object' ? String(p.year || '').trim() : '';
+                                // 計畫名稱必須與選擇的計畫名稱相同，且年度必須與開立事項的年度匹配
+                                return planName === selectedPlan.name && planYear === itemYear;
+                            });
+                            
+                            if (matchedPlan) {
+                                // 找到匹配的計畫，使用該計畫的名稱
+                                item.planName = typeof matchedPlan === 'object' ? matchedPlan.name : matchedPlan;
+                            } else if (selectedPlan.year && selectedPlan.year === itemYear) {
+                                // 選擇的計畫年度與事項年度匹配，使用選擇的計畫名稱
+                                item.planName = selectedPlan.name;
+                            } else {
+                                // 沒找到匹配的計畫，且年度不匹配
+                                // 使用選擇的計畫名稱（這會導致不同年度的事項被歸類到同一計畫）
+                                item.planName = selectedPlan.name;
+                            }
+                        } else {
+                            // 開立事項沒有年度，使用選擇的計畫名稱
+                            item.planName = selectedPlan.name;
+                        }
                     }
                     const stage = document.querySelector('input[name="importStage"]:checked') ? document.querySelector('input[name="importStage"]:checked').value : 'initial';
                     if (!item.issueDate && stage === 'initial') item.issueDate = issueDate;
