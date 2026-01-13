@@ -744,9 +744,10 @@ app.post('/api/admin/action_logs/cleanup', requireAuth, async (req, res) => {
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
         // 優先從 inspection_plans 表取得資料，如果沒有資料則從 issues 表取得（向後兼容）
-        // 使用 COALESCE 處理 NULL 值，確保排序不會出錯
+        // 注意：name 欄位有 UNIQUE 約束，所以不需要 DISTINCT
+        // 但為了確保，我們在 SELECT 中包含 year 以便正確排序，然後在應用層去重
         const planResult = await pool.query(`
-            SELECT DISTINCT name 
+            SELECT name, year 
             FROM inspection_plans 
             WHERE name IS NOT NULL AND name != ''
             ORDER BY COALESCE(year, '') DESC, name ASC
@@ -754,7 +755,14 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
         console.log(`[API] /api/options/plans: 查詢到 ${planResult.rows.length} 筆計畫`);
         if (planResult.rows.length > 0) {
             res.set('Cache-Control', 'no-store');
-            const planNames = planResult.rows.map(r => r.name).filter(name => name && name.trim() !== '');
+            // 使用 Set 去重（雖然理論上不需要，因為 name 有 UNIQUE 約束）
+            const planNamesSet = new Set();
+            planResult.rows.forEach(r => {
+                if (r.name && r.name.trim() !== '') {
+                    planNamesSet.add(r.name);
+                }
+            });
+            const planNames = Array.from(planNamesSet);
             console.log(`[API] /api/options/plans: 返回 ${planNames.length} 筆計畫名稱:`, planNames);
             res.json({ data: planNames });
         } else {
