@@ -402,7 +402,25 @@ app.get('/api/issues', requireAuth, async (req, res) => {
     if (itemKindCode) { where.push(`item_kind_code = $${idx}`); params.push(itemKindCode); idx++; }
     if (division) { where.push(`division_name = $${idx}`); params.push(division); idx++; }
     if (inspectionCategory) { where.push(`inspection_category_name = $${idx}`); params.push(inspectionCategory); idx++; }
-    if (planName) { where.push(`plan_name = $${idx}`); params.push(planName); idx++; }
+    // 修正：如果提供了計畫名稱，需要同時考慮年度來精確匹配
+    // planName 參數現在可能是 "planName|||year" 格式，或者只有 planName
+    if (planName) {
+        const planParts = planName.split('|||');
+        const actualPlanName = planParts[0];
+        const planYear = planParts[1];
+        
+        if (planYear) {
+            // 如果提供了年度，同時匹配計畫名稱和年度
+            where.push(`plan_name = $${idx} AND year = $${idx+1}`);
+            params.push(actualPlanName, planYear);
+            idx += 2;
+        } else {
+            // 如果沒有提供年度，只匹配計畫名稱（向後兼容）
+            where.push(`plan_name = $${idx}`);
+            params.push(actualPlanName);
+            idx++;
+        }
+    }
 
     let orderBy = "created_at DESC";
     const validCols = ['year', 'number', 'unit', 'status', 'created_at'];

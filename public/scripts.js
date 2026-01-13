@@ -393,8 +393,6 @@
                     return;
                 }
                 
-                // 載入計畫選項（已移除 debug 日誌）
-                
                 // 更新所有計畫選擇下拉選單
                 const selectIds = ['filterPlan', 'importPlanName', 'batchPlanName', 'manualPlanName'];
                 selectIds.forEach(selectId => {
@@ -403,41 +401,76 @@
                         const currentValue = select.value;
                         // 保留第一個選項（通常是「全部計畫」或「請選擇計畫」）
                         const firstOption = select.options[0] ? select.options[0].outerHTML : '';
-                            // 建立完整的選項列表（避免重複）
-                            const existingValues = new Set();
-                            if (firstOption) {
-                                // 從第一個選項中提取值
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = firstOption;
-                                const firstOpt = tempDiv.querySelector('option');
-                                if (firstOpt && firstOpt.value) {
-                                    existingValues.add(firstOpt.value);
-                                }
+                        
+                        // 處理新的資料格式，按計畫名稱分組
+                        const planGroups = new Map(); // key: 計畫名稱, value: 該名稱下的所有年度計畫
+                        const existingValues = new Set();
+                        
+                        if (firstOption) {
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = firstOption;
+                            const firstOpt = tempDiv.querySelector('option');
+                            if (firstOpt && firstOpt.value) {
+                                existingValues.add(firstOpt.value);
+                            }
+                        }
+                        
+                        // 將計畫按名稱分組
+                        json.data.forEach(p => {
+                            let planName, planYear, planValue, planDisplay;
+                            
+                            if (typeof p === 'object' && p !== null) {
+                                planName = p.name || '';
+                                planYear = p.year || '';
+                                planValue = p.value || `${planName}|||${planYear}`;
+                                planDisplay = p.display || `${planName}${planYear ? ` (${planYear})` : ''}`;
+                            } else {
+                                // 舊格式（字串），向後兼容
+                                planName = p;
+                                planYear = '';
+                                planValue = p;
+                                planDisplay = p;
                             }
                             
-                            // 處理新的資料格式（可能包含 {name, year, display, value} 或舊的字串格式）
-                            const allOptions = json.data.map(p => {
-                                let planValue, planDisplay;
-                                
-                                // 檢查是否為新格式（物件）
-                                if (typeof p === 'object' && p !== null) {
-                                    planValue = p.value || `${p.name}|||${p.year || ''}`;
-                                    planDisplay = p.display || `${p.name}${p.year ? ` (${p.year})` : ''}`;
-                                } else {
-                                    // 舊格式（字串），向後兼容
-                                    planValue = p;
-                                    planDisplay = p;
+                            if (!existingValues.has(planValue) && planName) {
+                                existingValues.add(planValue);
+                                if (!planGroups.has(planName)) {
+                                    planGroups.set(planName, []);
                                 }
-                                
-                                if (!existingValues.has(planValue)) {
-                                    existingValues.add(planValue);
-                                    return `<option value="${planValue}">${planDisplay}</option>`;
-                                }
-                                return '';
-                            }).filter(opt => opt).join('');
+                                planGroups.get(planName).push({ value: planValue, display: planDisplay, year: planYear });
+                            }
+                        });
+                        
+                        // 建立選項 HTML
+                        let allOptions = '';
+                        
+                        // 如果有多個相同名稱的計畫（不同年度），使用 optgroup 分組
+                        // 如果只有一個計畫或沒有年度資訊，直接顯示選項
+                        planGroups.forEach((plans, planName) => {
+                            // 按年度排序（降序，最新的在前）
+                            plans.sort((a, b) => {
+                                const yearA = parseInt(a.year) || 0;
+                                const yearB = parseInt(b.year) || 0;
+                                return yearB - yearA;
+                            });
                             
-                            // 完全重建選項列表，確保所有計畫都顯示
-                            select.innerHTML = firstOption + allOptions;
+                            if (plans.length > 1 && plans.some(p => p.year)) {
+                                // 有多個年度，使用 optgroup
+                                allOptions += `<optgroup label="${planName}">`;
+                                plans.forEach(plan => {
+                                    allOptions += `<option value="${plan.value}">${plan.display}</option>`;
+                                });
+                                allOptions += `</optgroup>`;
+                            } else {
+                                // 只有一個計畫或沒有年度資訊，直接顯示
+                                plans.forEach(plan => {
+                                    allOptions += `<option value="${plan.value}">${plan.display}</option>`;
+                                });
+                            }
+                        });
+                        
+                        // 完全重建選項列表
+                        select.innerHTML = firstOption + allOptions;
                         
                         // 恢復之前選擇的值
                         if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
@@ -746,8 +779,9 @@ if (dashboard) {
             const division = document.getElementById('filterDivision') ? document.getElementById('filterDivision').value : '';
             const inspection = document.getElementById('filterInspection') ? document.getElementById('filterInspection').value : '';
             const planValue = document.getElementById('filterPlan') ? document.getElementById('filterPlan').value : '';
-            // 從計畫選項值中提取計畫名稱（用於查詢）
-            const planName = planValue ? parsePlanValue(planValue).name : '';
+            // 從計畫選項值中提取計畫名稱和年度（用於查詢）
+            // 傳遞完整值（包含年度資訊）給後端，格式為 "planName|||year"
+            const planName = planValue || '';
 
             // 預設以年度最新排序（降序）
             let sortField = 'year', sortDir = 'desc';
