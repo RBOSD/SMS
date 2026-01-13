@@ -1639,6 +1639,8 @@ if (dashboard) {
                     if (plansRes.ok) {
                         const plansJson = await plansRes.json();
                         allPlans = plansJson.data || [];
+                        console.log('載入的計畫選項：', allPlans);
+                        console.log('選擇的計畫：', selectedPlan);
                     }
                 } catch (e) {
                     console.warn('無法載入計畫選項，將使用選擇的計畫名稱', e);
@@ -1659,19 +1661,26 @@ if (dashboard) {
                                 const planName = typeof p === 'object' ? String(p.name || '').trim() : String(p || '').trim();
                                 const planYear = typeof p === 'object' ? String(p.year || '').trim() : '';
                                 // 計畫名稱必須與選擇的計畫名稱相同，且年度必須與開立事項的年度匹配
-                                return planName === selectedPlan.name && planYear === itemYear;
+                                const isMatch = planName === selectedPlan.name && planYear === itemYear;
+                                if (isMatch) {
+                                    console.log(`找到匹配的計畫：事項年度=${itemYear}，計畫名稱="${planName}"，計畫年度="${planYear}"`);
+                                }
+                                return isMatch;
                             });
                             
                             if (matchedPlan) {
                                 // 找到匹配的計畫，使用該計畫的名稱
                                 item.planName = typeof matchedPlan === 'object' ? matchedPlan.name : matchedPlan;
+                                console.log(`✅ 使用匹配的計畫：${item.planName}`);
                             } else if (selectedPlan.year && selectedPlan.year === itemYear) {
                                 // 選擇的計畫年度與事項年度匹配，使用選擇的計畫名稱
                                 item.planName = selectedPlan.name;
+                                console.log(`✅ 使用選擇的計畫（年度匹配）：${item.planName}`);
                             } else {
                                 // 沒找到匹配的計畫，且年度不匹配
                                 // 使用選擇的計畫名稱（這會導致不同年度的事項被歸類到同一計畫）
                                 item.planName = selectedPlan.name;
+                                console.warn(`⚠️ 找不到匹配的計畫：選擇的計畫名稱="${selectedPlan.name}"，選擇的計畫年度="${selectedPlan.year}"，事項年度="${itemYear}"。使用選擇的計畫名稱。`);
                             }
                         } else {
                             // 開立事項沒有年度，使用選擇的計畫名稱

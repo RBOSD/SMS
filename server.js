@@ -919,6 +919,7 @@ app.get('/api/plans', requireAuth, async (req, res) => {
         const total = parseInt(cRes.rows[0].count);
         
         // 使用 LEFT JOIN 一次性獲取計畫資料和事項數量
+        // 修正：加入年度條件，確保只統計相同名稱且年度匹配的事項
         const dataQuery = `
             SELECT 
                 p.id, 
@@ -928,7 +929,7 @@ app.get('/api/plans', requireAuth, async (req, res) => {
                 p.updated_at,
                 COALESCE(COUNT(DISTINCT i.id), 0) as issue_count
             FROM inspection_plans p
-            LEFT JOIN issues i ON i.plan_name = p.name
+            LEFT JOIN issues i ON i.plan_name = p.name AND i.year = p.year
             WHERE ${where.join(" AND ")}
             GROUP BY p.id, p.name, p.year, p.created_at, p.updated_at
             ORDER BY ${order}
@@ -974,9 +975,11 @@ app.get('/api/plans/:id/issues', requireAuth, async (req, res) => {
         const limit = parseInt(pageSize);
         const offset = (page-1)*limit;
         
-        const countRes = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1", [planName]);
+        const planYear = planResult.rows[0].year || '';
+        // 修正：加入年度條件，確保只查詢相同名稱且年度匹配的事項
+        const countRes = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1 AND year = $2", [planName, planYear]);
         const total = parseInt(countRes.rows[0].count);
-        const dataRes = await pool.query("SELECT * FROM issues WHERE plan_name = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3", [planName, limit, offset]);
+        const dataRes = await pool.query("SELECT * FROM issues WHERE plan_name = $1 AND year = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4", [planName, planYear, limit, offset]);
         
         res.json({data: dataRes.rows, total, page: parseInt(page), pages: Math.ceil(total/limit)});
     } catch (e) { res.status(500).json({ error: e.message }); }
