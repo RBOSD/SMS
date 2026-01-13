@@ -322,10 +322,25 @@
 <div id="tab-data-export" class="hidden">
     <div class="detail-card" style="max-width:800px; text-align:center; padding:40px;">
         <h3 style="margin-top:0; color:#334155;">匯出所有資料</h3>
-        <p style="color:#64748b; margin-bottom:24px;">將系統中所有開立事項匯出。<br>CSV 適合 Excel 編輯，JSON 適合系統備份與還原。</p>
+        <p style="color:#64748b; margin-bottom:24px;">將系統中的資料匯出。<br>CSV 適合 Excel 編輯，JSON 適合系統備份與還原。</p>
 
         <div style="margin-bottom:24px; display:flex; flex-direction:column; gap:12px; align-items:center;">
-            <div style="font-weight:600; color:#475569; font-size:13px; margin-bottom:4px;">1. 選擇匯出內容</div>
+            <div style="font-weight:600; color:#475569; font-size:13px; margin-bottom:4px;">1. 選擇匯出資料類型</div>
+            <div style="display:flex; flex-direction:column; gap:12px; align-items:flex-start; width:100%; max-width:400px;">
+                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <input type="radio" name="exportDataType" value="issues" checked> 僅匯出開立事項
+                </label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <input type="radio" name="exportDataType" value="plans"> 僅匯出檢查計畫
+                </label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                    <input type="radio" name="exportDataType" value="both"> 匯出開立事項與檢查計畫（合併）
+                </label>
+            </div>
+        </div>
+
+        <div id="exportIssuesOptions" style="margin-bottom:24px; display:flex; flex-direction:column; gap:12px; align-items:center;">
+            <div style="font-weight:600; color:#475569; font-size:13px; margin-bottom:4px;">2. 選擇匯出內容（開立事項）</div>
             <div style="display:flex; gap:20px;">
                 <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
                     <input type="radio" name="exportScope" value="latest" checked> 僅匯出最新進度
@@ -337,7 +352,7 @@
         </div>
 
         <div style="margin-bottom:30px; display:flex; flex-direction:column; gap:12px; align-items:center;">
-            <div style="font-weight:600; color:#475569; font-size:13px; margin-bottom:4px;">2. 選擇檔案格式</div>
+            <div style="font-weight:600; color:#475569; font-size:13px; margin-bottom:4px;">3. 選擇檔案格式</div>
             <div style="display:flex; gap:20px;">
                 <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
                     <input type="radio" name="exportFormat" value="csv" checked> CSV (Excel)
@@ -349,7 +364,7 @@
             </div>
         </div>
 
-        <button class="btn btn-primary" onclick="exportAllIssues()">執行匯出</button>
+        <button class="btn btn-primary" onclick="exportAllData()">執行匯出</button>
     </div>
 </div>
 

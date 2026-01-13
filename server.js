@@ -631,6 +631,89 @@ app.delete('/api/users/:id', requireAuth, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 帳號匯入 API
+app.post('/api/users/import', requireAuth, async (req, res) => {
+    if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+    const { data } = req.body;
+    if (!data || !Array.isArray(data)) return res.status(400).json({error: '無效的資料格式'});
+    
+    const results = { success: 0, failed: 0, errors: [] };
+    
+    for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        const { name, username, role, password } = row;
+        
+        // 驗證必填欄位
+        if (!name || !username || !role) {
+            results.failed++;
+            results.errors.push(`第 ${i + 2} 行：姓名、帳號和權限為必填`);
+            continue;
+        }
+        
+        // 驗證權限值
+        const validRoles = ['admin', 'manager', 'editor', 'viewer'];
+        if (!validRoles.includes(role.toLowerCase())) {
+            results.failed++;
+            results.errors.push(`第 ${i + 2} 行（${name}）：無效的權限值 "${role}"，應為：${validRoles.join(', ')}`);
+            continue;
+        }
+        
+        try {
+            // 檢查是否已存在相同帳號
+            const checkRes = await pool.query("SELECT id FROM users WHERE username = $1", [username]);
+            const exists = checkRes.rows.length > 0;
+            
+            if (exists) {
+                // 如果已存在，更新資料（但不更新密碼，除非有提供）
+                if (password && password.length >= 8) {
+                    const hash = bcrypt.hashSync(password, 10);
+                    await pool.query(
+                        "UPDATE users SET name=$1, role=$2, password=$3 WHERE username=$4",
+                        [name, role.toLowerCase(), hash, username]
+                    );
+                } else {
+                    await pool.query(
+                        "UPDATE users SET name=$1, role=$2 WHERE username=$3",
+                        [name, role.toLowerCase(), username]
+                    );
+                }
+                results.success++;
+            } else {
+                // 如果不存在，新增帳號
+                // 如果沒有提供密碼，使用預設密碼（建議在匯入時提供）
+                let hash;
+                if (password && password.length >= 8) {
+                    hash = bcrypt.hashSync(password, 10);
+                } else {
+                    // 預設密碼為 username@123456（建議匯入時提供密碼）
+                    hash = bcrypt.hashSync(`${username}@123456`, 10);
+                }
+                
+                await pool.query(
+                    "INSERT INTO users (name, username, role, password) VALUES ($1, $2, $3, $4) RETURNING id",
+                    [name, username, role.toLowerCase(), hash]
+                );
+                results.success++;
+            }
+        } catch (e) {
+            results.failed++;
+            const errorMsg = `第 ${i + 2} 行（${name}）：${e.message}`;
+            results.errors.push(errorMsg);
+        }
+    }
+    
+    if (results.success > 0) {
+        logAction(req.session.user.username, 'IMPORT_USERS', `匯入帳號：成功 ${results.success} 筆，失敗 ${results.failed} 筆`, req);
+    }
+    
+    res.json({
+        success: true,
+        successCount: results.success,
+        failed: results.failed,
+        errors: results.errors
+    });
+});
+
 // --- Admin Logs API ---
 
 app.get('/api/admin/logs', requireAuth, async (req, res) => {

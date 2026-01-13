@@ -1705,6 +1705,39 @@ if (dashboard) {
                     loadPlansPage(plansPage || 1);
                 }, 200);
             }
+            if (tab === 'export') {
+                // 設置匯出選項的顯示/隱藏
+                setTimeout(() => setupExportOptions(), 100);
+            }
+        }
+        
+        function setupExportOptions() {
+            const exportDataTypeRadios = document.querySelectorAll('input[name="exportDataType"]');
+            const exportIssuesOptions = document.getElementById('exportIssuesOptions');
+            
+            if (exportDataTypeRadios.length > 0 && exportIssuesOptions) {
+                exportDataTypeRadios.forEach(radio => {
+                    // 移除舊的事件監聽器（如果有的話）
+                    const newRadio = radio.cloneNode(true);
+                    radio.parentNode.replaceChild(newRadio, radio);
+                    
+                    newRadio.addEventListener('change', function() {
+                        if (this.value === 'plans') {
+                            exportIssuesOptions.style.display = 'none';
+                        } else {
+                            exportIssuesOptions.style.display = 'flex';
+                        }
+                    });
+                });
+                
+                // 初始化顯示狀態
+                const checked = document.querySelector('input[name="exportDataType"]:checked');
+                if (checked && checked.value === 'plans') {
+                    exportIssuesOptions.style.display = 'none';
+                } else {
+                    exportIssuesOptions.style.display = 'flex';
+                }
+            }
         }
 
         // --- Batch Edit Logic ---
@@ -1943,58 +1976,143 @@ if (dashboard) {
             } catch (e) { showToast('Error: ' + e.message, 'error'); }
         }
 
+        // 保留舊函數名稱以向後兼容
         async function exportAllIssues() {
+            return exportAllData();
+        }
+
+        async function exportAllData() {
             try {
-                const exportScope = document.querySelector('input[name="exportScope"]:checked').value;
+                const exportDataType = document.querySelector('input[name="exportDataType"]:checked')?.value || 'issues';
+                const exportScope = document.querySelector('input[name="exportScope"]:checked')?.value || 'latest';
                 const exportFormat = document.querySelector('input[name="exportFormat"]:checked').value;
-                showToast('準備匯出中，請稍候...');
-                const res = await fetch('/api/issues?page=1&pageSize=10000&sortField=created_at&sortDir=desc');
-                if (!res.ok) throw new Error('取得資料失敗');
-                const json = await res.json();
-                const data = json.data || [];
-                if (data.length === 0) return showToast('無資料可匯出', 'error');
+                showToast('準備匯出中，請稍候...', 'info');
+                
+                const clean = (t) => `"${String(t || '').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
+                let issuesData = [];
+                let plansData = [];
+                
+                // 根據選擇的資料類型獲取資料
+                if (exportDataType === 'issues' || exportDataType === 'both') {
+                    const res = await fetch('/api/issues?page=1&pageSize=10000&sortField=created_at&sortDir=desc');
+                    if (!res.ok) throw new Error('取得開立事項資料失敗');
+                    const json = await res.json();
+                    issuesData = json.data || [];
+                }
+                
+                if (exportDataType === 'plans' || exportDataType === 'both') {
+                    const res = await fetch('/api/plans?page=1&pageSize=10000&sortField=id&sortDir=desc');
+                    if (!res.ok) throw new Error('取得檢查計畫資料失敗');
+                    const json = await res.json();
+                    plansData = json.data || [];
+                }
+                
+                // 檢查是否有資料可匯出
+                if (exportDataType === 'issues' && issuesData.length === 0) {
+                    return showToast('無開立事項資料可匯出', 'error');
+                }
+                if (exportDataType === 'plans' && plansData.length === 0) {
+                    return showToast('無檢查計畫資料可匯出', 'error');
+                }
+                if (exportDataType === 'both' && issuesData.length === 0 && plansData.length === 0) {
+                    return showToast('無資料可匯出', 'error');
+                }
 
+                // JSON 格式匯出
                 if (exportFormat === 'json') {
-                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `SMS_Backup_${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('JSON 匯出完成'); return;
+                    const exportData = {};
+                    if (exportDataType === 'issues' || exportDataType === 'both') {
+                        exportData.issues = issuesData;
+                    }
+                    if (exportDataType === 'plans' || exportDataType === 'both') {
+                        exportData.plans = plansData;
+                    }
+                    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    const dataTypeLabel = exportDataType === 'issues' ? 'Issues' : (exportDataType === 'plans' ? 'Plans' : 'All');
+                    link.download = `SMS_Backup_${dataTypeLabel}_${new Date().toISOString().slice(0, 10)}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('JSON 匯出完成', 'success');
+                    return;
                 }
 
-                let csvContent = '\uFEFF'; const clean = (t) => `"${String(t || '').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
-
-                const baseHeader = "編號,年度,機構,分組,檢查種類,類型,狀態,事項內容";
-
-                if (exportScope === 'latest') {
-                    csvContent += baseHeader + ",最新辦理情形,最新審查意見\n";
-                    data.forEach(item => {
-                        let latestH = '', latestR = '';
-                        // 支持無限次，動態查找最新資料（從200向下找）
-                        for (let i = 200; i >= 1; i--) { 
-                            const suffix = i === 1 ? '' : i;
-                            if (!latestH && (item[`handling${suffix}`])) latestH = item[`handling${suffix}`]; 
-                            if (!latestR && (item[`review${suffix}`])) latestR = item[`review${suffix}`]; 
-                        }
-
-                        csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(latestH)},${clean(latestR)}\n`;
+                // CSV 格式匯出
+                let csvContent = '\uFEFF';
+                
+                if (exportDataType === 'both') {
+                    // 合併匯出：先匯出檢查計畫，再匯出開立事項
+                    // 檢查計畫
+                    csvContent += "=== 檢查計畫 ===\n";
+                    csvContent += "計畫名稱,年度,建立時間,更新時間,關聯事項數\n";
+                    plansData.forEach(plan => {
+                        csvContent += `${clean(plan.name)},${clean(plan.year)},${clean(new Date(plan.created_at).toLocaleString('zh-TW'))},${clean(new Date(plan.updated_at).toLocaleString('zh-TW'))},${clean(plan.issue_count || 0)}\n`;
                     });
+                    
+                    csvContent += "\n=== 開立事項 ===\n";
+                }
+                
+                // 開立事項
+                if (exportDataType === 'issues' || exportDataType === 'both') {
+                    const baseHeader = "編號,年度,機構,分組,檢查種類,類型,狀態,事項內容";
+                    
+                    if (exportScope === 'latest') {
+                        csvContent += baseHeader + ",最新辦理情形,最新審查意見\n";
+                        issuesData.forEach(item => {
+                            let latestH = '', latestR = '';
+                            for (let i = 200; i >= 1; i--) { 
+                                const suffix = i === 1 ? '' : i;
+                                if (!latestH && (item[`handling${suffix}`])) latestH = item[`handling${suffix}`]; 
+                                if (!latestR && (item[`review${suffix}`])) latestR = item[`review${suffix}`]; 
+                            }
+                            csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(latestH)},${clean(latestR)}\n`;
+                        });
+                    } else {
+                        csvContent += baseHeader + ",完整辦理情形歷程,完整審查意見歷程\n";
+                        issuesData.forEach(item => {
+                            let fullH = [], fullR = [];
+                            for (let i = 1; i <= 200; i++) {
+                                const suffix = i === 1 ? '' : i;
+                                const valH = item[`handling${suffix}`], valR = item[`review${suffix}`];
+                                if (valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`); 
+                                if (valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`);
+                            }
+                            const joinedH = fullH.length > 0 ? fullH.join("\n-------------------\n") : "";
+                            const joinedR = fullR.length > 0 ? fullR.join("\n-------------------\n") : "";
+                            csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(joinedH)},${clean(joinedR)}\n`;
+                        });
+                    }
+                }
+                
+                // 僅匯出檢查計畫
+                if (exportDataType === 'plans') {
+                    csvContent += "計畫名稱,年度,建立時間,更新時間,關聯事項數\n";
+                    plansData.forEach(plan => {
+                        csvContent += `${clean(plan.name)},${clean(plan.year)},${clean(new Date(plan.created_at).toLocaleString('zh-TW'))},${clean(new Date(plan.updated_at).toLocaleString('zh-TW'))},${clean(plan.issue_count || 0)}\n`;
+                    });
+                }
+                
+                const link = document.createElement("a");
+                link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })));
+                let fileName = '';
+                if (exportDataType === 'issues') {
+                    const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory';
+                    fileName = `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
+                } else if (exportDataType === 'plans') {
+                    fileName = `SMS_Plans_${new Date().toISOString().slice(0, 10)}.csv`;
                 } else {
-                    csvContent += baseHeader + ",完整辦理情形歷程,完整審查意見歷程\n";
-                    data.forEach(item => {
-                        let fullH = [], fullR = [];
-                        // 支持無限次，動態查找（從1到200，實際應該不會超過這個數字）
-                        for (let i = 1; i <= 200; i++) {
-                            const suffix = i === 1 ? '' : i;
-                            const valH = item[`handling${suffix}`], valR = item[`review${suffix}`];
-                            if (valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`); 
-                            if (valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`);
-                        }
-                        const joinedH = fullH.length > 0 ? fullH.join("\n-------------------\n") : "";
-                        const joinedR = fullR.length > 0 ? fullR.join("\n-------------------\n") : "";
-
-                        csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(joinedH)},${clean(joinedR)}\n`;
-                    });
+                    fileName = `SMS_AllData_${new Date().toISOString().slice(0, 10)}.csv`;
                 }
-                const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory'; link.setAttribute("download", `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0, 10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('CSV 匯出完成');
-            } catch (e) { showToast('匯出失敗: ' + e.message, 'error'); }
+                link.setAttribute("download", fileName);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast('CSV 匯出完成', 'success');
+            } catch (e) { 
+                showToast('匯出失敗: ' + e.message, 'error'); 
+            }
         }
 
         // --- User modal submit & password strength ---
@@ -2005,6 +2123,237 @@ if (dashboard) {
         async function openUserModal(mode, id) { const m = document.getElementById('userModal'), t = document.getElementById('userModalTitle'), e = document.getElementById('uEmail'); if (mode === 'create') { t.innerText = '新增'; document.getElementById('targetUserId').value = ''; document.getElementById('uName').value = ''; e.value = ''; e.disabled = false; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('pwdHint').innerText = ''; document.getElementById('uRole').value = 'viewer'; } else { const u = userList.find(x => x.id === id) || {}; t.innerText = '編輯'; document.getElementById('targetUserId').value = u.id || ''; document.getElementById('uName').value = u.name || ''; e.value = u.username || ''; e.disabled = true; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdHint').innerText = '(留空不改)'; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('uRole').value = u.role || 'viewer'; } m.classList.add('open'); }
         async function submitUser() { const id = document.getElementById('targetUserId').value, name = document.getElementById('uName').value, email = document.getElementById('uEmail').value, pwd = document.getElementById('uPwd').value, pwdConfirm = document.getElementById('uPwdConfirm').value, role = document.getElementById('uRole').value; if (!id) { if (!email) return showToast('請輸入帳號', 'error'); if (!pwd) return showToast('請輸入密碼', 'error'); if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: email, name, password: pwd, role }) }); const j = await res.json(); if (res.ok) { showToast('新增成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(1); } else showToast(j.error || '新增失敗', 'error'); } else { const payload = { name, role }; if (pwd) { if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); payload.password = pwd; } const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const j = await res.json(); if (res.ok) { showToast('更新成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(usersPage); } else showToast(j.error || '更新失敗', 'error'); } }
         async function deleteUser(id) { if (!confirm('確定?')) return; const res = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if (res.ok) { showToast('刪除成功'); loadUsersPage(1); } else showToast('刪除失敗', 'error'); }
+        
+        // 帳號匯出功能
+        async function exportUsers() {
+            try {
+                showToast('準備匯出中，請稍候...', 'info');
+                // 取得所有帳號資料
+                const res = await fetch('/api/users?page=1&pageSize=10000');
+                if (!res.ok) throw new Error('取得帳號資料失敗');
+                const json = await res.json();
+                const users = json.data || [];
+                
+                if (users.length === 0) {
+                    return showToast('無帳號資料可匯出', 'error');
+                }
+                
+                // 詢問匯出格式
+                const format = confirm('選擇匯出格式：\n確定 = CSV\n取消 = JSON') ? 'csv' : 'json';
+                
+                if (format === 'json') {
+                    const blob = new Blob([JSON.stringify(users, null, 2)], { type: 'application/json' });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `Users_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('JSON 匯出完成', 'success');
+                } else {
+                    // CSV 格式（不包含密碼）
+                    let csvContent = '\uFEFF';
+                    csvContent += "姓名,帳號,權限,建立時間\n";
+                    users.forEach(user => {
+                        const clean = (t) => `"${String(t || '').replace(/"/g, '""').trim()}"`;
+                        csvContent += `${clean(user.name)},${clean(user.username)},${clean(getRoleName(user.role))},${clean(new Date(user.created_at).toLocaleString('zh-TW'))}\n`;
+                    });
+                    
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `Users_${new Date().toISOString().slice(0, 10)}.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast('CSV 匯出完成', 'success');
+                }
+            } catch (e) {
+                showToast('匯出失敗: ' + e.message, 'error');
+            }
+        }
+        
+        // 帳號匯入功能
+        function openUserImportModal() {
+            const modal = document.getElementById('userImportModal');
+            if (modal) modal.classList.add('open');
+        }
+        
+        function closeUserImportModal() {
+            const modal = document.getElementById('userImportModal');
+            if (modal) {
+                modal.classList.remove('open');
+                const fileInput = document.getElementById('userImportFile');
+                if (fileInput) fileInput.value = '';
+            }
+        }
+        
+        function downloadUserCSVTemplate() {
+            const csv = '姓名,帳號,權限,密碼\n張三,zhang@example.com,editor,password123\n李四,li@example.com,manager,password123';
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = '帳號匯入範例.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        async function importUsersCSV() {
+            const fileInput = document.getElementById('userImportFile');
+            if (!fileInput) return showToast('找不到檔案選擇器', 'error');
+            const file = fileInput.files[0];
+            if (!file) return showToast('請選擇 CSV 檔案', 'error');
+            
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const csv = e.target.result;
+                    Papa.parse(csv, {
+                        header: true,
+                        skipEmptyLines: true,
+                        encoding: "UTF-8",
+                        transformHeader: function(header) {
+                            return header.trim();
+                        },
+                        transform: function(value) {
+                            return value ? value.trim() : '';
+                        },
+                        complete: async function(results) {
+                            if (results.errors.length && results.data.length === 0) {
+                                return showToast('CSV 解析錯誤：' + (results.errors[0]?.message || '未知錯誤'), 'error');
+                            }
+                            
+                            const validData = [];
+                            const invalidRows = [];
+                            
+                            results.data.forEach((row, index) => {
+                                // 支援多種欄位名稱
+                                let name = '';
+                                let username = '';
+                                let role = '';
+                                let password = '';
+                                
+                                for (const key in row) {
+                                    const cleanKey = key.trim();
+                                    if (cleanKey === '姓名' || cleanKey === 'name') {
+                                        name = String(row[key] || '').trim();
+                                    }
+                                    if (cleanKey === '帳號' || cleanKey === 'username' || cleanKey === 'email') {
+                                        username = String(row[key] || '').trim();
+                                    }
+                                    if (cleanKey === '權限' || cleanKey === 'role') {
+                                        role = String(row[key] || '').trim();
+                                    }
+                                    if (cleanKey === '密碼' || cleanKey === 'password') {
+                                        password = String(row[key] || '').trim();
+                                    }
+                                }
+                                
+                                // 驗證必填欄位
+                                if (!name || !username || !role) {
+                                    invalidRows.push({
+                                        row: index + 2,
+                                        name: name || '(空白)',
+                                        username: username || '(空白)',
+                                        role: role || '(空白)'
+                                    });
+                                    return;
+                                }
+                                
+                                // 驗證權限值
+                                const validRoles = ['admin', 'manager', 'editor', 'viewer'];
+                                if (!validRoles.includes(role.toLowerCase())) {
+                                    invalidRows.push({
+                                        row: index + 2,
+                                        error: `無效的權限值：${role}（應為：admin, manager, editor, viewer）`
+                                    });
+                                    return;
+                                }
+                                
+                                validData.push({ name, username, role: role.toLowerCase(), password });
+                            });
+                            
+                            if (validData.length === 0) {
+                                let errorMsg = 'CSV 檔案中沒有有效的資料';
+                                if (invalidRows.length > 0) {
+                                    errorMsg += `\n發現 ${invalidRows.length} 筆資料格式錯誤`;
+                                    console.error('無效行詳情：', invalidRows);
+                                }
+                                return showToast(errorMsg, 'error');
+                            }
+                            
+                            try {
+                                const res = await fetch('/api/users/import', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
+                                    body: JSON.stringify({ data: validData })
+                                });
+                                
+                                if (res.status === 401) {
+                                    return showToast('匯入錯誤：請先登入系統', 'error');
+                                } else if (res.status === 403) {
+                                    return showToast('匯入錯誤：您沒有權限執行此操作', 'error');
+                                }
+                                
+                                let j;
+                                try {
+                                    j = await res.json();
+                                } catch (parseError) {
+                                    if (res.ok) {
+                                        showToast('匯入可能已完成，但無法解析伺服器回應。請重新整理頁面確認結果。', 'warning');
+                                        closeUserImportModal();
+                                        await loadUsersPage(1);
+                                        return;
+                                    } else {
+                                        return showToast('匯入錯誤：伺服器回應格式錯誤（狀態碼：' + res.status + '）', 'error');
+                                    }
+                                }
+                                
+                                if (res.ok && j.success === true) {
+                                    const successCount = j.successCount || 0;
+                                    let msg = `匯入完成：成功 ${successCount} 筆`;
+                                    if (j.failed > 0) {
+                                        msg += `，失敗 ${j.failed} 筆`;
+                                        if (j.errors && j.errors.length > 0) {
+                                            const errorPreview = j.errors.slice(0, 3).join('；');
+                                            if (j.errors.length > 3) {
+                                                msg += `\n（前3個錯誤：${errorPreview}...）`;
+                                            } else {
+                                                msg += `\n（錯誤：${errorPreview}）`;
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (successCount < validData.length) {
+                                        msg += `\n⚠️ 注意：前端解析到 ${validData.length} 筆有效資料，但只成功匯入 ${successCount} 筆。可能是因為資料庫中已有重複的帳號。`;
+                                    }
+                                    
+                                    showToast(msg, j.failed > 0 ? 'warning' : 'success');
+                                    closeUserImportModal();
+                                    await loadUsersPage(1);
+                                    return;
+                                } else {
+                                    showToast(j.error || '匯入失敗', 'error');
+                                    return;
+                                }
+                            } catch (e) {
+                                if (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError'))) {
+                                    showToast('匯入錯誤：網路連線失敗', 'error');
+                                } else {
+                                    console.error('匯入時發生未預期錯誤：', e);
+                                    showToast('匯入錯誤：' + e.message, 'error');
+                                }
+                            }
+                        }
+                    });
+                } catch (e) {
+                    showToast('讀取檔案錯誤：' + e.message, 'error');
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
 
         // Plan Management
         // 保存檢查計畫管理頁面的狀態
