@@ -371,28 +371,33 @@
                 <select id="planYearFilter" class="filter-select" style="width:120px;" onchange="loadPlansPage(1)">
                     <option value="">全部年度</option>
                 </select>
-                <select id="plansPageSize" class="page-size-select" onchange="loadPlansPage(1)">
-                    <option value="10">10 筆/頁</option>
-                    <option value="20" selected>20 筆/頁</option>
-                    <option value="50">50 筆/頁</option>
-                </select>
                 <div style="margin-left:auto;">
                     <button class="btn btn-outline" onclick="loadPlansPage(1)">搜尋</button>
                 </div>
             </div>
-            <div style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); background:#f8fafc;">
-                <input type="checkbox" id="selectAllPlans" onchange="toggleSelectAllPlans()" style="cursor:pointer;">
-                <label for="selectAllPlans" style="cursor:pointer; margin:0;">全選</label>
-                <button class="btn btn-danger" id="batchDeletePlansBtn" onclick="batchDeletePlans()" style="display:none;">
-                    🗑️ 批次刪除 (<span id="selectedPlansCount">0</span>)
-                </button>
+            
+            <div class="control-row-actions" style="padding:16px; border-bottom:1px solid var(--border);">
+                <div style="display:flex; gap:12px; align-items:center;">
+                    <div id="plansBatchActionContainer" style="display:none;">
+                        <button class="btn btn-danger btn-sm" onclick="batchDeletePlans()">
+                            批次刪除 <span id="selectedPlansCountBadge"></span>
+                        </button>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <select id="plansPageSize" class="page-size-select" onchange="loadPlansPage(1)">
+                        <option value="10">10 筆/頁</option>
+                        <option value="20" selected>20 筆/頁</option>
+                        <option value="50">50 筆/頁</option>
+                    </select>
+                    <div id="plansPaginationTop" class="pagination-bar"></div>
+                </div>
             </div>
-            <div id="plansPaginationTop" class="pagination-bar" style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
             <div class="data-container">
                 <table class="user-table">
                     <thead>
                         <tr>
-                            <th style="width:50px;"><input type="checkbox" id="selectAllPlansHeader" onchange="toggleSelectAllPlans()"></th>
+                            <th style="width:50px;"><input type="checkbox" id="selectAllPlans" onchange="toggleSelectAllPlans()"></th>
                             <th onclick="plansSortBy('year')">年度</th>
                             <th style="padding:16px;" onclick="plansSortBy('name')">計畫名稱</th>
                             <th>事項數量</th>

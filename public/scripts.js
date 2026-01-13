@@ -2054,32 +2054,36 @@ if (dashboard) {
                     </td>
                 </tr>`;
             }).join('');
+            // 重置批次刪除按鈕狀態
             updatePlansBatchDeleteBtn();
         }
         
         function toggleSelectAllPlans() {
             const selectAll = document.getElementById('selectAllPlans');
-            const selectAllHeader = document.getElementById('selectAllPlansHeader');
             const checkboxes = document.querySelectorAll('.plan-check');
-            const isChecked = selectAll ? selectAll.checked : (selectAllHeader ? selectAllHeader.checked : false);
+            const isChecked = selectAll ? selectAll.checked : false;
             
             checkboxes.forEach(cb => cb.checked = isChecked);
             if (selectAll) selectAll.checked = isChecked;
-            if (selectAllHeader) selectAllHeader.checked = isChecked;
             updatePlansBatchDeleteBtn();
         }
         
         function updatePlansBatchDeleteBtn() {
             const checkboxes = document.querySelectorAll('.plan-check:checked');
             const count = checkboxes.length;
-            const btn = document.getElementById('batchDeletePlansBtn');
-            const countSpan = document.getElementById('selectedPlansCount');
+            const container = document.getElementById('plansBatchActionContainer');
+            const badge = document.getElementById('selectedPlansCountBadge');
+            const selectAll = document.getElementById('selectAllPlans');
             
-            if (btn) {
-                btn.style.display = count > 0 ? 'inline-block' : 'none';
+            if (container) {
+                container.style.display = count > 0 ? 'block' : 'none';
             }
-            if (countSpan) {
-                countSpan.textContent = count;
+            if (badge) {
+                badge.textContent = count > 0 ? `(${count})` : '';
+            }
+            if (selectAll) {
+                const allChecked = checkboxes.length > 0 && checkboxes.length === document.querySelectorAll('.plan-check').length;
+                selectAll.checked = allChecked;
             }
         }
         
@@ -2297,23 +2301,27 @@ if (dashboard) {
                                     return showToast('匯入錯誤：您沒有權限執行此操作', 'error');
                                 }
                                 
-                                // 嘗試解析 JSON（即使 Content-Type 不正確）
+                                // 嘗試解析 JSON
                                 let j;
+                                const text = await res.text();
                                 try {
-                                    const text = await res.text();
                                     j = JSON.parse(text);
                                 } catch (parseError) {
                                     // 如果解析失敗，檢查狀態碼
                                     if (res.ok) {
                                         // 如果狀態碼是 OK，但解析失敗，可能是格式問題，但實際可能已成功
-                                        return showToast('匯入完成，但無法解析伺服器回應。請重新整理頁面確認結果。', 'warning');
+                                        showToast('匯入可能已完成，但無法解析伺服器回應。請重新整理頁面確認結果。', 'warning');
+                                        closePlanImportModal();
+                                        await loadPlansPage(1);
+                                        await loadPlanOptions();
+                                        return;
                                     } else {
                                         return showToast('匯入錯誤：伺服器回應格式錯誤（狀態碼：' + res.status + '）', 'error');
                                     }
                                 }
                                 
                                 // 檢查回應是否成功
-                                if (res.ok && j.success !== false) {
+                                if (res.ok && (j.success === true || j.success !== false)) {
                                     let msg = `匯入完成：成功 ${j.success || 0} 筆`;
                                     if (j.skipped > 0) {
                                         msg += `，跳過空行 ${j.skipped} 筆`;
@@ -2354,7 +2362,12 @@ if (dashboard) {
                                 }
                             } catch (e) {
                                 // 只有在真正的網路錯誤或無法處理的錯誤時才顯示錯誤
-                                // 如果已經成功匯入，不應該顯示錯誤
+                                // 避免在已經顯示成功訊息後再顯示錯誤
+                                if (e.name === 'TypeError' && e.message.includes('text')) {
+                                    // 如果已經讀取過 text，可能是重複讀取的問題
+                                    // 不顯示錯誤，因為可能已經成功匯入了
+                                    return;
+                                }
                                 let errorMsg = '匯入錯誤：' + e.message;
                                 if (e.message.includes('Unexpected token') || e.message.includes('JSON')) {
                                     // JSON 解析錯誤，但可能已經成功匯入
