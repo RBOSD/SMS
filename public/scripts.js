@@ -1067,16 +1067,6 @@ if (dashboard) {
             } catch (e) {
                 showToast('刪除失敗: ' + e.message, 'error');
             }
-        } {
-                    showToast(`成功刪除 ${ids.length} 筆資料`);
-                    loadIssuesPage(issuesPage);
-                } else {
-                    const json = await res.json();
-                    showToast(json.error || '刪除失敗', 'error');
-                }
-            } catch (e) {
-                showToast('刪除時發生錯誤: ' + e.message, 'error');
-            }
         }
 
         function renderTable() {
@@ -2027,28 +2017,37 @@ if (dashboard) {
                 });
             }
             
-            // 初始化格式選項顯示
-            updateExportFormatOptions();
+            // 初始化格式選項顯示（延遲執行，確保元素已載入）
+            try {
+                updateExportFormatOptions();
+            } catch (e) {
+                console.warn('setupExportOptions error:', e);
+            }
         }
         
         function updateExportFormatOptions() {
-            const exportDataType = document.querySelector('input[name="exportDataType"]:checked')?.value || 'issues';
-            const exportFormat = document.querySelector('input[name="exportFormat"]:checked')?.value || 'csv';
-            const exportCsvOption = document.getElementById('exportCsvOption');
-            
-            if (exportCsvOption) {
-                // 如果選擇合併匯出且選擇Excel格式，隱藏CSV選項
-                if (exportDataType === 'both' && exportFormat === 'excel') {
-                    exportCsvOption.style.display = 'none';
-                    // 如果CSV被選中，自動切換到Excel
-                    const csvRadio = document.querySelector('input[name="exportFormat"][value="csv"]');
-                    if (csvRadio && csvRadio.checked) {
-                        const excelRadio = document.querySelector('input[name="exportFormat"][value="excel"]');
-                        if (excelRadio) excelRadio.checked = true;
+            try {
+                const exportDataType = document.querySelector('input[name="exportDataType"]:checked')?.value || 'issues';
+                const exportFormat = document.querySelector('input[name="exportFormat"]:checked')?.value || 'csv';
+                const exportCsvOption = document.getElementById('exportCsvOption');
+                
+                if (exportCsvOption) {
+                    // 如果選擇合併匯出且選擇Excel格式，隱藏CSV選項
+                    if (exportDataType === 'both' && exportFormat === 'excel') {
+                        exportCsvOption.style.display = 'none';
+                        // 如果CSV被選中，自動切換到Excel
+                        const csvRadio = document.querySelector('input[name="exportFormat"][value="csv"]');
+                        if (csvRadio && csvRadio.checked) {
+                            const excelRadio = document.querySelector('input[name="exportFormat"][value="excel"]');
+                            if (excelRadio) excelRadio.checked = true;
+                        }
+                    } else {
+                        exportCsvOption.style.display = 'flex';
                     }
-                } else {
-                    exportCsvOption.style.display = 'flex';
                 }
+            } catch (e) {
+                // 忽略錯誤，避免影響頁面載入
+                console.warn('updateExportFormatOptions error:', e);
             }
         }
 
