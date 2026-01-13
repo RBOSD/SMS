@@ -402,8 +402,8 @@
                         // 保留第一個選項（通常是「全部計畫」或「請選擇計畫」）
                         const firstOption = select.options[0] ? select.options[0].outerHTML : '';
                         
-                        // 處理新的資料格式，按計畫名稱分組
-                        const planGroups = new Map(); // key: 計畫名稱, value: 該名稱下的所有年度計畫
+                        // 處理新的資料格式，按年度分組
+                        const yearGroups = new Map(); // key: 年度, value: 該年度下的所有計畫
                         const existingValues = new Set();
                         
                         if (firstOption) {
@@ -415,7 +415,7 @@
                             }
                         }
                         
-                        // 將計畫按名稱分組
+                        // 將計畫按年度分組
                         json.data.forEach(p => {
                             let planName, planYear, planValue, planDisplay;
                             
@@ -434,39 +434,47 @@
                             
                             if (!existingValues.has(planValue) && planName) {
                                 existingValues.add(planValue);
-                                if (!planGroups.has(planName)) {
-                                    planGroups.set(planName, []);
+                                // 使用年度作為分組鍵，如果沒有年度則使用「未分類」
+                                const groupKey = planYear || '未分類';
+                                if (!yearGroups.has(groupKey)) {
+                                    yearGroups.set(groupKey, []);
                                 }
-                                planGroups.get(planName).push({ value: planValue, display: planDisplay, year: planYear });
+                                yearGroups.get(groupKey).push({ 
+                                    value: planValue, 
+                                    display: planDisplay, 
+                                    name: planName, 
+                                    year: planYear 
+                                });
                             }
                         });
                         
                         // 建立選項 HTML
                         let allOptions = '';
                         
-                        // 如果有多個相同名稱的計畫（不同年度），使用 optgroup 分組
-                        // 如果只有一個計畫或沒有年度資訊，直接顯示選項
-                        planGroups.forEach((plans, planName) => {
-                            // 按年度排序（降序，最新的在前）
+                        // 將年度分組按年度降序排序（最新的在前）
+                        const sortedYears = Array.from(yearGroups.keys()).sort((a, b) => {
+                            // 「未分類」放在最後
+                            if (a === '未分類') return 1;
+                            if (b === '未分類') return -1;
+                            const yearA = parseInt(a) || 0;
+                            const yearB = parseInt(b) || 0;
+                            return yearB - yearA;
+                        });
+                        
+                        sortedYears.forEach(year => {
+                            const plans = yearGroups.get(year);
+                            // 按計畫名稱排序（同一年度內的計畫按名稱排序）
                             plans.sort((a, b) => {
-                                const yearA = parseInt(a.year) || 0;
-                                const yearB = parseInt(b.year) || 0;
-                                return yearB - yearA;
+                                return (a.name || '').localeCompare(b.name || '', 'zh-TW');
                             });
                             
-                            if (plans.length > 1 && plans.some(p => p.year)) {
-                                // 有多個年度，使用 optgroup
-                                allOptions += `<optgroup label="${planName}">`;
-                                plans.forEach(plan => {
-                                    allOptions += `<option value="${plan.value}">${plan.display}</option>`;
-                                });
-                                allOptions += `</optgroup>`;
-                            } else {
-                                // 只有一個計畫或沒有年度資訊，直接顯示
-                                plans.forEach(plan => {
-                                    allOptions += `<option value="${plan.value}">${plan.display}</option>`;
-                                });
-                            }
+                            // 使用 optgroup 按年度分組
+                            const yearLabel = year === '未分類' ? '未分類' : `${year} 年度`;
+                            allOptions += `<optgroup label="${yearLabel}">`;
+                            plans.forEach(plan => {
+                                allOptions += `<option value="${plan.value}">${plan.display}</option>`;
+                            });
+                            allOptions += `</optgroup>`;
                         });
                         
                         // 完全重建選項列表
