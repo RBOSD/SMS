@@ -571,17 +571,35 @@ if (dashboard) {
             }
 
             if(viewId === 'searchView') {
-                loadIssuesPage(1);
+                // 恢復查詢看板的狀態
+                restoreSearchViewState();
+                // 等待篩選選項載入完成後再載入資料
+                setTimeout(() => {
+                    loadIssuesPage(issuesPage || 1);
+                    updateSortUI();
+                }, 100);
             } else if (viewId === 'usersView') {
-                loadUsersPage(1);
-                // 設置清除舊記錄的UI
-                setTimeout(() => setupCleanupDaysSelect(), 100);
+                // 恢復帳號管理頁面的狀態
+                restoreUsersViewState();
+                // 恢復 tab
+                const savedTab = sessionStorage.getItem('currentUsersTab') || 'users';
+                setTimeout(() => {
+                    switchAdminTab(savedTab);
+                    setupCleanupDaysSelect();
+                }, 200);
             } else if (viewId === 'importView' && viewElement.dataset.loaded) {
                 // 恢復資料管理頁面的 tab
                 const savedTab = sessionStorage.getItem('currentDataTab');
                 if (savedTab) {
                     setTimeout(() => {
                         switchDataTab(savedTab);
+                        // 如果是檢查計畫管理 tab，恢復其狀態
+                        if (savedTab === 'plans') {
+                            restorePlansViewState();
+                            setTimeout(() => {
+                                loadPlansPage(plansPage || 1);
+                            }, 300);
+                        }
                     }, 200);
                 }
             }
@@ -708,7 +726,10 @@ if (dashboard) {
         }
 
         async function loadIssuesPage(page = 1) {
-            issuesPage = page; document.getElementById('issuesPageSizeTop').value = issuesPageSize; document.getElementById('issuesPageSizeBottom').value = issuesPageSize;
+            issuesPage = page; 
+            if (document.getElementById('issuesPageSizeTop')) document.getElementById('issuesPageSizeTop').value = issuesPageSize; 
+            if (document.getElementById('issuesPageSizeBottom')) document.getElementById('issuesPageSizeBottom').value = issuesPageSize;
+            saveSearchViewState();
             const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '', kind = document.getElementById('filterKind').value || '';
             const division = document.getElementById('filterDivision') ? document.getElementById('filterDivision').value : '';
             const inspection = document.getElementById('filterInspection') ? document.getElementById('filterInspection').value : '';
@@ -746,9 +767,66 @@ if (dashboard) {
             } catch (e) { console.error(e); showToast('載入資料錯誤 (請檢查 Console)', 'error'); }
         }
 
-        function applyFilters() { issuesPage = 1; loadIssuesPage(1); }
+        function applyFilters() { 
+            issuesPage = 1; 
+            saveSearchViewState();
+            loadIssuesPage(1); 
+        }
+        
+        // 保存查詢看板的狀態
+        function saveSearchViewState() {
+            const state = {
+                keyword: document.getElementById('filterKeyword')?.value || '',
+                year: document.getElementById('filterYear')?.value || '',
+                plan: document.getElementById('filterPlan')?.value || '',
+                unit: document.getElementById('filterUnit')?.value || '',
+                status: document.getElementById('filterStatus')?.value || '',
+                kind: document.getElementById('filterKind')?.value || '',
+                division: document.getElementById('filterDivision')?.value || '',
+                inspection: document.getElementById('filterInspection')?.value || '',
+                page: issuesPage,
+                pageSize: issuesPageSize,
+                sortField: sortState.field || '',
+                sortDir: sortState.dir || 'asc'
+            };
+            sessionStorage.setItem('searchViewState', JSON.stringify(state));
+        }
+        
+        // 恢復查詢看板的狀態
+        function restoreSearchViewState() {
+            const saved = sessionStorage.getItem('searchViewState');
+            if (!saved) return;
+            
+            try {
+                const state = JSON.parse(saved);
+                if (document.getElementById('filterKeyword')) document.getElementById('filterKeyword').value = state.keyword || '';
+                if (document.getElementById('filterYear')) document.getElementById('filterYear').value = state.year || '';
+                if (document.getElementById('filterPlan')) document.getElementById('filterPlan').value = state.plan || '';
+                if (document.getElementById('filterUnit')) document.getElementById('filterUnit').value = state.unit || '';
+                if (document.getElementById('filterStatus')) document.getElementById('filterStatus').value = state.status || '';
+                if (document.getElementById('filterKind')) document.getElementById('filterKind').value = state.kind || '';
+                if (document.getElementById('filterDivision')) document.getElementById('filterDivision').value = state.division || '';
+                if (document.getElementById('filterInspection')) document.getElementById('filterInspection').value = state.inspection || '';
+                if (state.page) issuesPage = state.page;
+                if (state.pageSize) issuesPageSize = state.pageSize;
+                if (state.sortField) sortState.field = state.sortField;
+                if (state.sortDir) sortState.dir = state.sortDir;
+            } catch (e) {
+                // 忽略解析錯誤
+            }
+        }
         function resetFilters() { document.querySelectorAll('.filter-input,.filter-select').forEach(e => e.value = ''); applyFilters(); }
-        function sortData(field) { if (sortState.field === field) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc'; else { sortState.field = field; sortState.dir = 'asc'; } loadIssuesPage(1); updateSortUI(); }
+        function sortData(field) { 
+            if (sortState.field === field) {
+                sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc'; 
+            } else { 
+                sortState.field = field; 
+                sortState.dir = 'asc'; 
+            } 
+            saveSearchViewState();
+            loadIssuesPage(1); 
+            updateSortUI(); 
+        }
         function updateSortUI() { document.querySelectorAll('th').forEach(th => { th.classList.remove('sort-asc', 'sort-desc'); if (th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc'); }); }
         function renderStats(stats) { const s = stats.status; const total = s.reduce((sum, item) => sum + parseInt(item.count), 0); const active = s.find(x => x.status === '持續列管')?.count || 0; const resolved = s.filter(x => ['解除列管', '自行列管'].includes(x.status)).reduce((sum, x) => sum + parseInt(x.count), 0); document.getElementById('countTotal').innerText = total; document.getElementById('countActive').innerText = active; document.getElementById('countResolved').innerText = resolved; }
         
@@ -856,7 +934,42 @@ if (dashboard) {
             tbody.innerHTML = html;
         }
 
-        function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }
+        function onIssuesPageSizeChange(val) { 
+            issuesPageSize = parseInt(val, 10); 
+            saveSearchViewState();
+            loadIssuesPage(1); 
+        }
+        // 保存帳號管理頁面的狀態
+        function saveUsersViewState() {
+            const state = {
+                search: document.getElementById('userSearch')?.value || '',
+                page: usersPage,
+                pageSize: usersPageSize,
+                sortField: usersSortField,
+                sortDir: usersSortDir,
+                tab: sessionStorage.getItem('currentUsersTab') || 'users'
+            };
+            sessionStorage.setItem('usersViewState', JSON.stringify(state));
+        }
+        
+        // 恢復帳號管理頁面的狀態
+        function restoreUsersViewState() {
+            const saved = sessionStorage.getItem('usersViewState');
+            if (!saved) return;
+            
+            try {
+                const state = JSON.parse(saved);
+                if (document.getElementById('userSearch')) document.getElementById('userSearch').value = state.search || '';
+                if (state.page) usersPage = state.page;
+                if (state.pageSize) usersPageSize = state.pageSize;
+                if (state.sortField) usersSortField = state.sortField;
+                if (state.sortDir) usersSortDir = state.sortDir;
+                if (state.tab) sessionStorage.setItem('currentUsersTab', state.tab);
+            } catch (e) {
+                // 忽略解析錯誤
+            }
+        }
+        
         async function loadUsersPage(page = 1) { 
             // 檢查是否在 usersView 中
             const usersView = document.getElementById('usersView');
@@ -868,13 +981,13 @@ if (dashboard) {
             usersPage = page; 
             const usersPageSizeEl = document.getElementById('usersPageSize');
             if (!usersPageSizeEl) {
-                console.warn('usersPageSize element not found, using default');
                 usersPageSize = 20;
             } else {
                 usersPageSize = parseInt(usersPageSizeEl.value, 10) || 20;
             }
             const userSearchEl = document.getElementById('userSearch');
             const q = userSearchEl ? (userSearchEl.value || '') : ''; 
+            saveUsersViewState();
             const params = new URLSearchParams({ page: usersPage, pageSize: usersPageSize, q, sortField: usersSortField, sortDir: usersSortDir, _t: Date.now() }); 
             try { 
                 const res = await fetch('/api/users?' + params.toString()); 
@@ -889,7 +1002,6 @@ if (dashboard) {
                     renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage'); 
                 }
             } catch (e) { 
-                console.error(e); 
                 showToast('載入使用者錯誤', 'error'); 
             } 
         }
@@ -901,8 +1013,42 @@ if (dashboard) {
             }
             tbody.innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name || '-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id !== currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); 
         }
-        function usersSortBy(field) { if (usersSortField === field) usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; else { usersSortField = field; usersSortDir = 'asc'; } loadUsersPage(1); }
+        function usersSortBy(field) { 
+            if (usersSortField === field) {
+                usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; 
+            } else { 
+                usersSortField = field; 
+                usersSortDir = 'asc'; 
+            } 
+            saveUsersViewState();
+            loadUsersPage(1); 
+        }
 
+        // 保存登入紀錄頁面的狀態
+        function saveLogsViewState() {
+            const state = {
+                search: document.getElementById('loginSearch')?.value || '',
+                page: logsPage,
+                pageSize: logsPageSize
+            };
+            sessionStorage.setItem('logsViewState', JSON.stringify(state));
+        }
+        
+        // 恢復登入紀錄頁面的狀態
+        function restoreLogsViewState() {
+            const saved = sessionStorage.getItem('logsViewState');
+            if (!saved) return;
+            
+            try {
+                const state = JSON.parse(saved);
+                if (document.getElementById('loginSearch')) document.getElementById('loginSearch').value = state.search || '';
+                if (state.page) logsPage = state.page;
+                if (state.pageSize) logsPageSize = state.pageSize;
+            } catch (e) {
+                // 忽略解析錯誤
+            }
+        }
+        
         async function loadLogsPage(page = 1) {
             const loginSearchEl = document.getElementById('loginSearch');
             if (!loginSearchEl) {
@@ -911,6 +1057,7 @@ if (dashboard) {
             }
             logsPage = page;
             const q = loginSearchEl.value || '';
+            saveLogsViewState();
             const params = new URLSearchParams({ page: logsPage, pageSize: logsPageSize, q, _t: Date.now() });
             const logsLoadingEl = document.getElementById('logsLoading');
             if (logsLoadingEl) logsLoadingEl.style.display = 'block';
@@ -937,6 +1084,31 @@ if (dashboard) {
             }
         }
         
+        // 保存操作歷程頁面的狀態
+        function saveActionsViewState() {
+            const state = {
+                search: document.getElementById('actionSearch')?.value || '',
+                page: actionsPage,
+                pageSize: actionsPageSize
+            };
+            sessionStorage.setItem('actionsViewState', JSON.stringify(state));
+        }
+        
+        // 恢復操作歷程頁面的狀態
+        function restoreActionsViewState() {
+            const saved = sessionStorage.getItem('actionsViewState');
+            if (!saved) return;
+            
+            try {
+                const state = JSON.parse(saved);
+                if (document.getElementById('actionSearch')) document.getElementById('actionSearch').value = state.search || '';
+                if (state.page) actionsPage = state.page;
+                if (state.pageSize) actionsPageSize = state.pageSize;
+            } catch (e) {
+                // 忽略解析錯誤
+            }
+        }
+        
         async function loadActionsPage(page = 1) {
             const actionSearchEl = document.getElementById('actionSearch');
             if (!actionSearchEl) {
@@ -945,6 +1117,7 @@ if (dashboard) {
             }
             actionsPage = page;
             const q = actionSearchEl.value || '';
+            saveActionsViewState();
             const params = new URLSearchParams({ page: actionsPage, pageSize: actionsPageSize, q, _t: Date.now() });
             const logsLoadingEl = document.getElementById('logsLoading');
             if (logsLoadingEl) logsLoadingEl.style.display = 'block';
@@ -1056,7 +1229,38 @@ if (dashboard) {
             }
         }
 
-        function switchAdminTab(tab) { document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users'); document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs'); document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions'); if (tab === 'logs') loadLogsPage(1); if (tab === 'actions') loadActionsPage(1); }
+        function switchAdminTab(tab) { 
+            // 保存當前 tab
+            sessionStorage.setItem('currentUsersTab', tab);
+            saveUsersViewState();
+            
+            document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active')); 
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // 如果沒有 event，找到對應的按鈕
+                const buttons = document.querySelectorAll('.admin-tab-btn');
+                buttons.forEach(btn => {
+                    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`'${tab}'`)) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
+            document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users'); 
+            document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs'); 
+            document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions'); 
+            if (tab === 'logs') {
+                restoreLogsViewState();
+                loadLogsPage(logsPage || 1); 
+            }
+            if (tab === 'actions') {
+                restoreActionsViewState();
+                loadActionsPage(actionsPage || 1); 
+            }
+            if (tab === 'users') {
+                loadUsersPage(usersPage || 1);
+            }
+        }
 
         // [修正與增強] HTML 解析核心：提升對 Word 表格的容錯率
         function parseFromHTML(html) {
@@ -1461,8 +1665,12 @@ if (dashboard) {
             if (plansTab) plansTab.classList.toggle('hidden', tab !== 'plans');
             if (tab === 'batch' && document.querySelectorAll('#batchGridBody tr').length === 0) initBatchGrid();
             if (tab === 'plans') {
-                setTimeout(() => loadPlansPage(1), 100);
+                // 恢復檢查計畫管理頁面的狀態
+                restorePlansViewState();
                 loadPlanOptions();
+                setTimeout(() => {
+                    loadPlansPage(plansPage || 1);
+                }, 200);
             }
         }
 
@@ -1766,11 +1974,46 @@ if (dashboard) {
         async function deleteUser(id) { if (!confirm('確定?')) return; const res = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if (res.ok) { showToast('刪除成功'); loadUsersPage(1); } else showToast('刪除失敗', 'error'); }
 
         // Plan Management
+        // 保存檢查計畫管理頁面的狀態
+        function savePlansViewState() {
+            const state = {
+                search: document.getElementById('planSearch')?.value || '',
+                year: document.getElementById('planYearFilter')?.value || '',
+                page: plansPage,
+                pageSize: plansPageSize,
+                sortField: plansSortField,
+                sortDir: plansSortDir
+            };
+            sessionStorage.setItem('plansViewState', JSON.stringify(state));
+        }
+        
+        // 恢復檢查計畫管理頁面的狀態
+        function restorePlansViewState() {
+            const saved = sessionStorage.getItem('plansViewState');
+            if (!saved) return;
+            
+            try {
+                const state = JSON.parse(saved);
+                if (document.getElementById('planSearch')) document.getElementById('planSearch').value = state.search || '';
+                if (document.getElementById('planYearFilter')) document.getElementById('planYearFilter').value = state.year || '';
+                if (state.page) plansPage = state.page;
+                if (state.pageSize) plansPageSize = state.pageSize;
+                if (state.sortField) plansSortField = state.sortField;
+                if (state.sortDir) plansSortDir = state.sortDir;
+            } catch (e) {
+                // 忽略解析錯誤
+            }
+        }
+        
         async function loadPlansPage(page = 1) {
             plansPage = page;
-            plansPageSize = parseInt(document.getElementById('plansPageSize').value, 10);
-            const q = document.getElementById('planSearch').value || '';
-            const year = document.getElementById('planYearFilter').value || '';
+            const plansPageSizeEl = document.getElementById('plansPageSize');
+            if (plansPageSizeEl) {
+                plansPageSize = parseInt(plansPageSizeEl.value, 10);
+            }
+            const q = document.getElementById('planSearch')?.value || '';
+            const year = document.getElementById('planYearFilter')?.value || '';
+            savePlansViewState();
             const params = new URLSearchParams({ page: plansPage, pageSize: plansPageSize, q, year, sortField: plansSortField, sortDir: plansSortDir, _t: Date.now() });
             try {
                 const res = await fetch('/api/plans?' + params.toString());
@@ -1883,8 +2126,13 @@ if (dashboard) {
             }
         }
         function plansSortBy(field) {
-            if (plansSortField === field) plansSortDir = plansSortDir === 'asc' ? 'desc' : 'asc';
-            else { plansSortField = field; plansSortDir = 'asc'; }
+            if (plansSortField === field) {
+                plansSortDir = plansSortDir === 'asc' ? 'desc' : 'asc';
+            } else { 
+                plansSortField = field; 
+                plansSortDir = 'asc'; 
+            }
+            savePlansViewState();
             loadPlansPage(1);
         }
         function updatePlanYearOptions() {
