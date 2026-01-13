@@ -877,9 +877,18 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
             planResult = await pool.query(`
                 SELECT DISTINCT p.name, p.year 
                 FROM inspection_plans p
-                INNER JOIN issues i ON i.plan_name = p.name AND i.year = p.year
-                WHERE p.name IS NOT NULL AND p.name != ''
-                ORDER BY COALESCE(p.year, '') DESC, p.name ASC
+                INNER JOIN issues i ON 
+                    i.plan_name = p.name 
+                    AND i.year = p.year
+                WHERE p.name IS NOT NULL 
+                    AND p.name != ''
+                    AND i.plan_name IS NOT NULL 
+                    AND i.plan_name != ''
+                    AND i.year IS NOT NULL 
+                    AND i.year != ''
+                    AND p.year IS NOT NULL
+                    AND p.year != ''
+                ORDER BY p.year DESC, p.name ASC
             `);
         } else {
             // 返回所有計畫
@@ -891,34 +900,17 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
             `);
         }
         
-        // 查詢計畫選項（日誌已移除，只在需要時記錄錯誤）
-        if (planResult.rows.length > 0) {
-            res.set('Cache-Control', 'no-store');
-            // 返回包含年度資訊的格式，前端可以選擇顯示方式
-            const plans = planResult.rows
-                .filter(r => r.name && r.name.trim() !== '')
-                .map(r => ({
-                    name: r.name,
-                    year: r.year || '',
-                    display: `${r.name}${r.year ? ` (${r.year})` : ''}`,
-                    value: `${r.name}|||${r.year || ''}` // 使用特殊分隔符，前端可以解析
-                }));
-            res.json({ data: plans });
-        } else {
-            // 向後兼容：如果 inspection_plans 表沒有資料，則從 issues 表取得
-            const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");
-            res.set('Cache-Control', 'no-store');
-            const plans = result.rows
-                .map(r => r.plan_name)
-                .filter(name => name && name.trim() !== '')
-                .map(name => ({
-                    name: name,
-                    year: '',
-                    display: name,
-                    value: name
-                }));
-            res.json({ data: plans });
-        }
+        res.set('Cache-Control', 'no-store');
+        // 返回包含年度資訊的格式，前端可以選擇顯示方式
+        const plans = (planResult.rows || [])
+            .filter(r => r.name && r.name.trim() !== '')
+            .map(r => ({
+                name: r.name,
+                year: r.year || '',
+                display: `${r.name}${r.year ? ` (${r.year})` : ''}`,
+                value: `${r.name}|||${r.year || ''}` // 使用特殊分隔符，前端可以解析
+            }));
+        res.json({ data: plans });
     } catch (e) { 
         // 錯誤已在伺服器 log 中記錄（移除 console.error 以減少主控台輸出）
         res.status(500).json({ error: e.message }); 
