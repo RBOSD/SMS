@@ -833,16 +833,32 @@ app.get('/api/plans', requireAuth, async (req, res) => {
         const total = parseInt(cRes.rows[0].count);
         const dRes = await pool.query(`SELECT id, name, year, created_at, updated_at FROM inspection_plans WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
         
-        // 取得每個計畫的事項數量（匹配計畫名稱和年度，如果年度為空則只匹配名稱）
-        const plansWithCounts = await Promise.all(dRes.rows.map(async (plan) => {
-            let countRes;
-            if (plan.year) {
-                // 如果有年度，嘗試精確匹配（但 issues 表中沒有年度欄位，所以只能匹配名稱）
-                countRes = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1", [plan.name]);
-            } else {
-                countRes = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1", [plan.name]);
-            }
-            return { ...plan, issue_count: parseInt(countRes.rows[0].count) };
+        // 使用單一查詢獲取所有計畫的事項數量，避免連接池耗盡
+        if (dRes.rows.length === 0) {
+            return res.json({data: [], total, page: parseInt(page), pages: Math.ceil(total/limit)});
+        }
+        
+        // 獲取所有計畫名稱
+        const planNames = dRes.rows.map(p => p.name);
+        // 使用單一查詢統計所有計畫的事項數量
+        const countRes = await pool.query(
+            `SELECT plan_name, count(*) as issue_count 
+             FROM issues 
+             WHERE plan_name = ANY($1) 
+             GROUP BY plan_name`,
+            [planNames]
+        );
+        
+        // 建立名稱到數量的映射
+        const countMap = {};
+        countRes.rows.forEach(row => {
+            countMap[row.plan_name] = parseInt(row.issue_count);
+        });
+        
+        // 合併計畫資料和事項數量
+        const plansWithCounts = dRes.rows.map(plan => ({
+            ...plan,
+            issue_count: countMap[plan.name] || 0
         }));
         
         res.json({data: plansWithCounts, total, page: parseInt(page), pages: Math.ceil(total/limit)});
