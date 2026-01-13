@@ -2187,12 +2187,13 @@ if (dashboard) {
                     document.body.removeChild(link);
                     showToast('JSON 匯出完成', 'success');
                 } else {
-                    // CSV 格式（不包含密碼）
+                    // CSV 格式（使用英文權限代碼，與匯入格式一致）
                     let csvContent = '\uFEFF';
                     csvContent += "姓名,帳號,權限,建立時間\n";
                     users.forEach(user => {
                         const clean = (t) => `"${String(t || '').replace(/"/g, '""').trim()}"`;
-                        csvContent += `${clean(user.name)},${clean(user.username)},${clean(getRoleName(user.role))},${clean(new Date(user.created_at).toLocaleString('zh-TW'))}\n`;
+                        // 使用英文權限代碼，與匯入格式一致
+                        csvContent += `${clean(user.name)},${clean(user.username)},${clean(user.role)},${clean(new Date(user.created_at).toLocaleString('zh-TW'))}\n`;
                     });
                     
                     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -2225,7 +2226,9 @@ if (dashboard) {
         }
         
         function downloadUserCSVTemplate() {
-            const csv = '姓名,帳號,權限,密碼\n張三,zhang@example.com,editor,password123\n李四,li@example.com,manager,password123';
+            // 範例檔格式：姓名,帳號,權限,密碼（選填）
+            // 權限值：admin（系統管理員）、manager（資料管理者）、editor（審查人員）、viewer（檢視人員）
+            const csv = '姓名,帳號,權限,密碼\n張三,zhang@example.com,editor,password123\n李四,li@example.com,manager,password123\n王五,wang@example.com,viewer,\n趙六,zhao@example.com,admin,admin123';
             const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
@@ -2297,17 +2300,28 @@ if (dashboard) {
                                     return;
                                 }
                                 
-                                // 驗證權限值
-                                const validRoles = ['admin', 'manager', 'editor', 'viewer'];
-                                if (!validRoles.includes(role.toLowerCase())) {
+                                // 驗證權限值（支援英文代碼和中文名稱）
+                                const roleMap = {
+                                    'admin': 'admin',
+                                    'manager': 'manager',
+                                    'editor': 'editor',
+                                    'viewer': 'viewer',
+                                    '系統管理員': 'admin',
+                                    '資料管理者': 'manager',
+                                    '審查人員': 'editor',
+                                    '檢視人員': 'viewer'
+                                };
+                                
+                                const normalizedRole = roleMap[role] || roleMap[role.toLowerCase()];
+                                if (!normalizedRole) {
                                     invalidRows.push({
                                         row: index + 2,
-                                        error: `無效的權限值：${role}（應為：admin, manager, editor, viewer）`
+                                        error: `無效的權限值：${role}（應為：admin/系統管理員, manager/資料管理者, editor/審查人員, viewer/檢視人員）`
                                     });
                                     return;
                                 }
                                 
-                                validData.push({ name, username, role: role.toLowerCase(), password });
+                                validData.push({ name, username, role: normalizedRole, password });
                             });
                             
                             if (validData.length === 0) {
