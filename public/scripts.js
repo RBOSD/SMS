@@ -3923,18 +3923,18 @@ if (dashboard) {
                 showToast('儲存中，請稍候...', 'info');
                 
                 const issueId = yearEditIssue.id;
-                const content = document.getElementById('yearEditContent').value.trim();
+                // 不進行 trim，保留原始輸入（包括空字串），允許清空欄位
+                const content = document.getElementById('yearEditContent').value;
                 const status = document.getElementById('yearEditStatus').value;
-                const issueDate = document.getElementById('yearEditIssueDate').value.trim();
+                const issueDate = document.getElementById('yearEditIssueDate').value;
                 
                 // 收集所有輪次的資料
-                const rounds = [];
                 const roundHandlings = document.querySelectorAll('.year-edit-round-handling');
                 const roundReviews = document.querySelectorAll('.year-edit-round-review');
                 const roundReplyDates = document.querySelectorAll('.year-edit-round-reply-date');
                 const roundResponseDates = document.querySelectorAll('.year-edit-round-response-date');
                 
-                // 找出所有有資料的輪次
+                // 找出所有顯示的輪次（不管是否有內容）
                 const roundSet = new Set();
                 roundHandlings.forEach(el => roundSet.add(parseInt(el.dataset.round)));
                 roundReviews.forEach(el => roundSet.add(parseInt(el.dataset.round)));
@@ -3944,73 +3944,69 @@ if (dashboard) {
                 const sortedRounds = Array.from(roundSet).sort((a, b) => a - b);
                 
                 // 先更新基本資訊（內容、狀態、開立日期）
-                const contentChanged = content !== stripHtml(yearEditIssue.content || '');
-                const statusChanged = status !== yearEditIssue.status;
-                const dateChanged = issueDate !== (yearEditIssue.issue_date || '');
+                // 即使內容為空也要更新（允許清空）
+                const updateRes = await fetch(`/api/issues/${issueId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: status,
+                        round: 1,
+                        handling: '', // 第一輪的辦理情形和審查意見會在後面更新
+                        review: '',
+                        content: content, // 允許空字串
+                        issueDate: issueDate || '', // 允許空字串
+                        replyDate: '',
+                        responseDate: ''
+                    })
+                });
                 
-                if (contentChanged || statusChanged || dateChanged) {
-                    // 更新內容、狀態和開立日期（使用第一輪的 API）
-                    const updateRes = await fetch(`/api/issues/${issueId}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            status: status,
-                            round: 1,
-                            handling: '',
-                            review: '',
-                            content: content,
-                            issueDate: issueDate,
-                            replyDate: '',
-                            responseDate: ''
-                        })
-                    });
-                    
-                    if (!updateRes.ok) {
-                        const errorData = await updateRes.json().catch(() => ({}));
-                        throw new Error(errorData.error || '更新基本資訊失敗');
-                    }
+                if (!updateRes.ok) {
+                    const errorData = await updateRes.json().catch(() => ({}));
+                    throw new Error(errorData.error || '更新基本資訊失敗');
                 }
                 
-                // 更新每個輪次
+                // 更新每個輪次（包括清空的欄位）
                 let successCount = 0;
                 let errorCount = 0;
                 
+                // 更新所有顯示的輪次，即使內容為空也要更新（允許清空欄位）
                 for (const roundNum of sortedRounds) {
                     const handlingEl = document.querySelector(`.year-edit-round-handling[data-round="${roundNum}"]`);
                     const reviewEl = document.querySelector(`.year-edit-round-review[data-round="${roundNum}"]`);
                     const replyDateEl = document.querySelector(`.year-edit-round-reply-date[data-round="${roundNum}"]`);
                     const responseDateEl = document.querySelector(`.year-edit-round-response-date[data-round="${roundNum}"]`);
                     
-                    const handling = handlingEl ? handlingEl.value.trim() : '';
-                    const review = reviewEl ? reviewEl.value.trim() : '';
-                    const replyDate = replyDateEl ? replyDateEl.value.trim() : '';
-                    const responseDate = responseDateEl ? responseDateEl.value.trim() : '';
+                    // 取得值（包括空字串，允許清空）
+                    const handling = handlingEl ? handlingEl.value : '';
+                    const review = reviewEl ? reviewEl.value : '';
+                    const replyDate = replyDateEl ? replyDateEl.value : '';
+                    const responseDate = responseDateEl ? responseDateEl.value : '';
                     
-                    // 如果該輪次有資料，則更新
-                    if (handling || review || replyDate || responseDate || roundNum === 1) {
-                        try {
-                            const updateRes = await fetch(`/api/issues/${issueId}`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    status: status, // 保持當前狀態
-                                    round: roundNum,
-                                    handling: handling,
-                                    review: review,
-                                    replyDate: replyDate,
-                                    responseDate: responseDate
-                                })
-                            });
-                            
-                            if (updateRes.ok) {
-                                successCount++;
-                            } else {
-                                errorCount++;
-                            }
-                        } catch (e) {
-                            console.error(`更新第 ${roundNum} 輪失敗:`, e);
+                    // 所有顯示的輪次都要更新，即使內容為空（允許清空欄位）
+                    try {
+                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                status: status, // 保持當前狀態
+                                round: roundNum,
+                                handling: handling, // 允許空字串
+                                review: review, // 允許空字串
+                                replyDate: replyDate, // 允許空字串
+                                responseDate: responseDate // 允許空字串
+                            })
+                        });
+                        
+                        if (updateRes.ok) {
+                            successCount++;
+                        } else {
+                            const errorData = await updateRes.json().catch(() => ({}));
+                            console.error(`更新第 ${roundNum} 輪失敗:`, errorData.error || updateRes.statusText);
                             errorCount++;
                         }
+                    } catch (e) {
+                        console.error(`更新第 ${roundNum} 輪失敗:`, e);
+                        errorCount++;
                     }
                 }
                 
