@@ -141,14 +141,21 @@ async function initDB() {
                 // Inspection Plans Table (簡化版：只保留計畫名稱和年度)
                 await client.query(`CREATE TABLE IF NOT EXISTS inspection_plans (
                     id SERIAL PRIMARY KEY,
-                    name TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
                     year TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(name, year)
                 )`);
                 try {
                     await client.query(`CREATE INDEX IF NOT EXISTS idx_plans_year ON inspection_plans(year)`);
                 } catch (e) {}
+                // 移除舊的單一 name UNIQUE 約束（如果存在）
+                try {
+                    await client.query(`ALTER TABLE inspection_plans DROP CONSTRAINT IF EXISTS inspection_plans_name_key`);
+                } catch (e) {
+                    // 忽略錯誤（約束可能不存在或名稱不同）
+                }
                 // 移除舊欄位（如果存在）- 向後兼容處理
                 try {
                     await client.query(`ALTER TABLE inspection_plans DROP COLUMN IF EXISTS description`);
@@ -336,8 +343,10 @@ app.put('/api/auth/profile', requireAuth, async (req, res) => {
         if (password) {
             const hash = bcrypt.hashSync(password, 10);
             await pool.query("UPDATE users SET name = $1, password = $2 WHERE id = $3", [name, hash, id]);
+            logAction(req.session.user.username, 'UPDATE_PROFILE', `更新個人資料：已更新姓名為「${name}」並變更密碼`, req);
         } else {
             await pool.query("UPDATE users SET name = $1 WHERE id = $2", [name, id]);
+            logAction(req.session.user.username, 'UPDATE_PROFILE', `更新個人資料：已更新姓名為「${name}」`, req);
         }
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -453,7 +462,8 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
         
         await pool.query(`UPDATE issues SET status=$1, ${hField}=$2, ${rField}=$3, ${replyField}=$4, ${respField}=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6`, 
             [status, handling, review, replyDate, responseDate, id]);
-        logAction(req.session.user.username, 'UPDATE', `更新列管事項：編號 ${issueNumber}`, req);
+        const actionDetails = `更新開立事項：編號 ${issueNumber}，第 ${r} 次審查，狀態：${status}`;
+        logAction(req.session.user.username, 'UPDATE_ISSUE', actionDetails, req);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -466,7 +476,7 @@ app.delete('/api/issues/:id', requireAuth, async (req, res) => {
         const issueNumber = issueRes.rows[0]?.number || `ID:${req.params.id}`;
         
         await pool.query("DELETE FROM issues WHERE id=$1", [req.params.id]);
-        logAction(req.session.user.username, 'DELETE', `刪除列管事項：編號 ${issueNumber}`, req);
+        logAction(req.session.user.username, 'DELETE_ISSUE', `刪除開立事項：編號 ${issueNumber}`, req);
         res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -481,7 +491,7 @@ app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
         const numberList = numbers.length > 0 ? numbers.join(', ') : `${ids.length} 筆`;
         
         await pool.query("DELETE FROM issues WHERE id = ANY($1)", [ids]);
-        logAction(req.session.user.username, 'BATCH_DELETE', `批次刪除列管事項：${numberList} (共 ${ids.length} 筆)`, req);
+        logAction(req.session.user.username, 'BATCH_DELETE_ISSUES', `批次刪除開立事項：${numberList} (共 ${ids.length} 筆)`, req);
         res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -522,8 +532,23 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                 );
             }
         }
+        
+        // 統計新增和更新的項目（在事務提交前）
+        let newCount = 0, updateCount = 0;
+        for (const item of data) {
+            const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
+            if (check.rows.length > 0) {
+                updateCount++;
+            } else {
+                newCount++;
+            }
+        }
+        
         await client.query('COMMIT');
-        logAction(req.session.user.username, 'IMPORT', `Imported ${data.length} items`, req);
+        
+        const roundInfo = r > 1 ? `，第 ${r} 次審查` : '，初次開立';
+        const planInfo = data[0]?.planName ? `，檢查計畫：${data[0].planName}` : '';
+        logAction(req.session.user.username, 'IMPORT_ISSUES', `匯入開立事項：共 ${data.length} 筆（新增 ${newCount} 筆，更新 ${updateCount} 筆）${roundInfo}${planInfo}`, req);
         res.json({ success: true, count: data.length });
     } catch (e) {
         await client.query('ROLLBACK');
@@ -744,8 +769,7 @@ app.post('/api/admin/action_logs/cleanup', requireAuth, async (req, res) => {
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
         // 優先從 inspection_plans 表取得資料，如果沒有資料則從 issues 表取得（向後兼容）
-        // 注意：name 欄位有 UNIQUE 約束，所以不需要 DISTINCT
-        // 但為了確保，我們在 SELECT 中包含 year 以便正確排序，然後在應用層去重
+        // 返回格式：{ name: "計畫名稱", year: "年度", display: "計畫名稱 (年度)" }
         const planResult = await pool.query(`
             SELECT name, year 
             FROM inspection_plans 
@@ -755,22 +779,31 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
         console.log(`[API] /api/options/plans: 查詢到 ${planResult.rows.length} 筆計畫`);
         if (planResult.rows.length > 0) {
             res.set('Cache-Control', 'no-store');
-            // 使用 Set 去重（雖然理論上不需要，因為 name 有 UNIQUE 約束）
-            const planNamesSet = new Set();
-            planResult.rows.forEach(r => {
-                if (r.name && r.name.trim() !== '') {
-                    planNamesSet.add(r.name);
-                }
-            });
-            const planNames = Array.from(planNamesSet);
-            console.log(`[API] /api/options/plans: 返回 ${planNames.length} 筆計畫名稱:`, planNames);
-            res.json({ data: planNames });
+            // 返回包含年度資訊的格式，前端可以選擇顯示方式
+            const plans = planResult.rows
+                .filter(r => r.name && r.name.trim() !== '')
+                .map(r => ({
+                    name: r.name,
+                    year: r.year || '',
+                    display: `${r.name}${r.year ? ` (${r.year})` : ''}`,
+                    value: `${r.name}|||${r.year || ''}` // 使用特殊分隔符，前端可以解析
+                }));
+            console.log(`[API] /api/options/plans: 返回 ${plans.length} 筆計畫`);
+            res.json({ data: plans });
         } else {
             // 向後兼容：如果 inspection_plans 表沒有資料，則從 issues 表取得
             const result = await pool.query("SELECT DISTINCT plan_name FROM issues WHERE plan_name IS NOT NULL AND plan_name != '' ORDER BY plan_name DESC");
             res.set('Cache-Control', 'no-store');
-            const planNames = result.rows.map(r => r.plan_name).filter(name => name && name.trim() !== '');
-            res.json({ data: planNames });
+            const plans = result.rows
+                .map(r => r.plan_name)
+                .filter(name => name && name.trim() !== '')
+                .map(name => ({
+                    name: name,
+                    year: '',
+                    display: name,
+                    value: name
+                }));
+            res.json({ data: plans });
         }
     } catch (e) { 
         console.error('[API] /api/options/plans 錯誤:', e);
@@ -842,11 +875,11 @@ app.post('/api/plans', requireAuth, async (req, res) => {
         if (!name || !year) return res.status(400).json({error: '計畫名稱和年度為必填'});
         
         await pool.query("INSERT INTO inspection_plans (name, year) VALUES ($1, $2)", [name.trim(), year.trim()]);
-        logAction(req.session.user.username, 'CREATE_PLAN', `新增檢查計畫：${name}`, req);
+        logAction(req.session.user.username, 'CREATE_PLAN', `新增檢查計畫：${name} (年度：${year})`, req);
         res.json({success:true});
     } catch (e) { 
-        if (e.code === '23505') { // Unique violation
-            res.status(400).json({ error: '計畫名稱已存在' });
+        if (e.code === '23505') { // Unique violation (name, year)
+            res.status(400).json({ error: `計畫名稱「${name}」在年度「${year}」已存在` });
         } else {
             res.status(500).json({ error: e.message });
         }
@@ -872,7 +905,7 @@ app.put('/api/plans/:id', requireAuth, async (req, res) => {
         
         await pool.query("UPDATE inspection_plans SET name=$1, year=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$3",
             [name.trim(), year.trim(), id]);
-        logAction(req.session.user.username, 'UPDATE_PLAN', `修改檢查計畫：${oldName} → ${name}`, req);
+        logAction(req.session.user.username, 'UPDATE_PLAN', `修改檢查計畫：${oldName} → ${name} (年度：${year})`, req);
         res.json({success:true});
     } catch (e) { 
         if (e.code === '23505') { // Unique violation
@@ -900,7 +933,8 @@ app.delete('/api/plans/:id', requireAuth, async (req, res) => {
         }
         
         await pool.query("DELETE FROM inspection_plans WHERE id=$1", [req.params.id]);
-        logAction(req.session.user.username, 'DELETE_PLAN', `刪除檢查計畫：${planName}`, req);
+        const planYear = planResult.rows[0]?.year || '';
+        logAction(req.session.user.username, 'DELETE_PLAN', `刪除檢查計畫：${planName}${planYear ? ` (年度：${planYear})` : ''}`, req);
         res.json({success:true});
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -953,18 +987,18 @@ app.post('/api/plans/import', requireAuth, async (req, res) => {
         }
         
         try {
-            // 先檢查是否已存在
-            const checkRes = await pool.query("SELECT id FROM inspection_plans WHERE name = $1", [name]);
+            // 先檢查是否已存在（相同名稱和年度）
+            const checkRes = await pool.query("SELECT id FROM inspection_plans WHERE name = $1 AND year = $2", [name, year]);
             const exists = checkRes.rows.length > 0;
             
             if (exists) {
-                // 如果已存在，更新年度
+                // 如果已存在（相同名稱和年度），更新 updated_at
                 await pool.query(
-                    "UPDATE inspection_plans SET year = $1, updated_at = CURRENT_TIMESTAMP WHERE name = $2", 
-                    [year, name]
+                    "UPDATE inspection_plans SET updated_at = CURRENT_TIMESTAMP WHERE name = $1 AND year = $2", 
+                    [name, year]
                 );
                 results.success++;
-                console.log(`[匯入檢查計畫] 更新：${name} (年度: ${year})`);
+                console.log(`[匯入檢查計畫] 已存在，更新時間戳：${name} (年度: ${year})`);
             } else {
                 // 如果不存在，新增
                 const insertResult = await pool.query(
@@ -988,7 +1022,7 @@ app.post('/api/plans/import', requireAuth, async (req, res) => {
     console.log(`[匯入檢查計畫] 完成：成功 ${results.success} 筆，失敗 ${results.failed} 筆，跳過 ${results.skipped} 筆`);
     
     if (results.success > 0) {
-        logAction(req.session.user.username, 'IMPORT_PLANS', `匯入檢查計畫：成功 ${results.success} 筆，失敗 ${results.failed} 筆`, req);
+        logAction(req.session.user.username, 'IMPORT_PLANS', `匯入檢查計畫：成功 ${results.success} 筆，失敗 ${results.failed} 筆，跳過 ${results.skipped || 0} 筆`, req);
     }
     
     res.json({ success: true, ...results });

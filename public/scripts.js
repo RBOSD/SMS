@@ -404,11 +404,23 @@
                                 }
                             }
                             
-                            // 建立所有選項（包括現有的和新加入的）
+                            // 處理新的資料格式（可能包含 {name, year, display, value} 或舊的字串格式）
                             const allOptions = json.data.map(p => {
-                                if (!existingValues.has(p)) {
-                                    existingValues.add(p);
-                                    return `<option value="${p}">${p}</option>`;
+                                let planValue, planDisplay;
+                                
+                                // 檢查是否為新格式（物件）
+                                if (typeof p === 'object' && p !== null) {
+                                    planValue = p.value || `${p.name}|||${p.year || ''}`;
+                                    planDisplay = p.display || `${p.name}${p.year ? ` (${p.year})` : ''}`;
+                                } else {
+                                    // 舊格式（字串），向後兼容
+                                    planValue = p;
+                                    planDisplay = p;
+                                }
+                                
+                                if (!existingValues.has(planValue)) {
+                                    existingValues.add(planValue);
+                                    return `<option value="${planValue}">${planDisplay}</option>`;
                                 }
                                 return '';
                             }).filter(opt => opt).join('');
@@ -427,45 +439,47 @@
             }
         }
         
+        // 輔助函數：從計畫選項值中提取計畫名稱和年度
+        function parsePlanValue(value) {
+            if (!value) return { name: '', year: '' };
+            // 新格式：使用 ||| 分隔符
+            if (value.includes('|||')) {
+                const parts = value.split('|||');
+                return { name: parts[0] || '', year: parts[1] || '' };
+            }
+            // 舊格式：直接是計畫名稱
+            return { name: value, year: '' };
+        }
+        
         // 批次建檔：當選擇計畫時，自動帶入年度
         async function handleBatchPlanChange() {
-            const planName = this.value;
+            const planValue = this.value;
             const yearInput = document.getElementById('batchYear');
-            if (!planName || !yearInput) return;
+            if (!planValue || !yearInput) return;
             
-            try {
-                const planRes = await fetch('/api/plans?' + new URLSearchParams({ q: planName, pageSize: 1 }).toString());
-                const planData = await planRes.json();
-                if (planData.data && planData.data.length > 0) {
-                    yearInput.value = planData.data[0].year || '';
-                } else {
-                    // 如果找不到，嘗試從計畫名稱中提取年度（例如：113年度上半年定期檢查 -> 113）
-                    const yearMatch = planName.match(/(\d{3})年度/);
-                    if (yearMatch) yearInput.value = yearMatch[1];
-                }
-            } catch (e) {
-                console.error("Get plan year failed", e);
+            const { name, year } = parsePlanValue(planValue);
+            if (year) {
+                yearInput.value = year;
+            } else if (name) {
+                // 如果沒有年度資訊，嘗試從計畫名稱中提取年度
+                const yearMatch = name.match(/(\d{3})年度/);
+                if (yearMatch) yearInput.value = yearMatch[1];
             }
         }
         
         // 手動新增：當選擇計畫時，自動帶入年度
         async function handleManualPlanChange() {
-            const planName = this.value;
+            const planValue = this.value;
             const yearDisplay = document.getElementById('manualYearDisplay');
-            if (!planName || !yearDisplay) return;
+            if (!planValue || !yearDisplay) return;
             
-            try {
-                const planRes = await fetch('/api/plans?' + new URLSearchParams({ q: planName, pageSize: 1 }).toString());
-                const planData = await planRes.json();
-                if (planData.data && planData.data.length > 0) {
-                    yearDisplay.value = planData.data[0].year || '';
-                } else {
-                    // 如果找不到，嘗試從計畫名稱中提取年度
-                    const yearMatch = planName.match(/(\d{3})年度/);
-                    if (yearMatch) yearDisplay.value = yearMatch[1];
-                }
-            } catch (e) {
-                console.error("Get plan year failed", e);
+            const { name, year } = parsePlanValue(planValue);
+            if (year) {
+                yearDisplay.value = year;
+            } else if (name) {
+                // 如果沒有年度資訊，嘗試從計畫名稱中提取年度
+                const yearMatch = name.match(/(\d{3})年度/);
+                if (yearMatch) yearDisplay.value = yearMatch[1];
             }
         }
 
@@ -480,6 +494,9 @@
         }
 
         async function switchView(viewId) {
+            // 保存當前視圖到 sessionStorage
+            sessionStorage.setItem('currentView', viewId);
+            
             document.querySelectorAll('.view-section').forEach(el => {
                 el.classList.remove('active');
             });
@@ -560,25 +577,32 @@ if (dashboard) {
                 if (currentUser) {
                     // 確保 body 可見
                     document.body.style.display = 'flex';
-                    // 確保 searchView 可見
-                    const searchView = document.getElementById('searchView');
-                    if (searchView) {
-                        searchView.classList.add('active');
-                        // 隱藏其他視圖
-                        document.querySelectorAll('.view-section').forEach(el => {
-                            if (el.id !== 'searchView') {
-                                el.classList.remove('active');
-                            }
-                        });
+                    
+                    // 嘗試恢復上次的視圖
+                    const savedView = sessionStorage.getItem('currentView');
+                    let targetView = savedView || 'searchView';
+                    
+                    // 確保視圖存在
+                    const viewElement = document.getElementById(targetView);
+                    if (!viewElement) {
+                        targetView = 'searchView';
                     }
+                    
+                    // 切換到目標視圖
+                    await switchView(targetView);
+                    
                     initListeners();
                     initEditForm();
                     initCharts();
                     loadPlanOptions();
                     initImportRoundOptions();
-                    await loadIssuesPage(1);
+                    
+                    // 如果目標視圖是 searchView，載入資料
+                    if (targetView === 'searchView') {
+                        await loadIssuesPage(1);
+                    }
                     // Preload users if needed
-                    if(currentUser.role === 'admin') {
+                    if(currentUser.role === 'admin' && targetView === 'usersView') {
                         loadUsersPage(1);
                     }
                 }
@@ -671,7 +695,9 @@ if (dashboard) {
             const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '', kind = document.getElementById('filterKind').value || '';
             const division = document.getElementById('filterDivision') ? document.getElementById('filterDivision').value : '';
             const inspection = document.getElementById('filterInspection') ? document.getElementById('filterInspection').value : '';
-            const planName = document.getElementById('filterPlan') ? document.getElementById('filterPlan').value : '';
+            const planValue = document.getElementById('filterPlan') ? document.getElementById('filterPlan').value : '';
+            // 從計畫選項值中提取計畫名稱（用於查詢）
+            const planName = planValue ? parsePlanValue(planValue).name : '';
 
             // 預設以年度最新排序（降序）
             let sortField = 'year', sortDir = 'desc';
@@ -1362,10 +1388,12 @@ if (dashboard) {
                 }
             }
 
-            const planName = isBackup ? '' : document.getElementById('importPlanName').value;
-            if (!isBackup && !planName) {
+            const planValue = isBackup ? '' : document.getElementById('importPlanName').value;
+            if (!isBackup && !planValue) {
                 return showToast('請選擇檢查計畫', 'error');
             }
+            // 從計畫選項值中提取計畫名稱
+            const planName = isBackup ? '' : parsePlanValue(planValue).name;
 
             let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
                 if (currentImportMode === 'word') {
@@ -1474,11 +1502,13 @@ if (dashboard) {
         }
 
         async function saveBatchItems() {
-            const planName = document.getElementById('batchPlanName').value.trim();
+            const planValue = document.getElementById('batchPlanName').value.trim();
             const issueDate = document.getElementById('batchIssueDate').value.trim();
             const batchYear = document.getElementById('batchYear') ? document.getElementById('batchYear').value.trim() : '';
 
-            if (!planName) return showToast('請選擇檢查計畫', 'error');
+            if (!planValue) return showToast('請選擇檢查計畫', 'error');
+            // 從計畫選項值中提取計畫名稱
+            const planName = parsePlanValue(planValue).name;
             if (!issueDate) return showToast('請填寫初次發函日期', 'error');
 
             const rows = document.querySelectorAll('#batchGridBody tr');
@@ -1590,13 +1620,15 @@ if (dashboard) {
             const inspection = document.getElementById('manualInspection').value;
             const kind = document.getElementById('manualKind').value;
 
-            const planName = document.getElementById('manualPlanName').value.trim();
+            const planValue = document.getElementById('manualPlanName').value.trim();
             const issueDate = document.getElementById('manualIssueDate').value.trim();
             const continuousMode = document.getElementById('manualContinuousMode').checked;
 
             const status = document.getElementById('manualStatus').value;
             const content = document.getElementById('manualContent').value.trim();
             if (!number || !year || !unit || !content) return showToast('請填寫所有必填欄位', 'error');
+            // 從計畫選項值中提取計畫名稱
+            const planName = parsePlanValue(planValue).name;
 
             const payload = {
                 data: [{
