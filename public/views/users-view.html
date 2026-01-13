@@ -4,6 +4,7 @@
 </div>
 <div class="admin-tabs">
     <button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button>
+    <button class="admin-tab-btn" onclick="switchAdminTab('import-export')">帳號匯入/匯出</button>
     <button class="admin-tab-btn" onclick="switchAdminTab('logs')">登入紀錄</button>
     <button class="admin-tab-btn" onclick="switchAdminTab('actions')">操作歷程</button>
 </div>
@@ -19,9 +20,7 @@
             <option value="20" selected>20 筆/頁</option>
             <option value="50">50 筆/頁</option>
         </select>
-        <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn btn-outline btn-sm" onclick="exportUsers()">📥 匯出帳號</button>
-            <button class="btn btn-outline btn-sm" onclick="openUserImportModal()">📤 匯入帳號</button>
+        <div style="margin-left:auto;">
             <button class="btn btn-outline" onclick="loadUsersPage(1)">搜尋</button>
         </div>
     </div>
@@ -124,27 +123,47 @@
     </div>
 </div>
 
-<div id="logsLoading" style="display:none; padding:30px; text-align:center; color:#64748b;">⏳ 載入紀錄中...</div>
-
-<!-- User Import Modal -->
-<div id="userImportModal" class="modal">
-    <div class="modal-content" style="max-width:600px;">
-        <div class="modal-header">
-            <h3>匯入帳號</h3>
-            <button class="modal-close" onclick="closeUserImportModal()">×</button>
-        </div>
-        <div class="modal-body">
-            <p style="color:#64748b; margin-bottom:16px;">請選擇 CSV 檔案匯入帳號資料。檔案格式：姓名,帳號,權限,密碼（選填）</p>
+<!-- User Import/Export Tab -->
+<div id="tab-import-export" class="main-card hidden">
+    <div style="padding:24px;">
+        <h3 style="margin-top:0; margin-bottom:24px; color:#334155;">帳號匯入與匯出</h3>
+        
+        <!-- 匯出區塊 -->
+        <div class="detail-card" style="margin-bottom:30px; max-width:700px;">
             <div style="margin-bottom:16px;">
-                <input type="file" id="userImportFile" accept=".csv" style="width:100%; padding:8px;">
+                <h4 style="margin:0 0 8px 0; color:#334155; font-size:16px;">📥 匯出帳號資料</h4>
+                <p style="color:#64748b; font-size:13px; margin:0;">將系統中的所有帳號資料匯出為 CSV 或 JSON 格式。匯出的檔案不包含密碼資訊。</p>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="font-weight:600; color:#475569; font-size:13px; margin-bottom:8px; display:block;">選擇匯出格式</label>
+                <div style="display:flex; gap:16px;">
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                        <input type="radio" name="userExportFormat" value="csv" checked> CSV (Excel)
+                    </label>
+                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
+                        <input type="radio" name="userExportFormat" value="json"> JSON (備份用)
+                    </label>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="exportUsers()">執行匯出</button>
+        </div>
+        
+        <!-- 匯入區塊 -->
+        <div class="detail-card" style="max-width:700px;">
+            <div style="margin-bottom:16px;">
+                <h4 style="margin:0 0 8px 0; color:#334155; font-size:16px;">📤 匯入帳號資料</h4>
+                <p style="color:#64748b; font-size:13px; margin:0;">從 CSV 檔案批次匯入帳號資料。檔案格式：姓名,帳號,權限,密碼（選填）</p>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="font-weight:600; color:#475569; font-size:13px; margin-bottom:8px; display:block;">選擇 CSV 檔案</label>
+                <input type="file" id="userImportFile" accept=".csv" class="filter-input" style="width:100%; padding:8px;">
             </div>
             <div style="margin-bottom:16px;">
                 <button class="btn btn-outline btn-sm" onclick="downloadUserCSVTemplate()">📥 下載範例檔案</button>
             </div>
-            <div style="display:flex; gap:8px; justify-content:flex-end;">
-                <button class="btn btn-outline" onclick="closeUserImportModal()">取消</button>
-                <button class="btn btn-primary" onclick="importUsersCSV()">執行匯入</button>
-            </div>
+            <button class="btn btn-primary" onclick="importUsersCSV()">執行匯入</button>
         </div>
     </div>
 </div>
+
+<div id="logsLoading" style="display:none; padding:30px; text-align:center; color:#64748b;">⏳ 載入紀錄中...</div>

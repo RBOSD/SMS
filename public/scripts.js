@@ -1241,7 +1241,9 @@ if (dashboard) {
             }
         }
 
-        function switchAdminTab(tab) { 
+        function switchAdminTab(tab) {
+            // 保存當前 tab 到 sessionStorage
+            sessionStorage.setItem('currentAdminTab', tab); 
             // 保存當前 tab
             sessionStorage.setItem('currentUsersTab', tab);
             saveUsersViewState();
@@ -1259,6 +1261,7 @@ if (dashboard) {
                 });
             }
             document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users'); 
+            document.getElementById('tab-import-export').classList.toggle('hidden', tab !== 'import-export');
             document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs'); 
             document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions'); 
             if (tab === 'logs') {
@@ -1690,13 +1693,18 @@ if (dashboard) {
                     }
                 });
             }
-            document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); 
-            document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); 
-            document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); 
-            document.getElementById('tab-data-batch').classList.toggle('hidden', tab !== 'batch'); 
-            const plansTab = document.getElementById('tab-data-plans');
-            if (plansTab) plansTab.classList.toggle('hidden', tab !== 'plans');
-            if (tab === 'batch' && document.querySelectorAll('#batchGridBody tr').length === 0) initBatchGrid();
+            
+            // 主要 tab 切換
+            document.getElementById('tab-data-issues').classList.toggle('hidden', tab !== 'issues'); 
+            document.getElementById('tab-data-plans').classList.toggle('hidden', tab !== 'plans'); 
+            document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export');
+            
+            // 處理各 tab 的初始化
+            if (tab === 'issues') {
+                // 恢復開立事項子 tab
+                const savedSubTab = sessionStorage.getItem('currentIssuesSubTab') || 'import';
+                setTimeout(() => switchIssuesSubTab(savedSubTab), 100);
+            }
             if (tab === 'plans') {
                 // 恢復檢查計畫管理頁面的狀態
                 restorePlansViewState();
@@ -1708,6 +1716,33 @@ if (dashboard) {
             if (tab === 'export') {
                 // 設置匯出選項的顯示/隱藏
                 setTimeout(() => setupExportOptions(), 100);
+            }
+        }
+        
+        // 開立事項的子 tab 切換
+        function switchIssuesSubTab(subTab) {
+            sessionStorage.setItem('currentIssuesSubTab', subTab);
+            
+            // 更新子 tab 按鈕狀態
+            document.querySelectorAll('#tab-data-issues .admin-tab-btn').forEach(b => b.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                const buttons = document.querySelectorAll('#tab-data-issues .admin-tab-btn');
+                buttons.forEach(btn => {
+                    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`'${subTab}'`)) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
+            
+            // 切換子 tab 內容
+            document.getElementById('subtab-issues-import').classList.toggle('hidden', subTab !== 'import');
+            document.getElementById('subtab-issues-batch').classList.toggle('hidden', subTab !== 'batch');
+            document.getElementById('subtab-issues-manual').classList.toggle('hidden', subTab !== 'manual');
+            
+            if (subTab === 'batch' && document.querySelectorAll('#batchGridBody tr').length === 0) {
+                initBatchGrid();
             }
         }
         
@@ -2138,8 +2173,9 @@ if (dashboard) {
                     return showToast('無帳號資料可匯出', 'error');
                 }
                 
-                // 詢問匯出格式
-                const format = confirm('選擇匯出格式：\n確定 = CSV\n取消 = JSON') ? 'csv' : 'json';
+                // 從頁面取得匯出格式
+                const formatRadio = document.querySelector('input[name="userExportFormat"]:checked');
+                const format = formatRadio ? formatRadio.value : 'csv';
                 
                 if (format === 'json') {
                     const blob = new Blob([JSON.stringify(users, null, 2)], { type: 'application/json' });
@@ -2331,7 +2367,9 @@ if (dashboard) {
                                     }
                                     
                                     showToast(msg, j.failed > 0 ? 'warning' : 'success');
-                                    closeUserImportModal();
+                                    // 清除檔案選擇
+                                    const fileInput = document.getElementById('userImportFile');
+                                    if (fileInput) fileInput.value = '';
                                     await loadUsersPage(1);
                                     return;
                                 } else {
