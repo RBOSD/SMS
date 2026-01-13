@@ -776,7 +776,7 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
             WHERE name IS NOT NULL AND name != ''
             ORDER BY COALESCE(year, '') DESC, name ASC
         `);
-        console.log(`[API] /api/options/plans: 查詢到 ${planResult.rows.length} 筆計畫`);
+        // 查詢計畫選項（日誌已移除，只在需要時記錄錯誤）
         if (planResult.rows.length > 0) {
             res.set('Cache-Control', 'no-store');
             // 返回包含年度資訊的格式，前端可以選擇顯示方式
@@ -788,7 +788,6 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
                     display: `${r.name}${r.year ? ` (${r.year})` : ''}`,
                     value: `${r.name}|||${r.year || ''}` // 使用特殊分隔符，前端可以解析
                 }));
-            console.log(`[API] /api/options/plans: 返回 ${plans.length} 筆計畫`);
             res.json({ data: plans });
         } else {
             // 向後兼容：如果 inspection_plans 表沒有資料，則從 issues 表取得
@@ -806,8 +805,7 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
             res.json({ data: plans });
         }
     } catch (e) { 
-        console.error('[API] /api/options/plans 錯誤:', e);
-        console.error('[API] 錯誤堆疊:', e.stack);
+        // 錯誤已在伺服器 log 中記錄（移除 console.error 以減少主控台輸出）
         res.status(500).json({ error: e.message }); 
     }
 });
@@ -865,8 +863,7 @@ app.get('/api/plans', requireAuth, async (req, res) => {
         
         res.json({data: plansWithCounts, total, page: parseInt(page), pages: Math.ceil(total/limit)});
     } catch (e) { 
-        console.error('[API] /api/plans 錯誤:', e);
-        console.error('[API] /api/plans 錯誤堆疊:', e.stack);
+        // 錯誤已在伺服器 log 中記錄（移除 console.error 以減少主控台輸出）
         res.status(500).json({ error: e.message }); 
     }
 });
@@ -976,7 +973,7 @@ app.post('/api/plans/import', requireAuth, async (req, res) => {
     const { data } = req.body; // 接收解析後的 CSV 資料
     if (!data || !Array.isArray(data)) return res.status(400).json({error: '無效的資料格式'});
     
-    console.log(`[匯入檢查計畫] 收到 ${data.length} 筆資料`);
+    // 收到匯入資料（日誌已移除，只在需要時記錄錯誤）
     
     const results = { success: 0, failed: 0, errors: [], skipped: 0 };
     
@@ -1029,7 +1026,7 @@ app.post('/api/plans/import', requireAuth, async (req, res) => {
                     [name, year]
                 );
                 results.success++;
-                console.log(`[匯入檢查計畫] 已存在，更新時間戳：${name} (年度: ${year})`);
+                // 已存在，更新時間戳（日誌已移除）
             } else {
                 // 如果不存在，新增
                 const insertResult = await pool.query(
@@ -1039,18 +1036,17 @@ app.post('/api/plans/import', requireAuth, async (req, res) => {
                 
                 if (insertResult.rows.length > 0) {
                     results.success++;
-                    console.log(`[匯入檢查計畫] 新增：${name} (年度: ${year})`);
                 }
             }
         } catch (e) {
             results.failed++;
             const errorMsg = `第 ${i + 2} 行（${name}）：${e.message}`;
             results.errors.push(errorMsg);
-            console.error(`[匯入檢查計畫] 失敗：`, errorMsg);
+            // 錯誤已在 logAction 中記錄
         }
     }
     
-    console.log(`[匯入檢查計畫] 完成：成功 ${results.success} 筆，失敗 ${results.failed} 筆，跳過 ${results.skipped} 筆`);
+    // 完成資訊已在 logAction 中記錄
     
     if (results.success > 0) {
         logAction(req.session.user.username, 'IMPORT_PLANS', `匯入檢查計畫：成功 ${results.success} 筆，失敗 ${results.failed} 筆，跳過 ${results.skipped || 0} 筆`, req);

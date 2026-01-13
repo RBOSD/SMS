@@ -381,8 +381,7 @@
                     return;
                 }
                 
-                console.log('載入計畫選項：', json.data.length, '筆');
-                console.log('計畫選項內容：', json.data);
+                // 載入計畫選項（已移除 debug 日誌）
                 
                 // 更新所有計畫選擇下拉選單
                 const selectIds = ['filterPlan', 'importPlanName', 'batchPlanName', 'manualPlanName'];
@@ -550,11 +549,21 @@ if (dashboard) {
                             // 設置清除舊記錄的UI
                             setTimeout(() => setupCleanupDaysSelect(), 100);
                         }
+                        
+                        // 恢復資料管理頁面的 tab
+                        if (viewId === 'importView') {
+                            const savedTab = sessionStorage.getItem('currentDataTab');
+                            if (savedTab) {
+                                setTimeout(() => {
+                                    switchDataTab(savedTab);
+                                }, 200);
+                            }
+                        }
                     } else {
-                        console.error('Failed to load view:', viewId);
+                        // 錯誤已在伺服器 log 中記錄
                     }
                 } catch (error) {
-                    console.error('Error loading view:', viewId, error);
+                    // 錯誤已在伺服器 log 中記錄
                 }
             } else if (viewId === 'usersView' && viewElement.dataset.loaded) {
                 // 如果視圖已經載入，也要設置清除舊記錄的UI
@@ -567,11 +576,19 @@ if (dashboard) {
                 loadUsersPage(1);
                 // 設置清除舊記錄的UI
                 setTimeout(() => setupCleanupDaysSelect(), 100);
+            } else if (viewId === 'importView' && viewElement.dataset.loaded) {
+                // 恢復資料管理頁面的 tab
+                const savedTab = sessionStorage.getItem('currentDataTab');
+                if (savedTab) {
+                    setTimeout(() => {
+                        switchDataTab(savedTab);
+                    }, 200);
+                }
             }
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            console.log("App init...");
+            // App 初始化（已移除 debug 日誌）
             try {
                 await checkAuth();
                 if (currentUser) {
@@ -1421,8 +1438,21 @@ if (dashboard) {
         }
 
         function switchDataTab(tab) { 
+            // 保存當前 tab 到 sessionStorage
+            sessionStorage.setItem('currentDataTab', tab);
+            
             document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active')); 
-            event.target.classList.add('active'); 
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // 如果沒有 event，找到對應的按鈕
+                const buttons = document.querySelectorAll('#importView .admin-tab-btn');
+                buttons.forEach(btn => {
+                    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`'${tab}'`)) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
             document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import'); 
             document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual'); 
             document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export'); 
@@ -1759,7 +1789,7 @@ if (dashboard) {
                 // 更新年度選項
                 updatePlanYearOptions();
             } catch (e) {
-                console.error('載入計畫錯誤:', e);
+                // 錯誤已在伺服器 log 中記錄
                 showToast('載入計畫錯誤: ' + e.message, 'error');
             }
         }
@@ -1768,6 +1798,9 @@ if (dashboard) {
             if (!tbody) return;
             tbody.innerHTML = planList.map(p => {
                 return `<tr>
+                    <td data-label="選擇" style="padding:12px;text-align:center;">
+                        <input type="checkbox" class="plan-check" value="${p.id}" onchange="updatePlansBatchDeleteBtn()">
+                    </td>
                     <td data-label="年度" style="padding:12px;font-weight:600;">${p.year || '-'}</td>
                     <td data-label="計畫名稱" style="padding:12px;font-weight:600;">${p.name || '-'}</td>
                     <td data-label="事項數量">${p.issue_count || 0}</td>
@@ -1778,6 +1811,76 @@ if (dashboard) {
                     </td>
                 </tr>`;
             }).join('');
+            updatePlansBatchDeleteBtn();
+        }
+        
+        function toggleSelectAllPlans() {
+            const selectAll = document.getElementById('selectAllPlans');
+            const selectAllHeader = document.getElementById('selectAllPlansHeader');
+            const checkboxes = document.querySelectorAll('.plan-check');
+            const isChecked = selectAll ? selectAll.checked : (selectAllHeader ? selectAllHeader.checked : false);
+            
+            checkboxes.forEach(cb => cb.checked = isChecked);
+            if (selectAll) selectAll.checked = isChecked;
+            if (selectAllHeader) selectAllHeader.checked = isChecked;
+            updatePlansBatchDeleteBtn();
+        }
+        
+        function updatePlansBatchDeleteBtn() {
+            const checkboxes = document.querySelectorAll('.plan-check:checked');
+            const count = checkboxes.length;
+            const btn = document.getElementById('batchDeletePlansBtn');
+            const countSpan = document.getElementById('selectedPlansCount');
+            
+            if (btn) {
+                btn.style.display = count > 0 ? 'inline-block' : 'none';
+            }
+            if (countSpan) {
+                countSpan.textContent = count;
+            }
+        }
+        
+        async function batchDeletePlans() {
+            const checkboxes = document.querySelectorAll('.plan-check:checked');
+            if (checkboxes.length === 0) {
+                showToast('請至少選擇一筆資料', 'error');
+                return;
+            }
+            
+            const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
+            const planNames = ids.map(id => {
+                const plan = planList.find(p => p.id === id);
+                return plan ? `${plan.name}${plan.year ? ` (${plan.year})` : ''}` : '';
+            }).filter(Boolean);
+            
+            if (!confirm(`確定要刪除以下 ${ids.length} 筆檢查計畫嗎？\n\n${planNames.slice(0, 5).join('\n')}${planNames.length > 5 ? '\n...' : ''}\n\n此操作無法復原！`)) {
+                return;
+            }
+            
+            try {
+                // 逐一刪除（因為需要記錄每個計畫的名稱）
+                let successCount = 0;
+                let failCount = 0;
+                
+                for (const id of ids) {
+                    const res = await fetch(`/api/plans/${id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                }
+                
+                if (successCount > 0) {
+                    showToast(`成功刪除 ${successCount} 筆${failCount > 0 ? `，失敗 ${failCount} 筆` : ''}`);
+                    loadPlansPage(plansPage);
+                    loadPlanOptions();
+                } else {
+                    showToast('刪除失敗', 'error');
+                }
+            } catch (e) {
+                showToast('刪除時發生錯誤: ' + e.message, 'error');
+            }
         }
         function plansSortBy(field) {
             if (plansSortField === field) plansSortDir = plansSortDir === 'asc' ? 'desc' : 'asc';
@@ -1857,11 +1960,7 @@ if (dashboard) {
                             }
                             
                             // 顯示解析結果統計
-                            console.log('CSV 解析結果：', {
-                                totalRows: results.data.length,
-                                errors: results.errors.length,
-                                sampleRow: results.data[0]
-                            });
+                            // CSV 解析完成（已移除 debug 日誌）
                             
                             // 過濾掉空行，支援多種欄位名稱
                             const validData = [];
@@ -1901,22 +2000,7 @@ if (dashboard) {
                                 }
                             });
                             
-                            // 顯示調試資訊
-                            if (invalidRows.length > 0) {
-                                console.warn('無效的資料行：', invalidRows);
-                            }
-                            
-                            console.log('有效資料統計：', {
-                                valid: validData.length,
-                                invalid: invalidRows.length,
-                                total: results.data.length,
-                                validData: validData // 顯示所有有效資料
-                            });
-                            
-                            // 顯示詳細的解析結果
-                            if (validData.length > 0) {
-                                console.log('將要匯入的資料：', validData);
-                            }
+                            // 已移除調試資訊（只在伺服器 log 中記錄）
                             
                             if (validData.length === 0) {
                                 let errorMsg = 'CSV 檔案中沒有有效的資料';
@@ -1961,7 +2045,7 @@ if (dashboard) {
                                     if (j.failed > 0) {
                                         msg += `，失敗 ${j.failed} 筆`;
                                         if (j.errors && j.errors.length > 0) {
-                                            console.warn('匯入錯誤詳情：', j.errors);
+                                            // 錯誤詳情已在伺服器 log 中記錄
                                             // 顯示前5個錯誤
                                             const errorPreview = j.errors.slice(0, 5).join('\n');
                                             if (j.errors.length > 5) {
@@ -1972,14 +2056,7 @@ if (dashboard) {
                                         }
                                     }
                                     
-                                    // 顯示詳細統計
-                                    console.log('匯入統計：', {
-                                        成功: j.success,
-                                        失敗: j.failed,
-                                        跳過: j.skipped || 0,
-                                        前端有效資料: validData.length,
-                                        後端處理: j
-                                    });
+                                    // 統計資訊已在伺服器 log 中記錄
                                     
                                     // 如果成功筆數少於有效資料筆數，顯示警告
                                     if (j.success < validData.length) {
