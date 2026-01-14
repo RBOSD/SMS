@@ -473,25 +473,35 @@
     <div class="detail-card" style="max-width:1200px;">
         <div style="margin-bottom:24px;">
             <h3 style="margin:0 0 8px 0; color:#334155; font-size:18px;">📝 開立事項修正</h3>
-            <p style="color:#64748b; font-size:13px; margin:0;">從下拉選單中選擇要修正的開立事項，點選後可編輯該事項的全部內容，包括所有審查及回復紀錄。</p>
+            <p style="color:#64748b; font-size:13px; margin:0;">選擇檢查計畫後，可查看該計畫下的所有事項，點選後可編輯該事項的全部內容，包括所有審查及回復紀錄。</p>
         </div>
         
-        <!-- 選擇開立事項（下拉選單） -->
+        <!-- 選擇檢查計畫（下拉選單，類似查詢看板） -->
         <div style="background:#f8fafc; padding:20px; border-radius:8px; margin-bottom:24px; border:1px solid #e2e8f0;">
             <div>
-                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">選擇開立事項 <span style="color:#ef4444;">*</span></label>
-                <select id="yearEditIssueSelect" class="filter-select" onchange="onYearEditIssueSelectChange()" style="width:100%;">
+                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">檢查計畫 <span style="color:#ef4444;">*</span></label>
+                <select id="yearEditPlanName" class="filter-select" onchange="onYearEditPlanChange()" style="width:100%;">
                     <option value="">載入中...</option>
                     <!-- JavaScript 會自動產生選項 -->
                 </select>
             </div>
         </div>
         
+        <!-- 事項列表 -->
+        <div id="yearEditIssueList" style="display:none; margin-bottom:24px;">
+            <div style="margin-bottom:12px; font-weight:600; color:#334155; font-size:15px;">
+                事項列表（共 <span id="yearEditIssueListCount">0</span> 項）
+            </div>
+            <div id="yearEditIssueListContainer" style="max-height:500px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; background:#fff;">
+                <!-- 事項列表將由 JavaScript 動態生成 -->
+            </div>
+        </div>
+        
         <!-- 事項詳細內容 -->
         <div id="yearEditIssueContent" style="display:none;">
             <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-                <button class="btn btn-outline" onclick="document.getElementById('yearEditIssueSelect').value=''; onYearEditIssueSelectChange();" style="padding:8px 16px; font-size:13px;">
-                    ← 返回選擇
+                <button class="btn btn-outline" onclick="backToYearEditIssueList()" style="padding:8px 16px; font-size:13px;">
+                    ← 返回事項列表
                 </button>
                 <div style="padding:12px; background:#fef3c7; border:1px solid #fcd34d; border-radius:6px; flex:1; margin-left:16px;">
                     <div style="font-size:13px; color:#92400e;">
@@ -511,14 +521,14 @@
         
         <div id="yearEditEmpty" style="text-align:center; padding:60px 20px; color:#94a3b8; display:block;">
             <div style="font-size:48px; margin-bottom:16px;">🔍</div>
-            <div style="font-size:16px; font-weight:500; margin-bottom:8px;">請從下拉選單中選擇要修正的開立事項</div>
-            <div style="font-size:13px;">選擇後將自動載入該事項的詳細內容供您編輯</div>
+            <div style="font-size:16px; font-weight:500; margin-bottom:8px;">請選擇檢查計畫</div>
+            <div style="font-size:13px;">選擇後將自動顯示該計畫下的所有事項</div>
         </div>
         
         <div id="yearEditNotFound" style="text-align:center; padding:60px 20px; color:#ef4444; display:none;">
             <div style="font-size:48px; margin-bottom:16px;">📭</div>
-            <div style="font-size:16px; font-weight:500; margin-bottom:8px;">找不到該開立事項</div>
-            <div style="font-size:13px;">請重新選擇其他開立事項</div>
+            <div style="font-size:16px; font-weight:500; margin-bottom:8px;">該檢查計畫下尚無開立事項</div>
+            <div style="font-size:13px;">請選擇其他檢查計畫</div>
         </div>
     </div>
 </div>
