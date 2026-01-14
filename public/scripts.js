@@ -4281,10 +4281,8 @@ if (dashboard) {
                 }
             }
             
-            // 如果沒有找到任何輪次，至少顯示第一輪（空）
-            if (rounds.length === 0) {
-                rounds.push({ round: 1, handling: '', review: '', replyDate: '', responseDate: '' });
-            }
+            // 檢查是否有實際的審查和回復紀錄（如果只有開立事項，不顯示此區塊）
+            const hasReviewRecords = rounds.length > 0;
             
             let html = `
                 <div class="detail-card" style="margin-bottom:20px; border:2px solid #e2e8f0;">
@@ -4325,7 +4323,11 @@ if (dashboard) {
                                 style="width:100%; min-height:120px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${stripHtml(item.content || '')}</textarea>
                         </div>
                     </div>
-                    
+            `;
+            
+            // 如果有審查和回復紀錄，添加該區塊
+            if (hasReviewRecords) {
+                html += `
                     <!-- 所有輪次的審查與回復紀錄 -->
                     <div style="padding:20px;">
                         <div style="font-weight:700; font-size:16px; color:#334155; margin-bottom:16px; padding-bottom:12px; border-bottom:2px solid #e2e8f0;">
@@ -4333,16 +4335,16 @@ if (dashboard) {
                         </div>
                         
                         <div id="yearEditRoundsContainer">
-            `;
-            
-            // 渲染每個輪次
-            rounds.forEach((round, index) => {
-                const isLast = index === rounds.length - 1;
-                html += `
+                `;
+                
+                // 渲染每個輪次
+                rounds.forEach((round, index) => {
+                    const isLast = index === rounds.length - 1;
+                    html += `
                     <div class="detail-card" style="margin-bottom:16px; border:1px solid #e2e8f0; ${isLast ? 'border-left:4px solid #2563eb;' : ''}">
                         <div style="background:#eff6ff; padding:12px; border-bottom:1px solid #dbeafe; display:flex; justify-content:space-between; align-items:center;">
                             <div style="font-weight:700; color:#1e40af; font-size:15px;">
-                                ${round.round === 1 ? '初次開立' : `第 ${round.round} 次審查`}
+                                第 ${round.round} 次回復與審查
                             </div>
                             <div style="display:flex; gap:12px; font-size:13px; color:#64748b;">
                                 ${round.replyDate ? `<span>鐵路機構回復日期：${round.replyDate}</span>` : ''}
@@ -4352,14 +4354,14 @@ if (dashboard) {
                         <div style="padding:16px;">
                             <div style="margin-bottom:16px;">
                                 <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">
-                                    辦理情形 ${round.round === 1 ? '(初次開立)' : `(第 ${round.round} 次)`}
+                                    辦理情形 (第 ${round.round} 次回復與審查)
                                 </label>
                                 <textarea class="filter-input year-edit-round-handling" data-round="${round.round}" 
                                     style="width:100%; min-height:100px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${round.handling}</textarea>
                             </div>
                             <div>
                                 <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">
-                                    審查意見 ${round.round === 1 ? '(初次開立)' : `(第 ${round.round} 次)`}
+                                    審查意見 (第 ${round.round} 次回復與審查)
                                 </label>
                                 <textarea class="filter-input year-edit-round-review" data-round="${round.round}" 
                                     style="width:100%; min-height:100px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${round.review}</textarea>
@@ -4379,11 +4381,15 @@ if (dashboard) {
                         </div>
                     </div>
                 `;
-            });
-            
-            html += `
+                });
+                
+                html += `
                         </div>
                     </div>
+                `;
+            }
+            
+            html += `
                 </div>
             `;
             
