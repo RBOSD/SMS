@@ -3724,6 +3724,22 @@ if (dashboard) {
         let yearEditIssue = null; // 儲存當前編輯的事項資料
         let yearEditIssueList = []; // 儲存當前計畫下的事項列表
         
+        // 從編號字串中提取數字（用於排序）
+        function extractNumberFromString(str) {
+            if (!str) return null;
+            // 嘗試提取編號最後的數字部分（例如：113ABC-DEF-001 中的 001）
+            const matches = str.match(/(\d+)(?!.*\d)/);
+            if (matches && matches[1]) {
+                return parseInt(matches[1], 10);
+            }
+            // 如果沒有找到，嘗試提取所有數字
+            const allNumbers = str.match(/\d+/g);
+            if (allNumbers && allNumbers.length > 0) {
+                return parseInt(allNumbers[allNumbers.length - 1], 10);
+            }
+            return null;
+        }
+        
         // 載入有開立事項的檢查計畫選項（類似查詢看板的檢查計畫下拉選單）
         async function loadYearEditPlanOptions() {
             const select = document.getElementById('yearEditPlanName');
@@ -3846,6 +3862,34 @@ if (dashboard) {
                 
                 const json = await res.json();
                 yearEditIssueList = json.data || [];
+                
+                // 對事項列表進行排序：先按類型（缺失N、觀察O、建議R），再按編號（數字小的在前）
+                if (yearEditIssueList.length > 0) {
+                    yearEditIssueList.sort((a, b) => {
+                        // 1. 先按類型排序：缺失(N) -> 觀察(O) -> 建議(R)
+                        const kindOrder = { 'N': 1, 'O': 2, 'R': 3 };
+                        // 資料庫欄位可能是 item_kind_code 或 itemKindCode，兩種都嘗試
+                        const kindCodeA = a.item_kind_code || a.itemKindCode || '';
+                        const kindCodeB = b.item_kind_code || b.itemKindCode || '';
+                        const kindA = kindOrder[kindCodeA] || 99;
+                        const kindB = kindOrder[kindCodeB] || 99;
+                        
+                        if (kindA !== kindB) {
+                            return kindA - kindB;
+                        }
+                        
+                        // 2. 如果類型相同，按編號排序（提取編號中的數字部分）
+                        const numA = extractNumberFromString(a.number || '');
+                        const numB = extractNumberFromString(b.number || '');
+                        
+                        if (numA !== null && numB !== null) {
+                            return numA - numB;
+                        }
+                        
+                        // 如果無法提取數字，按字串排序
+                        return (a.number || '').localeCompare(b.number || '', 'zh-TW');
+                    });
+                }
                 
                 if (yearEditIssueList.length === 0) {
                     // 沒有事項
