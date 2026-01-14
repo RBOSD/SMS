@@ -2351,7 +2351,7 @@ if (dashboard) {
             tr.innerHTML = `
                 <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx}</td>
                 <td><input type="text" class="filter-input create-batch-number" placeholder="編號..." onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
-                <td><textarea class="filter-input create-batch-content" rows="1" placeholder="內容..." style="resize:vertical;"></textarea></td>
+                <td><textarea class="filter-input create-batch-content" rows="1" placeholder="內容..." style="resize:both; min-width:200px; width:200px; min-height:32px;" oninput="adjustTextareaWidth(this)"></textarea></td>
                 <td><input type="text" class="filter-input create-batch-year" style="background:#f1f5f9;color:#64748b;" readonly></td>
                 <td><input type="text" class="filter-input create-batch-unit" style="background:#f1f5f9;color:#64748b;" readonly></td>
                 <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="安全">安全</option><option value="審核">審核</option><option value="災防">災防</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option></select></td>
@@ -2375,6 +2375,33 @@ if (dashboard) {
                 });
             } else {
                 showToast('至少需保留一列', 'error');
+            }
+        }
+        
+        // 批次模式：調整textarea寬度和高度
+        function adjustTextareaWidth(textarea) {
+            // 根據內容長度動態調整寬度和高度
+            const content = textarea.value;
+            const contentLength = content.length;
+            
+            // 計算行數（假設每行約50個字符）
+            const lines = Math.max(1, Math.ceil(contentLength / 50));
+            const maxLines = 5; // 最多顯示5行
+            textarea.rows = Math.min(lines, maxLines);
+            
+            // 調整寬度：根據內容長度和行數
+            const minWidth = 200;
+            const maxWidth = 600;
+            const charWidth = 7; // 估算每個字符的寬度（px）
+            const padding = 24; // 左右padding
+            
+            // 如果是多行，使用較大的寬度
+            if (lines > 1) {
+                textarea.style.width = Math.min(maxWidth, Math.max(minWidth, 400)) + 'px';
+            } else {
+                // 單行時根據內容長度調整
+                const calculatedWidth = Math.max(minWidth, Math.min(maxWidth, contentLength * charWidth + padding));
+                textarea.style.width = calculatedWidth + 'px';
             }
         }
         
@@ -4107,9 +4134,7 @@ if (dashboard) {
             const [planName, planYear] = planValue.split('|||');
             
             try {
-                showToast('載入事項列表中...', 'info');
-                
-                // 載入該計畫下的所有事項
+                // 載入該計畫下的所有事項（不顯示提示，因為已經確認有開立事項）
                 const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
                 if (!res.ok) throw new Error('載入事項列表失敗');
                 
