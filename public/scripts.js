@@ -4175,11 +4175,10 @@ if (dashboard) {
                     document.getElementById('yearEditNotFound').style.display = 'block';
                     document.getElementById('yearEditIssueList').style.display = 'none';
                 } else {
-                    // 顯示事項列表
+                    // 顯示事項列表（不顯示提示，因為已經確認有開立事項）
                     document.getElementById('yearEditEmpty').style.display = 'none';
                     document.getElementById('yearEditNotFound').style.display = 'none';
                     renderYearEditIssueList();
-                    showToast(`已載入 ${yearEditIssueList.length} 個事項`, 'success');
                 }
             } catch (e) {
                 showToast('載入事項列表失敗: ' + e.message, 'error');
@@ -4250,7 +4249,6 @@ if (dashboard) {
             document.getElementById('yearEditSaveBtn').disabled = false;
             
             renderYearEditIssue();
-            showToast('已載入事項資料', 'success');
             
             // 滾動到編輯區域
             document.getElementById('yearEditIssueContent').scrollIntoView({ behavior: 'smooth', block: 'start' });
