@@ -2223,19 +2223,9 @@ if (dashboard) {
             }
         }
         
-        // 檢查計畫改變時，更新年度
+        // 檢查計畫改變時（年度已包含在計畫中，無需額外處理）
         function onCreatePlanChange() {
-            const planSelect = document.getElementById('createPlanName');
-            if (!planSelect || !planSelect.value) {
-                document.getElementById('createYear').value = '';
-                return;
-            }
-            
-            const planValue = planSelect.value;
-            const [planName, planYear] = planValue.split('|||');
-            if (planYear) {
-                document.getElementById('createYear').value = planYear;
-            }
+            // 年度資訊已包含在檢查計畫選項中，無需額外處理
         }
         
         // 從編號自動填入欄位（單筆模式）
@@ -2332,7 +2322,6 @@ if (dashboard) {
                         document.getElementById('createContent').value = '';
                         document.getElementById('createPlanName').value = '';
                         document.getElementById('createIssueDate').value = '';
-                        document.getElementById('createYear').value = '';
                     }
 
                     loadIssuesPage(1);
@@ -2420,7 +2409,6 @@ if (dashboard) {
         async function saveCreateBatchItems() {
             const planValue = document.getElementById('createPlanName').value.trim();
             const issueDate = document.getElementById('createIssueDate').value.trim();
-            const batchYear = document.getElementById('createYear') ? document.getElementById('createYear').value.trim() : '';
 
             if (!planValue) return showToast('請選擇檢查計畫', 'error');
             const planName = parsePlanValue(planValue).name;
@@ -2488,7 +2476,6 @@ if (dashboard) {
                     initCreateBatchGrid();
                     document.getElementById('createPlanName').value = '';
                     document.getElementById('createIssueDate').value = '';
-                    document.getElementById('createYear').value = '';
                     loadIssuesPage(1);
                     loadPlanOptions();
                 } else {
