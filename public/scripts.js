@@ -867,6 +867,7 @@ if (dashboard) {
             const exportJsonOption = document.getElementById('exportJsonOption');
             if (exportJsonOption) {
                 exportJsonOption.style.display = 'flex';
+                exportJsonOption.style.alignItems = 'center';
             }
         }
         
@@ -2025,7 +2026,7 @@ if (dashboard) {
                         if (this.value === 'plans') {
                             exportIssuesOptions.style.display = 'none';
                         } else {
-                            exportIssuesOptions.style.display = 'flex';
+                            exportIssuesOptions.style.display = 'block';
                         }
                     });
                 });
@@ -2035,7 +2036,7 @@ if (dashboard) {
                 if (checked && checked.value === 'plans') {
                     exportIssuesOptions.style.display = 'none';
                 } else {
-                    exportIssuesOptions.style.display = 'flex';
+                    exportIssuesOptions.style.display = 'block';
                 }
             }
         }
