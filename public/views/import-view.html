@@ -186,7 +186,7 @@
                     <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
                         檢查計畫名稱 <span style="color:#ef4444;">*</span>
                     </label>
-                    <select id="createPlanName" class="filter-input" style="background:white;padding:10px;" onchange="onCreatePlanChange()">
+                    <select id="createPlanName" class="filter-input" style="background:white;padding:10px;" onchange="onCreatePlanChange(); handleCreateBatchPlanChange();">
                         <option value="">請選擇計畫</option>
                         <!-- JavaScript 會自動產生選項 -->
                     </select>

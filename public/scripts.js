@@ -2226,7 +2226,41 @@ if (dashboard) {
         
         // 檢查計畫改變時（年度已包含在計畫中，無需額外處理）
         function onCreatePlanChange() {
-            // 年度資訊已包含在檢查計畫選項中，無需額外處理
+            // 當選擇計畫時，自動帶入計畫的年度
+            const planValue = document.getElementById('createPlanName').value.trim();
+            if (planValue) {
+                const { name, year } = parsePlanValue(planValue);
+                if (year) {
+                    const yearDisplay = document.getElementById('createYearDisplay');
+                    if (yearDisplay) {
+                        const oldYear = yearDisplay.value;
+                        yearDisplay.value = year;
+                        // 如果年度有變更，顯示提示訊息
+                        if (oldYear && oldYear !== year) {
+                            showToast(`已自動更新為計畫年度：${year}（原：${oldYear}）`, 'info');
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 批次模式：當選擇計畫時，更新所有已輸入編號的年度
+        function handleCreateBatchPlanChange() {
+            const planValue = document.getElementById('createPlanName')?.value.trim();
+            if (!planValue) return;
+            
+            const { year: planYear } = parsePlanValue(planValue);
+            if (!planYear) return;
+            
+            // 更新所有已輸入編號的行的年度
+            const rows = document.querySelectorAll('#createBatchGridBody tr');
+            rows.forEach(tr => {
+                const number = tr.querySelector('.create-batch-number')?.value.trim();
+                if (number) {
+                    // 如果該行已有編號，更新年度為計畫的年度
+                    tr.querySelector('.create-batch-year').value = planYear;
+                }
+            });
         }
         
         // 從編號自動填入欄位（單筆模式）
@@ -2265,7 +2299,7 @@ if (dashboard) {
         async function submitCreateIssue() {
             const number = document.getElementById('createNumber').value.trim();
             const yearDisplay = document.getElementById('createYearDisplay');
-            const year = yearDisplay ? yearDisplay.value.trim() : '';
+            let year = yearDisplay ? yearDisplay.value.trim() : '';
             const unit = document.getElementById('createUnit').value.trim();
             const division = document.getElementById('createDivision').value;
             const inspection = document.getElementById('createInspection').value;
@@ -2278,12 +2312,34 @@ if (dashboard) {
             const status = document.getElementById('createStatus').value;
             const content = document.getElementById('createContent').value.trim();
             
-            if (!number || !year || !unit || !content) return showToast('請填寫所有必填欄位', 'error');
+            if (!number || !unit || !content) return showToast('請填寫所有必填欄位', 'error');
             if (!planValue) return showToast('請選擇檢查計畫', 'error');
             if (!issueDate) return showToast('請填寫初次發函日期', 'error');
             
-            // 從計畫選項值中提取計畫名稱
-            const planName = parsePlanValue(planValue).name;
+            // 從計畫選項值中提取計畫名稱和年度
+            const { name: planName, year: planYear } = parsePlanValue(planValue);
+            
+            // 優先使用計畫的年度，如果計畫沒有年度才使用從編號解析出來的年度
+            if (planYear) {
+                year = planYear;
+                // 更新顯示欄位
+                if (yearDisplay) {
+                    yearDisplay.value = year;
+                }
+            }
+            
+            // 如果還是沒有年度，嘗試從編號解析
+            if (!year) {
+                const info = parseItemNumber(number);
+                if (info && info.yearRoc) {
+                    year = info.yearRoc;
+                    if (yearDisplay) {
+                        yearDisplay.value = year;
+                    }
+                }
+            }
+            
+            if (!year) return showToast('無法確定年度，請確認編號格式或選擇有年度的檢查計畫', 'error');
 
             const payload = {
                 data: [{
@@ -2414,7 +2470,19 @@ if (dashboard) {
 
             const info = parseItemNumber(val);
             if (info) {
-                if (info.yearRoc) tr.querySelector('.create-batch-year').value = info.yearRoc;
+                // 優先使用計畫的年度，如果計畫沒有年度才使用從編號解析出來的年度
+                const planValue = document.getElementById('createPlanName')?.value.trim();
+                if (planValue) {
+                    const { year: planYear } = parsePlanValue(planValue);
+                    if (planYear) {
+                        tr.querySelector('.create-batch-year').value = planYear;
+                    } else if (info.yearRoc) {
+                        tr.querySelector('.create-batch-year').value = info.yearRoc;
+                    }
+                } else if (info.yearRoc) {
+                    tr.querySelector('.create-batch-year').value = info.yearRoc;
+                }
+                
                 if (info.orgCode) {
                     const name = ORG_MAP[info.orgCode] || info.orgCode;
                     if (name && name !== '?') tr.querySelector('.create-batch-unit').value = name;
@@ -2439,7 +2507,7 @@ if (dashboard) {
             const issueDate = document.getElementById('createIssueDate').value.trim();
 
             if (!planValue) return showToast('請選擇檢查計畫', 'error');
-            const planName = parsePlanValue(planValue).name;
+            const { name: planName, year: planYear } = parsePlanValue(planValue);
             if (!issueDate) return showToast('請填寫初次發函日期', 'error');
 
             const rows = document.querySelectorAll('#createBatchGridBody tr');
@@ -2458,11 +2526,18 @@ if (dashboard) {
                     return;
                 }
 
-                const year = tr.querySelector('.create-batch-year').value.trim();
+                // 優先使用計畫的年度，如果計畫沒有年度才使用表格中的年度
+                let year = tr.querySelector('.create-batch-year').value.trim();
+                if (planYear && year !== planYear) {
+                    // 如果計畫有年度且與表格中的年度不同，使用計畫的年度
+                    year = planYear;
+                    tr.querySelector('.create-batch-year').value = year;
+                }
+                
                 const unit = tr.querySelector('.create-batch-unit').value.trim();
 
                 if (!year || !unit) {
-                    showToast(`第 ${idx + 1} 列的年度或機構未能自動判別，請確認編號格式`, 'error');
+                    showToast(`第 ${idx + 1} 列的年度或機構未能自動判別，請確認編號格式或選擇有年度的檢查計畫`, 'error');
                     hasError = true;
                     return;
                 }
