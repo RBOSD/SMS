@@ -397,7 +397,7 @@
                 }
                 
                 // 更新資料管理頁面的計畫選擇下拉選單（顯示所有計畫）
-                const selectIds = ['importPlanName', 'batchPlanName', 'manualPlanName'];
+                const selectIds = ['importPlanName', 'batchPlanName', 'manualPlanName', 'createPlanName'];
                 selectIds.forEach(selectId => {
                     const select = document.getElementById(selectId);
                     if (select) {
@@ -1971,12 +1971,29 @@ if (dashboard) {
             
             // 切換子 tab 內容
             document.getElementById('subtab-issues-import').classList.toggle('hidden', subTab !== 'import');
-            document.getElementById('subtab-issues-batch').classList.toggle('hidden', subTab !== 'batch');
-            document.getElementById('subtab-issues-manual').classList.toggle('hidden', subTab !== 'manual');
+            document.getElementById('subtab-issues-create').classList.toggle('hidden', subTab !== 'create');
             document.getElementById('subtab-issues-year-edit').classList.toggle('hidden', subTab !== 'year-edit');
             
-            if (subTab === 'batch' && document.querySelectorAll('#batchGridBody tr').length === 0) {
-                initBatchGrid();
+            // 向後兼容：batch 和 manual 都指向 create
+            if (subTab === 'batch' || subTab === 'manual') {
+                document.getElementById('subtab-issues-create').classList.remove('hidden');
+                if (subTab === 'batch') {
+                    switchCreateMode('batch');
+                } else {
+                    switchCreateMode('single');
+                }
+            }
+            
+            if (subTab === 'create') {
+                // 初始化新增事項頁面
+                // 如果還沒有設定模式，預設為批次模式
+                if (!createMode) {
+                    createMode = 'batch';
+                }
+                // 確保模式按鈕狀態正確
+                switchCreateMode(createMode);
+                // 確保計畫選項已載入
+                loadPlanOptions();
             }
             
             if (subTab === 'year-edit') {
@@ -2172,48 +2189,108 @@ if (dashboard) {
             }
         }
 
-        function autoFillFromNumber() {
-            const val = document.getElementById('manualNumber').value;
+        // --- 合併後的新增事項功能 ---
+        let createMode = 'batch'; // 'single' 或 'batch'
+        
+        // 切換新增模式
+        function switchCreateMode(mode) {
+            createMode = mode;
+            const singleMode = document.getElementById('createSingleMode');
+            const batchMode = document.getElementById('createBatchMode');
+            const singleBtn = document.getElementById('createModeSingle');
+            const batchBtn = document.getElementById('createModeBatch');
+            const desc = document.getElementById('createModeDescription');
+            
+            if (mode === 'single') {
+                singleMode.style.display = 'block';
+                batchMode.style.display = 'none';
+                singleBtn.classList.remove('btn-outline');
+                singleBtn.classList.add('btn-primary');
+                batchBtn.classList.remove('btn-primary');
+                batchBtn.classList.add('btn-outline');
+                desc.textContent = '手動新增單筆開立事項。輸入編號後，系統會自動帶入年度、機構、分組與種類資訊。';
+            } else {
+                singleMode.style.display = 'none';
+                batchMode.style.display = 'block';
+                batchBtn.classList.remove('btn-outline');
+                batchBtn.classList.add('btn-primary');
+                singleBtn.classList.remove('btn-primary');
+                singleBtn.classList.add('btn-outline');
+                desc.textContent = '選擇計畫後，可連續輸入多筆事項。系統會自動根據編號判斷年度、機構與分組。';
+                if (document.querySelectorAll('#createBatchGridBody tr').length === 0) {
+                    initCreateBatchGrid();
+                }
+            }
+        }
+        
+        // 檢查計畫改變時，更新年度
+        function onCreatePlanChange() {
+            const planSelect = document.getElementById('createPlanName');
+            if (!planSelect || !planSelect.value) {
+                document.getElementById('createYear').value = '';
+                return;
+            }
+            
+            const planValue = planSelect.value;
+            const [planName, planYear] = planValue.split('|||');
+            if (planYear) {
+                document.getElementById('createYear').value = planYear;
+            }
+        }
+        
+        // 從編號自動填入欄位（單筆模式）
+        function autoFillFromNumberCreate() {
+            const val = document.getElementById('createNumber').value;
             const info = parseItemNumber(val);
             if (info) {
                 if (info.yearRoc) {
-                    const yearDisplay = document.getElementById('manualYearDisplay');
+                    const yearDisplay = document.getElementById('createYearDisplay');
                     if (yearDisplay) yearDisplay.value = info.yearRoc;
                 }
                 if (info.orgCode) {
                     const name = ORG_MAP[info.orgCode] || info.orgCode;
-                    if (name && name !== '?') document.getElementById('manualUnit').value = name;
+                    if (name && name !== '?') document.getElementById('createUnit').value = name;
                 }
                 if (info.divCode) {
                     const divName = DIVISION_MAP[info.divCode];
-                    if (divName) document.getElementById('manualDivision').value = divName;
+                    if (divName) document.getElementById('createDivision').value = divName;
                 }
                 if (info.inspectCode) {
                     const inspectName = INSPECTION_MAP[info.inspectCode];
-                    if (inspectName) document.getElementById('manualInspection').value = inspectName;
+                    if (inspectName) document.getElementById('createInspection').value = inspectName;
                 }
                 if (info.kindCode) {
-                    document.getElementById('manualKind').value = info.kindCode;
+                    document.getElementById('createKind').value = info.kindCode;
                 }
             }
         }
+        
+        // 向後兼容：保留舊函數名稱
+        function autoFillFromNumber() {
+            autoFillFromNumberCreate();
+        }
 
-        async function submitManualIssue() {
-            const number = document.getElementById('manualNumber').value.trim();
-            const yearDisplay = document.getElementById('manualYearDisplay');
+        // 單筆新增事項
+        async function submitCreateIssue() {
+            const number = document.getElementById('createNumber').value.trim();
+            const yearDisplay = document.getElementById('createYearDisplay');
             const year = yearDisplay ? yearDisplay.value.trim() : '';
-            const unit = document.getElementById('manualUnit').value.trim();
-            const division = document.getElementById('manualDivision').value;
-            const inspection = document.getElementById('manualInspection').value;
-            const kind = document.getElementById('manualKind').value;
+            const unit = document.getElementById('createUnit').value.trim();
+            const division = document.getElementById('createDivision').value;
+            const inspection = document.getElementById('createInspection').value;
+            const kind = document.getElementById('createKind').value;
 
-            const planValue = document.getElementById('manualPlanName').value.trim();
-            const issueDate = document.getElementById('manualIssueDate').value.trim();
-            const continuousMode = document.getElementById('manualContinuousMode').checked;
+            const planValue = document.getElementById('createPlanName').value.trim();
+            const issueDate = document.getElementById('createIssueDate').value.trim();
+            const continuousMode = document.getElementById('createContinuousMode').checked;
 
-            const status = document.getElementById('manualStatus').value;
-            const content = document.getElementById('manualContent').value.trim();
+            const status = document.getElementById('createStatus').value;
+            const content = document.getElementById('createContent').value.trim();
+            
             if (!number || !year || !unit || !content) return showToast('請填寫所有必填欄位', 'error');
+            if (!planValue) return showToast('請選擇檢查計畫', 'error');
+            if (!issueDate) return showToast('請填寫初次發函日期', 'error');
+            
             // 從計畫選項值中提取計畫名稱
             const planName = parsePlanValue(planValue).name;
 
@@ -2231,32 +2308,221 @@ if (dashboard) {
             };
 
             try {
-                const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const res = await fetch('/api/issues/import', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify(payload) 
+                });
+                
                 if (res.ok) {
                     showToast('新增成功');
 
                     if (continuousMode) {
-                        document.getElementById('manualNumber').value = '';
-                        document.getElementById('manualKind').value = '';
-                        document.getElementById('manualContent').value = '';
-                        document.getElementById('manualNumber').focus();
+                        document.getElementById('createNumber').value = '';
+                        document.getElementById('createKind').value = '';
+                        document.getElementById('createContent').value = '';
+                        document.getElementById('createNumber').focus();
                     } else {
-                        document.getElementById('manualNumber').value = '';
-                        const yearDisplay = document.getElementById('manualYearDisplay');
+                        document.getElementById('createNumber').value = '';
                         if (yearDisplay) yearDisplay.value = '';
-                        document.getElementById('manualUnit').value = '';
-                        document.getElementById('manualDivision').value = '';
-                        document.getElementById('manualInspection').value = '';
-                        document.getElementById('manualKind').value = '';
-                        document.getElementById('manualContent').value = '';
-                        document.getElementById('manualPlanName').value = '';
-                        document.getElementById('manualIssueDate').value = '';
+                        document.getElementById('createUnit').value = '';
+                        document.getElementById('createDivision').value = '';
+                        document.getElementById('createInspection').value = '';
+                        document.getElementById('createKind').value = '';
+                        document.getElementById('createContent').value = '';
+                        document.getElementById('createPlanName').value = '';
+                        document.getElementById('createIssueDate').value = '';
+                        document.getElementById('createYear').value = '';
                     }
 
                     loadIssuesPage(1);
                     loadPlanOptions();
-                } else { showToast('新增失敗', 'error'); }
-            } catch (e) { showToast('Error: ' + e.message, 'error'); }
+                } else { 
+                    showToast('新增失敗', 'error'); 
+                }
+            } catch (e) { 
+                showToast('Error: ' + e.message, 'error'); 
+            }
+        }
+        
+        // 批次模式：初始化表格
+        function initCreateBatchGrid() {
+            const tbody = document.getElementById('createBatchGridBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            for (let i = 0; i < 5; i++) addCreateBatchRow();
+        }
+        
+        // 批次模式：新增一列
+        function addCreateBatchRow() {
+            const tbody = document.getElementById('createBatchGridBody');
+            if (!tbody) return;
+            const rowIdx = tbody.children.length + 1;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx}</td>
+                <td><input type="text" class="filter-input create-batch-number" placeholder="編號..." onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
+                <td><textarea class="filter-input create-batch-content" rows="1" placeholder="內容..." style="resize:vertical;"></textarea></td>
+                <td><input type="text" class="filter-input create-batch-year" style="background:#f1f5f9;color:#64748b;" readonly></td>
+                <td><input type="text" class="filter-input create-batch-unit" style="background:#f1f5f9;color:#64748b;" readonly></td>
+                <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="安全">安全</option><option value="審核">審核</option><option value="災防">災防</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option></select></td>
+                <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option></select></td>
+                <td><select class="filter-select create-batch-kind"><option value="">-</option><option value="N">缺失</option><option value="O">觀察</option><option value="R">建議</option></select></td>
+                <td><select class="filter-select create-batch-status"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></td>
+                <td style="text-align:center;"><button class="btn btn-danger btn-sm" onclick="removeCreateBatchRow(this)" style="padding:4px 8px;">×</button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+        
+        // 批次模式：移除一列
+        function removeCreateBatchRow(btn) {
+            const tr = btn.closest('tr');
+            const tbody = document.getElementById('createBatchGridBody');
+            if (tbody && tbody.children.length > 1) {
+                tr.remove();
+                // Re-index
+                tbody.querySelectorAll('tr').forEach((row, idx) => {
+                    row.cells[0].innerText = idx + 1;
+                });
+            } else {
+                showToast('至少需保留一列', 'error');
+            }
+        }
+        
+        // 批次模式：處理編號變更
+        function handleCreateBatchNumberChange(input) {
+            const tr = input.closest('tr');
+            const val = input.value.trim();
+            if (!val) return;
+
+            const info = parseItemNumber(val);
+            if (info) {
+                if (info.yearRoc) tr.querySelector('.create-batch-year').value = info.yearRoc;
+                if (info.orgCode) {
+                    const name = ORG_MAP[info.orgCode] || info.orgCode;
+                    if (name && name !== '?') tr.querySelector('.create-batch-unit').value = name;
+                }
+                if (info.divCode) {
+                    const divName = DIVISION_MAP[info.divCode];
+                    if (divName) tr.querySelector('.create-batch-division').value = divName;
+                }
+                if (info.inspectCode) {
+                    const inspectName = INSPECTION_MAP[info.inspectCode];
+                    if (inspectName) tr.querySelector('.create-batch-inspection').value = inspectName;
+                }
+                if (info.kindCode) {
+                    tr.querySelector('.create-batch-kind').value = info.kindCode;
+                }
+            }
+        }
+        
+        // 批次模式：儲存所有項目
+        async function saveCreateBatchItems() {
+            const planValue = document.getElementById('createPlanName').value.trim();
+            const issueDate = document.getElementById('createIssueDate').value.trim();
+            const batchYear = document.getElementById('createYear') ? document.getElementById('createYear').value.trim() : '';
+
+            if (!planValue) return showToast('請選擇檢查計畫', 'error');
+            const planName = parsePlanValue(planValue).name;
+            if (!issueDate) return showToast('請填寫初次發函日期', 'error');
+
+            const rows = document.querySelectorAll('#createBatchGridBody tr');
+            const items = [];
+            let hasError = false;
+
+            rows.forEach((tr, idx) => {
+                const number = tr.querySelector('.create-batch-number').value.trim();
+                const content = tr.querySelector('.create-batch-content').value.trim();
+
+                if (!number && !content) return;
+
+                if (!number) {
+                    showToast(`第 ${idx + 1} 列缺少編號`, 'error');
+                    hasError = true;
+                    return;
+                }
+
+                const year = tr.querySelector('.create-batch-year').value.trim();
+                const unit = tr.querySelector('.create-batch-unit').value.trim();
+
+                if (!year || !unit) {
+                    showToast(`第 ${idx + 1} 列的年度或機構未能自動判別，請確認編號格式`, 'error');
+                    hasError = true;
+                    return;
+                }
+
+                items.push({
+                    number,
+                    year,
+                    unit,
+                    content,
+                    status: tr.querySelector('.create-batch-status').value,
+                    itemKindCode: tr.querySelector('.create-batch-kind').value,
+                    divisionName: tr.querySelector('.create-batch-division').value,
+                    inspectionCategoryName: tr.querySelector('.create-batch-inspection').value,
+                    planName: planName,
+                    issueDate: issueDate,
+                    scheme: 'BATCH'
+                });
+            });
+
+            if (hasError) return;
+            if (items.length === 0) return showToast('請至少輸入一筆有效資料', 'error');
+
+            if (!confirm(`確定要批次新增 ${items.length} 筆資料嗎？\n計畫：${planName}`)) return;
+
+            try {
+                const res = await fetch('/api/issues/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        data: items,
+                        round: 1,
+                        reviewDate: '',
+                        replyDate: ''
+                    })
+                });
+
+                if (res.ok) {
+                    showToast('批次新增成功！');
+                    initCreateBatchGrid();
+                    document.getElementById('createPlanName').value = '';
+                    document.getElementById('createIssueDate').value = '';
+                    document.getElementById('createYear').value = '';
+                    loadIssuesPage(1);
+                    loadPlanOptions();
+                } else {
+                    const j = await res.json();
+                    showToast('新增失敗: ' + (j.error || '不明錯誤'), 'error');
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+        
+        // 向後兼容：保留舊函數名稱
+        async function submitManualIssue() {
+            return submitCreateIssue();
+        }
+        
+        function initBatchGrid() {
+            initCreateBatchGrid();
+        }
+        
+        function addBatchRow() {
+            addCreateBatchRow();
+        }
+        
+        function removeBatchRow(btn) {
+            removeCreateBatchRow(btn);
+        }
+        
+        function handleBatchNumberChange(input) {
+            handleCreateBatchNumberChange(input);
+        }
+        
+        async function saveBatchItems() {
+            return saveCreateBatchItems();
         }
 
         // 保留舊函數名稱以向後兼容
