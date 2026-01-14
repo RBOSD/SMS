@@ -428,6 +428,32 @@
             flex-shrink: 0;
             margin-bottom: 24px;
             transition: all 0.3s ease;
+            padding: 24px;
+        }
+        
+        /* 如果 main-card 的第一個直接子元素是 data-container（如檢查計畫管理頁面的表格），移除 main-card 的 padding */
+        .main-card > .data-container:first-child:last-child {
+            margin: -24px;
+            padding: 0;
+        }
+        
+        /* 如果 main-card 的第一個子元素已經有 padding（如檢查計畫管理頁面），讓它抵消 main-card 的上左右 padding */
+        .main-card > div[style*="padding"]:first-child {
+            margin-left: -24px;
+            margin-right: -24px;
+            margin-top: -24px;
+        }
+        
+        /* 如果 main-card 的第一個子元素有 padding 且不是最後一個，同樣處理 */
+        .main-card > div[style*="padding"]:first-child:not(:last-child) {
+            margin-left: -24px;
+            margin-right: -24px;
+            margin-top: -24px;
+        }
+        
+        /* 如果 main-card 的最後一個子元素是 data-container，移除下邊距 */
+        .main-card > .data-container:last-child:not(:first-child) {
+            margin-bottom: -24px;
         }
 
         .main-card:hover {
