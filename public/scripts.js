@@ -4810,8 +4810,40 @@ if (dashboard) {
                 if (successCount > 0 || errorCount === 0) {
                     showToast(`儲存成功${errorCount > 0 ? `（${errorCount} 個輪次更新失敗）` : ''}`, 
                         errorCount > 0 ? 'warning' : 'success');
-                    // 重新載入資料
-                    await loadYearEditIssue();
+                    // 重新載入當前事項的資料（通過編號查詢）
+                    try {
+                        const currentNumber = document.getElementById('yearEditNumber')?.value.trim() || yearEditIssue?.number;
+                        if (currentNumber) {
+                            const res = await fetch(`/api/issues?page=1&pageSize=1&q=${encodeURIComponent(currentNumber)}&_t=${Date.now()}`);
+                            if (res.ok) {
+                                const json = await res.json();
+                                if (json.data && json.data.length > 0) {
+                                    yearEditIssue = json.data[0];
+                                    // 重新渲染事項內容
+                                    renderYearEditIssue();
+                                }
+                            }
+                        }
+                    } catch (reloadError) {
+                        console.error('重新載入事項資料失敗:', reloadError);
+                        // 即使重新載入失敗，也顯示成功訊息（因為已經保存成功）
+                        // 嘗試使用當前輸入的值更新 yearEditIssue 並重新渲染
+                        if (yearEditIssue) {
+                            yearEditIssue.number = document.getElementById('yearEditNumber')?.value.trim() || yearEditIssue.number;
+                            yearEditIssue.year = document.getElementById('yearEditYear')?.value.trim() || yearEditIssue.year;
+                            yearEditIssue.unit = document.getElementById('yearEditUnit')?.value.trim() || yearEditIssue.unit;
+                            yearEditIssue.divisionName = document.getElementById('yearEditDivision')?.value || yearEditIssue.divisionName;
+                            yearEditIssue.inspectionCategoryName = document.getElementById('yearEditInspection')?.value || yearEditIssue.inspectionCategoryName;
+                            yearEditIssue.item_kind_code = document.getElementById('yearEditKind')?.value || yearEditIssue.item_kind_code;
+                            const planValue = document.getElementById('yearEditPlanNameSelect')?.value || '';
+                            const { name: planName } = parsePlanValue(planValue);
+                            if (planName) yearEditIssue.plan_name = planName;
+                            yearEditIssue.status = document.getElementById('yearEditStatus')?.value || yearEditIssue.status;
+                            yearEditIssue.issue_date = document.getElementById('yearEditIssueDate')?.value || yearEditIssue.issue_date;
+                            yearEditIssue.content = document.getElementById('yearEditContent')?.value || yearEditIssue.content;
+                            renderYearEditIssue();
+                        }
+                    }
                 } else {
                     showToast('儲存失敗', 'error');
                 }
