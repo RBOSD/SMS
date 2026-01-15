@@ -281,14 +281,22 @@
             </div>
             <div id="editModeContent" class="hidden" style="height:100%;">
                 <input type="hidden" id="editId">
-                <div
-                    style="background:#eff6ff; padding:16px; border-radius:12px; margin-bottom:20px; border:1px solid #dbeafe; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                    <span style="font-weight:bold; color:#1e40af; font-size:16px;" id="editHeaderNumber"></span>
-                    <span style="color:#cbd5e1;">|</span>
-                    <span style="font-weight:500; color:#334155;" id="editHeaderYear"></span>
-                    <span style="color:#cbd5e1;">|</span>
-                    <span style="font-weight:500; color:#334155;" id="editHeaderUnit"></span>
-                    <span id="editHeaderStatusKind" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-left:auto;"></span>
+                <div class="detail-card" style="margin-bottom:20px;">
+                    <div class="detail-header-row">
+                        <span class="detail-unit-badge" id="editHeaderUnitBadge"></span>
+                        <span class="detail-number" id="editHeaderNumber"></span>
+                        <span id="editHeaderStatusKind"></span>
+                        <span class="separator">|</span>
+                        <span style="color:#64748b;">年度: <span id="editHeaderYear"
+                                style="color:#334155;font-weight:500;"></span></span>
+                        <span class="separator">|</span>
+                        <span style="font-weight:500;" id="editHeaderPlanName"></span>
+                        <span class="separator">|</span>
+                        <span style="color:#64748b;">發函: <span id="editHeaderIssueDate"
+                                style="color:#334155;font-weight:500;"></span></span>
+                        <span class="separator">|</span>
+                        <span style="color:#64748b;font-size:13px;" id="editHeaderCategoryInfo"></span>
+                    </div>
                 </div>
                 <div class="review-grid">
                     <div class="review-left">

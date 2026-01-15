@@ -3591,9 +3591,33 @@ if (dashboard) {
                 if (!currentEditItem) return;
                 // 清除所有編輯欄位，避免前一個事項的資料殘留
                 document.getElementById('editId').value = currentEditItem.id; 
-                document.getElementById('editHeaderNumber').innerText = currentEditItem.number; 
-                document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; 
-                document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; 
+                
+                // 機構標籤（與詳細資料頁面一致）
+                document.getElementById('editHeaderUnitBadge').textContent = currentEditItem.unit || '';
+                
+                // 編號
+                document.getElementById('editHeaderNumber').textContent = currentEditItem.number || '';
+                
+                // 年度
+                document.getElementById('editHeaderYear').textContent = currentEditItem.year || '(未設定)';
+                
+                // 檢查計畫
+                document.getElementById('editHeaderPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)';
+                
+                // 開立日期（發函）
+                document.getElementById('editHeaderIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
+                
+                // 分組/檢查種類/類型（與詳細資料頁面一致）
+                const divName = currentEditItem.divisionName || currentEditItem.division_name || '-';
+                const insName = currentEditItem.inspectionCategoryName || currentEditItem.inspection_category_name || '-';
+                let kindName = '-';
+                const kindCode = currentEditItem.item_kind_code || currentEditItem.itemKindCode;
+                if (kindCode === 'N') kindName = '缺失事項';
+                else if (kindCode === 'O') kindName = '觀察事項';
+                else if (kindCode === 'R') kindName = '建議事項';
+                else if (currentEditItem.category) kindName = currentEditItem.category;
+                document.getElementById('editHeaderCategoryInfo').textContent = `${divName} / ${insName} / ${kindName}`;
+                
                 const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; 
                 document.getElementById('editStatus').value = st;
                 
@@ -3613,15 +3637,9 @@ if (dashboard) {
                     statusBadge = `<span class="badge ${stClass}">${st}</span>`;
                 }
                 
-                const statusKindHtml = `${kindLabel}${statusBadge}`;
                 // 確保即使只有類型或只有狀態也能顯示
-                if (statusKindHtml.trim()) {
-                    document.getElementById('editHeaderStatusKind').innerHTML = statusKindHtml;
-                    document.getElementById('editHeaderStatusKind').style.display = 'flex';
-                } else {
-                    document.getElementById('editHeaderStatusKind').innerHTML = '';
-                    document.getElementById('editHeaderStatusKind').style.display = 'none';
-                } 
+                const statusKindHtml = kindLabel || statusBadge ? `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${statusBadge}</div>` : '';
+                document.getElementById('editHeaderStatusKind').innerHTML = statusKindHtml || ''; 
                 
                 // 計算應該進行第幾次審查（支持無限次）
                 // 邏輯：找到最高的機構辦理情形，檢查是否有對應的審查意見
