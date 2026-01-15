@@ -2324,10 +2324,11 @@ if (dashboard) {
         // 辦理情形輪次管理（用於新增事項）
         let createHandlingRounds = []; // 儲存辦理情形輪次資料
         
-        // 初始化辦理情形輪次（可選，開立事項時可能還沒有辦理情形）
+        // 初始化辦理情形輪次（至少要有第一次）
         function initCreateHandlingRounds() {
             createHandlingRounds = [];
-            // 不預設新增，讓用戶自行決定是否需要新增辦理情形
+            // 預設新增第一次辦理情形
+            addCreateHandlingRound();
         }
         
         // 新增辦理情形輪次
@@ -2344,7 +2345,10 @@ if (dashboard) {
         
         // 移除辦理情形輪次
         function removeCreateHandlingRound(index) {
-            // 允許刪除所有辦理情形（因為開立事項時可能還沒有辦理情形）
+            if (createHandlingRounds.length <= 1) {
+                showToast('至少需保留一次辦理情形', 'error');
+                return;
+            }
             createHandlingRounds.splice(index, 1);
             // 重新編號
             createHandlingRounds.forEach((r, i) => {
@@ -2370,13 +2374,13 @@ if (dashboard) {
                     <div class="create-handling-round" data-index="${index}" style="background:white; padding:16px; border-radius:8px; border:${isFirst ? '2px solid #10b981' : '1px solid #e2e8f0'}; margin-bottom:12px; ${isFirst ? 'border-left:4px solid #10b981;' : ''}">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                             <div style="font-weight:700; color:${isFirst ? '#047857' : '#334155'}; font-size:14px;">
-                                第 ${roundData.round} 次機構辦理情形
+                                第 ${roundData.round} 次機構辦理情形 ${isFirst ? '<span style="color:#ef4444; font-size:12px;">(必填)</span>' : ''}
                             </div>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="removeCreateHandlingRound(${index})" style="padding:4px 12px; font-size:12px;">刪除</button>
+                            ${!isFirst ? `<button type="button" class="btn btn-danger btn-sm" onclick="removeCreateHandlingRound(${index})" style="padding:4px 12px; font-size:12px;">刪除</button>` : ''}
                         </div>
                         <div style="margin-bottom:12px;">
                             <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">
-                                辦理情形
+                                辦理情形 ${isFirst ? '<span style="color:#ef4444;">*</span>' : ''}
                             </label>
                             <textarea class="filter-input create-handling-text" data-index="${index}" 
                                 placeholder="請輸入機構辦理情形..." 
@@ -2458,8 +2462,23 @@ if (dashboard) {
             
             if (!year) return showToast('無法確定年度，請確認編號格式或選擇有年度的檢查計畫', 'error');
             
-            // 處理辦理情形（如果有）
-            const firstHandling = createHandlingRounds.length > 0 ? createHandlingRounds[0] : { handling: '', replyDate: '', responseDate: '' };
+            // 驗證第一次辦理情形（必填）
+            if (createHandlingRounds.length === 0 || !createHandlingRounds[0].handling.trim()) {
+                showToast('第一次機構辦理情形為必填項目，請填寫辦理情形', 'error');
+                // 聚焦到第一個辦理情形輸入框
+                const firstHandlingInput = document.querySelector('.create-handling-text[data-index="0"]');
+                if (firstHandlingInput) {
+                    firstHandlingInput.focus();
+                    firstHandlingInput.style.borderColor = '#ef4444';
+                    setTimeout(() => {
+                        if (firstHandlingInput) firstHandlingInput.style.borderColor = '';
+                    }, 3000);
+                }
+                return;
+            }
+
+            // 先新增事項（第一次）
+            const firstHandling = createHandlingRounds[0];
             const payload = {
                 data: [{
                     number, year, unit, content, status,
@@ -2468,12 +2487,12 @@ if (dashboard) {
                     inspectionCategoryName: inspection,
                     planName: planName,
                     issueDate: issueDate,
-                    handling: firstHandling.handling ? firstHandling.handling.trim() : '',
+                    handling: firstHandling.handling.trim(),
                     scheme: 'MANUAL'
                 }],
                 round: 1, 
                 reviewDate: '', 
-                replyDate: firstHandling.replyDate ? firstHandling.replyDate.trim() : ''
+                replyDate: firstHandling.replyDate.trim() || ''
             };
 
             try {
@@ -2570,8 +2589,13 @@ if (dashboard) {
                         document.getElementById('createNumber').value = '';
                         document.getElementById('createKind').value = '';
                         document.getElementById('createContent').value = '';
-                        // 重置辦理情形
-                        createHandlingRounds = [];
+                        // 重置辦理情形（保留第一次）
+                        createHandlingRounds = [{
+                            round: 1,
+                            handling: '',
+                            replyDate: '',
+                            responseDate: ''
+                        }];
                         renderCreateHandlingRounds();
                         document.getElementById('createNumber').focus();
                     } else {
