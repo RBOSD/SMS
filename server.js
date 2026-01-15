@@ -5,6 +5,7 @@ const express = require('express');
 const { Pool } = require('pg'); 
 const bodyParser = require('body-parser');
 const path = require('path');
+const fs = require('fs');
 const session = require('express-session');
 // [Added] pg-simple session store
 const pgSession = require('connect-pg-simple')(session);
@@ -274,6 +275,39 @@ async function logAction(username, action, details, req) {
         }
     } catch (e) { console.error("Log error:", e); }
 }
+
+// 寫入日誌檔案
+function writeToLogFile(message, level = 'INFO') {
+    try {
+        const logDir = path.join(__dirname, 'logs');
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+        const today = new Date().toISOString().split('T')[0];
+        const logFile = path.join(logDir, `app-${today}.log`);
+        const timestamp = new Date().toISOString();
+        const logEntry = `[${timestamp}] [${level}] ${message}\n`;
+        fs.appendFileSync(logFile, logEntry, 'utf8');
+    } catch (e) {
+        console.error("Write log file error:", e);
+    }
+}
+
+// API: 接收前端日誌
+app.post('/api/log', requireAuth, (req, res) => {
+    try {
+        const { message, level = 'INFO' } = req.body;
+        if (message) {
+            writeToLogFile(message, level);
+            res.json({ success: true });
+        } else {
+            res.status(400).json({ error: 'Message is required' });
+        }
+    } catch (e) {
+        console.error("Log API error:", e);
+        res.status(500).json({ error: 'Failed to write log' });
+    }
+});
 
 // --- API Routes ---
 

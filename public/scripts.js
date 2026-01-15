@@ -3,6 +3,19 @@
         let autoLogoutTimer;
         let currentLogs = { login: [], action: [] };
         let cachedGlobalStats = null;
+        
+        // 日誌記錄函數（寫入檔案，不在控制台顯示）
+        async function writeLog(message, level = 'INFO') {
+            try {
+                await fetch('/api/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, level })
+                }).catch(() => {}); // 靜默失敗，不影響主流程
+            } catch (e) {
+                // 靜默處理錯誤
+            }
+        }
         let issuesPage = 1, issuesPageSize = 20, issuesTotal = 0, issuesPages = 1;
         let usersPage = 1, usersPageSize = 20, usersTotal = 0, usersPages = 1, usersSortField = 'id', usersSortDir = 'asc';
         let plansPage = 1, plansPageSize = 20, plansTotal = 0, plansPages = 1, plansSortField = 'year', plansSortDir = 'desc';
@@ -526,12 +539,12 @@
                 
                 if (!json.data || json.data.length === 0) {
                     // 如果沒有資料，只保留第一個選項
-                    console.log('查詢看板：沒有找到有關聯開立事項的計畫');
+                    writeLog('查詢看板：沒有找到有關聯開立事項的計畫');
                     select.innerHTML = firstOption;
                     return;
                 }
                 
-                console.log('查詢看板：找到', json.data.length, '個有關聯開立事項的計畫', json.data);
+                writeLog(`查詢看板：找到 ${json.data.length} 個有關聯開立事項的計畫`);
                 
                 // 處理新的資料格式，按年度分組
                 const yearGroups = new Map();
@@ -1818,11 +1831,12 @@ if (dashboard) {
                     if (plansRes.ok) {
                         const plansJson = await plansRes.json();
                         allPlans = plansJson.data || [];
-                        console.log('載入的計畫選項：', allPlans);
-                        console.log('選擇的計畫：', selectedPlan);
+                        writeLog(`載入的計畫選項：${allPlans.length} 個`);
+                        writeLog(`選擇的計畫：${selectedPlan.name} (${selectedPlan.year || '無年度'})`);
                     }
                 } catch (e) {
                     console.warn('無法載入計畫選項，將使用選擇的計畫名稱', e);
+                    writeLog(`無法載入計畫選項：${e.message}`, 'WARN');
                 }
             }
 
@@ -1840,26 +1854,27 @@ if (dashboard) {
                                 const planName = typeof p === 'object' ? String(p.name || '').trim() : String(p || '').trim();
                                 const planYear = typeof p === 'object' ? String(p.year || '').trim() : '';
                                 // 計畫名稱必須與選擇的計畫名稱相同，且年度必須與開立事項的年度匹配
-                                const isMatch = planName === selectedPlan.name && planYear === itemYear;
-                                if (isMatch) {
-                                    console.log(`找到匹配的計畫：事項年度=${itemYear}，計畫名稱="${planName}"，計畫年度="${planYear}"`);
-                                }
-                                return isMatch;
+                                return planName === selectedPlan.name && planYear === itemYear;
                             });
                             
                             if (matchedPlan) {
                                 // 找到匹配的計畫，使用該計畫的名稱
                                 item.planName = typeof matchedPlan === 'object' ? matchedPlan.name : matchedPlan;
-                                console.log(`✅ 使用匹配的計畫：${item.planName}`);
+                                const planName = typeof matchedPlan === 'object' ? matchedPlan.name : matchedPlan;
+                                const planYear = typeof matchedPlan === 'object' ? matchedPlan.year : '';
+                                writeLog(`找到匹配的計畫：事項年度=${itemYear}，計畫名稱="${planName}"，計畫年度="${planYear}"`);
+                                writeLog(`使用匹配的計畫：${planName}`);
                             } else if (selectedPlan.year && selectedPlan.year === itemYear) {
                                 // 選擇的計畫年度與事項年度匹配，使用選擇的計畫名稱
                                 item.planName = selectedPlan.name;
-                                console.log(`✅ 使用選擇的計畫（年度匹配）：${item.planName}`);
+                                writeLog(`使用選擇的計畫（年度匹配）：${selectedPlan.name}`);
                             } else {
                                 // 沒找到匹配的計畫，且年度不匹配
                                 // 使用選擇的計畫名稱（這會導致不同年度的事項被歸類到同一計畫）
                                 item.planName = selectedPlan.name;
-                                console.warn(`⚠️ 找不到匹配的計畫：選擇的計畫名稱="${selectedPlan.name}"，選擇的計畫年度="${selectedPlan.year}"，事項年度="${itemYear}"。使用選擇的計畫名稱。`);
+                                const warnMsg = `找不到匹配的計畫：選擇的計畫名稱="${selectedPlan.name}"，選擇的計畫年度="${selectedPlan.year}"，事項年度="${itemYear}"。使用選擇的計畫名稱。`;
+                                console.warn(`⚠️ ${warnMsg}`);
+                                writeLog(warnMsg, 'WARN');
                             }
                         } else {
                             // 開立事項沒有年度，使用選擇的計畫名稱
