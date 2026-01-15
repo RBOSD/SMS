@@ -583,26 +583,70 @@ app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
 
 app.post('/api/issues/import', requireAuth, async (req, res) => {
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
-    const { data, round, reviewDate, replyDate } = req.body;
+    const { data, round, reviewDate, replyDate, allowUpdate } = req.body;
     const r = parseInt(round) || 1;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        const duplicateNumbers = [];
+        const updateResults = [];
+        
         for (const item of data) {
-            const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
+            const check = await client.query("SELECT id, content FROM issues WHERE number = $1", [item.number]);
             if (check.rows.length > 0) {
+                // 如果是新增事項（round=1）且不允許更新，檢查內容是否相同
+                if (r === 1 && !allowUpdate) {
+                    const existingContent = check.rows[0].content || '';
+                    const newContent = item.content || '';
+                    // 如果內容不同，視為重複編號錯誤
+                    if (existingContent.trim() !== newContent.trim()) {
+                        duplicateNumbers.push({
+                            number: item.number,
+                            existingContent: existingContent
+                        });
+                        continue; // 跳過這個項目，不進行更新
+                    }
+                }
+                
+                // 允許更新：更新現有記錄
                 const hCol = r===1 ? 'handling' : `handling${r}`;
                 const rCol = r===1 ? 'review' : `review${r}`;
                 const replyCol = `reply_date_r${r}`;
                 const respCol = `response_date_r${r}`;
-                await client.query(
-                    `UPDATE issues SET 
-                        status=$1, ${hCol}=$2, ${rCol}=$3, ${replyCol}=$4, ${respCol}=$5,
-                        plan_name=COALESCE($6, plan_name), updated_at=CURRENT_TIMESTAMP 
-                    WHERE number=$7`,
-                    [item.status, item.handling||'', item.review||'', replyDate||'', reviewDate||'', item.planName || null, item.number]
-                );
+                
+                // 如果是新增事項（round=1），也更新內容和其他欄位
+                if (r === 1) {
+                    await client.query(
+                        `UPDATE issues SET 
+                            status=$1, content=$2, ${hCol}=$3, ${rCol}=$4, ${replyCol}=$5, ${respCol}=$6,
+                            plan_name=COALESCE($7, plan_name), issue_date=COALESCE($8, issue_date),
+                            year=COALESCE($9, year), unit=COALESCE($10, unit),
+                            division_name=COALESCE($11, division_name),
+                            inspection_category_name=COALESCE($12, inspection_category_name),
+                            item_kind_code=COALESCE($13, item_kind_code),
+                            updated_at=CURRENT_TIMESTAMP 
+                        WHERE number=$14`,
+                        [
+                            item.status, item.content, item.handling||'', item.review||'', 
+                            replyDate||'', reviewDate||'', item.planName || null, item.issueDate || null,
+                            item.year || null, item.unit || null,
+                            item.divisionName || null, item.inspectionCategoryName || null,
+                            item.itemKindCode || null, item.number
+                        ]
+                    );
+                } else {
+                    // 更新輪次資料
+                    await client.query(
+                        `UPDATE issues SET 
+                            status=$1, ${hCol}=$2, ${rCol}=$3, ${replyCol}=$4, ${respCol}=$5,
+                            plan_name=COALESCE($6, plan_name), updated_at=CURRENT_TIMESTAMP 
+                        WHERE number=$7`,
+                        [item.status, item.handling||'', item.review||'', replyDate||'', reviewDate||'', item.planName || null, item.number]
+                    );
+                }
+                updateResults.push({ number: item.number, action: 'updated' });
             } else {
+                // 新增記錄
                 await client.query(
                     `INSERT INTO issues (
                         number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
@@ -618,14 +662,39 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
             }
         }
         
-        // 統計新增和更新的項目（在事務提交前）
+        // 如果有重複編號且內容不同，回滾事務並返回錯誤
+        if (duplicateNumbers.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                error: '編號重複',
+                message: `以下編號已存在且內容不同：${duplicateNumbers.map(d => d.number).join(', ')}`,
+                duplicates: duplicateNumbers
+            });
+        }
+        
+        // 統計新增和更新的項目（在事務提交後）
         let newCount = 0, updateCount = 0;
+        const results = [];
         for (const item of data) {
-            const check = await client.query("SELECT id FROM issues WHERE number = $1", [item.number]);
+            // 跳過重複編號的項目（已在上面處理）
+            if (duplicateNumbers.find(d => d.number === item.number)) {
+                continue;
+            }
+            
+            const check = await client.query("SELECT id, content FROM issues WHERE number = $1", [item.number]);
             if (check.rows.length > 0) {
                 updateCount++;
+                results.push({
+                    number: item.number,
+                    action: 'updated',
+                    existingContent: check.rows[0].content
+                });
             } else {
                 newCount++;
+                results.push({
+                    number: item.number,
+                    action: 'created'
+                });
             }
         }
         
@@ -634,7 +703,13 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
         const roundInfo = r > 1 ? `，第 ${r} 次審查` : '，初次開立';
         const planInfo = data[0]?.planName ? `，檢查計畫：${data[0].planName}` : '';
         logAction(req.session.user.username, 'IMPORT_ISSUES', `匯入開立事項：共 ${data.length} 筆（新增 ${newCount} 筆，更新 ${updateCount} 筆）${roundInfo}${planInfo}`, req);
-        res.json({ success: true, count: data.length });
+        res.json({ 
+            success: true, 
+            count: data.length,
+            newCount: newCount,
+            updateCount: updateCount,
+            results: results
+        });
     } catch (e) {
         await client.query('ROLLBACK');
         res.status(500).json({ error: e.message });

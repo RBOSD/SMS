@@ -2361,30 +2361,94 @@ if (dashboard) {
                     body: JSON.stringify(payload) 
                 });
                 
+                const result = await res.json();
+                
+                // 檢查是否有編號重複的錯誤
+                if (res.status === 400 && result.error === '編號重複') {
+                    showToast(`編號 "${number}" 已存在且內容不同，無法新增。請使用不同的編號或修改現有事項。`, 'error');
+                    // 不清理表單，讓用戶可以修改編號
+                    return;
+                }
+                
                 if (res.ok) {
-                    showToast('新增成功');
-
-                    if (continuousMode) {
-                        document.getElementById('createNumber').value = '';
-                        document.getElementById('createKind').value = '';
-                        document.getElementById('createContent').value = '';
-                        document.getElementById('createNumber').focus();
-                    } else {
-                        document.getElementById('createNumber').value = '';
-                        if (yearDisplay) yearDisplay.value = '';
-                        document.getElementById('createUnit').value = '';
-                        document.getElementById('createDivision').value = '';
-                        document.getElementById('createInspection').value = '';
-                        document.getElementById('createKind').value = '';
-                        document.getElementById('createContent').value = '';
-                        document.getElementById('createPlanName').value = '';
-                        document.getElementById('createIssueDate').value = '';
+                    // 檢查是否有編號重複的情況（更新現有記錄）
+                    if (result.updateCount > 0) {
+                        // 有更新現有記錄，表示編號重複但內容相同（這種情況不應該發生在新增時）
+                        const updatedItem = result.results?.find(r => r.action === 'updated');
+                        if (updatedItem) {
+                            showToast(`編號 "${number}" 已存在，系統已更新現有記錄。如需新增新事項，請使用不同的編號。`, 'warning');
+                            // 不清理表單，讓用戶可以修改編號
+                            loadIssuesPage(1);
+                            loadPlanOptions();
+                            return;
+                        }
                     }
+                    
+                    // 確認是新增成功（newCount > 0）
+                    if (result.newCount > 0) {
+                        // 驗證數據是否真的寫入資料庫：重新查詢該編號
+                        const verifyRes = await fetch(`/api/issues?page=1&pageSize=1&q=${encodeURIComponent(number)}&_t=${Date.now()}`);
+                        if (verifyRes.ok) {
+                            const verifyData = await verifyRes.json();
+                            if (verifyData.data && verifyData.data.length > 0) {
+                                const savedItem = verifyData.data[0];
+                                // 驗證內容是否一致
+                                if (savedItem.number === number && savedItem.content === content) {
+                                    showToast('新增成功，資料已確認寫入資料庫');
+                                    
+                                    if (continuousMode) {
+                                        document.getElementById('createNumber').value = '';
+                                        document.getElementById('createKind').value = '';
+                                        document.getElementById('createContent').value = '';
+                                        document.getElementById('createNumber').focus();
+                                    } else {
+                                        document.getElementById('createNumber').value = '';
+                                        if (yearDisplay) yearDisplay.value = '';
+                                        document.getElementById('createUnit').value = '';
+                                        document.getElementById('createDivision').value = '';
+                                        document.getElementById('createInspection').value = '';
+                                        document.getElementById('createKind').value = '';
+                                        document.getElementById('createContent').value = '';
+                                        document.getElementById('createPlanName').value = '';
+                                        document.getElementById('createIssueDate').value = '';
+                                    }
 
-                    loadIssuesPage(1);
-                    loadPlanOptions();
-                } else { 
-                    showToast('新增失敗', 'error'); 
+                                    loadIssuesPage(1);
+                                    loadPlanOptions();
+                                } else {
+                                    showToast('警告：資料可能未正確寫入資料庫，請檢查資料庫', 'error');
+                                }
+                            } else {
+                                showToast('警告：無法驗證資料是否寫入資料庫', 'error');
+                            }
+                        } else {
+                            showToast('新增成功，但無法驗證資料庫', 'warning');
+                            // 即使驗證失敗，也清理表單（因為後端已返回成功）
+                            if (continuousMode) {
+                                document.getElementById('createNumber').value = '';
+                                document.getElementById('createKind').value = '';
+                                document.getElementById('createContent').value = '';
+                                document.getElementById('createNumber').focus();
+                            } else {
+                                document.getElementById('createNumber').value = '';
+                                if (yearDisplay) yearDisplay.value = '';
+                                document.getElementById('createUnit').value = '';
+                                document.getElementById('createDivision').value = '';
+                                document.getElementById('createInspection').value = '';
+                                document.getElementById('createKind').value = '';
+                                document.getElementById('createContent').value = '';
+                                document.getElementById('createPlanName').value = '';
+                                document.getElementById('createIssueDate').value = '';
+                            }
+                            loadIssuesPage(1);
+                            loadPlanOptions();
+                        }
+                    } else {
+                        showToast('新增失敗：沒有資料被寫入', 'error');
+                    }
+                } else {
+                    const errorData = await res.json().catch(() => ({}));
+                    showToast('新增失敗: ' + (errorData.error || res.statusText), 'error'); 
                 }
             } catch (e) { 
                 showToast('Error: ' + e.message, 'error'); 
