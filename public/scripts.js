@@ -4382,6 +4382,20 @@ if (dashboard) {
             
             yearEditIssue = yearEditIssueList[index];
             
+            // 標準化字段名（確保同時有兩種格式，提高兼容性）
+            if (yearEditIssue.division_name && !yearEditIssue.divisionName) {
+                yearEditIssue.divisionName = yearEditIssue.division_name;
+            }
+            if (yearEditIssue.inspection_category_name && !yearEditIssue.inspectionCategoryName) {
+                yearEditIssue.inspectionCategoryName = yearEditIssue.inspection_category_name;
+            }
+            if (yearEditIssue.item_kind_code && !yearEditIssue.itemKindCode) {
+                yearEditIssue.itemKindCode = yearEditIssue.item_kind_code;
+            }
+            if (yearEditIssue.plan_name && !yearEditIssue.planName) {
+                yearEditIssue.planName = yearEditIssue.plan_name;
+            }
+            
             // 隱藏列表，顯示編輯內容
             document.getElementById('yearEditIssueList').style.display = 'none';
             document.getElementById('yearEditEmpty').style.display = 'none';
@@ -4458,15 +4472,17 @@ if (dashboard) {
                     const planValue = opt.value;
                     const { name: planName, year: planYear } = parsePlanValue(planValue);
                     const displayText = planYear ? `${planName} (${planYear})` : planName;
-                    const isSelected = (item.plan_name === planName && (!planYear || item.year === planYear)) || 
-                                      (planValue && planValue === `${item.plan_name}|||${item.year}`);
+                    const currentPlanName = item.plan_name || item.planName || '';
+                    const isSelected = (currentPlanName === planName && (!planYear || item.year === planYear)) || 
+                                      (planValue && planValue === `${currentPlanName}|||${item.year}`);
                     planOptionsHtml += `<option value="${planValue}" ${isSelected ? 'selected' : ''}>${displayText}</option>`;
                 }
             } else {
                 // 如果計畫選項還沒有加載，先添加當前計畫（如果有的話）
-                if (item.plan_name) {
-                    const currentPlanValue = item.year ? `${item.plan_name}|||${item.year}` : item.plan_name;
-                    const displayText = item.year ? `${item.plan_name} (${item.year})` : item.plan_name;
+                const currentPlanName = item.plan_name || item.planName || '';
+                if (currentPlanName) {
+                    const currentPlanValue = item.year ? `${currentPlanName}|||${item.year}` : currentPlanName;
+                    const displayText = item.year ? `${currentPlanName} (${item.year})` : currentPlanName;
                     planOptionsHtml += `<option value="${currentPlanValue}" selected>${displayText}</option>`;
                 }
                 // 嘗試加載計畫選項（異步，不阻塞渲染）
@@ -4493,8 +4509,9 @@ if (dashboard) {
                 });
             }
             
-            // 確定當前計畫的值
-            const currentPlanValue = item.plan_name ? (item.year ? `${item.plan_name}|||${item.year}` : item.plan_name) : '';
+            // 確定當前計畫的值（支援兩種字段名格式）
+            const currentPlanName = item.plan_name || item.planName || '';
+            const currentPlanValue = currentPlanName ? (item.year ? `${currentPlanName}|||${item.year}` : currentPlanName) : '';
             
             let html = `
                 <div class="detail-card" style="margin-bottom:20px; border:2px solid #e2e8f0;">
@@ -4535,16 +4552,16 @@ if (dashboard) {
                                 <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">分組</label>
                                 <select id="yearEditDivision" class="filter-select" style="width:100%; background:white;">
                                     <option value="">(未指定)</option>
-                                    <option value="運務" ${item.divisionName === '運務' ? 'selected' : ''}>運務</option>
-                                    <option value="工務" ${item.divisionName === '工務' ? 'selected' : ''}>工務</option>
-                                    <option value="機務" ${item.divisionName === '機務' ? 'selected' : ''}>機務</option>
-                                    <option value="電務" ${item.divisionName === '電務' ? 'selected' : ''}>電務</option>
-                                    <option value="安全" ${item.divisionName === '安全' ? 'selected' : ''}>安全</option>
-                                    <option value="審核" ${item.divisionName === '審核' ? 'selected' : ''}>審核</option>
-                                    <option value="災防" ${item.divisionName === '災防' ? 'selected' : ''}>災防</option>
-                                    <option value="運轉" ${item.divisionName === '運轉' ? 'selected' : ''}>運轉</option>
-                                    <option value="土木" ${item.divisionName === '土木' ? 'selected' : ''}>土木</option>
-                                    <option value="機電" ${item.divisionName === '機電' ? 'selected' : ''}>機電</option>
+                                    <option value="運務" ${(item.divisionName || item.division_name) === '運務' ? 'selected' : ''}>運務</option>
+                                    <option value="工務" ${(item.divisionName || item.division_name) === '工務' ? 'selected' : ''}>工務</option>
+                                    <option value="機務" ${(item.divisionName || item.division_name) === '機務' ? 'selected' : ''}>機務</option>
+                                    <option value="電務" ${(item.divisionName || item.division_name) === '電務' ? 'selected' : ''}>電務</option>
+                                    <option value="安全" ${(item.divisionName || item.division_name) === '安全' ? 'selected' : ''}>安全</option>
+                                    <option value="審核" ${(item.divisionName || item.division_name) === '審核' ? 'selected' : ''}>審核</option>
+                                    <option value="災防" ${(item.divisionName || item.division_name) === '災防' ? 'selected' : ''}>災防</option>
+                                    <option value="運轉" ${(item.divisionName || item.division_name) === '運轉' ? 'selected' : ''}>運轉</option>
+                                    <option value="土木" ${(item.divisionName || item.division_name) === '土木' ? 'selected' : ''}>土木</option>
+                                    <option value="機電" ${(item.divisionName || item.division_name) === '機電' ? 'selected' : ''}>機電</option>
                                 </select>
                             </div>
                         </div>
@@ -4554,10 +4571,10 @@ if (dashboard) {
                                 <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">檢查種類</label>
                                 <select id="yearEditInspection" class="filter-select" style="width:100%; background:white;">
                                     <option value="">(未指定)</option>
-                                    <option value="定期檢查" ${item.inspectionCategoryName === '定期檢查' ? 'selected' : ''}>定期檢查</option>
-                                    <option value="例行性檢查" ${item.inspectionCategoryName === '例行性檢查' ? 'selected' : ''}>例行性檢查</option>
-                                    <option value="特別檢查" ${item.inspectionCategoryName === '特別檢查' ? 'selected' : ''}>特別檢查</option>
-                                    <option value="臨時檢查" ${item.inspectionCategoryName === '臨時檢查' ? 'selected' : ''}>臨時檢查</option>
+                                    <option value="定期檢查" ${(item.inspectionCategoryName || item.inspection_category_name) === '定期檢查' ? 'selected' : ''}>定期檢查</option>
+                                    <option value="例行性檢查" ${(item.inspectionCategoryName || item.inspection_category_name) === '例行性檢查' ? 'selected' : ''}>例行性檢查</option>
+                                    <option value="特別檢查" ${(item.inspectionCategoryName || item.inspection_category_name) === '特別檢查' ? 'selected' : ''}>特別檢查</option>
+                                    <option value="臨時檢查" ${(item.inspectionCategoryName || item.inspection_category_name) === '臨時檢查' ? 'selected' : ''}>臨時檢查</option>
                                 </select>
                             </div>
                             <div>
@@ -4819,6 +4836,19 @@ if (dashboard) {
                                 const json = await res.json();
                                 if (json.data && json.data.length > 0) {
                                     yearEditIssue = json.data[0];
+                                    // 標準化字段名（確保同時有兩種格式，提高兼容性）
+                                    if (yearEditIssue.division_name && !yearEditIssue.divisionName) {
+                                        yearEditIssue.divisionName = yearEditIssue.division_name;
+                                    }
+                                    if (yearEditIssue.inspection_category_name && !yearEditIssue.inspectionCategoryName) {
+                                        yearEditIssue.inspectionCategoryName = yearEditIssue.inspection_category_name;
+                                    }
+                                    if (yearEditIssue.item_kind_code && !yearEditIssue.itemKindCode) {
+                                        yearEditIssue.itemKindCode = yearEditIssue.item_kind_code;
+                                    }
+                                    if (yearEditIssue.plan_name && !yearEditIssue.planName) {
+                                        yearEditIssue.planName = yearEditIssue.plan_name;
+                                    }
                                     // 重新渲染事項內容
                                     renderYearEditIssue();
                                 }
@@ -4832,12 +4862,22 @@ if (dashboard) {
                             yearEditIssue.number = document.getElementById('yearEditNumber')?.value.trim() || yearEditIssue.number;
                             yearEditIssue.year = document.getElementById('yearEditYear')?.value.trim() || yearEditIssue.year;
                             yearEditIssue.unit = document.getElementById('yearEditUnit')?.value.trim() || yearEditIssue.unit;
-                            yearEditIssue.divisionName = document.getElementById('yearEditDivision')?.value || yearEditIssue.divisionName;
-                            yearEditIssue.inspectionCategoryName = document.getElementById('yearEditInspection')?.value || yearEditIssue.inspectionCategoryName;
-                            yearEditIssue.item_kind_code = document.getElementById('yearEditKind')?.value || yearEditIssue.item_kind_code;
+                            // 同時更新兩種格式的字段名（確保兼容性）
+                            const divisionValue = document.getElementById('yearEditDivision')?.value || '';
+                            yearEditIssue.divisionName = divisionValue;
+                            yearEditIssue.division_name = divisionValue;
+                            const inspectionValue = document.getElementById('yearEditInspection')?.value || '';
+                            yearEditIssue.inspectionCategoryName = inspectionValue;
+                            yearEditIssue.inspection_category_name = inspectionValue;
+                            const kindValue = document.getElementById('yearEditKind')?.value || '';
+                            yearEditIssue.item_kind_code = kindValue;
+                            yearEditIssue.itemKindCode = kindValue;
                             const planValue = document.getElementById('yearEditPlanNameSelect')?.value || '';
                             const { name: planName } = parsePlanValue(planValue);
-                            if (planName) yearEditIssue.plan_name = planName;
+                            if (planName) {
+                                yearEditIssue.plan_name = planName;
+                                yearEditIssue.planName = planName;
+                            }
                             yearEditIssue.status = document.getElementById('yearEditStatus')?.value || yearEditIssue.status;
                             yearEditIssue.issue_date = document.getElementById('yearEditIssueDate')?.value || yearEditIssue.issue_date;
                             yearEditIssue.content = document.getElementById('yearEditContent')?.value || yearEditIssue.content;
