@@ -802,10 +802,13 @@ if (dashboard) {
 
         document.addEventListener('DOMContentLoaded', async () => {
             // App 初始化（已移除 debug 日誌）
+            // 首先確保 body 可見，避免空白頁面
+            document.body.style.display = 'flex';
+            
             try {
                 await checkAuth();
                 if (currentUser) {
-                    // 確保 body 可見
+                    // 確保 body 可見（再次確認）
                     document.body.style.display = 'flex';
                     
                     // 嘗試恢復上次的視圖
@@ -818,36 +821,122 @@ if (dashboard) {
                         targetView = 'searchView';
                     }
                     
-                    // 切換到目標視圖
-                    await switchView(targetView);
+                    // 切換到目標視圖（添加錯誤處理）
+                    try {
+                        await switchView(targetView);
+                    } catch (viewError) {
+                        console.error('切換視圖錯誤:', viewError);
+                        // 如果切換失敗，至少顯示 searchView
+                        const searchViewEl = document.getElementById('searchView');
+                        if (searchViewEl) {
+                            searchViewEl.classList.add('active');
+                            document.querySelectorAll('.view-section').forEach(el => {
+                                if (el.id !== 'searchView') el.classList.remove('active');
+                            });
+                        }
+                    }
                     
-                    initListeners();
-                    initEditForm();
-                    initCharts();
-                    loadPlanOptions(); // 這會自動調用 loadFilterPlanOptions()
-                    // 確保查詢看板的計畫選項也被載入
-                    loadFilterPlanOptions();
-                    initImportRoundOptions();
+                    // 初始化其他功能（每個都添加錯誤處理）
+                    try {
+                        initListeners();
+                    } catch (e) {
+                        console.error('初始化監聽器錯誤:', e);
+                    }
+                    
+                    try {
+                        initEditForm();
+                    } catch (e) {
+                        console.error('初始化編輯表單錯誤:', e);
+                    }
+                    
+                    try {
+                        initCharts();
+                    } catch (e) {
+                        console.error('初始化圖表錯誤:', e);
+                    }
+                    
+                    try {
+                        loadPlanOptions(); // 這會自動調用 loadFilterPlanOptions()
+                        // 確保查詢看板的計畫選項也被載入
+                        loadFilterPlanOptions();
+                    } catch (e) {
+                        console.error('載入計畫選項錯誤:', e);
+                    }
+                    
+                    try {
+                        initImportRoundOptions();
+                    } catch (e) {
+                        console.error('初始化匯入輪次選項錯誤:', e);
+                    }
                     
                     // 如果目標視圖是 searchView，載入資料
                     if (targetView === 'searchView') {
-                        await loadIssuesPage(1);
+                        try {
+                            await loadIssuesPage(1);
+                        } catch (e) {
+                            console.error('載入事項資料錯誤:', e);
+                            // 即使載入失敗，也要顯示錯誤訊息
+                            const emptyMsg = document.getElementById('emptyMsg');
+                            if (emptyMsg) {
+                                emptyMsg.innerText = '載入資料時發生錯誤，請重新整理頁面';
+                                emptyMsg.style.display = 'block';
+                            }
+                        }
                     }
                     // Preload users if needed
                     if(currentUser.role === 'admin' && targetView === 'usersView') {
-                        loadUsersPage(1);
+                        try {
+                            loadUsersPage(1);
+                        } catch (e) {
+                            console.error('載入使用者資料錯誤:', e);
+                        }
                     }
+                } else {
+                    // 如果沒有 currentUser，應該是重定向到登入頁
+                    // 但如果重定向失敗，至少顯示 body
+                    console.warn('未檢測到登入狀態，嘗試重定向到登入頁');
                 }
             } catch (error) {
                 console.error('初始化錯誤:', error);
                 // 即使出錯也嘗試顯示頁面
                 document.body.style.display = 'flex';
+                
+                // 顯示錯誤訊息給用戶
+                const appBody = document.getElementById('appBody');
+                if (appBody) {
+                    appBody.innerHTML = `
+                        <div style="padding: 40px; text-align: center; color: #ef4444;">
+                            <h2>初始化錯誤</h2>
+                            <p>頁面載入時發生錯誤，請重新整理頁面或聯絡系統管理員。</p>
+                            <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 20px;">
+                                重新整理頁面
+                            </button>
+                        </div>
+                    `;
+                }
             }
         });
 
         async function checkAuth() {
             try {
-                const res = await fetch('/api/auth/me?t=' + Date.now(), { headers: { 'Cache-Control': 'no-cache' } });
+                // 使用 Promise.race 實現超時處理
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('TIMEOUT')), 10000); // 10秒超時
+                });
+                
+                const fetchPromise = fetch('/api/auth/me?t=' + Date.now(), { 
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
+                
+                const res = await Promise.race([fetchPromise, timeoutPromise]);
+                
+                if (!res.ok) {
+                    console.error('認證檢查失敗:', res.status, res.statusText);
+                    // 如果認證失敗，重定向到登入頁
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
                 const data = await res.json();
                 if (data.isLogin) {
                     currentUser = data;
@@ -864,8 +953,34 @@ if (dashboard) {
                             // 這些元素現在在動態載入的視圖中，會在視圖載入後處理
                         }
                     }
-                } else window.location.href = '/login.html';
-            } catch (e) { window.location.href = '/login.html'; }
+                } else {
+                    // 未登入，重定向到登入頁
+                    window.location.href = '/login.html';
+                }
+            } catch (e) {
+                // 如果是超時錯誤，顯示錯誤訊息
+                if (e.message === 'TIMEOUT') {
+                    console.error('認證檢查超時');
+                    // 超時時顯示錯誤訊息，不直接重定向
+                    document.body.style.display = 'flex';
+                    const appBody = document.getElementById('appBody');
+                    if (appBody) {
+                        appBody.innerHTML = `
+                            <div style="padding: 40px; text-align: center; color: #ef4444;">
+                                <h2>連線逾時</h2>
+                                <p>無法連線到伺服器，請檢查網路連線後重新整理頁面。</p>
+                                <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 20px;">
+                                    重新整理頁面
+                                </button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    console.error('認證檢查錯誤:', e);
+                    // 其他錯誤，重定向到登入頁
+                    window.location.href = '/login.html';
+                }
+            }
         }
         
         // 在視圖載入後設置 admin 專屬元素的函數
