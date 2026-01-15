@@ -1460,13 +1460,23 @@
                 margin-bottom: 6px;
             }
 
-            /* 檢核方框保持在左上角 */
+            /* 檢核方框保持在左上角，與編號文字對齊 */
             .manager-col {
                 position: absolute;
-                top: 14px;
+                top: 16px;
                 left: 14px;
                 width: auto;
                 z-index: 2;
+                display: flex;
+                align-items: center;
+                height: 24px;
+            }
+
+            .manager-col input[type="checkbox"] {
+                margin: 0;
+                width: 20px;
+                height: 20px;
+                cursor: pointer;
             }
 
             /* 第一行：編號（左側，讓檢核方框在旁邊） */
@@ -1477,15 +1487,19 @@
                 margin-bottom: 8px;
                 margin-left: 42px;
                 margin-right: auto;
-                padding-right: 100px;
+                padding-right: 120px;
                 width: 100%;
                 order: 1;
+                line-height: 24px;
+                min-height: 24px;
+                display: flex;
+                align-items: center;
             }
 
             /* 狀態與類型在右側，與編號同一行 */
             td[data-label="狀態與類型"] {
                 position: absolute;
-                top: 14px;
+                top: 16px;
                 right: 14px;
                 width: auto;
                 margin-bottom: 0;
@@ -1494,8 +1508,18 @@
                 gap: 6px;
                 flex-wrap: wrap;
                 justify-content: flex-end;
-                max-width: 45%;
+                max-width: calc(45% - 14px);
                 order: 2;
+                line-height: 24px;
+                min-height: 24px;
+            }
+
+            /* 確保狀態與類型的徽章和標籤不會過大 */
+            td[data-label="狀態與類型"] .badge,
+            td[data-label="狀態與類型"] .kind-tag {
+                font-size: 13px;
+                padding: 3px 8px;
+                white-space: nowrap;
             }
 
             /* 第二行：年度 + 機構合併顯示在同一行 */
@@ -1598,6 +1622,10 @@
                 padding-right: 100px;
                 width: 100%;
                 order: 1;
+                line-height: 24px;
+                min-height: 24px;
+                display: flex;
+                align-items: center;
             }
 
             /* 用戶管理：第二行 - 帳號 + 權限合併顯示 */
@@ -1632,10 +1660,10 @@
                 order: 4;
             }
 
-            /* 用戶管理：操作按鈕 */
+            /* 用戶管理和計畫管理：操作按鈕統一設置 */
             .user-table td[data-label="操作"] {
                 position: absolute;
-                top: 14px;
+                top: 16px;
                 right: 14px;
                 width: auto;
                 margin-top: 0;
@@ -1643,17 +1671,30 @@
                 gap: 8px;
                 justify-content: flex-end;
                 order: 5;
+                align-items: center;
+                line-height: 24px;
+                min-height: 24px;
             }
             
             /* 檢查計畫表格手機版樣式 */
             .user-table td[data-label="選擇"] {
                 position: absolute;
-                top: 14px;
+                top: 16px;
                 left: 14px;
                 width: auto;
                 padding: 0 !important;
                 margin: 0;
                 z-index: 2;
+                display: flex;
+                align-items: center;
+                height: 24px;
+            }
+
+            .user-table td[data-label="選擇"] input[type="checkbox"] {
+                margin: 0;
+                width: 20px;
+                height: 20px;
+                cursor: pointer;
             }
             
             /* 計畫管理：第一行 - 計畫名稱（左側） + 操作（右側） */
@@ -1667,6 +1708,10 @@
                 padding-right: 100px;
                 width: 100%;
                 order: 1;
+                line-height: 24px;
+                min-height: 24px;
+                display: flex;
+                align-items: center;
             }
 
             /* 計畫管理：第二行 - 年度 + 事項數量合併顯示 */
@@ -1708,18 +1753,6 @@
                 order: 4;
             }
 
-            /* 計畫管理：操作按鈕 */
-            .user-table td[data-label="操作"] {
-                position: absolute;
-                top: 14px;
-                right: 14px;
-                width: auto;
-                margin-top: 0;
-                display: flex;
-                gap: 8px;
-                justify-content: flex-end;
-                order: 5;
-            }
 
             /* 日誌表格（登入記錄、操作記錄）手機版優化 - 僅在沒有特定表格class時應用 */
             /* 第一行：時間 */
