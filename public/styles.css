@@ -1677,6 +1677,7 @@
             }
             
             /* 檢查計畫表格手機版樣式 */
+            /* 選擇框與計畫名稱對齊 - 使用與查詢看板相同的對齊方式 */
             .user-table td[data-label="選擇"] {
                 position: absolute;
                 top: 16px;
@@ -1687,7 +1688,9 @@
                 z-index: 2;
                 display: flex;
                 align-items: center;
+                justify-content: center;
                 height: 24px;
+                line-height: 24px;
             }
 
             .user-table td[data-label="選擇"] input[type="checkbox"] {
@@ -1695,6 +1698,7 @@
                 width: 20px;
                 height: 20px;
                 cursor: pointer;
+                flex-shrink: 0;
             }
             
             /* 計畫管理：第一行 - 計畫名稱（左側） + 操作（右側） */
@@ -1712,6 +1716,8 @@
                 min-height: 24px;
                 display: flex;
                 align-items: center;
+                padding-top: 0;
+                margin-top: 0;
             }
 
             /* 計畫管理：第二行 - 年度 + 事項數量合併顯示 */
@@ -1862,10 +1868,94 @@
                 margin-bottom: 16px;
             }
 
+            /* Drawer 詳細頁面：手機版優化 */
             .detail-header-row {
                 font-size: 15px;
                 padding-bottom: 12px;
                 margin-bottom: 12px;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 8px;
+            }
+
+            /* 確保編號、機構、狀態與類型的顯示與主看板一致 */
+            .detail-number {
+                font-size: 18px;
+                font-weight: 700;
+                color: var(--primary);
+                margin-right: 8px;
+            }
+
+            .detail-unit-badge {
+                font-size: 14px;
+                padding: 4px 10px;
+                background: #f1f5f9;
+                color: #64748b;
+                border-radius: 6px;
+                margin-right: 8px;
+            }
+
+            .detail-header-row #dStatus {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+
+            .detail-header-row #dStatus .badge,
+            .detail-header-row #dStatus .kind-tag {
+                font-size: 13px;
+                padding: 3px 8px;
+                white-space: nowrap;
+            }
+
+            /* 編輯模式標題區優化 - 與主看板樣式一致 */
+            #editModeContent > div[style*="background:#eff6ff"] {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 8px;
+                padding: 12px 16px !important;
+                font-size: 16px;
+            }
+
+            #editModeContent > div[style*="background:#eff6ff"] > span {
+                display: inline-flex;
+                align-items: center;
+                line-height: 24px;
+            }
+
+            /* 編輯模式中的分隔符 */
+            #editModeContent > div[style*="background:#eff6ff"] > span[style*="color:#cbd5e1"] {
+                color: #cbd5e1 !important;
+                margin: 0 4px;
+                font-size: 14px;
+            }
+
+            #editHeaderNumber {
+                font-size: 18px !important;
+                font-weight: 700 !important;
+                color: var(--primary) !important;
+                margin-right: 0;
+            }
+
+            #editHeaderYear {
+                font-size: 15px !important;
+                padding: 4px 10px !important;
+                background: #f1f5f9 !important;
+                color: #64748b !important;
+                border-radius: 6px !important;
+                margin: 0;
+            }
+
+            #editHeaderUnit {
+                font-size: 15px !important;
+                padding: 4px 10px !important;
+                background: #f1f5f9 !important;
+                color: #64748b !important;
+                border-radius: 6px !important;
+                margin: 0;
             }
 
             .content-text {
