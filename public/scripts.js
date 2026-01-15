@@ -3702,9 +3702,24 @@ if (dashboard) {
             const kindName = currentEditItem.category || '-';
             document.getElementById('dCategoryInfo').textContent = `${divName} / ${insName} / ${kindName}`;
 
-            // Status
+            // Status and Kind (狀態與類型)
+            let k = currentEditItem.itemKindCode;
+            const numStr = String(currentEditItem.number || '');
+            if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
+            
+            let kindLabel = '';
+            if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
+            else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
+            else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
+            
             const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self');
-            document.getElementById('dStatus').innerHTML = currentEditItem.status && currentEditItem.status !== 'Open' ? `<span class="badge ${st}">${currentEditItem.status}</span>` : '(未設定)';
+            let statusBadge = '';
+            if (currentEditItem.status && currentEditItem.status !== 'Open') {
+                statusBadge = `<span class="badge ${st}">${currentEditItem.status}</span>`;
+            }
+            
+            const statusKindHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${statusBadge}</div>`;
+            document.getElementById('dStatus').innerHTML = statusKindHtml || '(未設定)';
 
             let h = '';
             let firstRecord = true;

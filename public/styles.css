@@ -1704,15 +1704,15 @@
                 vertical-align: middle;
             }
             
-            /* 計畫管理：第一行 - 計畫名稱（左側） + 操作（右側） */
+            /* 計畫管理：第一行 - 計畫名稱（左側，不顯示操作按鈕） */
             .user-table td[data-label="計畫名稱"] {
                 font-size: 18px;
                 font-weight: 700;
                 color: var(--text-main);
                 margin-bottom: 8px;
                 margin-left: 42px;
-                margin-right: auto;
-                padding-right: 100px;
+                margin-right: 0;
+                padding-right: 0;
                 width: 100%;
                 order: 1;
                 line-height: 24px;
@@ -1722,6 +1722,27 @@
                 padding-top: 0 !important;
                 margin-top: 0;
                 padding: 0 !important;
+            }
+
+            /* 計畫管理：操作按鈕移到建立時間之後（獨立一行） */
+            /* 由於手機版表格使用flex布局，我們可以通過order來控制順序 */
+            .user-table td[data-label="建立時間"] {
+                order: 4;
+            }
+
+            /* 計畫管理表格的操作按鈕：移到下一行，不與計畫名稱同一行 */
+            /* 通過檢查是否在建立時間之後來判斷是否為計畫管理表格 */
+            .user-table td[data-label="建立時間"] ~ td[data-label="操作"] {
+                position: static !important;
+                top: auto !important;
+                right: auto !important;
+                margin-top: 8px;
+                margin-bottom: 0;
+                justify-content: flex-end;
+                order: 5;
+                width: 100%;
+                border-top: 1px solid #f1f5f9;
+                padding-top: 10px;
             }
 
             /* 計畫管理：第二行 - 年度 + 事項數量合併顯示 */
