@@ -338,13 +338,21 @@
                         <textarea id="editHandling" style="display:none;"></textarea>
                     </div>
                     <div class="review-right">
-                        <!-- 參考資料：當前回合機構辦理情形 -->
+                        <!-- 參考資料：當前回合機構辦理情形（只讀顯示） -->
                         <div style="margin-bottom:24px; background:#f8fafc; padding:16px; border-radius:10px; border:1px solid #e2e8f0;">
                             <div style="font-size:12px;color:#64748b;margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">📋 參考資料</div>
                             <div style="font-size:12px;color:#059669;margin-bottom:8px;font-weight:600;">第 <span id="currentHandlingRoundNum">1</span> 次機構辦理情形</div>
                             <div id="currentHandlingDisplay" style="background:#ffffff;padding:12px;border-radius:8px;font-size:14px;color:#334155;border:1px solid #cbd5e1;line-height:1.6;min-height:80px;max-height:200px;overflow-y:auto;white-space:pre-wrap;"
                                 >（尚未有機構辦理情形）</div>
+                            <div style="margin-top:12px; padding:10px; background:#fff3cd; border-radius:6px; border:1px solid #ffc107; font-size:12px; color:#856404;">
+                                💡 提示：如需新增或編輯辦理情形，請至「資料管理」頁面的「年度編輯」功能中操作
+                            </div>
                         </div>
+                        
+                        <!-- 隱藏的處理欄位（用於儲存） -->
+                        <textarea id="editHandling" style="display:none;"></textarea>
+
+                        <!-- 審查作業區：統一的輸入區塊 -->
 
                         <!-- 審查作業區：統一的輸入區塊 -->
                         <div style="background:#ffffff; padding:20px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px;">

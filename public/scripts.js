@@ -3991,8 +3991,10 @@ if (dashboard) {
             const displayHandlingSuffix = displayHandlingRound === 1 ? '' : displayHandlingRound;
             const displayHandling = currentEditItem['handling' + displayHandlingSuffix] || '';
             
+            // 更新辦理情形顯示（只讀）
             const currentHandlingDisplay = document.getElementById('currentHandlingDisplay');
             const currentHandlingRoundNum = document.getElementById('currentHandlingRoundNum');
+            
             if (currentHandlingDisplay && currentHandlingRoundNum) {
                 currentHandlingRoundNum.textContent = displayHandlingRound;
                 if (displayHandling && displayHandling.trim()) {
@@ -4154,13 +4156,20 @@ if (dashboard) {
             const id = document.getElementById('editId').value;
             const status = document.getElementById('editStatus').value;
             const round = parseInt(document.getElementById('editRound').value) || 1;
-            const handling = document.getElementById('editHandling').value.trim();
+            // 從隱藏欄位讀取辦理情形（僅用於保存，不允許在審查頁面編輯）
+            const handling = document.getElementById('editHandling').value.trim() || '';
             const review = document.getElementById('editReview').value.trim();
             const replyDate = document.getElementById('editReplyDate').value.trim();
             const responseDate = document.getElementById('editResponseDate').value.trim();
             
             if (!id) {
                 showToast('找不到事項 ID', 'error');
+                return;
+            }
+            
+            // 第一次審查時，必須已有辦理情形（應該在資料管理頁面先輸入）
+            if (round === 1 && !handling) {
+                showToast('第一次審查時，必須先有機構辦理情形。請至「資料管理」頁面的「年度編輯」功能中新增辦理情形後，再進行審查。', 'error');
                 return;
             }
             
@@ -4206,7 +4215,8 @@ if (dashboard) {
         async function runAiInEdit(btn) { 
             btn.disabled = true; 
             btn.innerText = 'AI 分析中...'; 
-            const handlingTxt = document.getElementById('editHandling').value; 
+            // 從隱藏欄位讀取辦理情形
+            const handlingTxt = document.getElementById('editHandling').value || ''; 
             const r = [{ handling: handlingTxt, review: '(待審查)' }]; 
             try { 
                 if (!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); 
@@ -4804,6 +4814,47 @@ if (dashboard) {
                         </div>
                     </div>
                 `;
+            } else {
+                // 如果沒有輪次記錄，顯示「新增第一次辦理情形」區塊
+                html += `
+                    <!-- 新增第一次辦理情形區塊 -->
+                    <div style="padding:20px;">
+                        <div style="font-weight:700; font-size:16px; color:#334155; margin-bottom:16px; padding-bottom:12px; border-bottom:2px solid #e2e8f0;">
+                            📝 新增第一次辦理情形
+                            <span style="font-size:12px; color:#ef4444; font-weight:400; margin-left:8px;">(必填)</span>
+                        </div>
+                        
+                        <div class="detail-card" style="margin-bottom:16px; border:2px solid #10b981;">
+                            <div style="background:#ecfdf5; padding:12px; border-bottom:1px solid #a7f3d0;">
+                                <div style="font-weight:700; color:#047857; font-size:15px;">
+                                    第 1 次機構辦理情形
+                                </div>
+                            </div>
+                            <div style="padding:16px;">
+                                <div style="margin-bottom:16px;">
+                                    <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">
+                                        辦理情形 <span style="color:#ef4444;">*</span>
+                                    </label>
+                                    <textarea id="yearEditFirstHandling" class="filter-input" 
+                                        style="width:100%; min-height:150px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;"
+                                        placeholder="請輸入機構辦理情形...（必填）"></textarea>
+                                </div>
+                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                                    <div>
+                                        <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">鐵路機構回復日期</label>
+                                        <input type="text" id="yearEditFirstReplyDate" class="filter-input" 
+                                            placeholder="例如: 1130601" style="width:100%;">
+                                    </div>
+                                    <div>
+                                        <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">本次函復日期</label>
+                                        <input type="text" id="yearEditFirstResponseDate" class="filter-input" 
+                                            placeholder="例如: 1130615" style="width:100%;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
             
             html += `
@@ -4861,6 +4912,25 @@ if (dashboard) {
                 const roundReplyDates = document.querySelectorAll('.year-edit-round-reply-date');
                 const roundResponseDates = document.querySelectorAll('.year-edit-round-response-date');
                 
+                // 檢查是否有「新增第一次辦理情形」的輸入欄位
+                const firstHandlingEl = document.getElementById('yearEditFirstHandling');
+                const firstReplyDateEl = document.getElementById('yearEditFirstReplyDate');
+                const firstResponseDateEl = document.getElementById('yearEditFirstResponseDate');
+                
+                // 如果存在第一次辦理情形的輸入欄位，驗證必填
+                if (firstHandlingEl) {
+                    const firstHandling = firstHandlingEl.value.trim();
+                    if (!firstHandling) {
+                        showToast('第一次機構辦理情形為必填項目，請填寫辦理情形', 'error');
+                        firstHandlingEl.focus();
+                        firstHandlingEl.style.borderColor = '#ef4444';
+                        setTimeout(() => {
+                            if (firstHandlingEl) firstHandlingEl.style.borderColor = '';
+                        }, 3000);
+                        return;
+                    }
+                }
+                
                 // 找出所有顯示的輪次（不管是否有內容）
                 const roundSet = new Set();
                 roundHandlings.forEach(el => roundSet.add(parseInt(el.dataset.round)));
@@ -4898,6 +4968,34 @@ if (dashboard) {
                 if (!updateRes.ok) {
                     const errorData = await updateRes.json().catch(() => ({}));
                     throw new Error(errorData.error || '更新基本資訊失敗');
+                }
+                
+                // 如果有「新增第一次辦理情形」的輸入欄位，先更新第一次辦理情形
+                if (firstHandlingEl) {
+                    const firstHandling = firstHandlingEl.value.trim();
+                    const firstReplyDate = firstReplyDateEl ? firstReplyDateEl.value.trim() : '';
+                    const firstResponseDate = firstResponseDateEl ? firstResponseDateEl.value.trim() : '';
+                    
+                    if (firstHandling) {
+                        // 更新第一次辦理情形
+                        const firstRoundRes = await fetch(`/api/issues/${issueId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                status: status,
+                                round: 1,
+                                handling: firstHandling,
+                                review: '',
+                                replyDate: firstReplyDate || null,
+                                responseDate: firstResponseDate || null
+                            })
+                        });
+                        
+                        if (!firstRoundRes.ok) {
+                            const errorData = await firstRoundRes.json().catch(() => ({}));
+                            throw new Error(errorData.error || '更新第一次辦理情形失敗');
+                        }
+                    }
                 }
                 
                 // 更新每個輪次（包括清空的欄位）
