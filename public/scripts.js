@@ -3592,31 +3592,28 @@ if (dashboard) {
                 // 清除所有編輯欄位，避免前一個事項的資料殘留
                 document.getElementById('editId').value = currentEditItem.id; 
                 
-                // 機構標籤（與詳細資料頁面一致）
-                document.getElementById('editHeaderUnitBadge').textContent = currentEditItem.unit || '';
-                
-                // 編號
-                document.getElementById('editHeaderNumber').textContent = currentEditItem.number || '';
-                
-                // 年度
+                // 年度（不显示"年度："标签）
                 document.getElementById('editHeaderYear').textContent = currentEditItem.year || '(未設定)';
+                
+                // 鐵路機構標籤
+                document.getElementById('editHeaderUnitBadge').textContent = currentEditItem.unit || '';
                 
                 // 檢查計畫
                 document.getElementById('editHeaderPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)';
                 
+                // 檢查類別（只显示检查种类，不包含分组和事项类别）
+                const insName = currentEditItem.inspectionCategoryName || currentEditItem.inspection_category_name || '-';
+                document.getElementById('editHeaderInspection').textContent = insName;
+                
+                // 編號
+                document.getElementById('editHeaderNumber').textContent = currentEditItem.number || '';
+                
                 // 開立日期（發函）
                 document.getElementById('editHeaderIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
                 
-                // 分組/檢查種類/類型（與詳細資料頁面一致）
+                // 分組（只显示分组，不包含检查种类和事项类别）
                 const divName = currentEditItem.divisionName || currentEditItem.division_name || '-';
-                const insName = currentEditItem.inspectionCategoryName || currentEditItem.inspection_category_name || '-';
-                let kindName = '-';
-                const kindCode = currentEditItem.item_kind_code || currentEditItem.itemKindCode;
-                if (kindCode === 'N') kindName = '缺失事項';
-                else if (kindCode === 'O') kindName = '觀察事項';
-                else if (kindCode === 'R') kindName = '建議事項';
-                else if (currentEditItem.category) kindName = currentEditItem.category;
-                document.getElementById('editHeaderCategoryInfo').textContent = `${divName} / ${insName} / ${kindName}`;
+                document.getElementById('editHeaderDivision').textContent = divName;
                 
                 const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; 
                 document.getElementById('editStatus').value = st;
@@ -3631,9 +3628,10 @@ if (dashboard) {
                 else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
                 else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
                 
+                // 顯示狀態標籤（包括持續列管）
                 let statusBadge = '';
-                if (st !== 'Open' && st !== '持續列管') {
-                    const stClass = st === '解除列管' ? 'resolved' : 'self';
+                if (st && st !== 'Open') {
+                    const stClass = st === '持續列管' ? 'active' : (st === '解除列管' ? 'resolved' : 'self');
                     statusBadge = `<span class="badge ${stClass}">${st}</span>`;
                 }
                 

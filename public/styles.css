@@ -1962,14 +1962,7 @@
                 margin-right: 0;
             }
 
-            #editHeaderYear {
-                font-size: 15px !important;
-                padding: 4px 10px !important;
-                background: #f1f5f9 !important;
-                color: #64748b !important;
-                border-radius: 6px !important;
-                margin: 0;
-            }
+            /* 移除年度特殊样式，与详细资料页面保持一致 */
 
             #editHeaderUnit {
                 font-size: 15px !important;
