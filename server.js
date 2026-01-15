@@ -592,23 +592,25 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
         const operationResults = []; // 記錄每個項目的操作類型
         
         for (const item of data) {
-            // 使用精確匹配查詢編號（區分大小寫）
-            const check = await client.query("SELECT id, content FROM issues WHERE number = $1", [item.number]);
+            // 使用精確匹配查詢編號（區分大小寫，去除前後空格）
+            const trimmedNumber = (item.number || '').trim();
+            const check = await client.query("SELECT id, content FROM issues WHERE TRIM(number) = $1", [trimmedNumber]);
             if (check.rows.length > 0) {
                 // 如果是新增事項（round=1）且不允許更新，檢查內容是否相同
+                // 只有在編號已存在、內容不同、且現有內容不為空時，才視為重複編號錯誤
                 if (r === 1 && !allowUpdate) {
                     const existingContent = (check.rows[0].content || '').trim();
                     const newContent = (item.content || '').trim();
-                    // 如果內容不同且現有內容不為空，視為重複編號錯誤
-                    // 但只有在明確是重複編號且內容不同時才報錯
-                    if (existingContent !== newContent && existingContent !== '' && newContent !== '') {
+                    // 只有在明確是重複編號且內容不同時才報錯
+                    // 如果現有內容為空，視為可以更新（可能是之前新增失敗留下的空記錄）
+                    if (existingContent !== '' && newContent !== '' && existingContent !== newContent) {
                         duplicateNumbers.push({
-                            number: item.number,
+                            number: trimmedNumber,
                             existingContent: existingContent
                         });
                         continue; // 跳過這個項目，不進行更新
                     }
-                    // 如果內容相同或現有內容為空或新內容為空，允許更新（視為正常的新增/更新操作）
+                    // 如果內容相同或現有內容為空，允許更新（視為正常的新增/更新操作）
                 }
                 
                 // 允許更新：更新現有記錄
@@ -628,44 +630,44 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                             inspection_category_name=COALESCE($12, inspection_category_name),
                             item_kind_code=COALESCE($13, item_kind_code),
                             updated_at=CURRENT_TIMESTAMP 
-                        WHERE number=$14`,
+                        WHERE TRIM(number)=$14`,
                         [
                             item.status, item.content, item.handling||'', item.review||'', 
                             replyDate||'', reviewDate||'', item.planName || null, item.issueDate || null,
                             item.year || null, item.unit || null,
                             item.divisionName || null, item.inspectionCategoryName || null,
-                            item.itemKindCode || null, item.number
+                            item.itemKindCode || null, trimmedNumber
                         ]
                     );
                     // 記錄為更新操作
-                    operationResults.push({ number: item.number, action: 'updated' });
+                    operationResults.push({ number: trimmedNumber, action: 'updated' });
                 } else {
                     // 更新輪次資料
                     await client.query(
                         `UPDATE issues SET 
                             status=$1, ${hCol}=$2, ${rCol}=$3, ${replyCol}=$4, ${respCol}=$5,
                             plan_name=COALESCE($6, plan_name), updated_at=CURRENT_TIMESTAMP 
-                        WHERE number=$7`,
-                        [item.status, item.handling||'', item.review||'', replyDate||'', reviewDate||'', item.planName || null, item.number]
+                        WHERE TRIM(number)=$7`,
+                        [item.status, item.handling||'', item.review||'', replyDate||'', reviewDate||'', item.planName || null, trimmedNumber]
                     );
-                    operationResults.push({ number: item.number, action: 'updated' });
+                    operationResults.push({ number: trimmedNumber, action: 'updated' });
                 }
             } else {
-                // 新增記錄
+                // 新增記錄（使用trimmedNumber確保編號沒有前後空格）
                 await client.query(
                     `INSERT INTO issues (
                         number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
                         handling, review, plan_name, issue_date, response_date_r1, reply_date_r1
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
                     [
-                        item.number, item.year, item.unit, item.content, item.status||'持續列管',
+                        trimmedNumber, item.year, item.unit, item.content, item.status||'持續列管',
                         item.itemKindCode, item.category, item.divisionName, item.inspectionCategoryName,
                         item.handling||'', item.review||'', item.planName || null, item.issueDate || null, 
                         reviewDate || '', replyDate || '' 
                     ]
                 );
                 // 記錄為新增操作
-                operationResults.push({ number: item.number, action: 'created' });
+                operationResults.push({ number: trimmedNumber, action: 'created' });
             }
         }
         

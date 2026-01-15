@@ -2380,50 +2380,40 @@ if (dashboard) {
                 // 無論是新增還是更新，只要後端返回成功，都應該驗證並顯示成功
                 if (result.newCount > 0 || result.updateCount > 0) {
                     // 驗證數據是否真的寫入資料庫：使用精確查詢該編號（不使用關鍵字查詢，避免誤判）
-                    // 先嘗試直接查詢該編號
                     const verifyRes = await fetch(`/api/issues?page=1&pageSize=100&q=${encodeURIComponent(number)}&_t=${Date.now()}`);
                     if (verifyRes.ok) {
                         const verifyData = await verifyRes.json();
                         // 在結果中精確匹配編號（因為關鍵字查詢可能返回多個結果）
-                        const exactMatch = verifyData.data?.find(item => item.number === number);
+                        // 使用嚴格相等比較，確保編號完全一致
+                        const exactMatch = verifyData.data?.find(item => String(item.number) === String(number));
                         if (exactMatch) {
-                            // 驗證編號和內容是否一致
-                            if (exactMatch.number === number) {
-                                // 根據操作類型顯示不同的成功訊息
-                                if (result.newCount > 0) {
-                                    showToast('新增成功，資料已確認寫入資料庫');
-                                } else if (result.updateCount > 0) {
-                                    showToast('儲存成功，資料已確認寫入資料庫');
-                                }
-                                    
-                                    if (continuousMode) {
-                                        document.getElementById('createNumber').value = '';
-                                        document.getElementById('createKind').value = '';
-                                        document.getElementById('createContent').value = '';
-                                        document.getElementById('createNumber').focus();
-                                    } else {
-                                        document.getElementById('createNumber').value = '';
-                                        if (yearDisplay) yearDisplay.value = '';
-                                        document.getElementById('createUnit').value = '';
-                                        document.getElementById('createDivision').value = '';
-                                        document.getElementById('createInspection').value = '';
-                                        document.getElementById('createKind').value = '';
-                                        document.getElementById('createContent').value = '';
-                                        document.getElementById('createPlanName').value = '';
-                                        document.getElementById('createIssueDate').value = '';
-                                    }
-
-                                    loadIssuesPage(1);
-                                    loadPlanOptions();
-                                    return;
-                                } else {
-                                    showToast('警告：資料可能未正確寫入資料庫，請檢查資料庫', 'error');
-                                    return;
-                                }
-                            } else {
-                                showToast('警告：無法驗證資料是否寫入資料庫', 'error');
-                                return;
+                            // 根據操作類型顯示不同的成功訊息
+                            if (result.newCount > 0) {
+                                showToast('新增成功，資料已確認寫入資料庫');
+                            } else if (result.updateCount > 0) {
+                                showToast('儲存成功，資料已確認寫入資料庫');
                             }
+                            
+                            if (continuousMode) {
+                                document.getElementById('createNumber').value = '';
+                                document.getElementById('createKind').value = '';
+                                document.getElementById('createContent').value = '';
+                                document.getElementById('createNumber').focus();
+                            } else {
+                                document.getElementById('createNumber').value = '';
+                                if (yearDisplay) yearDisplay.value = '';
+                                document.getElementById('createUnit').value = '';
+                                document.getElementById('createDivision').value = '';
+                                document.getElementById('createInspection').value = '';
+                                document.getElementById('createKind').value = '';
+                                document.getElementById('createContent').value = '';
+                                document.getElementById('createPlanName').value = '';
+                                document.getElementById('createIssueDate').value = '';
+                            }
+
+                            loadIssuesPage(1);
+                            loadPlanOptions();
+                            return;
                         } else {
                             // 驗證失敗，但後端已返回成功，仍然顯示成功
                             if (result.newCount > 0) {
@@ -2452,14 +2442,37 @@ if (dashboard) {
                             loadPlanOptions();
                             return;
                         }
-                        
                     } else {
-                        // newCount 和 updateCount 都是 0，表示沒有資料被寫入
-                        showToast('儲存失敗：沒有資料被寫入資料庫', 'error');
+                        // 驗證查詢失敗，但後端已返回成功，仍然顯示成功
+                        if (result.newCount > 0) {
+                            showToast('新增成功，但無法驗證資料庫', 'warning');
+                        } else {
+                            showToast('儲存成功，但無法驗證資料庫', 'warning');
+                        }
+                        // 即使驗證失敗，也清理表單（因為後端已返回成功）
+                        if (continuousMode) {
+                            document.getElementById('createNumber').value = '';
+                            document.getElementById('createKind').value = '';
+                            document.getElementById('createContent').value = '';
+                            document.getElementById('createNumber').focus();
+                        } else {
+                            document.getElementById('createNumber').value = '';
+                            if (yearDisplay) yearDisplay.value = '';
+                            document.getElementById('createUnit').value = '';
+                            document.getElementById('createDivision').value = '';
+                            document.getElementById('createInspection').value = '';
+                            document.getElementById('createKind').value = '';
+                            document.getElementById('createContent').value = '';
+                            document.getElementById('createPlanName').value = '';
+                            document.getElementById('createIssueDate').value = '';
+                        }
+                        loadIssuesPage(1);
+                        loadPlanOptions();
+                        return;
                     }
                 } else {
-                    const errorData = await res.json().catch(() => ({}));
-                    showToast('新增失敗: ' + (errorData.error || res.statusText), 'error'); 
+                    // newCount 和 updateCount 都是 0，表示沒有資料被寫入
+                    showToast('儲存失敗：沒有資料被寫入資料庫', 'error');
                 }
             } catch (e) { 
                 showToast('Error: ' + e.message, 'error'); 
