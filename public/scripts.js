@@ -3595,7 +3595,26 @@ if (dashboard) {
                 document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; 
                 document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; 
                 const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; 
-                document.getElementById('editStatus').value = st; 
+                document.getElementById('editStatus').value = st;
+                
+                // 顯示狀態與類型（缺失、觀察、建議）
+                let k = currentEditItem.itemKindCode;
+                const numStr = String(currentEditItem.number || '');
+                if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
+                
+                let kindLabel = '';
+                if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
+                else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
+                else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
+                
+                let statusBadge = '';
+                if (st !== 'Open' && st !== '持續列管') {
+                    const stClass = st === '解除列管' ? 'resolved' : 'self';
+                    statusBadge = `<span class="badge ${stClass}">${st}</span>`;
+                }
+                
+                const statusKindHtml = `${kindLabel}${statusBadge}`;
+                document.getElementById('editHeaderStatusKind').innerHTML = statusKindHtml; 
                 
                 // 計算應該進行第幾次審查（支持無限次）
                 // 邏輯：找到最高的機構辦理情形，檢查是否有對應的審查意見
