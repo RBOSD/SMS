@@ -4323,6 +4323,25 @@ if (dashboard) {
             let html = '';
             yearEditIssueList.forEach((issue, index) => {
                 const contentPreview = stripHtml(issue.content || '').substring(0, 150);
+                
+                // 顯示類型（缺失、觀察、建議）
+                let k = issue.itemKindCode;
+                const numStr = String(issue.number || '');
+                if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
+                
+                let kindLabel = '';
+                if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
+                else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
+                else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
+                
+                // 顯示狀態徽章
+                let badge = '';
+                const st = String(issue.status || 'Open');
+                if (st !== 'Open' && st) {
+                    const stClass = st === '持續列管' ? 'active' : (st === '解除列管' ? 'resolved' : 'self');
+                    badge = `<span class="badge ${stClass}">${st}</span>`;
+                }
+                
                 html += `
                     <div class="year-edit-issue-item" 
                          onclick="loadYearEditIssueFromList(${index})"
@@ -4331,8 +4350,13 @@ if (dashboard) {
                          onmouseout="this.style.background='#fff'">
                         <div style="display:flex; justify-content:space-between; align-items:start; gap:16px;">
                             <div style="flex:1;">
-                                <div style="font-weight:700; color:#1e40af; font-size:15px; margin-bottom:8px;">
-                                    ${issue.number || '未指定編號'}
+                                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+                                    <div style="font-weight:700; color:#1e40af; font-size:15px;">
+                                        ${issue.number || '未指定編號'}
+                                    </div>
+                                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                        ${kindLabel}${badge}
+                                    </div>
                                 </div>
                                 <div style="font-size:13px; color:#64748b; line-height:1.6; margin-bottom:8px;">
                                     ${contentPreview}${contentPreview.length >= 150 ? '...' : ''}
@@ -4340,7 +4364,6 @@ if (dashboard) {
                                 <div style="display:flex; gap:12px; font-size:12px; color:#94a3b8;">
                                     <span>年度：${issue.year || ''}</span>
                                     <span>機構：${issue.unit || ''}</span>
-                                    <span>狀態：${issue.status || ''}</span>
                                 </div>
                             </div>
                             <div style="color:#cbd5e1; font-size:20px; align-self:center;">→</div>
