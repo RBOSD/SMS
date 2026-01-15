@@ -340,21 +340,21 @@
             margin-bottom: 0 !important;
         }
 
-        .dashboard-toggle-btn {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 6px 14px;
-            font-size: 13px;
-            cursor: pointer;
-            color: var(--text-sub);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-            margin-left: auto;
-        }
+            .dashboard-toggle-btn {
+                background: white;
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-size: 15px;
+                cursor: pointer;
+                color: var(--text-sub);
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                transition: all 0.2s;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+                margin-left: auto;
+            }
 
         .dashboard-toggle-btn:hover {
             background: #f8fafc;
@@ -864,16 +864,22 @@
             font-size: 12px;
         }
 
-        .page-size-select {
-            padding: 6px 10px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 13px;
-            background: white;
-            cursor: pointer;
-            color: var(--text-sub);
-            font-weight: 500;
-        }
+            .page-size-select {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                font-size: 15px;
+                background: white;
+                cursor: pointer;
+                color: var(--text-sub);
+                font-weight: 500;
+            }
+
+            .page-btn {
+                width: 36px;
+                height: 36px;
+                font-size: 15px;
+            }
 
         .page-size-select:hover {
             border-color: #cbd5e1;
@@ -1271,7 +1277,7 @@
 
             /* Header Optimizations */
             .brand-title {
-                font-size: 14px;
+                font-size: 16px;
                 max-width: 200px;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -1292,7 +1298,7 @@
             }
 
             .user-capsule {
-                padding: 4px 10px;
+                padding: 6px 12px;
             }
 
             .user-role {
@@ -1301,6 +1307,7 @@
 
             .user-name {
                 max-width: 100px;
+                font-size: 15px;
             }
 
             /* Body Optimizations */
@@ -1314,22 +1321,30 @@
             .main-content {
                 height: auto;
                 overflow: visible;
-                padding: 16px;
+                padding: 12px;
                 width: 100%;
             }
 
             .stats-bar {
                 grid-template-columns: 1fr 1fr;
-                gap: 12px;
-                margin-bottom: 16px;
+                gap: 10px;
+                margin-bottom: 12px;
             }
 
             .stat-item {
-                padding: 16px;
+                padding: 14px 12px;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
+            }
+
+            .stat-val {
+                font-size: 32px;
+            }
+
+            .stat-label {
+                font-size: 15px;
             }
 
             .stat-item:last-child {
@@ -1341,30 +1356,56 @@
 
             .charts-grid {
                 grid-template-columns: 1fr;
-                gap: 16px;
-                margin-bottom: 16px;
+                gap: 12px;
+                margin-bottom: 12px;
             }
 
             .chart-card {
                 height: 240px;
-                padding: 16px;
+                padding: 14px;
             }
 
             /* Optimized Filters for Mobile */
+            .main-card {
+                padding: 16px;
+                margin-bottom: 16px;
+            }
+
+            .integrated-controls {
+                padding: 16px;
+            }
+
             .filter-primary-row {
                 flex-direction: column;
                 align-items: stretch;
+                gap: 12px;
             }
 
             .filter-advanced-row {
                 flex-direction: column;
                 align-items: stretch;
+                gap: 12px;
+            }
+
+            .search-item label {
+                font-size: 14px;
+            }
+
+            .filter-input,
+            .filter-select {
+                font-size: 16px;
+                padding: 12px;
+            }
+
+            .btn {
+                font-size: 15px;
+                padding: 11px 18px;
             }
 
             .control-row-actions {
                 flex-direction: column;
                 align-items: stretch;
-                gap: 16px;
+                gap: 12px;
             }
 
             .pagination-bar {
@@ -1392,9 +1433,9 @@
 
             tr {
                 background: white;
-                margin-bottom: 12px;
+                margin-bottom: 10px;
                 border-radius: 12px;
-                padding: 16px;
+                padding: 14px;
                 border: 1px solid #e2e8f0;
                 box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
                 position: relative;
@@ -1417,10 +1458,10 @@
             }
 
             td[data-label="編號"] {
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: 700;
                 color: var(--text-main);
-                margin-bottom: 8px;
+                margin-bottom: 10px;
                 padding-right: 80px;
                 margin-left: 30px;
             }
@@ -1437,20 +1478,20 @@
             td[data-label="機構"] {
                 display: inline-block;
                 width: auto;
-                font-size: 12px;
+                font-size: 14px;
                 color: #64748b;
                 background: #f1f5f9;
-                padding: 2px 8px;
+                padding: 4px 10px;
                 border-radius: 6px;
-                margin-right: 6px;
-                margin-bottom: 12px;
+                margin-right: 8px;
+                margin-bottom: 10px;
             }
 
             td[data-label="事項內容"] {
-                font-size: 14px;
+                font-size: 16px;
                 color: #334155;
-                line-height: 1.5;
-                margin-bottom: 12px;
+                line-height: 1.6;
+                margin-bottom: 10px;
                 display: -webkit-box;
                 -webkit-line-clamp: 3;
                 -webkit-box-orient: vertical;
@@ -1459,22 +1500,27 @@
             }
 
             td[data-label="最新辦理/審查情形"] {
-                font-size: 12px;
-                color: #94a3b8;
+                font-size: 14px;
+                color: #64748b;
                 border-top: 1px solid #f1f5f9;
-                padding-top: 8px;
+                padding-top: 10px;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
 
             td[data-label="管理功能"] {
-                margin-top: 12px;
+                margin-top: 10px;
                 display: flex;
                 gap: 8px;
                 justify-content: flex-end;
                 border-top: 1px solid #f1f5f9;
-                padding-top: 12px;
+                padding-top: 10px;
+            }
+
+            td[data-label="管理功能"] .btn {
+                font-size: 14px;
+                padding: 8px 14px;
             }
 
             .manager-col {
@@ -1495,14 +1541,14 @@
 
             .user-table td[data-label="姓名"] {
                 font-weight: 700;
-                font-size: 16px;
-                margin-bottom: 4px;
+                font-size: 18px;
+                margin-bottom: 6px;
             }
 
             .user-table td[data-label="帳號"] {
-                font-size: 13px;
+                font-size: 15px;
                 color: #666;
-                margin-bottom: 8px;
+                margin-bottom: 10px;
             }
 
             .user-table td[data-label="權限"] {
@@ -1510,10 +1556,10 @@
                 width: auto;
                 background: #eff6ff;
                 color: var(--primary);
-                padding: 2px 8px;
+                padding: 4px 10px;
                 border-radius: 4px;
-                font-size: 12px;
-                margin-bottom: 8px;
+                font-size: 14px;
+                margin-bottom: 10px;
             }
 
             .user-table td[data-label="操作"] {
@@ -1540,40 +1586,40 @@
             .user-table td[data-label="年度"] {
                 display: inline-block;
                 width: auto;
-                font-size: 12px;
+                font-size: 14px;
                 color: #64748b;
                 background: #f1f5f9;
-                padding: 2px 8px;
+                padding: 4px 10px;
                 border-radius: 6px;
-                margin-right: 6px;
-                margin-bottom: 12px;
+                margin-right: 8px;
+                margin-bottom: 10px;
                 margin-left: 40px;
             }
             
             .user-table td[data-label="計畫名稱"] {
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: 700;
                 color: var(--text-main);
-                margin-bottom: 8px;
+                margin-bottom: 10px;
                 margin-left: 40px;
             }
             
             .user-table td[data-label="事項數量"] {
                 display: inline-block;
                 width: auto;
-                font-size: 12px;
+                font-size: 14px;
                 color: #64748b;
                 background: #f1f5f9;
-                padding: 2px 8px;
+                padding: 4px 10px;
                 border-radius: 6px;
-                margin-right: 6px;
-                margin-bottom: 12px;
+                margin-right: 8px;
+                margin-bottom: 10px;
             }
             
             .user-table td[data-label="建立時間"] {
-                font-size: 12px;
+                font-size: 14px;
                 color: #64748b;
-                margin-bottom: 8px;
+                margin-bottom: 10px;
             }
 
             .drawer {
@@ -1606,8 +1652,59 @@
                 overflow: visible;
             }
 
+            .drawer-header {
+                padding: 16px;
+            }
+
+            .drawer-header > div {
+                font-size: 18px;
+            }
+
             .drawer-body {
-                padding: 20px;
+                padding: 16px;
+            }
+
+            .detail-card {
+                padding: 16px;
+                margin-bottom: 16px;
+            }
+
+            .detail-header-row {
+                font-size: 15px;
+                padding-bottom: 12px;
+                margin-bottom: 12px;
+            }
+
+            .content-text {
+                font-size: 16px;
+                padding: 16px;
+            }
+
+            .timeline-title {
+                font-size: 16px;
+            }
+
+            .timeline-date-tag {
+                font-size: 13px;
+                padding: 5px 12px;
+            }
+
+            .modal-box {
+                padding: 24px;
+            }
+
+            .modal-box h3 {
+                font-size: 20px;
+            }
+
+            .form-group label {
+                font-size: 15px;
+            }
+
+            .form-group input,
+            .form-group select {
+                font-size: 16px;
+                padding: 12px;
             }
 
             /* 加大手機版輸入框高度 */
@@ -1627,5 +1724,30 @@
             .users-header {
                 justify-content: space-between;
                 gap: 16px;
+            }
+
+            /* 手機版：增大徽章和標籤字體 */
+            .badge {
+                font-size: 14px;
+                padding: 5px 12px;
+            }
+
+            .kind-tag {
+                font-size: 14px;
+                padding: 5px 12px;
+            }
+
+            .ai-tag {
+                font-size: 13px;
+                padding: 4px 10px;
+            }
+
+            /* 手機版：增大分頁和統計文字 */
+            .control-row-actions > div {
+                font-size: 15px;
+            }
+
+            #issuesTotalCount {
+                font-size: 16px;
             }
         }
