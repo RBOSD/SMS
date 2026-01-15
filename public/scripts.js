@@ -3592,28 +3592,22 @@ if (dashboard) {
                 // 清除所有編輯欄位，避免前一個事項的資料殘留
                 document.getElementById('editId').value = currentEditItem.id; 
                 
-                // 年度（不显示"年度："标签）
-                document.getElementById('editHeaderYear').textContent = currentEditItem.year || '(未設定)';
-                
-                // 鐵路機構標籤
-                document.getElementById('editHeaderUnitBadge').textContent = currentEditItem.unit || '';
+                // 編號
+                document.getElementById('editHeaderNumber').textContent = currentEditItem.number || '';
                 
                 // 檢查計畫
                 document.getElementById('editHeaderPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)';
                 
-                // 檢查類別（只显示检查种类，不包含分组和事项类别）
+                // 檢查種類
                 const insName = currentEditItem.inspectionCategoryName || currentEditItem.inspection_category_name || '-';
                 document.getElementById('editHeaderInspection').textContent = insName;
                 
-                // 編號
-                document.getElementById('editHeaderNumber').textContent = currentEditItem.number || '';
+                // 分組
+                const divName = currentEditItem.divisionName || currentEditItem.division_name || '-';
+                document.getElementById('editHeaderDivision').textContent = divName;
                 
                 // 開立日期（發函）
                 document.getElementById('editHeaderIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
-                
-                // 分組（只显示分组，不包含检查种类和事项类别）
-                const divName = currentEditItem.divisionName || currentEditItem.division_name || '-';
-                document.getElementById('editHeaderDivision').textContent = divName;
                 
                 const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; 
                 document.getElementById('editStatus').value = st;
@@ -3714,28 +3708,22 @@ if (dashboard) {
         function openDetail(id, isEdit) {
             currentEditItem = currentData.find(d => String(d.id) === String(id)); if (!currentEditItem) return;
             
-            // 年度（不显示"年度："标签）
-            document.getElementById('dYear').textContent = currentEditItem.year || '(未設定)';
-            
-            // 鐵路機構標籤
-            document.getElementById('dUnit').textContent = currentEditItem.unit || '';
+            // 編號
+            document.getElementById('dNumber').textContent = currentEditItem.number || '';
             
             // 檢查計畫
             document.getElementById('dPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)';
             
-            // 檢查類別（只显示检查种类）
+            // 檢查種類
             const insName = currentEditItem.inspectionCategoryName || currentEditItem.inspection_category_name || '-';
             document.getElementById('dInspection').textContent = insName;
             
-            // 編號
-            document.getElementById('dNumber').textContent = currentEditItem.number || '';
+            // 分組
+            const divName = currentEditItem.divisionName || currentEditItem.division_name || '-';
+            document.getElementById('dDivision').textContent = divName;
             
             // 開立日期（發函）
             document.getElementById('dIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
-            
-            // 分組（只显示分组）
-            const divName = currentEditItem.divisionName || currentEditItem.division_name || '-';
-            document.getElementById('dDivision').textContent = divName;
             
             // 事項內容
             document.getElementById('dContent').innerHTML = currentEditItem.content;
