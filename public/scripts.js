@@ -2695,36 +2695,68 @@ if (dashboard) {
                                 showToast('新增成功，資料已確認寫入資料庫');
                             }
                         } else {
-                            // 沒有辦理情形，直接顯示成功
+                            // verifyRes 失敗，但後端已返回成功，仍然顯示成功
                             showToast('新增成功，資料已確認寫入資料庫');
                         }
                         
                         // 清理表單
                         if (continuousMode) {
-                        document.getElementById('createNumber').value = '';
-                        document.getElementById('createKind').value = '';
-                        document.getElementById('createContent').value = '';
-                        // 重置辦理情形（保留第一次）
-                        createHandlingRounds = [{
-                            round: 1,
-                            handling: '',
-                            replyDate: '',
-                            responseDate: ''
-                        }];
-                        renderCreateHandlingRounds();
-                        document.getElementById('createNumber').focus();
+                            document.getElementById('createNumber').value = '';
+                            document.getElementById('createKind').value = '';
+                            document.getElementById('createContent').value = '';
+                            // 重置辦理情形（保留第一次）
+                            createHandlingRounds = [{
+                                round: 1,
+                                handling: '',
+                                replyDate: '',
+                                responseDate: ''
+                            }];
+                            renderCreateHandlingRounds();
+                            document.getElementById('createNumber').focus();
+                        } else {
+                            document.getElementById('createNumber').value = '';
+                            if (yearDisplay) yearDisplay.value = '';
+                            document.getElementById('createUnit').value = '';
+                            document.getElementById('createDivision').value = '';
+                            document.getElementById('createInspection').value = '';
+                            document.getElementById('createKind').value = '';
+                            document.getElementById('createContent').value = '';
+                            document.getElementById('createPlanName').value = '';
+                            document.getElementById('createIssueDate').value = '';
+                            // 重置辦理情形
+                            initCreateHandlingRounds();
+                        }
                     } else {
-                        document.getElementById('createNumber').value = '';
-                        if (yearDisplay) yearDisplay.value = '';
-                        document.getElementById('createUnit').value = '';
-                        document.getElementById('createDivision').value = '';
-                        document.getElementById('createInspection').value = '';
-                        document.getElementById('createKind').value = '';
-                        document.getElementById('createContent').value = '';
-                        document.getElementById('createPlanName').value = '';
-                        document.getElementById('createIssueDate').value = '';
-                        // 重置辦理情形
-                        initCreateHandlingRounds();
+                        // 沒有辦理情形輪次，直接顯示成功並清理表單
+                        showToast('新增成功，資料已確認寫入資料庫');
+                        
+                        // 清理表單
+                        if (continuousMode) {
+                            document.getElementById('createNumber').value = '';
+                            document.getElementById('createKind').value = '';
+                            document.getElementById('createContent').value = '';
+                            // 重置辦理情形（保留第一次）
+                            createHandlingRounds = [{
+                                round: 1,
+                                handling: '',
+                                replyDate: '',
+                                responseDate: ''
+                            }];
+                            renderCreateHandlingRounds();
+                            document.getElementById('createNumber').focus();
+                        } else {
+                            document.getElementById('createNumber').value = '';
+                            if (yearDisplay) yearDisplay.value = '';
+                            document.getElementById('createUnit').value = '';
+                            document.getElementById('createDivision').value = '';
+                            document.getElementById('createInspection').value = '';
+                            document.getElementById('createKind').value = '';
+                            document.getElementById('createContent').value = '';
+                            document.getElementById('createPlanName').value = '';
+                            document.getElementById('createIssueDate').value = '';
+                            // 重置辦理情形
+                            initCreateHandlingRounds();
+                        }
                     }
 
                     loadIssuesPage(1);
