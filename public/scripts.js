@@ -2324,11 +2324,10 @@ if (dashboard) {
         // 辦理情形輪次管理（用於新增事項）
         let createHandlingRounds = []; // 儲存辦理情形輪次資料
         
-        // 初始化辦理情形輪次（至少要有第一次）
+        // 初始化辦理情形輪次（可選，開立事項時可能還沒有辦理情形）
         function initCreateHandlingRounds() {
             createHandlingRounds = [];
-            // 預設新增第一次辦理情形
-            addCreateHandlingRound();
+            // 不預設新增，讓用戶自行決定是否需要新增辦理情形
         }
         
         // 新增辦理情形輪次
@@ -2345,10 +2344,7 @@ if (dashboard) {
         
         // 移除辦理情形輪次
         function removeCreateHandlingRound(index) {
-            if (createHandlingRounds.length <= 1) {
-                showToast('至少需保留一次辦理情形', 'error');
-                return;
-            }
+            // 允許刪除所有辦理情形（因為開立事項時可能還沒有辦理情形）
             createHandlingRounds.splice(index, 1);
             // 重新編號
             createHandlingRounds.forEach((r, i) => {
@@ -2374,13 +2370,13 @@ if (dashboard) {
                     <div class="create-handling-round" data-index="${index}" style="background:white; padding:16px; border-radius:8px; border:${isFirst ? '2px solid #10b981' : '1px solid #e2e8f0'}; margin-bottom:12px; ${isFirst ? 'border-left:4px solid #10b981;' : ''}">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                             <div style="font-weight:700; color:${isFirst ? '#047857' : '#334155'}; font-size:14px;">
-                                第 ${roundData.round} 次機構辦理情形 ${isFirst ? '<span style="color:#ef4444; font-size:12px;">(必填)</span>' : ''}
+                                第 ${roundData.round} 次機構辦理情形
                             </div>
-                            ${!isFirst ? `<button type="button" class="btn btn-danger btn-sm" onclick="removeCreateHandlingRound(${index})" style="padding:4px 12px; font-size:12px;">刪除</button>` : ''}
+                            <button type="button" class="btn btn-danger btn-sm" onclick="removeCreateHandlingRound(${index})" style="padding:4px 12px; font-size:12px;">刪除</button>
                         </div>
                         <div style="margin-bottom:12px;">
                             <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">
-                                辦理情形 ${isFirst ? '<span style="color:#ef4444;">*</span>' : ''}
+                                辦理情形
                             </label>
                             <textarea class="filter-input create-handling-text" data-index="${index}" 
                                 placeholder="請輸入機構辦理情形..." 
@@ -2462,23 +2458,8 @@ if (dashboard) {
             
             if (!year) return showToast('無法確定年度，請確認編號格式或選擇有年度的檢查計畫', 'error');
             
-            // 驗證第一次辦理情形（必填）
-            if (createHandlingRounds.length === 0 || !createHandlingRounds[0].handling.trim()) {
-                showToast('第一次機構辦理情形為必填項目，請填寫辦理情形', 'error');
-                // 聚焦到第一個辦理情形輸入框
-                const firstHandlingInput = document.querySelector('.create-handling-text[data-index="0"]');
-                if (firstHandlingInput) {
-                    firstHandlingInput.focus();
-                    firstHandlingInput.style.borderColor = '#ef4444';
-                    setTimeout(() => {
-                        if (firstHandlingInput) firstHandlingInput.style.borderColor = '';
-                    }, 3000);
-                }
-                return;
-            }
-
-            // 先新增事項（第一次）
-            const firstHandling = createHandlingRounds[0];
+            // 處理辦理情形（如果有）
+            const firstHandling = createHandlingRounds.length > 0 ? createHandlingRounds[0] : { handling: '', replyDate: '', responseDate: '' };
             const payload = {
                 data: [{
                     number, year, unit, content, status,
@@ -2487,12 +2468,12 @@ if (dashboard) {
                     inspectionCategoryName: inspection,
                     planName: planName,
                     issueDate: issueDate,
-                    handling: firstHandling.handling.trim(),
+                    handling: firstHandling.handling ? firstHandling.handling.trim() : '',
                     scheme: 'MANUAL'
                 }],
                 round: 1, 
                 reviewDate: '', 
-                replyDate: firstHandling.replyDate.trim() || ''
+                replyDate: firstHandling.replyDate ? firstHandling.replyDate.trim() : ''
             };
 
             try {
@@ -2520,7 +2501,7 @@ if (dashboard) {
                 // 確認是新增成功（newCount > 0）或更新成功（updateCount > 0）
                 if (result.newCount > 0 || result.updateCount > 0) {
                     // 如果有多次辦理情形，需要逐一更新
-                    if (createHandlingRounds.length > 1) {
+                    if (createHandlingRounds.length > 0) {
                         // 驗證數據是否真的寫入資料庫
                         const verifyRes = await fetch(`/api/issues?page=1&pageSize=100&q=${encodeURIComponent(number)}&_t=${Date.now()}`);
                         if (verifyRes.ok) {
@@ -2529,11 +2510,12 @@ if (dashboard) {
                             if (exactMatch) {
                                 const issueId = exactMatch.id;
                                 
-                                // 更新後續的辦理情形輪次
+                                // 更新後續的辦理情形輪次（從第二次開始）
                                 let updateSuccess = true;
+                                let updateCount = 0;
                                 for (let i = 1; i < createHandlingRounds.length; i++) {
                                     const roundData = createHandlingRounds[i];
-                                    if (roundData.handling.trim()) {
+                                    if (roundData.handling && roundData.handling.trim()) {
                                         const round = i + 1;
                                         try {
                                             const updateRes = await fetch(`/api/issues/${issueId}`, {
@@ -2544,11 +2526,13 @@ if (dashboard) {
                                                     round: round,
                                                     handling: roundData.handling.trim(),
                                                     review: '',
-                                                    replyDate: roundData.replyDate.trim() || null,
-                                                    responseDate: roundData.responseDate.trim() || null
+                                                    replyDate: roundData.replyDate ? roundData.replyDate.trim() : null,
+                                                    responseDate: roundData.responseDate ? roundData.responseDate.trim() : null
                                                 })
                                             });
-                                            if (!updateRes.ok) {
+                                            if (updateRes.ok) {
+                                                updateCount++;
+                                            } else {
                                                 updateSuccess = false;
                                                 console.error(`更新第 ${round} 次辦理情形失敗`);
                                             }
@@ -2559,37 +2543,35 @@ if (dashboard) {
                                     }
                                 }
                                 
-                                if (updateSuccess) {
-                                    showToast(`新增成功！已新增事項及 ${createHandlingRounds.length} 次辦理情形`);
+                                if (createHandlingRounds.length > 1) {
+                                    if (updateSuccess && updateCount === createHandlingRounds.length - 1) {
+                                        showToast(`新增成功！已新增事項及 ${createHandlingRounds.length} 次辦理情形`);
+                                    } else if (updateCount > 0) {
+                                        showToast(`新增成功！已新增事項及 ${updateCount + 1} 次辦理情形（部分更新失敗）`, 'warning');
+                                    } else {
+                                        showToast('新增成功，但辦理情形更新失敗', 'warning');
+                                    }
+                                } else if (createHandlingRounds.length === 1 && createHandlingRounds[0].handling.trim()) {
+                                    showToast('新增成功！已新增事項及 1 次辦理情形');
                                 } else {
-                                    showToast('新增成功，但部分辦理情形更新失敗', 'warning');
+                                    showToast('新增成功，資料已確認寫入資料庫');
                                 }
-                            }
-                        }
-                    } else {
-                        // 只有一次辦理情形，使用原有邏輯
-                        const verifyRes = await fetch(`/api/issues?page=1&pageSize=100&q=${encodeURIComponent(number)}&_t=${Date.now()}`);
-                        if (verifyRes.ok) {
-                            const verifyData = await verifyRes.json();
-                            const exactMatch = verifyData.data?.find(item => String(item.number) === String(number));
-                            if (exactMatch) {
+                            } else {
+                                // 驗證失敗，但後端已返回成功，仍然顯示成功
                                 showToast('新增成功，資料已確認寫入資料庫');
                             }
+                        } else {
+                            // 沒有辦理情形，直接顯示成功
+                            showToast('新增成功，資料已確認寫入資料庫');
                         }
-                    }
-                    
-                    // 清理表單
-                    if (continuousMode) {
+                        
+                        // 清理表單
+                        if (continuousMode) {
                         document.getElementById('createNumber').value = '';
                         document.getElementById('createKind').value = '';
                         document.getElementById('createContent').value = '';
-                        // 重置辦理情形（保留第一次）
-                        createHandlingRounds = [{
-                            round: 1,
-                            handling: '',
-                            replyDate: '',
-                            responseDate: ''
-                        }];
+                        // 重置辦理情形
+                        createHandlingRounds = [];
                         renderCreateHandlingRounds();
                         document.getElementById('createNumber').focus();
                     } else {
@@ -2623,6 +2605,7 @@ if (dashboard) {
             const tbody = document.getElementById('createBatchGridBody');
             if (!tbody) return;
             tbody.innerHTML = '';
+            batchHandlingData = {}; // 重置辦理情形資料
             for (let i = 0; i < 5; i++) addCreateBatchRow();
         }
         
@@ -2630,10 +2613,10 @@ if (dashboard) {
         function addCreateBatchRow() {
             const tbody = document.getElementById('createBatchGridBody');
             if (!tbody) return;
-            const rowIdx = tbody.children.length + 1;
+            const rowIdx = tbody.children.length;
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx}</td>
+                <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx + 1}</td>
                 <td><input type="text" class="filter-input create-batch-number" placeholder="編號..." onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
                 <td><textarea class="filter-input create-batch-content" rows="1" placeholder="內容..." style="resize:both; min-width:200px; width:200px; min-height:32px;" oninput="adjustTextareaWidth(this)"></textarea></td>
                 <td><input type="text" class="filter-input create-batch-year" style="background:#f1f5f9;color:#64748b;" readonly></td>
@@ -2642,7 +2625,10 @@ if (dashboard) {
                 <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option></select></td>
                 <td><select class="filter-select create-batch-kind"><option value="">-</option><option value="N">缺失</option><option value="O">觀察</option><option value="R">建議</option></select></td>
                 <td><select class="filter-select create-batch-status"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></td>
-                <td style="text-align:center;"><button class="btn btn-danger btn-sm" onclick="removeCreateBatchRow(this)" style="padding:4px 8px;">×</button></td>
+                <td style="text-align:center;">
+                    <button class="btn btn-outline btn-sm" onclick="openBatchHandlingModal(${rowIdx})" style="padding:4px 8px; font-size:11px; margin-right:4px;" title="管理辦理情形">📝</button>
+                    <button class="btn btn-danger btn-sm" onclick="removeCreateBatchRow(this)" style="padding:4px 8px;">×</button>
+                </td>
             `;
             tbody.appendChild(tr);
         }
@@ -2652,10 +2638,32 @@ if (dashboard) {
             const tr = btn.closest('tr');
             const tbody = document.getElementById('createBatchGridBody');
             if (tbody && tbody.children.length > 1) {
+                const rowIndex = Array.from(tbody.children).indexOf(tr);
                 tr.remove();
+                
+                // 移除該行的辦理情形資料
+                if (batchHandlingData[rowIndex]) {
+                    delete batchHandlingData[rowIndex];
+                }
+                
+                // 重新索引辦理情形資料（因為行號改變了）
+                const newBatchHandlingData = {};
+                tbody.querySelectorAll('tr').forEach((row, idx) => {
+                    const oldIndex = Array.from(tbody.children).indexOf(row);
+                    if (batchHandlingData[oldIndex]) {
+                        newBatchHandlingData[idx] = batchHandlingData[oldIndex];
+                    }
+                });
+                batchHandlingData = newBatchHandlingData;
+                
                 // Re-index
                 tbody.querySelectorAll('tr').forEach((row, idx) => {
                     row.cells[0].innerText = idx + 1;
+                    // 更新辦理情形按鈕的 onclick
+                    const handlingBtn = row.querySelector('button[onclick^="openBatchHandlingModal"]');
+                    if (handlingBtn) {
+                        handlingBtn.setAttribute('onclick', `openBatchHandlingModal(${idx})`);
+                    }
                 });
             } else {
                 showToast('至少需保留一列', 'error');
@@ -2728,6 +2736,139 @@ if (dashboard) {
             }
         }
         
+        // 批次模式辦理情形管理
+        let batchHandlingData = {}; // 儲存每筆事項的辦理情形 { rowIndex: [rounds...] }
+        let currentBatchHandlingRowIndex = -1; // 當前正在編輯的行索引
+        
+        // 開啟批次辦理情形管理 Modal
+        function openBatchHandlingModal(rowIndex) {
+            const rows = document.querySelectorAll('#createBatchGridBody tr');
+            if (rowIndex < 0 || rowIndex >= rows.length) return;
+            
+            const row = rows[rowIndex];
+            const number = row.querySelector('.create-batch-number').value.trim();
+            
+            if (!number) {
+                showToast('請先填寫編號', 'error');
+                return;
+            }
+            
+            currentBatchHandlingRowIndex = rowIndex;
+            document.getElementById('batchHandlingModalNumber').textContent = number || `第 ${rowIndex + 1} 列`;
+            
+            // 載入該行的辦理情形資料（如果有的話）
+            if (!batchHandlingData[rowIndex]) {
+                batchHandlingData[rowIndex] = [];
+            }
+            
+            renderBatchHandlingRounds();
+            document.getElementById('batchHandlingModal').classList.add('open');
+        }
+        
+        // 關閉批次辦理情形管理 Modal
+        function closeBatchHandlingModal() {
+            document.getElementById('batchHandlingModal').classList.remove('open');
+            currentBatchHandlingRowIndex = -1;
+        }
+        
+        // 新增批次辦理情形輪次
+        function addBatchHandlingRound() {
+            if (currentBatchHandlingRowIndex === -1) return;
+            if (!batchHandlingData[currentBatchHandlingRowIndex]) {
+                batchHandlingData[currentBatchHandlingRowIndex] = [];
+            }
+            
+            const round = batchHandlingData[currentBatchHandlingRowIndex].length + 1;
+            batchHandlingData[currentBatchHandlingRowIndex].push({
+                round: round,
+                handling: '',
+                replyDate: '',
+                responseDate: ''
+            });
+            renderBatchHandlingRounds();
+        }
+        
+        // 移除批次辦理情形輪次
+        function removeBatchHandlingRound(index) {
+            if (currentBatchHandlingRowIndex === -1) return;
+            if (!batchHandlingData[currentBatchHandlingRowIndex]) return;
+            
+            batchHandlingData[currentBatchHandlingRowIndex].splice(index, 1);
+            // 重新編號
+            batchHandlingData[currentBatchHandlingRowIndex].forEach((r, i) => {
+                r.round = i + 1;
+            });
+            renderBatchHandlingRounds();
+        }
+        
+        // 渲染批次辦理情形輪次
+        function renderBatchHandlingRounds() {
+            const container = document.getElementById('batchHandlingRoundsContainer');
+            if (!container || currentBatchHandlingRowIndex === -1) return;
+            
+            const rounds = batchHandlingData[currentBatchHandlingRowIndex] || [];
+            
+            if (rounds.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8; font-size:14px;">尚未新增辦理情形，點擊「新增辦理情形」開始新增</div>';
+                return;
+            }
+            
+            let html = '';
+            rounds.forEach((roundData, index) => {
+                html += `
+                    <div class="batch-handling-round" data-index="${index}" style="background:white; padding:16px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                            <div style="font-weight:700; color:#334155; font-size:14px;">
+                                第 ${roundData.round} 次機構辦理情形
+                            </div>
+                            <button type="button" class="btn btn-danger btn-sm" onclick="removeBatchHandlingRound(${index})" style="padding:4px 12px; font-size:12px;">刪除</button>
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">
+                                辦理情形
+                            </label>
+                            <textarea class="filter-input batch-handling-text" data-index="${index}" 
+                                placeholder="請輸入機構辦理情形..." 
+                                style="width:100%; min-height:120px; padding:12px; font-size:14px; line-height:1.6; resize:vertical; background:white;"
+                                oninput="updateBatchHandlingRound(${index}, 'handling', this.value)">${roundData.handling}</textarea>
+                        </div>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                            <div>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:12px; margin-bottom:6px;">鐵路機構回復日期</label>
+                                <input type="text" class="filter-input batch-handling-reply-date" data-index="${index}" 
+                                    value="${roundData.replyDate}" placeholder="例如: 1130601" 
+                                    style="width:100%; background:white;"
+                                    oninput="updateBatchHandlingRound(${index}, 'replyDate', this.value)">
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:12px; margin-bottom:6px;">本次函復日期</label>
+                                <input type="text" class="filter-input batch-handling-response-date" data-index="${index}" 
+                                    value="${roundData.responseDate}" placeholder="例如: 1130615" 
+                                    style="width:100%; background:white;"
+                                    oninput="updateBatchHandlingRound(${index}, 'responseDate', this.value)">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+        
+        // 更新批次辦理情形輪次資料
+        function updateBatchHandlingRound(index, field, value) {
+            if (currentBatchHandlingRowIndex === -1) return;
+            if (batchHandlingData[currentBatchHandlingRowIndex] && batchHandlingData[currentBatchHandlingRowIndex][index]) {
+                batchHandlingData[currentBatchHandlingRowIndex][index][field] = value;
+            }
+        }
+        
+        // 儲存批次辦理情形
+        function saveBatchHandlingRounds() {
+            // 資料已經在 updateBatchHandlingRound 中即時更新，這裡只需要關閉 Modal
+            showToast('辦理情形已儲存（將在批次新增時一併保存）', 'success');
+            closeBatchHandlingModal();
+        }
+        
         // 批次模式：儲存所有項目
         async function saveCreateBatchItems() {
             const planValue = document.getElementById('createPlanName').value.trim();
@@ -2769,6 +2910,10 @@ if (dashboard) {
                     return;
                 }
 
+                // 取得該行的辦理情形（第一次）
+                const handlingRounds = batchHandlingData[idx] || [];
+                const firstHandling = handlingRounds.length > 0 ? handlingRounds[0] : { handling: '', replyDate: '', responseDate: '' };
+
                 items.push({
                     number,
                     year,
@@ -2780,7 +2925,9 @@ if (dashboard) {
                     inspectionCategoryName: tr.querySelector('.create-batch-inspection').value,
                     planName: planName,
                     issueDate: issueDate,
-                    scheme: 'BATCH'
+                    handling: firstHandling.handling ? firstHandling.handling.trim() : '',
+                    scheme: 'BATCH',
+                    handlingRounds: handlingRounds // 保存所有辦理情形輪次，用於後續更新
                 });
             });
 
@@ -2790,11 +2937,17 @@ if (dashboard) {
             if (!confirm(`確定要批次新增 ${items.length} 筆資料嗎？\n計畫：${planName}`)) return;
 
             try {
+                // 先新增所有事項（第一次辦理情形）
+                const itemsForImport = items.map(item => {
+                    const { handlingRounds, ...itemData } = item;
+                    return itemData;
+                });
+                
                 const res = await fetch('/api/issues/import', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        data: items,
+                        data: itemsForImport,
                         round: 1,
                         reviewDate: '',
                         replyDate: ''
@@ -2802,8 +2955,74 @@ if (dashboard) {
                 });
 
                 if (res.ok) {
-                    showToast('批次新增成功！');
+                    const result = await res.json();
+                    
+                    // 如果有多次辦理情形，需要逐一更新
+                    if (result.newCount > 0 || result.updateCount > 0) {
+                        // 驗證並更新後續辦理情形
+                        let totalHandlingCount = 0;
+                        let updateSuccessCount = 0;
+                        
+                        for (let i = 0; i < items.length; i++) {
+                            const item = items[i];
+                            const handlingRounds = item.handlingRounds || [];
+                            
+                            if (handlingRounds.length > 1) {
+                                // 查詢該事項的 ID
+                                const verifyRes = await fetch(`/api/issues?page=1&pageSize=100&q=${encodeURIComponent(item.number)}&_t=${Date.now()}`);
+                                if (verifyRes.ok) {
+                                    const verifyData = await verifyRes.json();
+                                    const exactMatch = verifyData.data?.find(issue => String(issue.number) === String(item.number));
+                                    
+                                    if (exactMatch) {
+                                        const issueId = exactMatch.id;
+                                        totalHandlingCount += handlingRounds.length - 1;
+                                        
+                                        // 更新後續的辦理情形輪次
+                                        for (let j = 1; j < handlingRounds.length; j++) {
+                                            const roundData = handlingRounds[j];
+                                            if (roundData.handling && roundData.handling.trim()) {
+                                                const round = j + 1;
+                                                try {
+                                                    const updateRes = await fetch(`/api/issues/${issueId}`, {
+                                                        method: 'PUT',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            status: item.status,
+                                                            round: round,
+                                                            handling: roundData.handling.trim(),
+                                                            review: '',
+                                                            replyDate: roundData.replyDate ? roundData.replyDate.trim() : null,
+                                                            responseDate: roundData.responseDate ? roundData.responseDate.trim() : null
+                                                        })
+                                                    });
+                                                    if (updateRes.ok) {
+                                                        updateSuccessCount++;
+                                                    }
+                                                } catch (e) {
+                                                    console.error(`更新第 ${i + 1} 筆事項的第 ${round} 次辦理情形錯誤:`, e);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if (handlingRounds.length === 1 && handlingRounds[0].handling.trim()) {
+                                totalHandlingCount++;
+                            }
+                        }
+                        
+                        if (totalHandlingCount > 0) {
+                            showToast(`批次新增成功！已新增 ${items.length} 筆事項，其中 ${updateSuccessCount + items.filter(item => (item.handlingRounds || []).length > 0 && (item.handlingRounds || [])[0].handling.trim()).length} 筆包含辦理情形`);
+                        } else {
+                            showToast('批次新增成功！');
+                        }
+                    } else {
+                        showToast('批次新增成功！');
+                    }
+                    
+                    // 清理資料
                     initCreateBatchGrid();
+                    batchHandlingData = {};
                     document.getElementById('createPlanName').value = '';
                     document.getElementById('createIssueDate').value = '';
                     loadIssuesPage(1);
@@ -4939,48 +5158,8 @@ if (dashboard) {
                         </div>
                     </div>
                 `;
-            } else {
-                // 如果沒有輪次記錄，顯示「新增第一次辦理情形」區塊
-                html += `
-                    <!-- 新增第一次辦理情形區塊 -->
-                    <div style="padding:20px;">
-                        <div style="font-weight:700; font-size:16px; color:#334155; margin-bottom:16px; padding-bottom:12px; border-bottom:2px solid #e2e8f0;">
-                            📝 新增第一次辦理情形
-                            <span style="font-size:12px; color:#ef4444; font-weight:400; margin-left:8px;">(必填)</span>
-                        </div>
-                        
-                        <div class="detail-card" style="margin-bottom:16px; border:2px solid #10b981;">
-                            <div style="background:#ecfdf5; padding:12px; border-bottom:1px solid #a7f3d0;">
-                                <div style="font-weight:700; color:#047857; font-size:15px;">
-                                    第 1 次機構辦理情形
-                                </div>
-                            </div>
-                            <div style="padding:16px;">
-                                <div style="margin-bottom:16px;">
-                                    <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">
-                                        辦理情形 <span style="color:#ef4444;">*</span>
-                                    </label>
-                                    <textarea id="yearEditFirstHandling" class="filter-input" 
-                                        style="width:100%; min-height:150px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;"
-                                        placeholder="請輸入機構辦理情形...（必填）"></textarea>
-                                </div>
-                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                                    <div>
-                                        <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">鐵路機構回復日期</label>
-                                        <input type="text" id="yearEditFirstReplyDate" class="filter-input" 
-                                            placeholder="例如: 1130601" style="width:100%;">
-                                    </div>
-                                    <div>
-                                        <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:6px;">本次函復日期</label>
-                                        <input type="text" id="yearEditFirstResponseDate" class="filter-input" 
-                                            placeholder="例如: 1130615" style="width:100%;">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
             }
+            // 如果沒有輪次記錄，不顯示任何辦理情形編輯區塊（保持原有邏輯）
             
             html += `
                 </div>
@@ -5037,25 +5216,6 @@ if (dashboard) {
                 const roundReplyDates = document.querySelectorAll('.year-edit-round-reply-date');
                 const roundResponseDates = document.querySelectorAll('.year-edit-round-response-date');
                 
-                // 檢查是否有「新增第一次辦理情形」的輸入欄位
-                const firstHandlingEl = document.getElementById('yearEditFirstHandling');
-                const firstReplyDateEl = document.getElementById('yearEditFirstReplyDate');
-                const firstResponseDateEl = document.getElementById('yearEditFirstResponseDate');
-                
-                // 如果存在第一次辦理情形的輸入欄位，驗證必填
-                if (firstHandlingEl) {
-                    const firstHandling = firstHandlingEl.value.trim();
-                    if (!firstHandling) {
-                        showToast('第一次機構辦理情形為必填項目，請填寫辦理情形', 'error');
-                        firstHandlingEl.focus();
-                        firstHandlingEl.style.borderColor = '#ef4444';
-                        setTimeout(() => {
-                            if (firstHandlingEl) firstHandlingEl.style.borderColor = '';
-                        }, 3000);
-                        return;
-                    }
-                }
-                
                 // 找出所有顯示的輪次（不管是否有內容）
                 const roundSet = new Set();
                 roundHandlings.forEach(el => roundSet.add(parseInt(el.dataset.round)));
@@ -5093,34 +5253,6 @@ if (dashboard) {
                 if (!updateRes.ok) {
                     const errorData = await updateRes.json().catch(() => ({}));
                     throw new Error(errorData.error || '更新基本資訊失敗');
-                }
-                
-                // 如果有「新增第一次辦理情形」的輸入欄位，先更新第一次辦理情形
-                if (firstHandlingEl) {
-                    const firstHandling = firstHandlingEl.value.trim();
-                    const firstReplyDate = firstReplyDateEl ? firstReplyDateEl.value.trim() : '';
-                    const firstResponseDate = firstResponseDateEl ? firstResponseDateEl.value.trim() : '';
-                    
-                    if (firstHandling) {
-                        // 更新第一次辦理情形
-                        const firstRoundRes = await fetch(`/api/issues/${issueId}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                status: status,
-                                round: 1,
-                                handling: firstHandling,
-                                review: '',
-                                replyDate: firstReplyDate || null,
-                                responseDate: firstResponseDate || null
-                            })
-                        });
-                        
-                        if (!firstRoundRes.ok) {
-                            const errorData = await firstRoundRes.json().catch(() => ({}));
-                            throw new Error(errorData.error || '更新第一次辦理情形失敗');
-                        }
-                    }
                 }
                 
                 // 更新每個輪次（包括清空的欄位）

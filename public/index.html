@@ -487,6 +487,33 @@
         </div>
     </div>
 
+    <!-- 批次模式辦理情形管理 Modal -->
+    <div class="modal-overlay" id="batchHandlingModal">
+        <div class="modal-box" style="max-width:900px; width:95%; max-height:85vh; overflow:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center; margin-bottom:20px;">
+                <h3 style="margin:0;">管理辦理情形 - <span id="batchHandlingModalNumber"></span></h3>
+                <button onclick="closeBatchHandlingModal()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button>
+            </div>
+            <div style="background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:20px; border:1px solid #e2e8f0;">
+                <div style="font-size:13px; color:#64748b;">
+                    💡 可為此筆事項新增多次辦理情形（選填）
+                </div>
+            </div>
+            <div style="margin-bottom:20px; display:flex; justify-content:flex-end;">
+                <button type="button" class="btn btn-outline" onclick="addBatchHandlingRound()" style="padding:8px 16px; font-size:13px;">
+                    ➕ 新增辦理情形
+                </button>
+            </div>
+            <div id="batchHandlingRoundsContainer" style="margin-bottom:20px;">
+                <!-- 辦理情形輪次將由 JavaScript 動態生成 -->
+            </div>
+            <div style="display:flex; gap:12px; margin-top:24px; padding-top:20px; border-top:1px solid #e2e8f0;">
+                <button class="btn btn-primary" onclick="saveBatchHandlingRounds()" style="flex:1; padding:12px;">💾 儲存辦理情形</button>
+                <button class="btn btn-outline" onclick="closeBatchHandlingModal()" style="flex:1; padding:12px;">取消</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/scripts.js"></script>
 </body>
 

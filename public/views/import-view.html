@@ -286,7 +286,7 @@
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                             <div>
                                 <div style="font-weight:700; color:#334155; font-size:15px; margin-bottom:4px;">📝 機構辦理情形</div>
-                                <div style="font-size:12px; color:#64748b;">可新增多次辦理情形（第一次為必填）</div>
+                                <div style="font-size:12px; color:#64748b;">可新增多次辦理情形（選填）</div>
                             </div>
                             <button type="button" class="btn btn-outline" onclick="addCreateHandlingRound()" style="padding:8px 16px; font-size:13px;">
                                 ➕ 新增辦理情形
@@ -312,9 +312,24 @@
             <div id="createBatchMode" style="display:none;">
                 <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="flex:1; display:flex; align-items:center; color:#64748b; font-size:13px;">
-                        💡 提示：輸入編號後，按下 Enter 或 離開欄位，系統會自動帶入相關欄位。
+                        💡 提示：輸入編號後，按下 Enter 或 離開欄位，系統會自動帶入相關欄位。可為每筆事項新增辦理情形。
                     </div>
                     <button class="btn btn-outline" onclick="initCreateBatchGrid()" style="padding:8px 16px;">重置表格</button>
+                </div>
+                
+                <!-- 批次模式辦理情形管理區塊 -->
+                <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <div>
+                            <div style="font-weight:700; color:#334155; font-size:15px; margin-bottom:4px;">📝 批次辦理情形管理</div>
+                            <div style="font-size:12px; color:#64748b;">可為批次中的每筆事項新增辦理情形（選填）</div>
+                        </div>
+                    </div>
+                    <div style="background:white; padding:16px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <div style="font-size:13px; color:#64748b; margin-bottom:12px;">
+                            💡 提示：在下方表格中，點擊每列的「管理辦理情形」按鈕，可為該筆事項新增多次辦理情形。
+                        </div>
+                    </div>
                 </div>
                 <div class="main-card" style="box-shadow:none; border:1px solid #e2e8f0;">
                     <div class="data-container" style="overflow-x:auto;">
