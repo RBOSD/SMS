@@ -3597,8 +3597,8 @@ if (dashboard) {
                 const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; 
                 document.getElementById('editStatus').value = st;
                 
-                // 顯示狀態與類型（缺失、觀察、建議）
-                let k = currentEditItem.itemKindCode;
+                // 顯示狀態與類型（缺失、觀察、建議）- 使用統一的字段獲取邏輯
+                let k = currentEditItem.item_kind_code || currentEditItem.itemKindCode;
                 const numStr = String(currentEditItem.number || '');
                 if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
                 
@@ -3720,8 +3720,8 @@ if (dashboard) {
             else if (currentEditItem.category) kindName = currentEditItem.category;
             document.getElementById('dCategoryInfo').textContent = `${divName} / ${insName} / ${kindName}`;
 
-            // Status and Kind (狀態與類型)
-            let k = currentEditItem.itemKindCode;
+            // Status and Kind (狀態與類型) - 使用與dCategoryInfo相同的邏輯
+            let k = currentEditItem.item_kind_code || currentEditItem.itemKindCode;
             const numStr = String(currentEditItem.number || '');
             if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
             
@@ -4592,9 +4592,9 @@ if (dashboard) {
                                 <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">開立類型</label>
                                 <select id="yearEditKind" class="filter-select" style="width:100%; background:white;">
                                     <option value="">(未指定)</option>
-                                    <option value="N" ${item.item_kind_code === 'N' || item.category === '缺失事項' ? 'selected' : ''}>缺失事項</option>
-                                    <option value="O" ${item.item_kind_code === 'O' || item.category === '觀察事項' ? 'selected' : ''}>觀察事項</option>
-                                    <option value="R" ${item.item_kind_code === 'R' || item.category === '建議事項' ? 'selected' : ''}>建議事項</option>
+                                    <option value="N" ${(item.item_kind_code || item.itemKindCode) === 'N' || item.category === '缺失事項' ? 'selected' : ''}>缺失事項</option>
+                                    <option value="O" ${(item.item_kind_code || item.itemKindCode) === 'O' || item.category === '觀察事項' ? 'selected' : ''}>觀察事項</option>
+                                    <option value="R" ${(item.item_kind_code || item.itemKindCode) === 'R' || item.category === '建議事項' ? 'selected' : ''}>建議事項</option>
                                 </select>
                             </div>
                         </div>
