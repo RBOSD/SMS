@@ -589,23 +589,26 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
     try {
         await client.query('BEGIN');
         const duplicateNumbers = [];
-        const updateResults = [];
+        const operationResults = []; // 記錄每個項目的操作類型
         
         for (const item of data) {
+            // 使用精確匹配查詢編號（區分大小寫）
             const check = await client.query("SELECT id, content FROM issues WHERE number = $1", [item.number]);
             if (check.rows.length > 0) {
                 // 如果是新增事項（round=1）且不允許更新，檢查內容是否相同
                 if (r === 1 && !allowUpdate) {
-                    const existingContent = check.rows[0].content || '';
-                    const newContent = item.content || '';
-                    // 如果內容不同，視為重複編號錯誤
-                    if (existingContent.trim() !== newContent.trim()) {
+                    const existingContent = (check.rows[0].content || '').trim();
+                    const newContent = (item.content || '').trim();
+                    // 如果內容不同且現有內容不為空，視為重複編號錯誤
+                    // 但只有在明確是重複編號且內容不同時才報錯
+                    if (existingContent !== newContent && existingContent !== '' && newContent !== '') {
                         duplicateNumbers.push({
                             number: item.number,
                             existingContent: existingContent
                         });
                         continue; // 跳過這個項目，不進行更新
                     }
+                    // 如果內容相同或現有內容為空或新內容為空，允許更新（視為正常的新增/更新操作）
                 }
                 
                 // 允許更新：更新現有記錄
@@ -634,6 +637,8 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                             item.itemKindCode || null, item.number
                         ]
                     );
+                    // 記錄為更新操作
+                    operationResults.push({ number: item.number, action: 'updated' });
                 } else {
                     // 更新輪次資料
                     await client.query(
@@ -643,8 +648,8 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                         WHERE number=$7`,
                         [item.status, item.handling||'', item.review||'', replyDate||'', reviewDate||'', item.planName || null, item.number]
                     );
+                    operationResults.push({ number: item.number, action: 'updated' });
                 }
-                updateResults.push({ number: item.number, action: 'updated' });
             } else {
                 // 新增記錄
                 await client.query(
@@ -659,6 +664,8 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                         reviewDate || '', replyDate || '' 
                     ]
                 );
+                // 記錄為新增操作
+                operationResults.push({ number: item.number, action: 'created' });
             }
         }
         
@@ -672,33 +679,18 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
             });
         }
         
-        // 統計新增和更新的項目（在事務提交後）
-        let newCount = 0, updateCount = 0;
-        const results = [];
-        for (const item of data) {
-            // 跳過重複編號的項目（已在上面處理）
-            if (duplicateNumbers.find(d => d.number === item.number)) {
-                continue;
-            }
-            
-            const check = await client.query("SELECT id, content FROM issues WHERE number = $1", [item.number]);
-            if (check.rows.length > 0) {
-                updateCount++;
-                results.push({
-                    number: item.number,
-                    action: 'updated',
-                    existingContent: check.rows[0].content
-                });
-            } else {
-                newCount++;
-                results.push({
-                    number: item.number,
-                    action: 'created'
-                });
-            }
-        }
-        
         await client.query('COMMIT');
+        
+        // 統計新增和更新的項目（使用操作記錄）
+        let newCount = 0, updateCount = 0;
+        const results = operationResults.map(op => {
+            if (op.action === 'created') {
+                newCount++;
+            } else {
+                updateCount++;
+            }
+            return op;
+        });
         
         const roundInfo = r > 1 ? `，第 ${r} 次審查` : '，初次開立';
         const planInfo = data[0]?.planName ? `，檢查計畫：${data[0].planName}` : '';

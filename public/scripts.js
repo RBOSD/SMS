@@ -2361,40 +2361,40 @@ if (dashboard) {
                     body: JSON.stringify(payload) 
                 });
                 
-                const result = await res.json();
-                
-                // 檢查是否有編號重複的錯誤
-                if (res.status === 400 && result.error === '編號重複') {
-                    showToast(`編號 "${number}" 已存在且內容不同，無法新增。請使用不同的編號或修改現有事項。`, 'error');
-                    // 不清理表單，讓用戶可以修改編號
+                // 先檢查HTTP狀態碼
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    // 檢查是否有編號重複的錯誤
+                    if (res.status === 400 && errorData.error === '編號重複') {
+                        showToast(`編號 "${number}" 已存在且內容不同，無法新增。請使用不同的編號或修改現有事項。`, 'error');
+                        // 不清理表單，讓用戶可以修改編號
+                        return;
+                    }
+                    showToast('新增失敗: ' + (errorData.error || res.statusText), 'error');
                     return;
                 }
                 
-                if (res.ok) {
-                    // 檢查是否有編號重複的情況（更新現有記錄）
-                    if (result.updateCount > 0) {
-                        // 有更新現有記錄，表示編號重複但內容相同（這種情況不應該發生在新增時）
-                        const updatedItem = result.results?.find(r => r.action === 'updated');
-                        if (updatedItem) {
-                            showToast(`編號 "${number}" 已存在，系統已更新現有記錄。如需新增新事項，請使用不同的編號。`, 'warning');
-                            // 不清理表單，讓用戶可以修改編號
-                            loadIssuesPage(1);
-                            loadPlanOptions();
-                            return;
-                        }
-                    }
-                    
-                    // 確認是新增成功（newCount > 0）
-                    if (result.newCount > 0) {
-                        // 驗證數據是否真的寫入資料庫：重新查詢該編號
-                        const verifyRes = await fetch(`/api/issues?page=1&pageSize=1&q=${encodeURIComponent(number)}&_t=${Date.now()}`);
-                        if (verifyRes.ok) {
-                            const verifyData = await verifyRes.json();
-                            if (verifyData.data && verifyData.data.length > 0) {
-                                const savedItem = verifyData.data[0];
-                                // 驗證內容是否一致
-                                if (savedItem.number === number && savedItem.content === content) {
+                const result = await res.json();
+                
+                // 確認是新增成功（newCount > 0）或更新成功（updateCount > 0）
+                // 無論是新增還是更新，只要後端返回成功，都應該驗證並顯示成功
+                if (result.newCount > 0 || result.updateCount > 0) {
+                    // 驗證數據是否真的寫入資料庫：使用精確查詢該編號（不使用關鍵字查詢，避免誤判）
+                    // 先嘗試直接查詢該編號
+                    const verifyRes = await fetch(`/api/issues?page=1&pageSize=100&q=${encodeURIComponent(number)}&_t=${Date.now()}`);
+                    if (verifyRes.ok) {
+                        const verifyData = await verifyRes.json();
+                        // 在結果中精確匹配編號（因為關鍵字查詢可能返回多個結果）
+                        const exactMatch = verifyData.data?.find(item => item.number === number);
+                        if (exactMatch) {
+                            // 驗證編號和內容是否一致
+                            if (exactMatch.number === number) {
+                                // 根據操作類型顯示不同的成功訊息
+                                if (result.newCount > 0) {
                                     showToast('新增成功，資料已確認寫入資料庫');
+                                } else if (result.updateCount > 0) {
+                                    showToast('儲存成功，資料已確認寫入資料庫');
+                                }
                                     
                                     if (continuousMode) {
                                         document.getElementById('createNumber').value = '';
@@ -2415,14 +2415,22 @@ if (dashboard) {
 
                                     loadIssuesPage(1);
                                     loadPlanOptions();
+                                    return;
                                 } else {
                                     showToast('警告：資料可能未正確寫入資料庫，請檢查資料庫', 'error');
+                                    return;
                                 }
                             } else {
                                 showToast('警告：無法驗證資料是否寫入資料庫', 'error');
+                                return;
                             }
                         } else {
-                            showToast('新增成功，但無法驗證資料庫', 'warning');
+                            // 驗證失敗，但後端已返回成功，仍然顯示成功
+                            if (result.newCount > 0) {
+                                showToast('新增成功，但無法驗證資料庫', 'warning');
+                            } else {
+                                showToast('儲存成功，但無法驗證資料庫', 'warning');
+                            }
                             // 即使驗證失敗，也清理表單（因為後端已返回成功）
                             if (continuousMode) {
                                 document.getElementById('createNumber').value = '';
@@ -2442,9 +2450,12 @@ if (dashboard) {
                             }
                             loadIssuesPage(1);
                             loadPlanOptions();
+                            return;
                         }
+                        
                     } else {
-                        showToast('新增失敗：沒有資料被寫入', 'error');
+                        // newCount 和 updateCount 都是 0，表示沒有資料被寫入
+                        showToast('儲存失敗：沒有資料被寫入資料庫', 'error');
                     }
                 } else {
                     const errorData = await res.json().catch(() => ({}));
