@@ -451,7 +451,8 @@ app.get('/api/issues', requireAuth, async (req, res) => {
 });
 
 app.put('/api/issues/:id', requireAuth, async (req, res) => {
-    const { status, round, handling, review, replyDate, responseDate, content, issueDate } = req.body;
+    const { status, round, handling, review, replyDate, responseDate, content, issueDate, 
+            number, year, unit, divisionName, inspectionCategoryName, itemKindCode, category, planName } = req.body;
     const id = req.params.id;
     const r = parseInt(round) || 1;
     const hField = r === 1 ? 'handling' : `handling${r}`;
@@ -495,9 +496,58 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
             paramIdx++;
         }
         
+        // 支持更新更多字段
+        if (number !== undefined) {
+            updateFields.push(`number=$${paramIdx}`);
+            params.push(number);
+            paramIdx++;
+        }
+        
+        if (year !== undefined) {
+            updateFields.push(`year=$${paramIdx}`);
+            params.push(year);
+            paramIdx++;
+        }
+        
+        if (unit !== undefined) {
+            updateFields.push(`unit=$${paramIdx}`);
+            params.push(unit);
+            paramIdx++;
+        }
+        
+        if (divisionName !== undefined) {
+            updateFields.push(`division_name=$${paramIdx}`);
+            params.push(divisionName);
+            paramIdx++;
+        }
+        
+        if (inspectionCategoryName !== undefined) {
+            updateFields.push(`inspection_category_name=$${paramIdx}`);
+            params.push(inspectionCategoryName);
+            paramIdx++;
+        }
+        
+        if (itemKindCode !== undefined) {
+            updateFields.push(`item_kind_code=$${paramIdx}`);
+            params.push(itemKindCode);
+            paramIdx++;
+        }
+        
+        if (category !== undefined) {
+            updateFields.push(`category=$${paramIdx}`);
+            params.push(category);
+            paramIdx++;
+        }
+        
+        if (planName !== undefined) {
+            updateFields.push(`plan_name=$${paramIdx}`);
+            params.push(planName);
+            paramIdx++;
+        }
+        
         params.push(id);
         await pool.query(`UPDATE issues SET ${updateFields.join(', ')} WHERE id=$${paramIdx}`, params);
-        const actionDetails = `更新開立事項：編號 ${issueNumber}，第 ${r} 次審查，狀態：${status}${content !== undefined ? '，內容已更新' : ''}${issueDate !== undefined ? '，開立日期已更新' : ''}`;
+        const actionDetails = `更新開立事項：編號 ${issueNumber}，第 ${r} 次審查，狀態：${status}${content !== undefined ? '，內容已更新' : ''}${issueDate !== undefined ? '，開立日期已更新' : ''}${number !== undefined ? '，編號已更新' : ''}${year !== undefined ? '，年度已更新' : ''}${unit !== undefined ? '，機構已更新' : ''}${divisionName !== undefined ? '，分組已更新' : ''}${inspectionCategoryName !== undefined ? '，檢查種類已更新' : ''}${itemKindCode !== undefined ? '，類型已更新' : ''}${planName !== undefined ? '，檢查計畫已更新' : ''}`;
         logAction(req.session.user.username, 'UPDATE_ISSUE', actionDetails, req);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }

@@ -4448,43 +4448,158 @@ if (dashboard) {
             // 檢查是否有實際的審查和回復紀錄（如果只有開立事項，不顯示此區塊）
             const hasReviewRecords = rounds.length > 0;
             
+            // 構建檢查計畫選項（需要從現有的計畫選項中選擇）
+            let planOptionsHtml = '<option value="">(未指定)</option>';
+            const planSelect = document.getElementById('yearEditPlanName');
+            if (planSelect && planSelect.options.length > 1) {
+                // 使用現有的計畫選項
+                for (let i = 1; i < planSelect.options.length; i++) {
+                    const opt = planSelect.options[i];
+                    const planValue = opt.value;
+                    const { name: planName, year: planYear } = parsePlanValue(planValue);
+                    const displayText = planYear ? `${planName} (${planYear})` : planName;
+                    const isSelected = (item.plan_name === planName && (!planYear || item.year === planYear)) || 
+                                      (planValue && planValue === `${item.plan_name}|||${item.year}`);
+                    planOptionsHtml += `<option value="${planValue}" ${isSelected ? 'selected' : ''}>${displayText}</option>`;
+                }
+            } else {
+                // 如果計畫選項還沒有加載，先添加當前計畫（如果有的話）
+                if (item.plan_name) {
+                    const currentPlanValue = item.year ? `${item.plan_name}|||${item.year}` : item.plan_name;
+                    const displayText = item.year ? `${item.plan_name} (${item.year})` : item.plan_name;
+                    planOptionsHtml += `<option value="${currentPlanValue}" selected>${displayText}</option>`;
+                }
+                // 嘗試加載計畫選項（異步，不阻塞渲染）
+                loadPlanOptions().then(() => {
+                    // 重新渲染計畫選項
+                    const planSelectEl = document.getElementById('yearEditPlanNameSelect');
+                    if (planSelectEl && document.getElementById('yearEditPlanName')) {
+                        const sourceSelect = document.getElementById('yearEditPlanName');
+                        if (sourceSelect && sourceSelect.options.length > 1) {
+                            let newOptionsHtml = '<option value="">(未指定)</option>';
+                            for (let i = 1; i < sourceSelect.options.length; i++) {
+                                const opt = sourceSelect.options[i];
+                                const planValue = opt.value;
+                                const { name: planName, year: planYear } = parsePlanValue(planValue);
+                                const displayText = planYear ? `${planName} (${planYear})` : planName;
+                                const isSelected = planSelectEl.value === planValue;
+                                newOptionsHtml += `<option value="${planValue}" ${isSelected ? 'selected' : ''}>${displayText}</option>`;
+                            }
+                            planSelectEl.innerHTML = newOptionsHtml;
+                        }
+                    }
+                }).catch(() => {
+                    // 忽略錯誤，使用當前選項
+                });
+            }
+            
+            // 確定當前計畫的值
+            const currentPlanValue = item.plan_name ? (item.year ? `${item.plan_name}|||${item.year}` : item.plan_name) : '';
+            
             let html = `
                 <div class="detail-card" style="margin-bottom:20px; border:2px solid #e2e8f0;">
                     <!-- 基本資訊區塊 -->
                     <div style="background:#f8fafc; padding:20px; border-bottom:2px solid #e2e8f0;">
-                        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; margin-bottom:16px;">
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:16px;">
                             <div>
-                                <div style="font-weight:700; font-size:18px; color:#1e40af; margin-bottom:8px;">${item.number || ''}</div>
-                                <div style="font-size:14px; color:#64748b; line-height:1.8;">
-                                    <div><strong>年度：</strong>${item.year || ''}</div>
-                                    <div><strong>機構：</strong>${item.unit || ''}</div>
-                                    <div><strong>分組：</strong>${item.divisionName || ''}</div>
-                                    <div><strong>檢查種類：</strong>${item.inspectionCategoryName || ''}</div>
-                                    <div><strong>類型：</strong>${item.category || ''}</div>
-                                    <div><strong>檢查計畫：</strong>${item.plan_name || '未指定'}</div>
-                                </div>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">
+                                    事項編號 <span style="color:#ef4444;">*</span>
+                                </label>
+                                <input type="text" id="yearEditNumber" class="filter-input" 
+                                    value="${item.number || ''}" 
+                                    placeholder="例如: 113-TRA-1-A01-N01" 
+                                    style="width:100%; background:white;">
                             </div>
-                            <div style="text-align:right;">
-                                <div style="margin-bottom:12px;">
-                                    <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">狀態</label>
-                                    <select id="yearEditStatus" class="filter-select" style="width:100%;">
-                                        <option value="持續列管" ${item.status === '持續列管' ? 'selected' : ''}>持續列管</option>
-                                        <option value="解除列管" ${item.status === '解除列管' ? 'selected' : ''}>解除列管</option>
-                                        <option value="自行列管" ${item.status === '自行列管' ? 'selected' : ''}>自行列管</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">開立日期</label>
-                                    <input type="text" id="yearEditIssueDate" class="filter-input" value="${item.issue_date || ''}" 
-                                        placeholder="例如: 1130501" style="width:100%;">
-                                </div>
+                            <div>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">
+                                    年度 <span style="color:#ef4444;">*</span>
+                                </label>
+                                <input type="number" id="yearEditYear" class="filter-input" 
+                                    value="${item.year || ''}" 
+                                    placeholder="例如: 113" 
+                                    style="width:100%; background:white;">
                             </div>
+                        </div>
+                        
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:16px;">
+                            <div>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">
+                                    機構 <span style="color:#ef4444;">*</span>
+                                </label>
+                                <input type="text" id="yearEditUnit" class="filter-input" 
+                                    value="${item.unit || ''}" 
+                                    placeholder="例如: 臺鐵" 
+                                    style="width:100%; background:white;">
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">分組</label>
+                                <select id="yearEditDivision" class="filter-select" style="width:100%; background:white;">
+                                    <option value="">(未指定)</option>
+                                    <option value="運務" ${item.divisionName === '運務' ? 'selected' : ''}>運務</option>
+                                    <option value="工務" ${item.divisionName === '工務' ? 'selected' : ''}>工務</option>
+                                    <option value="機務" ${item.divisionName === '機務' ? 'selected' : ''}>機務</option>
+                                    <option value="電務" ${item.divisionName === '電務' ? 'selected' : ''}>電務</option>
+                                    <option value="安全" ${item.divisionName === '安全' ? 'selected' : ''}>安全</option>
+                                    <option value="審核" ${item.divisionName === '審核' ? 'selected' : ''}>審核</option>
+                                    <option value="災防" ${item.divisionName === '災防' ? 'selected' : ''}>災防</option>
+                                    <option value="運轉" ${item.divisionName === '運轉' ? 'selected' : ''}>運轉</option>
+                                    <option value="土木" ${item.divisionName === '土木' ? 'selected' : ''}>土木</option>
+                                    <option value="機電" ${item.divisionName === '機電' ? 'selected' : ''}>機電</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:16px;">
+                            <div>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">檢查種類</label>
+                                <select id="yearEditInspection" class="filter-select" style="width:100%; background:white;">
+                                    <option value="">(未指定)</option>
+                                    <option value="定期檢查" ${item.inspectionCategoryName === '定期檢查' ? 'selected' : ''}>定期檢查</option>
+                                    <option value="例行性檢查" ${item.inspectionCategoryName === '例行性檢查' ? 'selected' : ''}>例行性檢查</option>
+                                    <option value="特別檢查" ${item.inspectionCategoryName === '特別檢查' ? 'selected' : ''}>特別檢查</option>
+                                    <option value="臨時檢查" ${item.inspectionCategoryName === '臨時檢查' ? 'selected' : ''}>臨時檢查</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">開立類型</label>
+                                <select id="yearEditKind" class="filter-select" style="width:100%; background:white;">
+                                    <option value="">(未指定)</option>
+                                    <option value="N" ${item.item_kind_code === 'N' || item.category === '缺失事項' ? 'selected' : ''}>缺失事項</option>
+                                    <option value="O" ${item.item_kind_code === 'O' || item.category === '觀察事項' ? 'selected' : ''}>觀察事項</option>
+                                    <option value="R" ${item.item_kind_code === 'R' || item.category === '建議事項' ? 'selected' : ''}>建議事項</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:16px;">
+                            <div>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">檢查計畫</label>
+                                <select id="yearEditPlanNameSelect" class="filter-select" style="width:100%; background:white;">
+                                    ${planOptionsHtml}
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">狀態</label>
+                                <select id="yearEditStatus" class="filter-select" style="width:100%; background:white;">
+                                    <option value="持續列管" ${item.status === '持續列管' ? 'selected' : ''}>持續列管</option>
+                                    <option value="解除列管" ${item.status === '解除列管' ? 'selected' : ''}>解除列管</option>
+                                    <option value="自行列管" ${item.status === '自行列管' ? 'selected' : ''}>自行列管</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">開立日期</label>
+                            <input type="text" id="yearEditIssueDate" class="filter-input" 
+                                value="${item.issue_date || ''}" 
+                                placeholder="例如: 1130501" 
+                                style="width:100%; background:white;">
                         </div>
                         
                         <div>
                             <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">事項內容</label>
                             <textarea id="yearEditContent" class="filter-input" 
-                                style="width:100%; min-height:120px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;">${stripHtml(item.content || '')}</textarea>
+                                style="width:100%; min-height:120px; padding:12px; font-size:14px; line-height:1.6; resize:vertical; background:white;">${stripHtml(item.content || '')}</textarea>
                         </div>
                     </div>
             `;
@@ -4576,9 +4691,31 @@ if (dashboard) {
                 
                 const issueId = yearEditIssue.id;
                 // 不進行 trim，保留原始輸入（包括空字串），允許清空欄位
+                const number = document.getElementById('yearEditNumber')?.value.trim() || '';
+                const year = document.getElementById('yearEditYear')?.value.trim() || '';
+                const unit = document.getElementById('yearEditUnit')?.value.trim() || '';
+                const divisionName = document.getElementById('yearEditDivision')?.value || '';
+                const inspectionCategoryName = document.getElementById('yearEditInspection')?.value || '';
+                const itemKindCode = document.getElementById('yearEditKind')?.value || '';
+                const planValue = document.getElementById('yearEditPlanNameSelect')?.value || '';
+                const { name: planName } = parsePlanValue(planValue);
                 const content = document.getElementById('yearEditContent').value;
                 const status = document.getElementById('yearEditStatus').value;
                 const issueDate = document.getElementById('yearEditIssueDate').value;
+                
+                // 基本驗證
+                if (!number) {
+                    showToast('請填寫事項編號', 'error');
+                    return;
+                }
+                if (!year) {
+                    showToast('請填寫年度', 'error');
+                    return;
+                }
+                if (!unit) {
+                    showToast('請填寫機構', 'error');
+                    return;
+                }
                 
                 // 收集所有輪次的資料
                 const roundHandlings = document.querySelectorAll('.year-edit-round-handling');
@@ -4595,7 +4732,7 @@ if (dashboard) {
                 
                 const sortedRounds = Array.from(roundSet).sort((a, b) => a - b);
                 
-                // 先更新基本資訊（內容、狀態、開立日期）
+                // 先更新基本資訊（包括所有可編輯欄位）
                 // 即使內容為空也要更新（允許清空）
                 const updateRes = await fetch(`/api/issues/${issueId}`, {
                     method: 'PUT',
@@ -4607,6 +4744,14 @@ if (dashboard) {
                         review: '',
                         content: content, // 允許空字串
                         issueDate: issueDate || '', // 允許空字串
+                        number: number,
+                        year: year,
+                        unit: unit,
+                        divisionName: divisionName || null,
+                        inspectionCategoryName: inspectionCategoryName || null,
+                        itemKindCode: itemKindCode || null,
+                        category: itemKindCode ? (itemKindCode === 'N' ? '缺失事項' : itemKindCode === 'O' ? '觀察事項' : '建議事項') : null,
+                        planName: planName || null,
                         replyDate: '',
                         responseDate: ''
                     })
