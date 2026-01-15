@@ -1745,33 +1745,30 @@
                 padding-top: 10px;
             }
 
-            /* 計畫管理：第二行 - 年度 + 事項數量合併顯示 */
+            /* 計畫管理：第二行 - 年度 + 事項數量合併顯示（統一格式） */
+            .user-table td[data-label="年度"],
+            .user-table td[data-label="事項數量"] {
+                display: inline-block !important;
+                width: auto !important;
+                font-size: 14px !important;
+                font-weight: 500 !important;
+                color: #64748b !important;
+                background: #f1f5f9 !important;
+                padding: 4px 10px !important;
+                border-radius: 6px !important;
+                border: 1px solid #e2e8f0 !important;
+                margin-right: 8px !important;
+                margin-bottom: 8px !important;
+                margin-left: 0 !important;
+                margin-top: 0 !important;
+                line-height: 1.5 !important;
+            }
+
             .user-table td[data-label="年度"] {
-                display: inline-block;
-                width: auto;
-                font-size: 14px;
-                color: #64748b;
-                background: #f1f5f9;
-                padding: 4px 10px;
-                border-radius: 6px;
-                margin-right: 8px;
-                margin-bottom: 8px;
-                margin-left: 0;
-                margin-top: 0;
                 order: 2;
             }
             
             .user-table td[data-label="事項數量"] {
-                display: inline-block;
-                width: auto;
-                font-size: 14px;
-                color: #64748b;
-                background: #f1f5f9;
-                padding: 4px 10px;
-                border-radius: 6px;
-                margin-right: 8px;
-                margin-bottom: 8px;
-                margin-top: 0;
                 order: 3;
             }
             

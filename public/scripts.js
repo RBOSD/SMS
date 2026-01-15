@@ -3614,7 +3614,14 @@ if (dashboard) {
                 }
                 
                 const statusKindHtml = `${kindLabel}${statusBadge}`;
-                document.getElementById('editHeaderStatusKind').innerHTML = statusKindHtml; 
+                // 確保即使只有類型或只有狀態也能顯示
+                if (statusKindHtml.trim()) {
+                    document.getElementById('editHeaderStatusKind').innerHTML = statusKindHtml;
+                    document.getElementById('editHeaderStatusKind').style.display = 'flex';
+                } else {
+                    document.getElementById('editHeaderStatusKind').innerHTML = '';
+                    document.getElementById('editHeaderStatusKind').style.display = 'none';
+                } 
                 
                 // 計算應該進行第幾次審查（支持無限次）
                 // 邏輯：找到最高的機構辦理情形，檢查是否有對應的審查意見
@@ -3718,7 +3725,8 @@ if (dashboard) {
                 statusBadge = `<span class="badge ${st}">${currentEditItem.status}</span>`;
             }
             
-            const statusKindHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${statusBadge}</div>`;
+            // 確保即使只有類型或只有狀態也能顯示
+            const statusKindHtml = kindLabel || statusBadge ? `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${statusBadge}</div>` : '';
             document.getElementById('dStatus').innerHTML = statusKindHtml || '(未設定)';
 
             let h = '';
