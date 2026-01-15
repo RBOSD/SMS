@@ -3697,16 +3697,27 @@ if (dashboard) {
 
         function openDetail(id, isEdit) {
             currentEditItem = currentData.find(d => String(d.id) === String(id)); if (!currentEditItem) return;
-            document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content;
+            document.getElementById('dNumber').textContent = currentEditItem.number; 
+            document.getElementById('dUnit').textContent = currentEditItem.unit; 
+            document.getElementById('dContent').innerHTML = currentEditItem.content;
+
+            // Year Info
+            document.getElementById('dYear').textContent = currentEditItem.year || '(未設定)';
 
             // Plan Info
             document.getElementById('dPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)';
             document.getElementById('dIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
 
-            // Category Info
+            // Category Info (分組 / 檢查種類 / 類型)
             const divName = currentEditItem.divisionName || currentEditItem.division_name || '-';
             const insName = currentEditItem.inspectionCategoryName || currentEditItem.inspection_category_name || '-';
-            const kindName = currentEditItem.category || '-';
+            // 類型顯示：如果有item_kind_code，顯示對應的中文名稱；否則顯示category
+            let kindName = '-';
+            const kindCode = currentEditItem.item_kind_code || currentEditItem.itemKindCode;
+            if (kindCode === 'N') kindName = '缺失事項';
+            else if (kindCode === 'O') kindName = '觀察事項';
+            else if (kindCode === 'R') kindName = '建議事項';
+            else if (currentEditItem.category) kindName = currentEditItem.category;
             document.getElementById('dCategoryInfo').textContent = `${divName} / ${insName} / ${kindName}`;
 
             // Status and Kind (狀態與類型)
