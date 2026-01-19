@@ -1228,7 +1228,7 @@ if (dashboard) {
                         updateTxt = `${prefix} ${stripHtml(latest.content).slice(0, 80)}`;
                     }
                     let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if (item.aiResult && item.aiResult.status === 'done') { const f = String(item.aiResult.fulfill || ''); const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes ? 'yes' : 'no'}">${isYes ? '✅' : '⚠️'} ${f}</div>`; }
-                    const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',false)">✏️ 編輯</button>` : '';
+                    const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',false)">✏️ 審查/查看詳情</button>` : '';
                     const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
 
                     let k = item.itemKindCode;
@@ -2401,6 +2401,114 @@ if (dashboard) {
                         }
                     }
                 }
+            }
+            
+            // 如果是批次模式，查詢並預填審查函復輪次
+            if (createMode === 'batch') {
+                updateBatchResponseRoundFromPlan();
+            }
+        }
+        
+        // 從檢查計畫查詢並預填審查函復輪次
+        async function updateBatchResponseRoundFromPlan() {
+            const planSelect = document.getElementById('createPlanName');
+            const roundSelect = document.getElementById('createBatchResponseRound');
+            const roundManualInput = document.getElementById('createBatchResponseRoundManual');
+            
+            if (!planSelect || !roundSelect || !roundManualInput) return;
+            
+            const planValue = planSelect.value.trim();
+            if (!planValue) {
+                // 清空選項
+                roundSelect.value = '';
+                roundManualInput.value = '';
+                return;
+            }
+            
+            try {
+                // 載入該計畫下的所有事項
+                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
+                if (!res.ok) return;
+                
+                const json = await res.json();
+                const issueList = json.data || [];
+                
+                if (issueList.length === 0) {
+                    // 沒有事項，預設為第1次
+                    roundSelect.value = '1';
+                    roundManualInput.value = '';
+                    return;
+                }
+                
+                // 找出所有事項中最高的審查輪次
+                let maxRound = 0;
+                issueList.forEach(issue => {
+                    // 檢查所有可能的審查輪次（最多200次）
+                    for (let i = 1; i <= 200; i++) {
+                        const suffix = i === 1 ? '' : i;
+                        const review = issue['review' + suffix] || '';
+                        const responseDate = issue['response_date_r' + i] || '';
+                        // 如果有審查意見或函復日期，表示該輪次已完成
+                        if (review.trim() || responseDate) {
+                            if (i > maxRound) {
+                                maxRound = i;
+                            }
+                        }
+                    }
+                });
+                
+                // 預填為最高輪次 + 1（如果最高輪次是0，則為第1次）
+                const suggestedRound = maxRound + 1;
+                if (suggestedRound <= 200) {
+                    roundSelect.value = suggestedRound;
+                    roundManualInput.value = '';
+                    // 顯示提示訊息
+                    if (maxRound > 0) {
+                        showToast(`已自動預填為第 ${suggestedRound} 次審查函復（最高已完成：第 ${maxRound} 次）`, 'info');
+                    } else {
+                        showToast(`已自動預填為第 ${suggestedRound} 次審查函復（尚無審查紀錄）`, 'info');
+                    }
+                } else {
+                    // 如果超過200次，使用手動輸入
+                    roundSelect.value = '';
+                    roundManualInput.value = suggestedRound;
+                    showToast(`已自動預填為第 ${suggestedRound} 次審查函復（超過選單範圍，請使用手動輸入）`, 'info');
+                }
+            } catch (e) {
+                console.error('查詢審查輪次失敗:', e);
+            }
+        }
+        
+        // 當下拉選單改變時，同步到手動輸入欄位
+        function onBatchResponseRoundChange() {
+            const roundSelect = document.getElementById('createBatchResponseRound');
+            const roundManualInput = document.getElementById('createBatchResponseRoundManual');
+            
+            if (!roundSelect || !roundManualInput) return;
+            
+            if (roundSelect.value) {
+                roundManualInput.value = '';
+            }
+        }
+        
+        // 當手動輸入改變時，同步到下拉選單
+        function onBatchResponseRoundManualChange() {
+            const roundSelect = document.getElementById('createBatchResponseRound');
+            const roundManualInput = document.getElementById('createBatchResponseRoundManual');
+            
+            if (!roundSelect || !roundManualInput) return;
+            
+            if (roundManualInput.value) {
+                const manualValue = parseInt(roundManualInput.value);
+                if (manualValue >= 1 && manualValue <= 200) {
+                    // 如果在選單範圍內，同步到選單
+                    roundSelect.value = manualValue;
+                } else {
+                    // 如果超過範圍，清空選單
+                    roundSelect.value = '';
+                }
+            } else {
+                // 如果手動輸入為空，不清空選單（保留選單選擇）
             }
         }
         
@@ -5122,12 +5230,18 @@ if (dashboard) {
         // 批次設定函復日期（用於開立事項建檔頁面）
         async function batchSetResponseDateForPlan() {
             const roundSelect = document.getElementById('createBatchResponseRound');
+            const roundManualInput = document.getElementById('createBatchResponseRoundManual');
             const dateInput = document.getElementById('createBatchResponseDate');
             const planSelect = document.getElementById('createPlanName');
             
-            if (!roundSelect || !dateInput || !planSelect) return;
+            if (!roundSelect || !roundManualInput || !dateInput || !planSelect) return;
             
-            const round = parseInt(roundSelect.value);
+            // 優先使用下拉選單的值，如果沒有則使用手動輸入
+            let round = parseInt(roundSelect.value);
+            if (!round || round < 1) {
+                round = parseInt(roundManualInput.value);
+            }
+            
             const responseDate = dateInput.value.trim();
             const planValue = planSelect.value.trim();
             
@@ -5137,7 +5251,12 @@ if (dashboard) {
             }
             
             if (!round || round < 1) {
-                showToast('請選擇輪次', 'error');
+                showToast('請選擇或輸入審查輪次', 'error');
+                return;
+            }
+            
+            if (round > 200) {
+                showToast('審查輪次不能超過200次', 'error');
                 return;
             }
             

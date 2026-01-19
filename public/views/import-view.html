@@ -321,10 +321,15 @@
                     <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
                         <div style="display:flex; gap:8px; align-items:center;">
                             <label style="font-size:13px; color:#475569; font-weight:500;">第幾次審查函復：</label>
-                            <select id="createBatchResponseRound" class="filter-select" style="width:140px; font-size:13px;">
+                            <select id="createBatchResponseRound" class="filter-select" style="width:140px; font-size:13px;" onchange="onBatchResponseRoundChange()">
                                 <option value="">請選擇</option>
                                 <!-- JavaScript 會動態產生選項（最多200次） -->
                             </select>
+                            <span style="font-size:12px; color:#64748b;">或</span>
+                            <input type="number" id="createBatchResponseRoundManual" class="filter-input" 
+                                placeholder="手動輸入" min="1" max="200" 
+                                style="width:100px; font-size:13px; padding:8px;"
+                                onchange="onBatchResponseRoundManualChange()">
                         </div>
                         <div style="display:flex; gap:8px; align-items:center;">
                             <label style="font-size:13px; color:#475569; font-weight:500;">函復日期：</label>
