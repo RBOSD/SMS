@@ -2528,6 +2528,11 @@ if (dashboard) {
                     `;
                     tbody.appendChild(tr);
                     
+                    // 保存事項 ID 到表格行（如果事項已存在於資料庫）
+                    if (issue.id) {
+                        tr.setAttribute('data-issue-id', issue.id);
+                    }
+                    
                     // 調整 textarea 寬度
                     const contentTextarea = tr.querySelector('.create-batch-content');
                     if (contentTextarea) {
@@ -3317,12 +3322,81 @@ if (dashboard) {
         }
         
         // 儲存批次辦理情形
-        function saveBatchHandlingRounds() {
-            // 資料已經在 updateBatchHandlingRound 中即時更新，這裡只需要關閉 Modal
-            showToast('辦理情形已儲存（將在批次新增時一併保存）', 'success');
-            // 更新辦理情形狀態顯示
-            updateBatchHandlingStatus(currentBatchHandlingRowIndex);
-            closeBatchHandlingModal();
+        async function saveBatchHandlingRounds() {
+            if (currentBatchHandlingRowIndex === -1) return;
+            
+            const rows = document.querySelectorAll('#createBatchGridBody tr');
+            if (currentBatchHandlingRowIndex < 0 || currentBatchHandlingRowIndex >= rows.length) return;
+            
+            const row = rows[currentBatchHandlingRowIndex];
+            const number = row.querySelector('.create-batch-number')?.value.trim();
+            const issueId = row.getAttribute('data-issue-id');
+            const handlingRounds = batchHandlingData[currentBatchHandlingRowIndex] || [];
+            
+            // 如果事項已存在於資料庫（有 ID），則立即儲存到資料庫
+            if (issueId && number) {
+                try {
+                    showToast('儲存辦理情形中，請稍候...', 'info');
+                    
+                    // 先更新第一次辦理情形（如果有的話）
+                    if (handlingRounds.length > 0 && handlingRounds[0].handling && handlingRounds[0].handling.trim()) {
+                        const firstRound = handlingRounds[0];
+                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                handling: firstRound.handling.trim(),
+                                replyDate: firstRound.replyDate ? firstRound.replyDate.trim() : null,
+                                responseDate: null
+                            })
+                        });
+                        
+                        if (!updateRes.ok) {
+                            throw new Error('更新第一次辦理情形失敗');
+                        }
+                    }
+                    
+                    // 更新後續的辦理情形輪次（從第2次開始）
+                    for (let i = 1; i < handlingRounds.length; i++) {
+                        const roundData = handlingRounds[i];
+                        if (roundData.handling && roundData.handling.trim()) {
+                            const round = i + 1;
+                            try {
+                                const updateRes = await fetch(`/api/issues/${issueId}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        round: round,
+                                        handling: roundData.handling.trim(),
+                                        review: '',
+                                        replyDate: roundData.replyDate ? roundData.replyDate.trim() : null,
+                                        responseDate: null
+                                    })
+                                });
+                                
+                                if (!updateRes.ok) {
+                                    console.error(`更新第 ${round} 次辦理情形失敗`);
+                                }
+                            } catch (e) {
+                                console.error(`更新第 ${round} 次辦理情形錯誤:`, e);
+                            }
+                        }
+                    }
+                    
+                    showToast('辦理情形已成功儲存至資料庫', 'success');
+                    // 更新辦理情形狀態顯示
+                    updateBatchHandlingStatus(currentBatchHandlingRowIndex);
+                    closeBatchHandlingModal();
+                } catch (e) {
+                    showToast('儲存辦理情形失敗: ' + e.message, 'error');
+                }
+            } else {
+                // 如果事項尚未存在於資料庫（新建立的事項），則保持現有行為
+                showToast('辦理情形已儲存（將在批次新增時一併保存）', 'success');
+                // 更新辦理情形狀態顯示
+                updateBatchHandlingStatus(currentBatchHandlingRowIndex);
+                closeBatchHandlingModal();
+            }
         }
         
         // 更新批次辦理情形狀態顯示
