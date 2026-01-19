@@ -2783,8 +2783,8 @@ if (dashboard) {
                 <td><select class="filter-select create-batch-kind"><option value="">-</option><option value="N">缺失</option><option value="O">觀察</option><option value="R">建議</option></select></td>
                 <td><select class="filter-select create-batch-status"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></td>
                 <td style="text-align:center;">
-                    <button class="btn btn-outline btn-sm create-batch-handling-btn" onclick="openBatchHandlingModal(${rowIdx})" data-row-index="${rowIdx}" style="padding:6px 12px; font-size:12px; width:100%;" title="點擊管理辦理情形">
-                        <span class="create-batch-handling-status">未設定</span>
+                    <button class="btn btn-outline btn-sm create-batch-handling-btn" onclick="openBatchHandlingModal(${rowIdx})" data-row-index="${rowIdx}" style="padding:6px 12px; font-size:12px; width:100%;" title="點擊新增或管理辦理情形">
+                        <span class="create-batch-handling-status">新增辦理情形</span>
                     </button>
                 </td>
                 <td style="text-align:center;">
@@ -3051,12 +3051,12 @@ if (dashboard) {
             
             if (hasHandling) {
                 const count = handlingRounds.filter(r => r.handling && r.handling.trim()).length;
-                statusSpan.textContent = `已設定 (${count}次)`;
+                statusSpan.textContent = `已填寫 (${count}次)`;
                 btn.style.backgroundColor = '#ecfdf5';
                 btn.style.borderColor = '#10b981';
                 btn.style.color = '#047857';
             } else {
-                statusSpan.textContent = '未設定';
+                statusSpan.textContent = '新增辦理情形';
                 btn.style.backgroundColor = '';
                 btn.style.borderColor = '';
                 btn.style.color = '';
@@ -5099,6 +5099,125 @@ if (dashboard) {
                 document.getElementById('yearEditIssueList').style.display = 'block';
             } else {
                 document.getElementById('yearEditEmpty').style.display = 'block';
+            }
+        }
+        
+        // 批次設定函復日期
+        async function batchSetResponseDate() {
+            const roundSelect = document.getElementById('yearEditBatchResponseRound');
+            const dateInput = document.getElementById('yearEditBatchResponseDate');
+            
+            if (!roundSelect || !dateInput) return;
+            
+            const round = parseInt(roundSelect.value);
+            const responseDate = dateInput.value.trim();
+            
+            if (!round || round < 1) {
+                showToast('請選擇輪次', 'error');
+                return;
+            }
+            
+            if (!responseDate) {
+                showToast('請輸入函復日期', 'error');
+                return;
+            }
+            
+            // 驗證日期格式（應該是6位數字，例如：1130615）
+            if (!/^\d{6}$/.test(responseDate)) {
+                showToast('日期格式錯誤，應為6位數字（例如：1130615）', 'error');
+                return;
+            }
+            
+            if (yearEditIssueList.length === 0) {
+                showToast('沒有可設定的事項', 'error');
+                return;
+            }
+            
+            if (!confirm(`確定要批次設定第 ${round} 次審查的函復日期為 ${responseDate} 嗎？\n將更新 ${yearEditIssueList.length} 筆事項。`)) {
+                return;
+            }
+            
+            try {
+                showToast('批次設定中，請稍候...', 'info');
+                
+                let successCount = 0;
+                let errorCount = 0;
+                const errors = [];
+                
+                // 批次更新所有事項
+                for (let i = 0; i < yearEditIssueList.length; i++) {
+                    const issue = yearEditIssueList[i];
+                    const issueId = issue.id;
+                    
+                    if (!issueId) {
+                        errorCount++;
+                        errors.push(`${issue.number || '未知編號'}: 缺少事項ID`);
+                        continue;
+                    }
+                    
+                    try {
+                        // 讀取該輪次的現有資料
+                        const suffix = round === 1 ? '' : round;
+                        const handling = issue['handling' + suffix] || '';
+                        const review = issue['review' + suffix] || '';
+                        const replyDate = issue['reply_date_r' + round] || '';
+                        
+                        // 更新該輪次的函復日期
+                        const res = await fetch(`/api/issues/${issueId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                status: issue.status || '持續列管',
+                                round: round,
+                                handling: handling,
+                                review: review,
+                                replyDate: replyDate || null,
+                                responseDate: responseDate
+                            })
+                        });
+                        
+                        if (res.ok) {
+                            const result = await res.json();
+                            if (result.success) {
+                                successCount++;
+                                // 更新本地資料
+                                issue['response_date_r' + round] = responseDate;
+                            } else {
+                                errorCount++;
+                                errors.push(`${issue.number || '未知編號'}: 更新失敗`);
+                            }
+                        } else {
+                            errorCount++;
+                            const errorData = await res.json().catch(() => ({}));
+                            errors.push(`${issue.number || '未知編號'}: ${errorData.error || '更新失敗'}`);
+                        }
+                    } catch (e) {
+                        errorCount++;
+                        errors.push(`${issue.number || '未知編號'}: ${e.message}`);
+                    }
+                }
+                
+                if (successCount > 0) {
+                    showToast(`批次設定完成！成功 ${successCount} 筆${errorCount > 0 ? `，失敗 ${errorCount} 筆` : ''}`, errorCount > 0 ? 'warning' : 'success');
+                    
+                    // 如果有錯誤，顯示詳細資訊
+                    if (errorCount > 0 && errors.length > 0) {
+                        console.error('批次設定函復日期錯誤:', errors);
+                    }
+                    
+                    // 重新載入事項列表以反映更新
+                    const planSelect = document.getElementById('yearEditPlanName');
+                    if (planSelect && planSelect.value) {
+                        await onYearEditPlanChange();
+                    }
+                } else {
+                    showToast('批次設定失敗，所有事項都無法更新', 'error');
+                    if (errors.length > 0) {
+                        console.error('批次設定函復日期錯誤:', errors);
+                    }
+                }
+            } catch (e) {
+                showToast('批次設定失敗: ' + e.message, 'error');
             }
         }
         

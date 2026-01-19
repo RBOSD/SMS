@@ -390,8 +390,32 @@
             
             <!-- 事項列表 -->
             <div id="yearEditIssueList" style="display:none; margin-bottom:24px;">
-                <div style="margin-bottom:12px; font-weight:600; color:#334155; font-size:15px;">
-                    事項列表（共 <span id="yearEditIssueListCount">0</span> 項）
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:12px;">
+                    <div style="font-weight:600; color:#334155; font-size:15px;">
+                        事項列表（共 <span id="yearEditIssueListCount">0</span> 項）
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <label style="font-size:13px; color:#475569; font-weight:500;">批次設定函復日期：</label>
+                            <select id="yearEditBatchResponseRound" class="filter-select" style="width:120px; font-size:13px;">
+                                <option value="">選擇輪次</option>
+                                <option value="1">第 1 次</option>
+                                <option value="2">第 2 次</option>
+                                <option value="3">第 3 次</option>
+                                <option value="4">第 4 次</option>
+                                <option value="5">第 5 次</option>
+                                <option value="6">第 6 次</option>
+                                <option value="7">第 7 次</option>
+                                <option value="8">第 8 次</option>
+                                <option value="9">第 9 次</option>
+                                <option value="10">第 10 次</option>
+                            </select>
+                            <input type="text" id="yearEditBatchResponseDate" class="filter-input" placeholder="例如: 1130615" 
+                                style="width:120px; font-size:13px; padding:8px;">
+                            <button class="btn btn-primary btn-sm" onclick="batchSetResponseDate()" 
+                                style="padding:8px 16px; font-size:13px;">批次設定</button>
+                        </div>
+                    </div>
                 </div>
                 <div id="yearEditIssueListContainer" style="border:1px solid #e2e8f0; border-radius:8px; background:#fff;">
                     <!-- 事項列表將由 JavaScript 動態生成 -->
