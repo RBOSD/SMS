@@ -2455,11 +2455,10 @@ if (dashboard) {
         // 新增辦理情形輪次
         function addCreateHandlingRound() {
             const round = createHandlingRounds.length + 1;
-            createHandlingRounds.push({
+                createHandlingRounds.push({
                 round: round,
                 handling: '',
-                replyDate: '',
-                responseDate: ''
+                replyDate: ''
             });
             renderCreateHandlingRounds();
         }
@@ -2504,21 +2503,12 @@ if (dashboard) {
                                 style="width:100%; min-height:120px; padding:12px; font-size:14px; line-height:1.6; resize:vertical; background:white;"
                                 oninput="updateCreateHandlingRound(${index}, 'handling', this.value)">${roundData.handling}</textarea>
                         </div>
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                            <div>
-                                <label style="display:block; font-weight:600; color:#475569; font-size:12px; margin-bottom:6px;">鐵路機構回復日期</label>
-                                <input type="text" class="filter-input create-handling-reply-date" data-index="${index}" 
-                                    value="${roundData.replyDate}" placeholder="例如: 1130601" 
-                                    style="width:100%; background:white;"
-                                    oninput="updateCreateHandlingRound(${index}, 'replyDate', this.value)">
-                            </div>
-                            <div>
-                                <label style="display:block; font-weight:600; color:#475569; font-size:12px; margin-bottom:6px;">本次函復日期</label>
-                                <input type="text" class="filter-input create-handling-response-date" data-index="${index}" 
-                                    value="${roundData.responseDate}" placeholder="例如: 1130615" 
-                                    style="width:100%; background:white;"
-                                    oninput="updateCreateHandlingRound(${index}, 'responseDate', this.value)">
-                            </div>
+                        <div>
+                            <label style="display:block; font-weight:600; color:#475569; font-size:12px; margin-bottom:6px;">鐵路機構回復日期</label>
+                            <input type="text" class="filter-input create-handling-reply-date" data-index="${index}" 
+                                value="${roundData.replyDate}" placeholder="例如: 1130601" 
+                                style="width:100%; background:white;"
+                                oninput="updateCreateHandlingRound(${index}, 'replyDate', this.value)">
                         </div>
                     </div>
                 `;
@@ -2583,7 +2573,7 @@ if (dashboard) {
             // 如果有辦理情形，使用第一個；如果沒有，使用空值
             const firstHandling = createHandlingRounds.length > 0 && createHandlingRounds[0].handling.trim() 
                 ? createHandlingRounds[0] 
-                : { handling: '', replyDate: '', responseDate: '' };
+                : { handling: '', replyDate: '' };
             const payload = {
                 data: [{
                     number, year, unit, content, status,
@@ -2651,7 +2641,7 @@ if (dashboard) {
                                                     handling: roundData.handling.trim(),
                                                     review: '',
                                                     replyDate: roundData.replyDate ? roundData.replyDate.trim() : null,
-                                                    responseDate: roundData.responseDate ? roundData.responseDate.trim() : null
+                                                    responseDate: null // 辦理情形階段不需要函復日期
                                                 })
                                             });
                                             if (updateRes.ok) {
@@ -2770,6 +2760,10 @@ if (dashboard) {
             tbody.innerHTML = '';
             batchHandlingData = {}; // 重置辦理情形資料
             for (let i = 0; i < 5; i++) addCreateBatchRow();
+            // 初始化後更新所有行的辦理情形狀態
+            setTimeout(() => {
+                updateAllBatchHandlingStatus();
+            }, 100);
         }
         
         // 批次模式：新增一列
@@ -2789,11 +2783,17 @@ if (dashboard) {
                 <td><select class="filter-select create-batch-kind"><option value="">-</option><option value="N">缺失</option><option value="O">觀察</option><option value="R">建議</option></select></td>
                 <td><select class="filter-select create-batch-status"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></td>
                 <td style="text-align:center;">
-                    <button class="btn btn-outline btn-sm" onclick="openBatchHandlingModal(${rowIdx})" style="padding:4px 8px; font-size:11px; margin-right:4px;" title="管理辦理情形">📝</button>
+                    <button class="btn btn-outline btn-sm create-batch-handling-btn" onclick="openBatchHandlingModal(${rowIdx})" data-row-index="${rowIdx}" style="padding:6px 12px; font-size:12px; width:100%;" title="點擊管理辦理情形">
+                        <span class="create-batch-handling-status">未設定</span>
+                    </button>
+                </td>
+                <td style="text-align:center;">
                     <button class="btn btn-danger btn-sm" onclick="removeCreateBatchRow(this)" style="padding:4px 8px;">×</button>
                 </td>
             `;
             tbody.appendChild(tr);
+            // 更新該行的辦理情形狀態顯示
+            updateBatchHandlingStatus(rowIdx);
         }
         
         // 批次模式：移除一列
@@ -2822,12 +2822,15 @@ if (dashboard) {
                 // Re-index
                 tbody.querySelectorAll('tr').forEach((row, idx) => {
                     row.cells[0].innerText = idx + 1;
-                    // 更新辦理情形按鈕的 onclick
-                    const handlingBtn = row.querySelector('button[onclick^="openBatchHandlingModal"]');
+                    // 更新辦理情形按鈕的 onclick 和 data-row-index
+                    const handlingBtn = row.querySelector('.create-batch-handling-btn');
                     if (handlingBtn) {
                         handlingBtn.setAttribute('onclick', `openBatchHandlingModal(${idx})`);
+                        handlingBtn.setAttribute('data-row-index', idx);
                     }
                 });
+                // 更新所有行的辦理情形狀態顯示
+                updateAllBatchHandlingStatus();
             } else {
                 showToast('至少需保留一列', 'error');
             }
@@ -2928,6 +2931,14 @@ if (dashboard) {
             document.getElementById('batchHandlingModal').classList.add('open');
         }
         
+        // 初始化時更新所有行的辦理情形狀態
+        function updateAllBatchHandlingStatus() {
+            const rows = document.querySelectorAll('#createBatchGridBody tr');
+            rows.forEach((row, idx) => {
+                updateBatchHandlingStatus(idx);
+            });
+        }
+        
         // 關閉批次辦理情形管理 Modal
         function closeBatchHandlingModal() {
             document.getElementById('batchHandlingModal').classList.remove('open');
@@ -2945,8 +2956,7 @@ if (dashboard) {
             batchHandlingData[currentBatchHandlingRowIndex].push({
                 round: round,
                 handling: '',
-                replyDate: '',
-                responseDate: ''
+                replyDate: ''
             });
             renderBatchHandlingRounds();
         }
@@ -2995,21 +3005,12 @@ if (dashboard) {
                                 style="width:100%; min-height:120px; padding:12px; font-size:14px; line-height:1.6; resize:vertical; background:white;"
                                 oninput="updateBatchHandlingRound(${index}, 'handling', this.value)">${roundData.handling}</textarea>
                         </div>
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                            <div>
-                                <label style="display:block; font-weight:600; color:#475569; font-size:12px; margin-bottom:6px;">鐵路機構回復日期</label>
-                                <input type="text" class="filter-input batch-handling-reply-date" data-index="${index}" 
-                                    value="${roundData.replyDate}" placeholder="例如: 1130601" 
-                                    style="width:100%; background:white;"
-                                    oninput="updateBatchHandlingRound(${index}, 'replyDate', this.value)">
-                            </div>
-                            <div>
-                                <label style="display:block; font-weight:600; color:#475569; font-size:12px; margin-bottom:6px;">本次函復日期</label>
-                                <input type="text" class="filter-input batch-handling-response-date" data-index="${index}" 
-                                    value="${roundData.responseDate}" placeholder="例如: 1130615" 
-                                    style="width:100%; background:white;"
-                                    oninput="updateBatchHandlingRound(${index}, 'responseDate', this.value)">
-                            </div>
+                        <div>
+                            <label style="display:block; font-weight:600; color:#475569; font-size:12px; margin-bottom:6px;">鐵路機構回復日期</label>
+                            <input type="text" class="filter-input batch-handling-reply-date" data-index="${index}" 
+                                value="${roundData.replyDate}" placeholder="例如: 1130601" 
+                                style="width:100%; background:white;"
+                                oninput="updateBatchHandlingRound(${index}, 'replyDate', this.value)">
                         </div>
                     </div>
                 `;
@@ -3029,7 +3030,37 @@ if (dashboard) {
         function saveBatchHandlingRounds() {
             // 資料已經在 updateBatchHandlingRound 中即時更新，這裡只需要關閉 Modal
             showToast('辦理情形已儲存（將在批次新增時一併保存）', 'success');
+            // 更新辦理情形狀態顯示
+            updateBatchHandlingStatus(currentBatchHandlingRowIndex);
             closeBatchHandlingModal();
+        }
+        
+        // 更新批次辦理情形狀態顯示
+        function updateBatchHandlingStatus(rowIndex) {
+            const rows = document.querySelectorAll('#createBatchGridBody tr');
+            if (rowIndex < 0 || rowIndex >= rows.length) return;
+            
+            const row = rows[rowIndex];
+            const btn = row.querySelector('.create-batch-handling-btn');
+            const statusSpan = row.querySelector('.create-batch-handling-status');
+            
+            if (!btn || !statusSpan) return;
+            
+            const handlingRounds = batchHandlingData[rowIndex] || [];
+            const hasHandling = handlingRounds.length > 0 && handlingRounds.some(r => r.handling && r.handling.trim());
+            
+            if (hasHandling) {
+                const count = handlingRounds.filter(r => r.handling && r.handling.trim()).length;
+                statusSpan.textContent = `已設定 (${count}次)`;
+                btn.style.backgroundColor = '#ecfdf5';
+                btn.style.borderColor = '#10b981';
+                btn.style.color = '#047857';
+            } else {
+                statusSpan.textContent = '未設定';
+                btn.style.backgroundColor = '';
+                btn.style.borderColor = '';
+                btn.style.color = '';
+            }
         }
         
         // 批次模式：儲存所有項目
@@ -3075,7 +3106,7 @@ if (dashboard) {
 
                 // 取得該行的辦理情形（第一次）
                 const handlingRounds = batchHandlingData[idx] || [];
-                const firstHandling = handlingRounds.length > 0 ? handlingRounds[0] : { handling: '', replyDate: '', responseDate: '' };
+                const firstHandling = handlingRounds.length > 0 ? handlingRounds[0] : { handling: '', replyDate: '' };
 
                 items.push({
                     number,
@@ -3147,18 +3178,18 @@ if (dashboard) {
                                             if (roundData.handling && roundData.handling.trim()) {
                                                 const round = j + 1;
                                                 try {
-                                                    const updateRes = await fetch(`/api/issues/${issueId}`, {
-                                                        method: 'PUT',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({
-                                                            status: item.status,
-                                                            round: round,
-                                                            handling: roundData.handling.trim(),
-                                                            review: '',
-                                                            replyDate: roundData.replyDate ? roundData.replyDate.trim() : null,
-                                                            responseDate: roundData.responseDate ? roundData.responseDate.trim() : null
-                                                        })
-                                                    });
+                                            const updateRes = await fetch(`/api/issues/${issueId}`, {
+                                                method: 'PUT',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    status: item.status,
+                                                    round: round,
+                                                    handling: roundData.handling.trim(),
+                                                    review: '',
+                                                    replyDate: roundData.replyDate ? roundData.replyDate.trim() : null,
+                                                    responseDate: null // 辦理情形階段不需要函復日期
+                                                })
+                                            });
                                                     if (updateRes.ok) {
                                                         updateSuccessCount++;
                                                     }
@@ -4289,7 +4320,6 @@ if (dashboard) {
                 // 清除編輯欄位，loadRoundData 會重新載入正確的資料
                 document.getElementById('editReview').value = '';
                 document.getElementById('editHandling').value = '';
-                document.getElementById('editReplyDate').value = '';
                 document.getElementById('editResponseDate').value = '';
                 loadRoundData();
             }
@@ -4482,13 +4512,14 @@ if (dashboard) {
             // 載入該回合的資料
             const handling = currentEditItem['handling' + suffix] || '';
             const review = currentEditItem['review' + suffix] || '';
+            // 機構回復日期從辦理情形中讀取（不需要在審查頁面編輯）
             const replyDate = currentEditItem['reply_date_r' + round] || '';
             const responseDate = currentEditItem['response_date_r' + round] || '';
             
             // 儲存到隱藏的輸入框（用於儲存時提交）
             document.getElementById('editHandling').value = handling;
             document.getElementById('editReview').value = review;
-            document.getElementById('editReplyDate').value = replyDate;
+            // replyDate 從資料中讀取，不需要輸入框
             document.getElementById('editResponseDate').value = responseDate;
             
             // 顯示第N次機構辦理情形（只讀，作為參考）
@@ -4666,7 +4697,8 @@ if (dashboard) {
             // 從隱藏欄位讀取辦理情形（僅用於保存，不允許在審查頁面編輯）
             const handling = document.getElementById('editHandling').value.trim() || '';
             const review = document.getElementById('editReview').value.trim();
-            const replyDate = document.getElementById('editReplyDate').value.trim();
+            // 機構回復日期從資料中讀取（已在辦理情形階段填寫）
+            const replyDate = currentEditItem ? (currentEditItem['reply_date_r' + round] || '') : '';
             const responseDate = document.getElementById('editResponseDate').value.trim();
             
             if (!id) {
