@@ -4895,17 +4895,6 @@ if (dashboard) {
             // 機構回復日期從辦理情形中讀取（不需要在審查頁面編輯）
             const replyDate = currentEditItem['reply_date_r' + round] || '';
             
-            // 調試：確認載入的資料正確性
-            console.log(`載入第 ${round} 次審查資料：`, {
-                round,
-                suffix,
-                handlingField: 'handling' + suffix,
-                reviewField: 'review' + suffix,
-                handling: handling ? handling.substring(0, 50) + '...' : '(空)',
-                review: review ? review.substring(0, 50) + '...' : '(空)',
-                replyDate
-            });
-            
             // 儲存到隱藏的輸入框（用於儲存時提交）
             // 注意：這裡的 handling 是第N次的辦理情形，review 是第N次的審查意見
             // 在審查頁面，我們只編輯 review，handling 是只讀的（應該已在資料管理頁面填寫）
@@ -5015,16 +5004,16 @@ if (dashboard) {
             if (viewHandlingBox) viewHandlingBox.style.display = 'none';
             
             if (selectedValue === 'latest') {
-                // 顯示最新進度 - 找出最高輪次，且該輪次必須同時有審查意見和辦理情形
+                // 顯示最新進度 - 找出最高輪次，只要有審查意見或辦理情形即可（不要求同時有兩個，也不要求有日期）
                 let maxRound = 0;
                 
-                // 找出最高的完整輪次（同時有審查意見和辦理情形）
+                // 找出最高的輪次（有審查意見或辦理情形即可）
                 for (let k = 200; k >= 1; k--) {
                     const suffix = k === 1 ? '' : k;
                     const hasHandling = currentEditItem['handling' + suffix] && currentEditItem['handling' + suffix].trim();
                     const hasReview = currentEditItem['review' + suffix] && currentEditItem['review' + suffix].trim();
-                    // 只選擇同時有兩個內容的輪次
-                    if (hasHandling && hasReview) {
+                    // 只要有審查意見或辦理情形就顯示（不要求同時有兩個，也不要求有日期）
+                    if (hasHandling || hasReview) {
                         maxRound = k;
                         break;
                     }
