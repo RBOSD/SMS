@@ -2362,6 +2362,25 @@ if (dashboard) {
                 if (document.querySelectorAll('#createBatchGridBody tr').length === 0) {
                     initCreateBatchGrid();
                 }
+                // 初始化批次設定函復日期的選項
+                initBatchResponseRoundOptions();
+            }
+        }
+        
+        // 初始化批次設定函復日期的選項（動態生成，最多200次）
+        function initBatchResponseRoundOptions() {
+            const select = document.getElementById('createBatchResponseRound');
+            if (!select) return;
+            
+            // 清空現有選項（保留第一個「請選擇」選項）
+            select.innerHTML = '<option value="">請選擇</option>';
+            
+            // 動態生成選項（最多200次）
+            for (let i = 1; i <= 200; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `第 ${i} 次`;
+                select.appendChild(option);
             }
         }
         
@@ -4320,7 +4339,6 @@ if (dashboard) {
                 // 清除編輯欄位，loadRoundData 會重新載入正確的資料
                 document.getElementById('editReview').value = '';
                 document.getElementById('editHandling').value = '';
-                document.getElementById('editResponseDate').value = '';
                 loadRoundData();
             }
         }
@@ -4514,13 +4532,12 @@ if (dashboard) {
             const review = currentEditItem['review' + suffix] || '';
             // 機構回復日期從辦理情形中讀取（不需要在審查頁面編輯）
             const replyDate = currentEditItem['reply_date_r' + round] || '';
-            const responseDate = currentEditItem['response_date_r' + round] || '';
             
             // 儲存到隱藏的輸入框（用於儲存時提交）
             document.getElementById('editHandling').value = handling;
             document.getElementById('editReview').value = review;
             // replyDate 從資料中讀取，不需要輸入框
-            document.getElementById('editResponseDate').value = responseDate;
+            // responseDate 已移除，不再在審查頁面設定
             
             // 顯示第N次機構辦理情形（只讀，作為參考）
             // 撰寫第N次審查時，右側顯示第N次機構辦理情形
@@ -4699,7 +4716,7 @@ if (dashboard) {
             const review = document.getElementById('editReview').value.trim();
             // 機構回復日期從資料中讀取（已在辦理情形階段填寫）
             const replyDate = currentEditItem ? (currentEditItem['reply_date_r' + round] || '') : '';
-            const responseDate = document.getElementById('editResponseDate').value.trim();
+            // responseDate 已移除，不再在審查頁面設定（改為在開立事項建檔頁面批次設定）
             
             if (!id) {
                 showToast('找不到事項 ID', 'error');
@@ -4722,7 +4739,7 @@ if (dashboard) {
                         handling,
                         review,
                         replyDate: replyDate || null,
-                        responseDate: responseDate || null
+                        responseDate: null // 函復日期改為在開立事項建檔頁面批次設定
                     })
                 });
                 

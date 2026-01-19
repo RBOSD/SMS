@@ -182,7 +182,7 @@
 
             <!-- 共用設定：檢查計畫和日期 -->
             <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:24px; border:1px solid #e2e8f0;">
-                <div style="display:flex; gap:24px; align-items:flex-end; flex-wrap:wrap; margin-bottom:20px;">
+                <div style="display:flex; gap:24px; align-items:flex-end; flex-wrap:wrap;">
                     <div style="flex: 2; min-width: 300px;">
                         <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
                             檢查計畫名稱 <span style="color:#ef4444;">*</span>
@@ -198,39 +198,6 @@
                         </label>
                         <input type="text" id="createIssueDate" class="filter-input" placeholder="例如: 1130501" 
                             style="background:white;">
-                    </div>
-                </div>
-                
-                <!-- 批次設定函復日期 -->
-                <div style="background:white; padding:16px; border-radius:8px; border:1px solid #e2e8f0;">
-                    <div style="font-weight:600; color:#334155; font-size:14px; margin-bottom:12px;">📅 批次設定函復日期（選填）</div>
-                    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
-                        💡 可為該檢查計畫下所有事項批次設定函復日期。通常在審查完成後使用。
-                    </div>
-                    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <label style="font-size:13px; color:#475569; font-weight:500;">選擇輪次：</label>
-                            <select id="createBatchResponseRound" class="filter-select" style="width:120px; font-size:13px;">
-                                <option value="">選擇輪次</option>
-                                <option value="1">第 1 次</option>
-                                <option value="2">第 2 次</option>
-                                <option value="3">第 3 次</option>
-                                <option value="4">第 4 次</option>
-                                <option value="5">第 5 次</option>
-                                <option value="6">第 6 次</option>
-                                <option value="7">第 7 次</option>
-                                <option value="8">第 8 次</option>
-                                <option value="9">第 9 次</option>
-                                <option value="10">第 10 次</option>
-                            </select>
-                        </div>
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <label style="font-size:13px; color:#475569; font-weight:500;">函復日期：</label>
-                            <input type="text" id="createBatchResponseDate" class="filter-input" placeholder="例如: 1130615" 
-                                style="width:120px; font-size:13px; padding:8px;">
-                        </div>
-                        <button class="btn btn-primary btn-sm" onclick="batchSetResponseDateForPlan()" 
-                            style="padding:8px 16px; font-size:13px;">批次設定</button>
                     </div>
                 </div>
             </div>
@@ -345,6 +312,30 @@
 
             <!-- 批次模式 -->
             <div id="createBatchMode" style="display:none;">
+                <!-- 批次設定函復日期（僅在批次模式顯示） -->
+                <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
+                    <div style="font-weight:600; color:#334155; font-size:14px; margin-bottom:12px;">📅 批次設定函復日期（選填）</div>
+                    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
+                        💡 可為該檢查計畫下所有事項批次設定函復日期。通常在審查完成後使用。
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <label style="font-size:13px; color:#475569; font-weight:500;">第幾次審查函復：</label>
+                            <select id="createBatchResponseRound" class="filter-select" style="width:140px; font-size:13px;">
+                                <option value="">請選擇</option>
+                                <!-- JavaScript 會動態產生選項（最多200次） -->
+                            </select>
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <label style="font-size:13px; color:#475569; font-weight:500;">函復日期：</label>
+                            <input type="text" id="createBatchResponseDate" class="filter-input" placeholder="例如: 1130615" 
+                                style="width:120px; font-size:13px; padding:8px;">
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="batchSetResponseDateForPlan()" 
+                            style="padding:8px 16px; font-size:13px;">批次設定</button>
+                    </div>
+                </div>
+                
                 <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="flex:1; display:flex; align-items:center; color:#64748b; font-size:13px;">
                         💡 提示：輸入編號後，按下 Enter 或 離開欄位，系統會自動帶入相關欄位。可為每筆事項新增辦理情形。
