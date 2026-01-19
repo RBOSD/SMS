@@ -322,9 +322,14 @@
 
             <!-- 批次模式 -->
             <div id="createBatchMode" style="display:none;">
-                <!-- 批次設定函復日期（僅在批次模式顯示） -->
-                <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
-                    <div style="font-weight:600; color:#334155; font-size:14px; margin-bottom:12px;">📅 批次設定函復日期（選填）</div>
+                <!-- 批次設定函復日期（僅在批次模式顯示，勾選後才顯示） -->
+                <div style="background:#f8fafc; padding:16px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color:#334155; font-size:14px; margin-bottom:0;">
+                        <input type="checkbox" id="createBatchResponseDateToggle" onchange="toggleBatchResponseDateSetting()" style="width:18px; height:18px; cursor:pointer;">
+                        <span>📅 批次設定函復日期（選填）</span>
+                    </label>
+                </div>
+                <div id="createBatchResponseDateContainer" style="display:none; background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
                     <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
                         💡 可為該檢查計畫下所有事項批次設定函復日期。通常在審查完成後使用。
                     </div>
@@ -358,20 +363,6 @@
                     <button class="btn btn-outline" onclick="initCreateBatchGrid()" style="padding:8px 16px;">重置表格</button>
                 </div>
                 
-                <!-- 批次模式辦理情形管理區塊 -->
-                <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-                        <div>
-                            <div style="font-weight:700; color:#334155; font-size:15px; margin-bottom:4px;">📝 批次辦理情形管理</div>
-                            <div style="font-size:12px; color:#64748b;">可為批次中的每筆事項新增辦理情形（選填）</div>
-                        </div>
-                    </div>
-                    <div style="background:white; padding:16px; border-radius:8px; border:1px solid #e2e8f0;">
-                        <div style="font-size:13px; color:#64748b; margin-bottom:12px;">
-                            💡 提示：在下方表格中，點擊每列的「📝 管理辦理情形」按鈕，可為該筆事項新增多次辦理情形（選填，可稍後再新增）。
-                        </div>
-                    </div>
-                </div>
                 <div class="main-card" style="box-shadow:none; border:1px solid #e2e8f0;">
                     <div class="data-container" style="overflow-x:auto;">
                         <table id="createBatchGridTable" style="min-width:1100px;">

@@ -590,6 +590,40 @@
             font-size: 14px;
             transition: all 0.2s;
             color: #334155;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 修正下拉選單文字被遮住的問題 */
+        .filter-select {
+            z-index: 10;
+        }
+        
+        .filter-select:focus {
+            z-index: 100;
+        }
+        
+        /* 確保表格中的下拉選單有足夠的 z-index */
+        table .filter-select {
+            position: relative;
+            z-index: 10;
+        }
+        
+        table .filter-select:focus {
+            z-index: 100;
+        }
+        
+        /* 確保表格中的下拉選單選項可以正確顯示 */
+        table td {
+            position: relative;
+            overflow: visible;
+        }
+        
+        /* 當下拉選單展開時，確保選項不被遮住 */
+        table .filter-select option {
+            background: white;
+            color: #334155;
+            padding: 8px 12px;
         }
 
         .filter-input:focus,
@@ -725,12 +759,14 @@
 
         .data-container {
             overflow-x: auto;
+            position: relative;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
             min-width: 1000px;
+            position: relative;
         }
 
         th {

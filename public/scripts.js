@@ -2373,6 +2373,21 @@ if (dashboard) {
                 if (loadContainer && planSelect && planSelect.value) {
                     loadContainer.style.display = 'block';
                 }
+                // 重置批次設定函復日期的勾選狀態
+                const toggleCheckbox = document.getElementById('createBatchResponseDateToggle');
+                if (toggleCheckbox) {
+                    toggleCheckbox.checked = false;
+                    toggleBatchResponseDateSetting();
+                }
+            }
+        }
+        
+        // 切換批次設定函復日期的顯示
+        function toggleBatchResponseDateSetting() {
+            const checkbox = document.getElementById('createBatchResponseDateToggle');
+            const container = document.getElementById('createBatchResponseDateContainer');
+            if (checkbox && container) {
+                container.style.display = checkbox.checked ? 'block' : 'none';
             }
         }
         
