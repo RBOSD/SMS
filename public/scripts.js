@@ -5102,7 +5102,139 @@ if (dashboard) {
             }
         }
         
-        // 批次設定函復日期
+        // 批次設定函復日期（用於開立事項建檔頁面）
+        async function batchSetResponseDateForPlan() {
+            const roundSelect = document.getElementById('createBatchResponseRound');
+            const dateInput = document.getElementById('createBatchResponseDate');
+            const planSelect = document.getElementById('createPlanName');
+            
+            if (!roundSelect || !dateInput || !planSelect) return;
+            
+            const round = parseInt(roundSelect.value);
+            const responseDate = dateInput.value.trim();
+            const planValue = planSelect.value.trim();
+            
+            if (!planValue) {
+                showToast('請先選擇檢查計畫', 'error');
+                return;
+            }
+            
+            if (!round || round < 1) {
+                showToast('請選擇輪次', 'error');
+                return;
+            }
+            
+            if (!responseDate) {
+                showToast('請輸入函復日期', 'error');
+                return;
+            }
+            
+            // 驗證日期格式（應該是6位數字，例如：1130615）
+            if (!/^\d{6}$/.test(responseDate)) {
+                showToast('日期格式錯誤，應為6位數字（例如：1130615）', 'error');
+                return;
+            }
+            
+            const { name: planName } = parsePlanValue(planValue);
+            
+            try {
+                // 載入該計畫下的所有事項
+                showToast('載入事項中，請稍候...', 'info');
+                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
+                if (!res.ok) throw new Error('載入事項列表失敗');
+                
+                const json = await res.json();
+                const issueList = json.data || [];
+                
+                if (issueList.length === 0) {
+                    showToast('該檢查計畫下尚無開立事項', 'error');
+                    return;
+                }
+                
+                if (!confirm(`確定要批次設定第 ${round} 次審查的函復日期為 ${responseDate} 嗎？\n將更新 ${issueList.length} 筆事項。`)) {
+                    return;
+                }
+                
+                showToast('批次設定中，請稍候...', 'info');
+                
+                let successCount = 0;
+                let errorCount = 0;
+                const errors = [];
+                
+                // 批次更新所有事項
+                for (let i = 0; i < issueList.length; i++) {
+                    const issue = issueList[i];
+                    const issueId = issue.id;
+                    
+                    if (!issueId) {
+                        errorCount++;
+                        errors.push(`${issue.number || '未知編號'}: 缺少事項ID`);
+                        continue;
+                    }
+                    
+                    try {
+                        // 讀取該輪次的現有資料
+                        const suffix = round === 1 ? '' : round;
+                        const handling = issue['handling' + suffix] || '';
+                        const review = issue['review' + suffix] || '';
+                        const replyDate = issue['reply_date_r' + round] || '';
+                        
+                        // 更新該輪次的函復日期
+                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                status: issue.status || '持續列管',
+                                round: round,
+                                handling: handling,
+                                review: review,
+                                replyDate: replyDate || null,
+                                responseDate: responseDate
+                            })
+                        });
+                        
+                        if (updateRes.ok) {
+                            const result = await updateRes.json();
+                            if (result.success) {
+                                successCount++;
+                            } else {
+                                errorCount++;
+                                errors.push(`${issue.number || '未知編號'}: 更新失敗`);
+                            }
+                        } else {
+                            errorCount++;
+                            const errorData = await updateRes.json().catch(() => ({}));
+                            errors.push(`${issue.number || '未知編號'}: ${errorData.error || '更新失敗'}`);
+                        }
+                    } catch (e) {
+                        errorCount++;
+                        errors.push(`${issue.number || '未知編號'}: ${e.message}`);
+                    }
+                }
+                
+                if (successCount > 0) {
+                    showToast(`批次設定完成！成功 ${successCount} 筆${errorCount > 0 ? `，失敗 ${errorCount} 筆` : ''}`, errorCount > 0 ? 'warning' : 'success');
+                    
+                    // 如果有錯誤，顯示詳細資訊
+                    if (errorCount > 0 && errors.length > 0) {
+                        console.error('批次設定函復日期錯誤:', errors);
+                    }
+                    
+                    // 清空輸入欄位
+                    roundSelect.value = '';
+                    dateInput.value = '';
+                } else {
+                    showToast('批次設定失敗，所有事項都無法更新', 'error');
+                    if (errors.length > 0) {
+                        console.error('批次設定函復日期錯誤:', errors);
+                    }
+                }
+            } catch (e) {
+                showToast('批次設定失敗: ' + e.message, 'error');
+            }
+        }
+        
+        // 批次設定函復日期（用於事項修正頁面，保留向後兼容）
         async function batchSetResponseDate() {
             const roundSelect = document.getElementById('yearEditBatchResponseRound');
             const dateInput = document.getElementById('yearEditBatchResponseDate');

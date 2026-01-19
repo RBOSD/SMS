@@ -12,7 +12,7 @@
 <div id="tab-data-issues">
     <div class="admin-tabs" style="margin-bottom:20px; border-bottom:2px solid #e2e8f0;">
         <button class="admin-tab-btn active" onclick="switchIssuesSubTab('import')">批次匯入</button>
-        <button class="admin-tab-btn" onclick="switchIssuesSubTab('create')">新增事項/辦理情形</button>
+        <button class="admin-tab-btn" onclick="switchIssuesSubTab('create')">開立事項建檔</button>
         <button class="admin-tab-btn" onclick="switchIssuesSubTab('year-edit')">事項修正</button>
     </div>
 
@@ -167,7 +167,7 @@
             <!-- 模式切換 -->
             <div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
                 <div style="flex:1;">
-                    <span style="font-weight:700; color:#334155; font-size:16px;">📝 新增開立事項/辦理情形</span>
+                    <span style="font-weight:700; color:#334155; font-size:16px;">📝 開立事項建檔</span>
                     <div style="font-size:13px; color:#64748b; margin-top:4px;">
                         <span id="createModeDescription">選擇計畫後，可連續輸入多筆事項。系統會自動根據編號判斷年度、機構與分組。可同時新增事項內容及多次辦理情形。</span>
                     </div>
@@ -181,22 +181,57 @@
             </div>
 
             <!-- 共用設定：檢查計畫和日期 -->
-            <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:24px; border:1px solid #e2e8f0; display:flex; gap:24px; align-items:flex-end; flex-wrap:wrap;">
-                <div style="flex: 2; min-width: 300px;">
-                    <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
-                        檢查計畫名稱 <span style="color:#ef4444;">*</span>
-                    </label>
-                    <select id="createPlanName" class="filter-input" style="background:white;padding:10px;" onchange="onCreatePlanChange(); handleCreateBatchPlanChange();">
-                        <option value="">請選擇計畫</option>
-                        <!-- JavaScript 會自動產生選項 -->
-                    </select>
+            <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:24px; border:1px solid #e2e8f0;">
+                <div style="display:flex; gap:24px; align-items:flex-end; flex-wrap:wrap; margin-bottom:20px;">
+                    <div style="flex: 2; min-width: 300px;">
+                        <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
+                            檢查計畫名稱 <span style="color:#ef4444;">*</span>
+                        </label>
+                        <select id="createPlanName" class="filter-input" style="background:white;padding:10px;" onchange="onCreatePlanChange(); handleCreateBatchPlanChange();">
+                            <option value="">請選擇計畫</option>
+                            <!-- JavaScript 會自動產生選項 -->
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
+                            初次發函日期 <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="text" id="createIssueDate" class="filter-input" placeholder="例如: 1130501" 
+                            style="background:white;">
+                    </div>
                 </div>
-                <div style="flex: 1; min-width: 150px;">
-                    <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
-                        初次發函日期 <span style="color:#ef4444;">*</span>
-                    </label>
-                    <input type="text" id="createIssueDate" class="filter-input" placeholder="例如: 1130501" 
-                        style="background:white;">
+                
+                <!-- 批次設定函復日期 -->
+                <div style="background:white; padding:16px; border-radius:8px; border:1px solid #e2e8f0;">
+                    <div style="font-weight:600; color:#334155; font-size:14px; margin-bottom:12px;">📅 批次設定函復日期（選填）</div>
+                    <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
+                        💡 可為該檢查計畫下所有事項批次設定函復日期。通常在審查完成後使用。
+                    </div>
+                    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <label style="font-size:13px; color:#475569; font-weight:500;">選擇輪次：</label>
+                            <select id="createBatchResponseRound" class="filter-select" style="width:120px; font-size:13px;">
+                                <option value="">選擇輪次</option>
+                                <option value="1">第 1 次</option>
+                                <option value="2">第 2 次</option>
+                                <option value="3">第 3 次</option>
+                                <option value="4">第 4 次</option>
+                                <option value="5">第 5 次</option>
+                                <option value="6">第 6 次</option>
+                                <option value="7">第 7 次</option>
+                                <option value="8">第 8 次</option>
+                                <option value="9">第 9 次</option>
+                                <option value="10">第 10 次</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <label style="font-size:13px; color:#475569; font-weight:500;">函復日期：</label>
+                            <input type="text" id="createBatchResponseDate" class="filter-input" placeholder="例如: 1130615" 
+                                style="width:120px; font-size:13px; padding:8px;">
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="batchSetResponseDateForPlan()" 
+                            style="padding:8px 16px; font-size:13px;">批次設定</button>
+                    </div>
                 </div>
             </div>
 
@@ -390,32 +425,8 @@
             
             <!-- 事項列表 -->
             <div id="yearEditIssueList" style="display:none; margin-bottom:24px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:12px;">
-                    <div style="font-weight:600; color:#334155; font-size:15px;">
-                        事項列表（共 <span id="yearEditIssueListCount">0</span> 項）
-                    </div>
-                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <label style="font-size:13px; color:#475569; font-weight:500;">批次設定函復日期：</label>
-                            <select id="yearEditBatchResponseRound" class="filter-select" style="width:120px; font-size:13px;">
-                                <option value="">選擇輪次</option>
-                                <option value="1">第 1 次</option>
-                                <option value="2">第 2 次</option>
-                                <option value="3">第 3 次</option>
-                                <option value="4">第 4 次</option>
-                                <option value="5">第 5 次</option>
-                                <option value="6">第 6 次</option>
-                                <option value="7">第 7 次</option>
-                                <option value="8">第 8 次</option>
-                                <option value="9">第 9 次</option>
-                                <option value="10">第 10 次</option>
-                            </select>
-                            <input type="text" id="yearEditBatchResponseDate" class="filter-input" placeholder="例如: 1130615" 
-                                style="width:120px; font-size:13px; padding:8px;">
-                            <button class="btn btn-primary btn-sm" onclick="batchSetResponseDate()" 
-                                style="padding:8px 16px; font-size:13px;">批次設定</button>
-                        </div>
-                    </div>
+                <div style="margin-bottom:12px; font-weight:600; color:#334155; font-size:15px;">
+                    事項列表（共 <span id="yearEditIssueListCount">0</span> 項）
                 </div>
                 <div id="yearEditIssueListContainer" style="border:1px solid #e2e8f0; border-radius:8px; background:#fff;">
                     <!-- 事項列表將由 JavaScript 動態生成 -->
