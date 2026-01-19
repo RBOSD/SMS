@@ -2351,6 +2351,9 @@ if (dashboard) {
                 batchBtn.classList.remove('btn-primary');
                 batchBtn.classList.add('btn-outline');
                 desc.textContent = '手動新增單筆開立事項。輸入編號後，系統會自動帶入年度、機構、分組與種類資訊。';
+                // 隱藏載入現有事項按鈕
+                const loadContainer = document.getElementById('createLoadExistingContainer');
+                if (loadContainer) loadContainer.style.display = 'none';
             } else {
                 singleMode.style.display = 'none';
                 batchMode.style.display = 'block';
@@ -2358,12 +2361,18 @@ if (dashboard) {
                 batchBtn.classList.add('btn-primary');
                 singleBtn.classList.remove('btn-primary');
                 singleBtn.classList.add('btn-outline');
-                desc.textContent = '選擇計畫後，可連續輸入多筆事項。系統會自動根據編號判斷年度、機構與分組。';
+                desc.textContent = '選擇計畫後，可連續輸入多筆事項。系統會自動根據編號判斷年度、機構與分組。可載入現有事項繼續填寫辦理情形。';
                 if (document.querySelectorAll('#createBatchGridBody tr').length === 0) {
                     initCreateBatchGrid();
                 }
                 // 初始化批次設定函復日期的選項
                 initBatchResponseRoundOptions();
+                // 顯示載入現有事項按鈕（如果已選擇計畫）
+                const planSelect = document.getElementById('createPlanName');
+                const loadContainer = document.getElementById('createLoadExistingContainer');
+                if (loadContainer && planSelect && planSelect.value) {
+                    loadContainer.style.display = 'block';
+                }
             }
         }
         
@@ -2406,7 +2415,146 @@ if (dashboard) {
             // 如果是批次模式，查詢並預填審查函復輪次
             if (createMode === 'batch') {
                 updateBatchResponseRoundFromPlan();
+                // 顯示/隱藏載入現有事項按鈕
+                const loadContainer = document.getElementById('createLoadExistingContainer');
+                if (loadContainer) {
+                    loadContainer.style.display = planValue ? 'block' : 'none';
+                }
             }
+        }
+        
+        // 載入現有事項到批次表格
+        async function loadExistingIssuesToBatch() {
+            const planSelect = document.getElementById('createPlanName');
+            if (!planSelect) return;
+            
+            const planValue = planSelect.value.trim();
+            if (!planValue) {
+                showToast('請先選擇檢查計畫', 'error');
+                return;
+            }
+            
+            try {
+                showToast('載入事項中，請稍候...', 'info');
+                
+                // 載入該計畫下的所有事項
+                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
+                if (!res.ok) throw new Error('載入事項列表失敗');
+                
+                const json = await res.json();
+                const issueList = json.data || [];
+                
+                if (issueList.length === 0) {
+                    showToast('該檢查計畫下尚無開立事項', 'info');
+                    return;
+                }
+                
+                // 確認是否要載入（如果表格中已有資料）
+                const tbody = document.getElementById('createBatchGridBody');
+                if (!tbody) return;
+                
+                const existingRows = tbody.querySelectorAll('tr');
+                const hasExistingData = Array.from(existingRows).some(tr => {
+                    const number = tr.querySelector('.create-batch-number')?.value.trim();
+                    const content = tr.querySelector('.create-batch-content')?.value.trim();
+                    return number || content;
+                });
+                
+                if (hasExistingData) {
+                    if (!confirm(`表格中已有資料，載入現有事項將會清空現有資料。\n確定要載入 ${issueList.length} 筆事項嗎？`)) {
+                        return;
+                    }
+                }
+                
+                // 清空現有表格
+                tbody.innerHTML = '';
+                batchHandlingData = {};
+                
+                // 載入事項資料到表格
+                issueList.forEach((issue, index) => {
+                    const rowIdx = index;
+                    const tr = document.createElement('tr');
+                    
+                    // 取得類型代碼
+                    let kindCode = issue.item_kind_code || issue.itemKindCode || '';
+                    if (!kindCode) {
+                        const numStr = String(issue.number || '');
+                        const m = numStr.match(/-([NOR])\d+$/i);
+                        if (m) kindCode = m[1].toUpperCase();
+                    }
+                    
+                    // 取得分組名稱
+                    const divisionName = issue.division_name || issue.divisionName || '';
+                    
+                    // 取得檢查種類
+                    const inspectionName = issue.inspection_category_name || issue.inspectionCategoryName || '';
+                    
+                    // 取得狀態
+                    const status = issue.status || '持續列管';
+                    
+                    tr.innerHTML = `
+                        <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx + 1}</td>
+                        <td><input type="text" class="filter-input create-batch-number" value="${escapeHtml(issue.number || '')}" onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
+                        <td><textarea class="filter-input create-batch-content" rows="1" style="resize:both; min-width:200px; width:200px; min-height:32px;" oninput="adjustTextareaWidth(this)">${stripHtml(issue.content || '')}</textarea></td>
+                        <td><input type="text" class="filter-input create-batch-year" value="${escapeHtml(issue.year || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
+                        <td><input type="text" class="filter-input create-batch-unit" value="${escapeHtml(issue.unit || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
+                        <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務" ${divisionName === '運務' ? 'selected' : ''}>運務</option><option value="工務" ${divisionName === '工務' ? 'selected' : ''}>工務</option><option value="機務" ${divisionName === '機務' ? 'selected' : ''}>機務</option><option value="電務" ${divisionName === '電務' ? 'selected' : ''}>電務</option><option value="安全" ${divisionName === '安全' ? 'selected' : ''}>安全</option><option value="審核" ${divisionName === '審核' ? 'selected' : ''}>審核</option><option value="災防" ${divisionName === '災防' ? 'selected' : ''}>災防</option><option value="運轉" ${divisionName === '運轉' ? 'selected' : ''}>運轉</option><option value="土木" ${divisionName === '土木' ? 'selected' : ''}>土木</option><option value="機電" ${divisionName === '機電' ? 'selected' : ''}>機電</option></select></td>
+                        <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查" ${inspectionName === '定期檢查' ? 'selected' : ''}>定期檢查</option><option value="例行性檢查" ${inspectionName === '例行性檢查' ? 'selected' : ''}>例行性檢查</option><option value="特別檢查" ${inspectionName === '特別檢查' ? 'selected' : ''}>特別檢查</option><option value="臨時檢查" ${inspectionName === '臨時檢查' ? 'selected' : ''}>臨時檢查</option></select></td>
+                        <td><select class="filter-select create-batch-kind"><option value="">-</option><option value="N" ${kindCode === 'N' ? 'selected' : ''}>缺失</option><option value="O" ${kindCode === 'O' ? 'selected' : ''}>觀察</option><option value="R" ${kindCode === 'R' ? 'selected' : ''}>建議</option></select></td>
+                        <td><select class="filter-select create-batch-status"><option value="持續列管" ${status === '持續列管' ? 'selected' : ''}>持續列管</option><option value="解除列管" ${status === '解除列管' ? 'selected' : ''}>解除列管</option><option value="自行列管" ${status === '自行列管' ? 'selected' : ''}>自行列管</option></select></td>
+                        <td style="text-align:center;">
+                            <button class="btn btn-outline btn-sm create-batch-handling-btn" onclick="openBatchHandlingModal(${rowIdx})" data-row-index="${rowIdx}" style="padding:6px 12px; font-size:12px; width:100%;" title="點擊新增或管理辦理情形">
+                                <span class="create-batch-handling-status">新增辦理情形</span>
+                            </button>
+                        </td>
+                        <td style="text-align:center;">
+                            <button class="btn btn-danger btn-sm" onclick="removeCreateBatchRow(this)" style="padding:4px 8px;">×</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                    
+                    // 調整 textarea 寬度
+                    const contentTextarea = tr.querySelector('.create-batch-content');
+                    if (contentTextarea) {
+                        adjustTextareaWidth(contentTextarea);
+                    }
+                    
+                    // 載入現有的辦理情形資料（如果有）
+                    const handlingRounds = [];
+                    for (let i = 1; i <= 200; i++) {
+                        const suffix = i === 1 ? '' : i;
+                        const handling = issue['handling' + suffix] || '';
+                        const replyDate = issue['reply_date_r' + i] || '';
+                        
+                        if (handling && handling.trim()) {
+                            handlingRounds.push({
+                                round: i,
+                                handling: stripHtml(handling.trim()), // 移除 HTML 標籤
+                                replyDate: replyDate || ''
+                            });
+                        }
+                    }
+                    
+                    if (handlingRounds.length > 0) {
+                        batchHandlingData[rowIdx] = handlingRounds;
+                        updateBatchHandlingStatus(rowIdx);
+                    } else {
+                        updateBatchHandlingStatus(rowIdx);
+                    }
+                });
+                
+                showToast(`已載入 ${issueList.length} 筆事項資料`, 'success');
+            } catch (e) {
+                showToast('載入事項失敗: ' + e.message, 'error');
+            }
+        }
+        
+        // HTML 轉義函數（防止 XSS）
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
         // 從檢查計畫查詢並預填審查函復輪次

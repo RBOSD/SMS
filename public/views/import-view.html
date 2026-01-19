@@ -182,7 +182,7 @@
 
             <!-- 共用設定：檢查計畫和日期 -->
             <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:24px; border:1px solid #e2e8f0;">
-                <div style="display:flex; gap:24px; align-items:flex-end; flex-wrap:wrap;">
+                <div style="display:flex; gap:24px; align-items:flex-end; flex-wrap:wrap; margin-bottom:12px;">
                     <div style="flex: 2; min-width: 300px;">
                         <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
                             檢查計畫名稱 <span style="color:#ef4444;">*</span>
@@ -199,6 +199,16 @@
                         <input type="text" id="createIssueDate" class="filter-input" placeholder="例如: 1130501" 
                             style="background:white;">
                     </div>
+                </div>
+                <!-- 批次模式：載入現有事項按鈕 -->
+                <div id="createLoadExistingContainer" style="display:none;">
+                    <button class="btn btn-outline btn-sm" onclick="loadExistingIssuesToBatch()" 
+                        style="padding:8px 16px; font-size:13px;">
+                        📥 載入該計畫下現有事項
+                    </button>
+                    <span style="font-size:12px; color:#64748b; margin-left:12px;">
+                        💡 可載入該檢查計畫下已有的事項資料，方便繼續填寫新的辦理情形
+                    </span>
                 </div>
             </div>
 
