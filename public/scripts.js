@@ -4888,12 +4888,28 @@ if (dashboard) {
             const suffix = round === 1 ? '' : round;
             
             // 載入該回合的資料
+            // 重要：第N次審查時，應該載入第N次的辦理情形和審查意見
+            // 辦理情形應該已經在「資料管理」頁面填寫，這裡只是讀取
             const handling = currentEditItem['handling' + suffix] || '';
             const review = currentEditItem['review' + suffix] || '';
             // 機構回復日期從辦理情形中讀取（不需要在審查頁面編輯）
             const replyDate = currentEditItem['reply_date_r' + round] || '';
             
+            // 調試：確認載入的資料正確性
+            console.log(`載入第 ${round} 次審查資料：`, {
+                round,
+                suffix,
+                handlingField: 'handling' + suffix,
+                reviewField: 'review' + suffix,
+                handling: handling ? handling.substring(0, 50) + '...' : '(空)',
+                review: review ? review.substring(0, 50) + '...' : '(空)',
+                replyDate
+            });
+            
             // 儲存到隱藏的輸入框（用於儲存時提交）
+            // 注意：這裡的 handling 是第N次的辦理情形，review 是第N次的審查意見
+            // 在審查頁面，我們只編輯 review，handling 是只讀的（應該已在資料管理頁面填寫）
+            // 重要：確保不會把 review 的值錯誤地存到 handling
             document.getElementById('editHandling').value = handling;
             document.getElementById('editReview').value = review;
             // replyDate 從資料中讀取，不需要輸入框
@@ -5107,11 +5123,16 @@ if (dashboard) {
                 return;
             }
             
-            // 第一次審查時，必須已有辦理情形（應該在資料管理頁面先輸入）
-            if (round === 1 && !handling) {
-                showToast('第一次審查時，必須先有機構辦理情形。請至「資料管理」頁面的「年度編輯」功能中新增辦理情形後，再進行審查。', 'error');
+            // 第N次審查時，必須已有第N次的辦理情形（應該在資料管理頁面先輸入）
+            if (!handling) {
+                showToast(`第 ${round} 次審查時，必須先有第 ${round} 次機構辦理情形。請至「資料管理」頁面的「年度編輯」功能中新增辦理情形後，再進行審查。`, 'error');
                 return;
             }
+            
+            // 重要：確保 handling 和 review 的對應關係正確
+            // handling 應該是第N次的辦理情形（已在資料管理頁面填寫）
+            // review 應該是第N次的審查意見（正在審查頁面填寫）
+            // 不應該把審查意見存到辦理情形欄位
             
             try {
                 const res = await fetch(`/api/issues/${id}`, {
@@ -5134,9 +5155,13 @@ if (dashboard) {
                         // 重新載入資料
                         await loadIssuesPage(issuesPage);
                         // 更新 currentEditItem
-                        currentEditItem = currentData.find(d => String(d.id) === String(id));
-                        if (currentEditItem) {
+                        const updatedItem = currentData.find(d => String(d.id) === String(id));
+                        if (updatedItem) {
+                            currentEditItem = updatedItem;
                             // 重新載入回合資料以反映最新的儲存結果
+                            // 確保使用正確的 round 值（不應該改變）
+                            const currentRound = parseInt(document.getElementById('editRound').value) || 1;
+                            document.getElementById('editRound').value = currentRound;
                             loadRoundData();
                         }
                     } else {
