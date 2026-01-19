@@ -2608,30 +2608,45 @@ if (dashboard) {
                     return;
                 }
                 
-                // 找出所有事項中最高的審查輪次
+                // 找出第一個「有審查內容但沒有函復日期」的輪次
+                // 如果所有輪次都有日期，則找下一個需要填寫的輪次
+                let foundIncompleteRound = null;
                 let maxRound = 0;
+                
                 issueList.forEach(issue => {
                     // 檢查所有可能的審查輪次（最多200次）
                     for (let i = 1; i <= 200; i++) {
                         const suffix = i === 1 ? '' : i;
                         const review = issue['review' + suffix] || '';
                         const responseDate = issue['response_date_r' + i] || '';
-                        // 如果有審查意見或函復日期，表示該輪次已完成
-                        if (review.trim() || responseDate) {
+                        
+                        // 如果有審查意見，記錄最高輪次
+                        if (review.trim()) {
                             if (i > maxRound) {
                                 maxRound = i;
+                            }
+                            
+                            // 如果有審查內容但沒有函復日期，這是需要填寫的輪次
+                            if (review.trim() && !responseDate) {
+                                if (!foundIncompleteRound || i < foundIncompleteRound) {
+                                    foundIncompleteRound = i;
+                                }
                             }
                         }
                     }
                 });
                 
-                // 預填為最高輪次 + 1（如果最高輪次是0，則為第1次）
-                const suggestedRound = maxRound + 1;
+                // 如果找到有審查內容但無日期的輪次，使用該輪次
+                // 否則使用最高輪次 + 1（如果最高輪次是0，則為第1次）
+                const suggestedRound = foundIncompleteRound || (maxRound + 1);
+                
                 if (suggestedRound <= 200) {
                     roundSelect.value = suggestedRound;
                     roundManualInput.value = '';
                     // 顯示提示訊息
-                    if (maxRound > 0) {
+                    if (foundIncompleteRound) {
+                        showToast(`已自動預填為第 ${suggestedRound} 次審查函復（該輪次有審查內容但尚未填寫函復日期）`, 'info');
+                    } else if (maxRound > 0) {
                         showToast(`已自動預填為第 ${suggestedRound} 次審查函復（最高已完成：第 ${maxRound} 次）`, 'info');
                     } else {
                         showToast(`已自動預填為第 ${suggestedRound} 次審查函復（尚無審查紀錄）`, 'info');
@@ -4590,7 +4605,7 @@ if (dashboard) {
         function toggleEditMode(edit) { 
             document.getElementById('viewModeContent').classList.toggle('hidden', edit); 
             document.getElementById('editModeContent').classList.toggle('hidden', !edit); 
-            document.getElementById('drawerTitle').innerText = edit ? "編輯事項" : "詳細資料"; 
+            document.getElementById('drawerTitle').innerText = edit ? "審查事項" : "詳細資料"; 
             if (edit) { 
                 if (!currentEditItem) return;
                 // 清除所有編輯欄位，避免前一個事項的資料殘留
@@ -5032,16 +5047,28 @@ if (dashboard) {
                 if (review && review.trim()) {
                     const viewReviewRoundNum = document.getElementById('viewReviewRoundNum');
                     const viewReviewText = document.getElementById('viewReviewText');
+                    const viewReviewDate = document.getElementById('viewReviewDate');
                     if (viewReviewRoundNum) viewReviewRoundNum.textContent = round;
                     if (viewReviewText) viewReviewText.textContent = review;
+                    // 顯示審查函復日期
+                    const responseDate = currentEditItem['response_date_r' + round] || '';
+                    if (viewReviewDate) {
+                        viewReviewDate.textContent = responseDate ? `函復日期：${responseDate}` : '';
+                    }
                     if (viewReviewBox) viewReviewBox.style.display = 'block';
                 }
                 
                 if (handling && handling.trim()) {
                     const viewHandlingRoundNum = document.getElementById('viewHandlingRoundNum');
                     const viewHandlingText = document.getElementById('viewHandlingText');
+                    const viewHandlingDate = document.getElementById('viewHandlingDate');
                     if (viewHandlingRoundNum) viewHandlingRoundNum.textContent = round;
                     if (viewHandlingText) viewHandlingText.textContent = handling;
+                    // 顯示辦理情形回復日期
+                    const replyDate = currentEditItem['reply_date_r' + round] || '';
+                    if (viewHandlingDate) {
+                        viewHandlingDate.textContent = replyDate ? `回復日期：${replyDate}` : '';
+                    }
                     if (viewHandlingBox) viewHandlingBox.style.display = 'block';
                 }
             }
