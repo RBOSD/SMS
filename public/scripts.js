@@ -5502,9 +5502,9 @@ if (dashboard) {
                 return;
             }
             
-            // 驗證日期格式（應該是6位數字，例如：1130615）
-            if (!/^\d{6}$/.test(responseDate)) {
-                showToast('日期格式錯誤，應為6位數字（例如：1130615）', 'error');
+            // 驗證日期格式（應該是6或7位數字，例如：1130615 或 1141001）
+            if (!/^\d{6,7}$/.test(responseDate)) {
+                showToast('日期格式錯誤，應為6或7位數字（例如：1130615 或 1141001）', 'error');
                 return;
             }
             
@@ -5627,9 +5627,9 @@ if (dashboard) {
                 return;
             }
             
-            // 驗證日期格式（應該是6位數字，例如：1130615）
-            if (!/^\d{6}$/.test(responseDate)) {
-                showToast('日期格式錯誤，應為6位數字（例如：1130615）', 'error');
+            // 驗證日期格式（應該是6或7位數字，例如：1130615 或 1141001）
+            if (!/^\d{6,7}$/.test(responseDate)) {
+                showToast('日期格式錯誤，應為6或7位數字（例如：1130615 或 1141001）', 'error');
                 return;
             }
             
