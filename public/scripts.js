@@ -5023,8 +5023,14 @@ if (dashboard) {
                     if (review && review.trim()) {
                         const viewReviewRoundNum = document.getElementById('viewReviewRoundNum');
                         const viewReviewText = document.getElementById('viewReviewText');
+                        const viewReviewDate = document.getElementById('viewReviewDate');
                         if (viewReviewRoundNum) viewReviewRoundNum.textContent = maxRound;
                         if (viewReviewText) viewReviewText.textContent = review;
+                        // 顯示審查函復日期
+                        const responseDate = currentEditItem['response_date_r' + maxRound] || '';
+                        if (viewReviewDate) {
+                            viewReviewDate.textContent = responseDate ? `函復日期：${responseDate}` : '';
+                        }
                         if (viewReviewBox) viewReviewBox.style.display = 'block';
                     }
                     
@@ -5032,8 +5038,14 @@ if (dashboard) {
                     if (handling && handling.trim()) {
                         const viewHandlingRoundNum = document.getElementById('viewHandlingRoundNum');
                         const viewHandlingText = document.getElementById('viewHandlingText');
+                        const viewHandlingDate = document.getElementById('viewHandlingDate');
                         if (viewHandlingRoundNum) viewHandlingRoundNum.textContent = maxRound;
                         if (viewHandlingText) viewHandlingText.textContent = handling;
+                        // 顯示辦理情形回復日期
+                        const replyDate = currentEditItem['reply_date_r' + maxRound] || '';
+                        if (viewHandlingDate) {
+                            viewHandlingDate.textContent = replyDate ? `回復日期：${replyDate}` : '';
+                        }
                         if (viewHandlingBox) viewHandlingBox.style.display = 'block';
                     }
                 }
