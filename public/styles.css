@@ -1518,20 +1518,23 @@
 
             /* 第一行容器：編號和狀態與類型 */
             td[data-label="編號"] {
-                font-size: 18px;
+                font-size: 16px;
                 font-weight: 700;
                 color: var(--text-main);
                 margin-bottom: 10px;
                 margin-left: 0;
                 padding-left: 36px;
-                padding-right: 0;
+                padding-right: 140px;
                 width: 100%;
                 order: 1;
-                line-height: 28px;
-                min-height: 28px;
+                line-height: 24px;
+                min-height: 24px;
                 display: flex;
                 align-items: center;
                 position: relative;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             /* 狀態與類型在編號同一行右側 */
@@ -1540,6 +1543,7 @@
                 top: 16px;
                 right: 16px;
                 width: auto;
+                max-width: 130px;
                 margin-bottom: 0;
                 display: flex;
                 align-items: center;
@@ -1547,8 +1551,9 @@
                 flex-wrap: wrap;
                 justify-content: flex-end;
                 order: 1;
-                line-height: 28px;
-                min-height: 28px;
+                line-height: 24px;
+                min-height: 24px;
+                z-index: 1;
             }
 
             /* 確保狀態與類型的徽章和標籤不會過大 */
@@ -1560,26 +1565,43 @@
                 line-height: 1.4;
             }
 
-            /* 第二行：年度和機構標籤容器 */
+            /* 第二行：年度和機構標籤容器 - 改為更自然的展示方式 */
             td[data-label="年度"],
             td[data-label="機構"] {
                 display: inline-block;
                 width: auto;
                 font-size: 13px;
                 color: #64748b;
-                background: #f1f5f9;
-                padding: 5px 12px;
-                border-radius: 6px;
-                margin-right: 8px;
-                margin-bottom: 10px;
+                background: none;
+                padding: 0;
+                border-radius: 0;
+                margin-right: 16px;
+                margin-bottom: 8px;
                 margin-left: 0;
                 margin-top: 0;
-                vertical-align: middle;
-                line-height: 1.5;
+                vertical-align: baseline;
+                line-height: 1.6;
+                font-weight: 400;
+            }
+
+            /* 年度標籤前面加上標籤文字 */
+            td[data-label="年度"]::before {
+                content: "年度：";
+                color: #94a3b8;
+                font-weight: 500;
+                margin-right: 4px;
             }
 
             td[data-label="年度"] {
                 order: 2;
+            }
+
+            /* 機構標籤前面加上標籤文字 */
+            td[data-label="機構"]::before {
+                content: "機構：";
+                color: #94a3b8;
+                font-weight: 500;
+                margin-right: 4px;
             }
 
             td[data-label="機構"] {
