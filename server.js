@@ -537,7 +537,19 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
         if (responseDate !== undefined) {
             updateFields.splice(updateFields.length - 1, 0, `${respField}=$${paramIdx}`);
             params.push(responseDate || '');
+            console.log(`[PUT /api/issues/:id] 將更新 ${respField} = ${responseDate || ''}`);
             paramIdx++;
+        }
+        
+        // 處理 replyDate：如果提供了（即使是空字符串），也要更新
+        // 注意：如果前端沒有發送 replyDate，這裡不會更新，保持原有值不變
+        if (replyDate !== undefined) {
+            updateFields.splice(updateFields.length - 1, 0, `${replyField}=$${paramIdx}`);
+            params.push(replyDate || '');
+            console.log(`[PUT /api/issues/:id] 將更新 ${replyField} = ${replyDate || ''}`);
+            paramIdx++;
+        } else {
+            console.log(`[PUT /api/issues/:id] replyDate 未提供，不更新 ${replyField}，保持原有值不變`);
         }
         
         if (content !== undefined) {
@@ -602,7 +614,10 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
         }
         
         params.push(id);
-        await pool.query(`UPDATE issues SET ${updateFields.join(', ')} WHERE id=$${paramIdx}`, params);
+        const updateQuery = `UPDATE issues SET ${updateFields.join(', ')} WHERE id=$${paramIdx}`;
+        console.log(`[PUT /api/issues/:id] 執行 SQL: ${updateQuery}`);
+        console.log(`[PUT /api/issues/:id] 參數值:`, params);
+        await pool.query(updateQuery, params);
         const actionDetails = `更新開立事項：編號 ${issueNumber}，第 ${r} 次審查，狀態：${status}${content !== undefined ? '，內容已更新' : ''}${issueDate !== undefined ? '，開立日期已更新' : ''}${number !== undefined ? '，編號已更新' : ''}${year !== undefined ? '，年度已更新' : ''}${unit !== undefined ? '，機構已更新' : ''}${divisionName !== undefined ? '，分組已更新' : ''}${inspectionCategoryName !== undefined ? '，檢查種類已更新' : ''}${itemKindCode !== undefined ? '，類型已更新' : ''}${planName !== undefined ? '，檢查計畫已更新' : ''}`;
         logAction(req.session.user.username, 'UPDATE_ISSUE', actionDetails, req);
         res.json({ success: true });
