@@ -5909,27 +5909,20 @@ if (dashboard) {
                         // userInputResponseDate 是在函數開始時從輸入框獲取的用戶輸入值，不會被修改
                         // 確保不使用 issue 物件中的任何日期欄位（包括 reply_date_r 和 response_date_r）
                         
-                        // 調試：確認要發送的日期值
-                        console.log(`[批次設定審查函復日期] 事項編號: ${issue.number || issueId}, 用戶輸入日期: ${userInputResponseDate}, 輪次: ${round}`);
-                        
                         // 更新該輪次的函復日期
                         // 注意：只更新 responseDate（審查函復日期），不更新 replyDate（回復日期）
-                        const updatePayload = {
-                            status: issue.status || '持續列管',
-                            round: round,
-                            handling: handling,
-                            review: review,
-                            // 重要：不發送 replyDate，讓後端保持原有值不變
-                            // 只發送 responseDate，使用用戶在輸入框中輸入的日期
-                            responseDate: userInputResponseDate  // 明確使用用戶輸入的審查函復日期，不從資料庫讀取
-                        };
-                        
-                        console.log(`[批次設定審查函復日期] 發送給後端的 payload:`, JSON.stringify(updatePayload));
-                        
                         const updateRes = await fetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(updatePayload)
+                            body: JSON.stringify({
+                                status: issue.status || '持續列管',
+                                round: round,
+                                handling: handling,
+                                review: review,
+                                // 重要：不發送 replyDate，讓後端保持原有值不變
+                                // 只發送 responseDate，使用用戶在輸入框中輸入的日期
+                                responseDate: userInputResponseDate  // 明確使用用戶輸入的審查函復日期，不從資料庫讀取
+                            })
                         });
                         
                         if (updateRes.ok) {
