@@ -388,6 +388,8 @@
         
         // 自訂確認對話框（Promise 版本）
         let confirmModalResolve = null;
+        let confirmModalHandler = null;
+        
         function showConfirmModal(message, confirmText = '確認', cancelText = '取消') {
             return new Promise((resolve) => {
                 const modal = document.getElementById('confirmModal');
@@ -400,17 +402,28 @@
                     return;
                 }
                 
+                // 清除舊的事件處理器
+                if (confirmModalHandler) {
+                    confirmBtn.removeEventListener('click', confirmModalHandler);
+                }
+                
+                // 重置狀態
+                confirmModalResolve = resolve;
+                
                 messageEl.textContent = message;
                 confirmBtn.textContent = confirmText;
                 
-                // 設置確認按鈕的點擊事件
-                confirmBtn.onclick = () => {
-                    closeConfirmModal();
-                    resolve(true);
+                // 設置新的確認按鈕點擊事件
+                confirmModalHandler = function handleConfirm() {
+                    modal.style.display = 'none';
+                    if (confirmModalResolve) {
+                        confirmModalResolve(true);
+                        confirmModalResolve = null;
+                    }
                 };
+                confirmBtn.addEventListener('click', confirmModalHandler);
                 
                 modal.style.display = 'flex';
-                confirmModalResolve = resolve;
             });
         }
         
@@ -419,6 +432,7 @@
             if (modal) {
                 modal.style.display = 'none';
                 if (confirmModalResolve) {
+                    // 取消時 resolve(false)
                     confirmModalResolve(false);
                     confirmModalResolve = null;
                 }
