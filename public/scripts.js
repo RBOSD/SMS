@@ -5918,7 +5918,7 @@ if (dashboard) {
                                 handling: handling,
                                 review: review,
                                 // 不發送 replyDate，讓後端保持原有值不變
-                                responseDate: dateToSet  // 明確使用用戶輸入的審查函復日期
+                                responseDate: userInputResponseDate  // 明確使用用戶輸入的審查函復日期
                             })
                         });
                         
