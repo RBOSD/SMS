@@ -5336,14 +5336,14 @@ if (dashboard) {
             const select = document.getElementById('viewRoundSelect');
             if (!select) return;
             
-            // 找出所有同時有審查意見和辦理情形的輪次（完整內容）
+            // 找出所有有內容的輪次（有審查意見或辦理情形即可）
             const rounds = [];
             for (let i = 200; i >= 1; i--) {
                 const suffix = i === 1 ? '' : i;
                 const hasHandling = currentEditItem['handling' + suffix] && currentEditItem['handling' + suffix].trim();
                 const hasReview = currentEditItem['review' + suffix] && currentEditItem['review' + suffix].trim();
-                // 只包含同時有兩個內容的輪次
-                if (hasHandling && hasReview) {
+                // 只要有審查意見或辦理情形就包含
+                if (hasHandling || hasReview) {
                     rounds.push(i);
                 }
             }
@@ -5375,23 +5375,34 @@ if (dashboard) {
             if (viewHandlingBox) viewHandlingBox.style.display = 'none';
             
             if (selectedValue === 'latest') {
-                // 顯示最新進度 - 找出最高輪次，只要有審查意見或辦理情形即可（不要求同時有兩個，也不要求有日期）
+                // 顯示最新進度 - 優先顯示「同時有審查意見和辦理情形」的最高輪次
+                // 如果最高輪次只有其中一個，則顯示次高的完整輪次
+                let bestRound = 0;
                 let maxRound = 0;
                 
-                // 找出最高的輪次（有審查意見或辦理情形即可）
+                // 先找出最高的完整輪次（同時有審查意見和辦理情形）
                 for (let k = 200; k >= 1; k--) {
                     const suffix = k === 1 ? '' : k;
                     const hasHandling = currentEditItem['handling' + suffix] && currentEditItem['handling' + suffix].trim();
                     const hasReview = currentEditItem['review' + suffix] && currentEditItem['review' + suffix].trim();
-                    // 只要有審查意見或辦理情形就顯示（不要求同時有兩個，也不要求有日期）
-                    if (hasHandling || hasReview) {
+                    
+                    // 記錄最高輪次（有任一內容即可）
+                    if ((hasHandling || hasReview) && maxRound === 0) {
                         maxRound = k;
+                    }
+                    
+                    // 優先選擇同時有兩個內容的輪次
+                    if (hasHandling && hasReview) {
+                        bestRound = k;
                         break;
                     }
                 }
                 
-                if (maxRound > 0) {
-                    const suffix = maxRound === 1 ? '' : maxRound;
+                // 如果沒有完整的輪次，使用最高輪次
+                const displayRound = bestRound > 0 ? bestRound : maxRound;
+                
+                if (displayRound > 0) {
+                    const suffix = displayRound === 1 ? '' : displayRound;
                     const handling = currentEditItem['handling' + suffix] || '';
                     const review = currentEditItem['review' + suffix] || '';
                     
@@ -5400,10 +5411,10 @@ if (dashboard) {
                         const viewReviewRoundNum = document.getElementById('viewReviewRoundNum');
                         const viewReviewText = document.getElementById('viewReviewText');
                         const viewReviewDate = document.getElementById('viewReviewDate');
-                        if (viewReviewRoundNum) viewReviewRoundNum.textContent = maxRound;
+                        if (viewReviewRoundNum) viewReviewRoundNum.textContent = displayRound;
                         if (viewReviewText) viewReviewText.textContent = review;
                         // 顯示審查函復日期
-                        const responseDate = currentEditItem['response_date_r' + maxRound] || '';
+                        const responseDate = currentEditItem['response_date_r' + displayRound] || '';
                         if (viewReviewDate) {
                             viewReviewDate.textContent = responseDate ? `函復日期：${responseDate}` : '';
                         }
@@ -5415,10 +5426,10 @@ if (dashboard) {
                         const viewHandlingRoundNum = document.getElementById('viewHandlingRoundNum');
                         const viewHandlingText = document.getElementById('viewHandlingText');
                         const viewHandlingDate = document.getElementById('viewHandlingDate');
-                        if (viewHandlingRoundNum) viewHandlingRoundNum.textContent = maxRound;
+                        if (viewHandlingRoundNum) viewHandlingRoundNum.textContent = displayRound;
                         if (viewHandlingText) viewHandlingText.textContent = handling;
                         // 顯示辦理情形回復日期
-                        const replyDate = currentEditItem['reply_date_r' + maxRound] || '';
+                        const replyDate = currentEditItem['reply_date_r' + displayRound] || '';
                         if (viewHandlingDate) {
                             viewHandlingDate.textContent = replyDate ? `回復日期：${replyDate}` : '';
                         }
