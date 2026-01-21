@@ -2202,7 +2202,7 @@
         #createBatchGridTable {
             table-layout: auto;
             width: 100%;
-            min-width: 1200px;
+            min-width: 1100px;
             position: relative;
         }
         
@@ -2285,7 +2285,8 @@
         
         #createBatchGridTable th:nth-child(3),
         #createBatchGridTable td:nth-child(3) {
-            width: 40%;
+            width: 35%;
+            min-width: 250px;
         }
         
         #createBatchGridTable th:nth-child(4),
@@ -2329,10 +2330,10 @@
             text-align: center;
         }
         
-        /* 事項內容按鈕樣式 - 大幅優化可讀性，擴大顯示區域，確保文字正常顯示 */
+        /* 事項內容按鈕樣式 - 與其他頁面保持一致，適中的大小和樣式 */
         #createBatchGridTable .create-batch-content-btn {
             width: 100% !important;
-            min-width: 300px !important;
+            min-width: 0;
             position: relative;
             z-index: 1;
             white-space: normal !important;
@@ -2340,70 +2341,63 @@
             word-break: normal !important;
             text-align: left !important;
             justify-content: flex-start;
-            padding: 16px 20px !important;
-            min-height: 80px !important;
+            padding: 10px 12px !important;
+            min-height: 50px !important;
             height: auto !important;
-            border: 2px solid #e2e8f0 !important;
-            background: #ffffff !important;
-            color: #1e293b !important;
+            border: 1px solid var(--border) !important;
+            background: var(--bg-card) !important;
+            color: var(--text-main) !important;
             transition: all 0.2s ease;
             border-radius: 8px;
-            font-size: 15px !important;
-            line-height: 1.9 !important;
+            font-size: 13px !important;
+            line-height: 1.6 !important;
             display: flex !important;
             align-items: flex-start;
             font-weight: 400;
-            letter-spacing: 0.02em;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             box-sizing: border-box;
         }
         
         #createBatchGridTable .create-batch-content-btn:hover {
-            border-color: #3b82f6 !important;
-            background: #f0f9ff !important;
-            color: #0c4a6e !important;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            border-color: var(--primary) !important;
+            background: var(--primary-light) !important;
+            color: var(--text-main) !important;
         }
         
         #createBatchGridTable .create-batch-content-preview {
             display: block !important;
-            line-height: 1.9 !important;
+            line-height: 1.6 !important;
             color: inherit !important;
             width: 100% !important;
             text-align: left !important;
             word-break: normal !important;
             overflow-wrap: break-word !important;
-            font-size: 15px !important;
-            letter-spacing: 0.02em;
+            font-size: 13px !important;
             white-space: normal !important;
         }
         
-        /* 當有內容時，按鈕樣式改變 - 更清晰的視覺區分 */
+        /* 當有內容時，按鈕樣式改變 - 與系統其他按鈕保持一致 */
         #createBatchGridTable .create-batch-content-btn.has-content {
-            border-style: solid !important;
-            border-color: #3b82f6 !important;
-            background: #f0f9ff !important;
-            color: #0c4a6e !important;
-            border-width: 2px !important;
+            border-color: var(--primary) !important;
+            background: var(--primary-light) !important;
+            color: var(--text-main) !important;
             font-weight: 400;
         }
         
         /* 空內容時的提示文字樣式 */
         #createBatchGridTable .create-batch-content-btn:not(.has-content) .create-batch-content-preview {
-            color: #94a3b8 !important;
-            font-style: normal;
+            color: var(--text-sub) !important;
+            font-style: italic;
             font-weight: 400;
         }
         
-        /* 確保事項內容欄位有足夠的垂直和水平空間 */
+        /* 確保事項內容欄位有適當的空間 */
         #createBatchGridTable td:nth-child(3) {
-            padding: 14px 12px;
+            padding: 10px 8px;
         }
         
-        /* 確保事項內容欄位的表頭也有足夠空間 */
+        /* 確保事項內容欄位的表頭也有適當空間 */
         #createBatchGridTable th:nth-child(3) {
-            padding: 14px 12px;
+            padding: 12px 8px;
         }
         
         /* 確保事項內容欄位有足夠的垂直空間 */
