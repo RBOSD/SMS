@@ -2569,6 +2569,7 @@ if (dashboard) {
                         }
                         
                         // 更新該輪次的回復日期
+                        // 注意：只更新 replyDate（辦理情形回復日期），不更新 responseDate（審查函復日期）
                         const updateRes = await fetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -2577,8 +2578,8 @@ if (dashboard) {
                                 round: round,
                                 handling: handling,
                                 review: review,
-                                replyDate: replyDate,
-                                responseDate: existingReplyDate || null
+                                // 只發送 replyDate，不發送 responseDate，讓後端保持原有的審查函復日期不變
+                                replyDate: replyDate
                             })
                         });
                         

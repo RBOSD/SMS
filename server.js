@@ -539,18 +539,11 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
             params.push(responseDate || '');
             console.log(`[PUT /api/issues/:id] 將更新 ${respField} = ${responseDate || ''}`);
             paramIdx++;
+        } else {
+            console.log(`[PUT /api/issues/:id] responseDate 未提供，不更新 ${respField}，保持原有值不變`);
         }
         
-        // 處理 replyDate：如果提供了（即使是空字符串），也要更新
-        // 注意：如果前端沒有發送 replyDate，這裡不會更新，保持原有值不變
-        if (replyDate !== undefined) {
-            updateFields.splice(updateFields.length - 1, 0, `${replyField}=$${paramIdx}`);
-            params.push(replyDate || '');
-            console.log(`[PUT /api/issues/:id] 將更新 ${replyField} = ${replyDate || ''}`);
-            paramIdx++;
-        } else {
-            console.log(`[PUT /api/issues/:id] replyDate 未提供，不更新 ${replyField}，保持原有值不變`);
-        }
+        // 注意：replyDate 的處理已經在上面完成（第 529-534 行），這裡不需要重複處理
         
         if (content !== undefined) {
             updateFields.push(`content=$${paramIdx}`);
