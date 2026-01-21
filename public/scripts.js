@@ -385,6 +385,57 @@
 
         function showPreview(html, title) { document.getElementById('previewTitle').innerText = title || '內容預覽'; document.getElementById('previewContent').innerHTML = html || '(無內容)'; document.getElementById('previewModal').classList.add('open'); }
         function closePreview() { document.getElementById('previewModal').classList.remove('open'); }
+        
+        // 自訂確認對話框（Promise 版本）
+        let confirmModalResolve = null;
+        function showConfirmModal(message, confirmText = '確認', cancelText = '取消') {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const messageEl = document.getElementById('confirmModalMessage');
+                const confirmBtn = document.getElementById('confirmModalConfirmBtn');
+                
+                if (!modal || !messageEl || !confirmBtn) {
+                    // 如果 modal 不存在，回退到原生 confirm
+                    resolve(confirm(message));
+                    return;
+                }
+                
+                messageEl.textContent = message;
+                confirmBtn.textContent = confirmText;
+                
+                // 設置確認按鈕的點擊事件
+                confirmBtn.onclick = () => {
+                    closeConfirmModal();
+                    resolve(true);
+                };
+                
+                modal.style.display = 'flex';
+                confirmModalResolve = resolve;
+            });
+        }
+        
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirmModal');
+            if (modal) {
+                modal.style.display = 'none';
+                if (confirmModalResolve) {
+                    confirmModalResolve(false);
+                    confirmModalResolve = null;
+                }
+            }
+        }
+        
+        // 點擊 modal 背景關閉
+        document.addEventListener('DOMContentLoaded', () => {
+            const confirmModal = document.getElementById('confirmModal');
+            if (confirmModal) {
+                confirmModal.addEventListener('click', (e) => {
+                    if (e.target === confirmModal) {
+                        closeConfirmModal();
+                    }
+                });
+            }
+        });
 
         // 載入計畫選項（資料管理頁面使用：顯示所有計畫）
         async function loadPlanOptions() {
@@ -2462,7 +2513,13 @@ if (dashboard) {
                     return;
                 }
                 
-                if (!confirm(`確定要批次設定第 ${round} 次辦理情形的回復日期為 ${replyDate} 嗎？\n將更新 ${issueList.length} 筆事項。`)) {
+                const confirmed = await showConfirmModal(
+                    `確定要批次設定第 ${round} 次辦理情形的回復日期為 ${replyDate} 嗎？\n\n將更新 ${issueList.length} 筆事項。`,
+                    '確認設定',
+                    '取消'
+                );
+                
+                if (!confirmed) {
                     return;
                 }
                 
@@ -5790,7 +5847,13 @@ if (dashboard) {
                     return;
                 }
                 
-                if (!confirm(`確定要批次設定第 ${round} 次審查的函復日期為 ${responseDate} 嗎？\n將更新 ${issueList.length} 筆事項。`)) {
+                const confirmed = await showConfirmModal(
+                    `確定要批次設定第 ${round} 次審查的函復日期為 ${responseDate} 嗎？\n\n將更新 ${issueList.length} 筆事項。`,
+                    '確認設定',
+                    '取消'
+                );
+                
+                if (!confirmed) {
                     return;
                 }
                 

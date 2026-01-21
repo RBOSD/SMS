@@ -1028,6 +1028,16 @@
         .modal-overlay.open {
             display: flex;
         }
+        
+        /* 自訂確認對話框顯示 */
+        .modal-overlay[id="confirmModal"] {
+            display: none;
+        }
+        
+        .modal-overlay[id="confirmModal"][style*="flex"],
+        .modal-overlay[id="confirmModal"][style*="display: flex"] {
+            display: flex !important;
+        }
 
         .drawer {
             position: fixed;
