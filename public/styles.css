@@ -2327,62 +2327,80 @@
             text-align: center;
         }
         
-        /* 事項內容按鈕樣式 - 美化優化，擴大顯示區域 */
+        /* 事項內容按鈕樣式 - 優化可讀性，提升閱讀體驗 */
         #createBatchGridTable .create-batch-content-btn {
-            width: 100%;
+            width: 100% !important;
             min-width: 0;
             position: relative;
             z-index: 1;
-            white-space: normal;
-            word-wrap: break-word;
-            word-break: break-word;
-            text-align: left;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            word-break: break-word !important;
+            text-align: left !important;
             justify-content: flex-start;
-            padding: 12px 16px;
-            min-height: 60px;
-            height: auto;
-            border: 2px dashed #cbd5e1;
-            background: #f8fafc;
-            color: #475569;
+            padding: 14px 18px !important;
+            min-height: 70px !important;
+            height: auto !important;
+            border: 2px solid #e2e8f0 !important;
+            background: #ffffff !important;
+            color: #1e293b !important;
             transition: all 0.2s ease;
-            border-radius: 10px;
-            font-size: 13px;
-            line-height: 1.7;
-            display: flex;
+            border-radius: 8px;
+            font-size: 14px !important;
+            line-height: 1.8 !important;
+            display: flex !important;
             align-items: flex-start;
+            font-weight: 400;
+            letter-spacing: 0.01em;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
         
         #createBatchGridTable .create-batch-content-btn:hover {
-            border-color: #3b82f6;
-            background: #eff6ff;
-            color: #1e40af;
+            border-color: #3b82f6 !important;
+            background: #f0f9ff !important;
+            color: #0c4a6e !important;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
         }
         
         #createBatchGridTable .create-batch-content-preview {
-            display: block;
-            line-height: 1.7;
-            color: inherit;
-            width: 100%;
-            text-align: left;
-            word-break: break-word;
-            overflow-wrap: break-word;
+            display: block !important;
+            line-height: 1.8 !important;
+            color: inherit !important;
+            width: 100% !important;
+            text-align: left !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            font-size: 14px !important;
+            letter-spacing: 0.01em;
+            white-space: normal !important;
         }
         
-        /* 當有內容時，按鈕樣式改變 */
+        /* 當有內容時，按鈕樣式改變 - 更清晰的視覺區分 */
         #createBatchGridTable .create-batch-content-btn.has-content {
-            border-style: solid;
-            border-color: #3b82f6;
-            background: #eff6ff;
-            color: #1e40af;
-            border-width: 2px;
+            border-style: solid !important;
+            border-color: #3b82f6 !important;
+            background: #f0f9ff !important;
+            color: #0c4a6e !important;
+            border-width: 2px !important;
+            font-weight: 400;
         }
         
         /* 空內容時的提示文字樣式 */
         #createBatchGridTable .create-batch-content-btn:not(.has-content) .create-batch-content-preview {
-            color: #94a3b8;
-            font-style: italic;
+            color: #94a3b8 !important;
+            font-style: normal;
+            font-weight: 400;
+        }
+        
+        /* 確保事項內容欄位有足夠的垂直空間 */
+        #createBatchGridTable td:nth-child(3) {
+            padding: 12px 10px;
+        }
+        
+        /* 確保事項內容欄位有足夠的垂直空間 */
+        #createBatchGridTable td:nth-child(3) {
+            padding: 12px 10px;
         }
         
         /* 隱藏的事項內容輸入框 */

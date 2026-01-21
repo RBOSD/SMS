@@ -2885,8 +2885,8 @@ if (dashboard) {
                         <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx + 1}</td>
                         <td><input type="text" class="filter-input create-batch-number" value="${escapeHtml(issue.number || '')}" onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
                         <td style="position:relative;">
-                            <button type="button" class="btn btn-outline btn-sm create-batch-content-btn ${(issue.content || '').trim() ? 'has-content' : ''}" onclick="openBatchContentModal(${rowIdx})" data-row-index="${rowIdx}" style="width:100%; padding:8px 12px; text-align:left; font-size:12px; white-space:normal; word-wrap:break-word; min-height:36px; height:auto;">
-                                <span class="create-batch-content-preview">${(issue.content || '').trim() ? (stripHtml(issue.content).substring(0, 80) + (stripHtml(issue.content).length > 80 ? '...' : '')) : '點擊編輯事項內容'}</span>
+                            <button type="button" class="btn btn-outline btn-sm create-batch-content-btn ${(issue.content || '').trim() ? 'has-content' : ''}" onclick="openBatchContentModal(${rowIdx})" data-row-index="${rowIdx}">
+                                <span class="create-batch-content-preview">${(issue.content || '').trim() ? (stripHtml(issue.content).substring(0, 100) + (stripHtml(issue.content).length > 100 ? '...' : '')) : '點擊編輯事項內容'}</span>
                             </button>
                             <input type="hidden" class="create-batch-content" value="${escapeHtml(issue.content || '')}">
                         </td>
@@ -2918,8 +2918,8 @@ if (dashboard) {
                     const contentHidden = tr.querySelector('.create-batch-content');
                     if (contentBtn && contentPreview && contentHidden) {
                         const content = contentHidden.value || '';
-                        // 顯示更多預覽文字（從50字增加到80字）
-                        contentPreview.textContent = content.trim() ? (content.substring(0, 80) + (content.length > 80 ? '...' : '')) : '點擊編輯事項內容';
+                        // 顯示更多預覽文字（增加到100字）
+                        contentPreview.textContent = content.trim() ? (content.substring(0, 100) + (content.length > 100 ? '...' : '')) : '點擊編輯事項內容';
                         // 根據是否有內容更新按鈕樣式
                         if (content && content.trim()) {
                             contentBtn.classList.add('has-content');
@@ -3465,7 +3465,7 @@ if (dashboard) {
                 <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx + 1}</td>
                 <td><input type="text" class="filter-input create-batch-number" placeholder="編號..." onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
                 <td style="position:relative;">
-                    <button type="button" class="btn btn-outline btn-sm create-batch-content-btn" onclick="openBatchContentModal(${rowIdx})" data-row-index="${rowIdx}" style="width:100%; padding:8px 12px; text-align:left; font-size:12px; white-space:normal; word-wrap:break-word; min-height:36px; height:auto;">
+                    <button type="button" class="btn btn-outline btn-sm create-batch-content-btn" onclick="openBatchContentModal(${rowIdx})" data-row-index="${rowIdx}">
                         <span class="create-batch-content-preview">點擊編輯事項內容</span>
                     </button>
                     <input type="hidden" class="create-batch-content" value="">
@@ -3613,8 +3613,8 @@ if (dashboard) {
                 contentHidden.value = content;
                 
                 // 更新按鈕顯示
-                // 顯示更多預覽文字（從50字增加到80字）
-                contentPreview.textContent = content ? (content.substring(0, 80) + (content.length > 80 ? '...' : '')) : '點擊編輯事項內容';
+                // 顯示更多預覽文字（增加到100字）
+                contentPreview.textContent = content ? (content.substring(0, 100) + (content.length > 100 ? '...' : '')) : '點擊編輯事項內容';
                 
                 // 根據是否有內容更新按鈕樣式
                 if (content && content.trim()) {
