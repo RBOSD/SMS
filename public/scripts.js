@@ -1178,14 +1178,17 @@ if (dashboard) {
             
             try {
                 const state = JSON.parse(saved);
-                if (document.getElementById('filterKeyword')) document.getElementById('filterKeyword').value = state.keyword || '';
-                if (document.getElementById('filterYear')) document.getElementById('filterYear').value = state.year || '';
-                if (document.getElementById('filterPlan')) document.getElementById('filterPlan').value = state.plan || '';
-                if (document.getElementById('filterUnit')) document.getElementById('filterUnit').value = state.unit || '';
-                if (document.getElementById('filterStatus')) document.getElementById('filterStatus').value = state.status || '';
-                if (document.getElementById('filterKind')) document.getElementById('filterKind').value = state.kind || '';
-                if (document.getElementById('filterDivision')) document.getElementById('filterDivision').value = state.division || '';
-                if (document.getElementById('filterInspection')) document.getElementById('filterInspection').value = state.inspection || '';
+                // 每次重新載入後，所有篩選條件都恢復為預設值（清空）
+                if (document.getElementById('filterKeyword')) document.getElementById('filterKeyword').value = '';
+                if (document.getElementById('filterYear')) document.getElementById('filterYear').value = '';
+                if (document.getElementById('filterPlan')) document.getElementById('filterPlan').value = '';
+                if (document.getElementById('filterUnit')) document.getElementById('filterUnit').value = '';
+                if (document.getElementById('filterStatus')) document.getElementById('filterStatus').value = '';
+                if (document.getElementById('filterKind')) document.getElementById('filterKind').value = '';
+                if (document.getElementById('filterDivision')) document.getElementById('filterDivision').value = '';
+                if (document.getElementById('filterInspection')) document.getElementById('filterInspection').value = '';
+                
+                // 保留分頁和排序狀態（這些是瀏覽狀態，不是篩選條件）
                 if (state.page) issuesPage = state.page;
                 if (state.pageSize) issuesPageSize = state.pageSize;
                 if (state.sortField) sortState.field = state.sortField;
