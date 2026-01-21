@@ -2200,9 +2200,9 @@
         }
         
         #createBatchGridTable {
-            table-layout: auto;
+            table-layout: fixed;
             width: 100%;
-            min-width: 1100px;
+            min-width: 1050px;
             position: relative;
         }
         
@@ -2270,67 +2270,75 @@
             white-space: nowrap;
         }
         
-        /* 優化欄位寬度，使用百分比讓表格適應容器寬度，無需橫向滾動 */
-        /* 大幅擴大事項內容欄位，讓內容可以呈現更多，提升可讀性 */
+        /* 優化欄位寬度，平衡各欄位空間，確保所有內容都能完整顯示 */
         #createBatchGridTable th:nth-child(1),
         #createBatchGridTable td:nth-child(1) {
-            width: 2.5%;
+            width: 3%;
             text-align: center;
         }
         
         #createBatchGridTable th:nth-child(2),
         #createBatchGridTable td:nth-child(2) {
-            width: 10%;
+            width: 12%;
+            min-width: 140px;
         }
         
         #createBatchGridTable th:nth-child(3),
         #createBatchGridTable td:nth-child(3) {
-            width: 35%;
-            min-width: 250px;
+            width: 22%;
+            min-width: 200px;
         }
         
         #createBatchGridTable th:nth-child(4),
         #createBatchGridTable td:nth-child(4) {
-            width: 4%;
+            width: 5%;
+            min-width: 60px;
         }
         
         #createBatchGridTable th:nth-child(5),
         #createBatchGridTable td:nth-child(5) {
-            width: 5.5%;
+            width: 7%;
+            min-width: 80px;
         }
         
         #createBatchGridTable th:nth-child(6),
         #createBatchGridTable td:nth-child(6) {
-            width: 5%;
+            width: 6.5%;
+            min-width: 75px;
         }
         
         #createBatchGridTable th:nth-child(7),
         #createBatchGridTable td:nth-child(7) {
-            width: 7%;
+            width: 9%;
+            min-width: 100px;
         }
         
         #createBatchGridTable th:nth-child(8),
         #createBatchGridTable td:nth-child(8) {
-            width: 4%;
+            width: 5.5%;
+            min-width: 65px;
         }
         
         #createBatchGridTable th:nth-child(9),
         #createBatchGridTable td:nth-child(9) {
-            width: 5.5%;
+            width: 7%;
+            min-width: 80px;
         }
         
         #createBatchGridTable th:nth-child(10),
         #createBatchGridTable td:nth-child(10) {
-            width: 7%;
+            width: 8.5%;
+            min-width: 95px;
         }
         
         #createBatchGridTable th:nth-child(11),
         #createBatchGridTable td:nth-child(11) {
-            width: 3.5%;
+            width: 4.5%;
+            min-width: 50px;
             text-align: center;
         }
         
-        /* 事項內容按鈕樣式 - 與其他頁面保持一致，適中的大小和樣式 */
+        /* 事項內容按鈕樣式 - 適中大小，確保不遮擋其他欄位 */
         #createBatchGridTable .create-batch-content-btn {
             width: 100% !important;
             min-width: 0;
@@ -2341,16 +2349,18 @@
             word-break: normal !important;
             text-align: left !important;
             justify-content: flex-start;
-            padding: 10px 12px !important;
-            min-height: 50px !important;
+            padding: 8px 10px !important;
+            min-height: 42px !important;
+            max-height: 80px !important;
             height: auto !important;
+            overflow-y: auto !important;
             border: 1px solid var(--border) !important;
             background: var(--bg-card) !important;
             color: var(--text-main) !important;
             transition: all 0.2s ease;
-            border-radius: 8px;
-            font-size: 13px !important;
-            line-height: 1.6 !important;
+            border-radius: 6px;
+            font-size: 12px !important;
+            line-height: 1.5 !important;
             display: flex !important;
             align-items: flex-start;
             font-weight: 400;
@@ -2365,14 +2375,16 @@
         
         #createBatchGridTable .create-batch-content-preview {
             display: block !important;
-            line-height: 1.6 !important;
+            line-height: 1.5 !important;
             color: inherit !important;
             width: 100% !important;
             text-align: left !important;
             word-break: normal !important;
             overflow-wrap: break-word !important;
-            font-size: 13px !important;
+            font-size: 12px !important;
             white-space: normal !important;
+            max-height: 64px;
+            overflow: hidden;
         }
         
         /* 當有內容時，按鈕樣式改變 - 與系統其他按鈕保持一致 */
@@ -2392,12 +2404,31 @@
         
         /* 確保事項內容欄位有適當的空間 */
         #createBatchGridTable td:nth-child(3) {
-            padding: 10px 8px;
+            padding: 8px 6px;
         }
         
         /* 確保事項內容欄位的表頭也有適當空間 */
         #createBatchGridTable th:nth-child(3) {
             padding: 12px 8px;
+        }
+        
+        /* 確保所有輸入框和下拉選單內容完整顯示 */
+        #createBatchGridTable input[type="text"],
+        #createBatchGridTable input[type="number"],
+        #createBatchGridTable select {
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            overflow: visible;
+            text-overflow: ellipsis;
+        }
+        
+        /* 確保編號欄位內容完整顯示 */
+        #createBatchGridTable .create-batch-number {
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: visible;
+            text-overflow: ellipsis;
         }
         
         /* 確保事項內容欄位有足夠的垂直空間 */
