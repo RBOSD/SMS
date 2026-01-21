@@ -1533,12 +1533,11 @@
                 order: 1;
                 line-height: 26px;
                 min-height: 26px;
-                display: flex;
-                align-items: center;
+                display: block;
                 position: relative;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
+                overflow: visible;
+                word-wrap: break-word;
+                word-break: break-word;
             }
 
             /* 狀態與類型在編號同一行右側 */
