@@ -5861,8 +5861,11 @@ if (dashboard) {
                     return;
                 }
                 
+                // 確保使用用戶輸入的日期值，存儲在局部變量中避免被修改
+                const userInputResponseDate = responseDate; // 從輸入框獲取的用戶輸入日期
+                
                 const confirmed = await showConfirmModal(
-                    `確定要批次設定第 ${round} 次審查的函復日期為 ${responseDate} 嗎？\n\n將更新 ${issueList.length} 筆事項。`,
+                    `確定要批次設定第 ${round} 次審查的函復日期為 ${userInputResponseDate} 嗎？\n\n將更新 ${issueList.length} 筆事項。`,
                     '確認設定',
                     '取消'
                 );
@@ -5893,8 +5896,6 @@ if (dashboard) {
                         const suffix = round === 1 ? '' : round;
                         const handling = issue['handling' + suffix] || '';
                         const review = issue['review' + suffix] || '';
-                        // 保持原有的回復日期不變
-                        const existingReplyDate = issue['reply_date_r' + round] || '';
                         
                         // 檢查是否有審查內容，沒有審查內容則跳過
                         if (!review || !review.trim()) {
@@ -5902,6 +5903,9 @@ if (dashboard) {
                             errors.push(`${issue.number || '未知編號'}: 第 ${round} 次尚無審查意見，無法設定函復日期`);
                             continue;
                         }
+                        
+                        // 明確使用用戶輸入的日期，不使用任何從資料庫讀取的日期值
+                        // userInputResponseDate 是在確認前就從輸入框獲取的用戶輸入值
                         
                         // 更新該輪次的函復日期
                         // 注意：只更新 responseDate（審查函復日期），不更新 replyDate（回復日期）
@@ -5914,7 +5918,7 @@ if (dashboard) {
                                 handling: handling,
                                 review: review,
                                 // 不發送 replyDate，讓後端保持原有值不變
-                                responseDate: responseDate  // 只更新用戶輸入的審查函復日期
+                                responseDate: dateToSet  // 明確使用用戶輸入的審查函復日期
                             })
                         });
                         
@@ -5975,20 +5979,21 @@ if (dashboard) {
             if (!roundSelect || !dateInput) return;
             
             const round = parseInt(roundSelect.value);
-            const responseDate = dateInput.value.trim();
+            // 確保使用用戶輸入的日期值，存儲在局部變量中避免被修改
+            const userInputResponseDate = dateInput.value.trim();
             
             if (!round || round < 1) {
                 showToast('請選擇輪次', 'error');
                 return;
             }
             
-            if (!responseDate) {
+            if (!userInputResponseDate) {
                 showToast('請輸入函復日期', 'error');
                 return;
             }
             
             // 驗證日期格式（應該是6或7位數字，例如：1130615 或 1141001）
-            if (!/^\d{6,7}$/.test(responseDate)) {
+            if (!/^\d{6,7}$/.test(userInputResponseDate)) {
                 showToast('日期格式錯誤，應為6或7位數字（例如：1130615 或 1141001）', 'error');
                 return;
             }
@@ -6025,8 +6030,6 @@ if (dashboard) {
                         const suffix = round === 1 ? '' : round;
                         const handling = issue['handling' + suffix] || '';
                         const review = issue['review' + suffix] || '';
-                        // 保持原有的回復日期不變
-                        const existingReplyDate = issue['reply_date_r' + round] || '';
                         
                         // 檢查是否有審查內容，沒有審查內容則跳過
                         if (!review || !review.trim()) {
@@ -6034,6 +6037,9 @@ if (dashboard) {
                             errors.push(`${issue.number || '未知編號'}: 第 ${round} 次尚無審查意見，無法設定函復日期`);
                             continue;
                         }
+                        
+                        // 明確使用用戶輸入的日期，不使用任何從資料庫讀取的日期值
+                        // userInputResponseDate 是在函數開始時從輸入框獲取的用戶輸入值
                         
                         // 更新該輪次的函復日期
                         // 注意：只更新 responseDate（審查函復日期），不更新 replyDate（回復日期）
@@ -6046,7 +6052,7 @@ if (dashboard) {
                                 handling: handling,
                                 review: review,
                                 // 不發送 replyDate，讓後端保持原有值不變
-                                responseDate: responseDate  // 只更新用戶輸入的審查函復日期
+                                responseDate: userInputResponseDate  // 明確使用用戶輸入的審查函復日期
                             })
                         });
                         
