@@ -2215,6 +2215,54 @@
         #createBatchGridTable .create-batch-number {
             width: 100%;
             min-width: 0;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 6px 8px;
+            box-sizing: border-box;
+        }
+        
+        /* 調整編號欄位寬度，確保能完整顯示 */
+        #createBatchGridTable th:nth-child(2),
+        #createBatchGridTable td:nth-child(2) {
+            min-width: 180px;
+            width: 180px;
+        }
+        
+        /* 調整其他欄位寬度，確保內容可見 */
+        #createBatchGridTable th:nth-child(4),
+        #createBatchGridTable td:nth-child(4) {
+            min-width: 90px;
+            width: 90px;
+        }
+        
+        #createBatchGridTable th:nth-child(5),
+        #createBatchGridTable td:nth-child(5) {
+            min-width: 120px;
+            width: 120px;
+        }
+        
+        #createBatchGridTable th:nth-child(6),
+        #createBatchGridTable td:nth-child(6) {
+            min-width: 100px;
+            width: 100px;
+        }
+        
+        #createBatchGridTable th:nth-child(7),
+        #createBatchGridTable td:nth-child(7) {
+            min-width: 120px;
+            width: 120px;
+        }
+        
+        #createBatchGridTable th:nth-child(8),
+        #createBatchGridTable td:nth-child(8) {
+            min-width: 100px;
+            width: 100px;
+        }
+        
+        #createBatchGridTable th:nth-child(9),
+        #createBatchGridTable td:nth-child(9) {
+            min-width: 110px;
+            width: 110px;
         }
         
         /* 事項內容按鈕樣式 */
