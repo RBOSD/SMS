@@ -2187,13 +2187,13 @@
         }
         
         /* 批次模式表格優化 */
-        /* 批次模式表格容器：移除橫向滾動條 */
+        /* 批次模式表格容器：移除橫向滾動條，讓表格適應容器寬度 */
         .main-card > .data-container[style*="overflow"] {
             overflow: visible !important;
         }
         
         #createBatchGridTable {
-            table-layout: auto;
+            table-layout: fixed;
             width: 100%;
             position: relative;
         }
@@ -2227,23 +2227,25 @@
             width: 100%;
             min-width: 0;
             font-family: monospace;
-            font-size: 12px;
-            padding: 8px 10px;
-            box-sizing: border-box;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            vertical-align: middle;
-        }
-        
-        /* 確保所有輸入框和下拉選單對齊 */
-        #createBatchGridTable input[type="text"],
-        #createBatchGridTable select {
-            padding: 8px 10px;
+            font-size: 11px;
+            padding: 6px 8px;
             box-sizing: border-box;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
             vertical-align: middle;
             height: 36px;
+        }
+        
+        /* 確保所有輸入框和下拉選單對齊 */
+        #createBatchGridTable input[type="text"],
+        #createBatchGridTable select {
+            padding: 6px 8px;
+            box-sizing: border-box;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            vertical-align: middle;
+            height: 36px;
+            font-size: 12px;
         }
         
         #createBatchGridTable input[type="text"]:focus,
@@ -2253,72 +2255,68 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
-        /* 優化欄位寬度，確保所有欄位都能顯示且對齊（總寬度約1180px，適合一般螢幕） */
+        /* 優化按鈕大小，確保在較小欄位中也能正常顯示 */
+        #createBatchGridTable button {
+            font-size: 11px;
+            padding: 6px 8px;
+            white-space: nowrap;
+        }
+        
+        /* 優化欄位寬度，使用百分比讓表格適應容器寬度，無需橫向滾動 */
         #createBatchGridTable th:nth-child(1),
         #createBatchGridTable td:nth-child(1) {
-            width: 60px;
-            min-width: 60px;
+            width: 4%;
             text-align: center;
         }
         
         #createBatchGridTable th:nth-child(2),
         #createBatchGridTable td:nth-child(2) {
-            width: 170px;
-            min-width: 170px;
+            width: 14%;
         }
         
         #createBatchGridTable th:nth-child(3),
         #createBatchGridTable td:nth-child(3) {
-            width: 220px;
-            min-width: 220px;
+            width: 18%;
         }
         
         #createBatchGridTable th:nth-child(4),
         #createBatchGridTable td:nth-child(4) {
-            width: 80px;
-            min-width: 80px;
+            width: 6%;
         }
         
         #createBatchGridTable th:nth-child(5),
         #createBatchGridTable td:nth-child(5) {
-            width: 100px;
-            min-width: 100px;
+            width: 8%;
         }
         
         #createBatchGridTable th:nth-child(6),
         #createBatchGridTable td:nth-child(6) {
-            width: 90px;
-            min-width: 90px;
+            width: 7%;
         }
         
         #createBatchGridTable th:nth-child(7),
         #createBatchGridTable td:nth-child(7) {
-            width: 110px;
-            min-width: 110px;
+            width: 9%;
         }
         
         #createBatchGridTable th:nth-child(8),
         #createBatchGridTable td:nth-child(8) {
-            width: 80px;
-            min-width: 80px;
+            width: 6%;
         }
         
         #createBatchGridTable th:nth-child(9),
         #createBatchGridTable td:nth-child(9) {
-            width: 100px;
-            min-width: 100px;
+            width: 8%;
         }
         
         #createBatchGridTable th:nth-child(10),
         #createBatchGridTable td:nth-child(10) {
-            width: 110px;
-            min-width: 110px;
+            width: 9%;
         }
         
         #createBatchGridTable th:nth-child(11),
         #createBatchGridTable td:nth-child(11) {
-            width: 60px;
-            min-width: 60px;
+            width: 5%;
             text-align: center;
         }
         
