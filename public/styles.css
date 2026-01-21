@@ -2187,15 +2187,29 @@
         }
         
         /* 批次模式表格優化 */
+        /* 確保包含批次表格的 data-container 允許內容溢出（覆蓋內聯樣式） */
+        .main-card > .data-container[style*="overflow"] {
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+        }
+        
         #createBatchGridTable {
             table-layout: fixed;
             width: 100%;
+            position: relative;
+        }
+        
+        /* 確保表格行和單元格允許內容溢出 */
+        #createBatchGridTable tr {
+            position: relative;
         }
         
         #createBatchGridTable th,
         #createBatchGridTable td {
             padding: 10px 8px;
-            vertical-align: middle;
+            vertical-align: top;
+            position: relative;
+            overflow: visible !important;
         }
         
         #createBatchGridTable .create-batch-number,
@@ -2208,32 +2222,43 @@
             resize: both;
             overflow: auto;
             position: relative;
-            z-index: 10;
+            z-index: 100;
         }
         
-        /* 確保表格單元格不會遮蓋事項內容 */
-        #createBatchGridTable td {
-            position: relative;
-            overflow: visible;
-        }
-        
-        /* 確保事項內容欄位有足夠的層級 */
-        #createBatchGridTable td:nth-child(3) {
-            z-index: 10;
-        }
-        
-        #createBatchGridTable select,
-        #createBatchGridTable input[type="text"] {
+        /* 確保所有輸入框都有足夠的層級，不被遮蓋 */
+        #createBatchGridTable input[type="text"],
+        #createBatchGridTable input[type="number"] {
             width: 100%;
             font-size: 13px;
             padding: 6px 8px;
             box-sizing: border-box;
             position: relative;
-            z-index: 1;
+            z-index: 100;
+        }
+        
+        /* 確保下拉選單有足夠的層級，展開時不被遮蓋 */
+        #createBatchGridTable select {
+            width: 100%;
+            font-size: 13px;
+            padding: 6px 8px;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 100;
         }
         
         /* 確保textarea在所有輸入框之上 */
         #createBatchGridTable textarea {
             position: relative;
-            z-index: 10;
+            z-index: 100;
+        }
+        
+        /* 當下拉選單展開時，確保選項列表顯示在最上層 */
+        #createBatchGridTable select:focus {
+            z-index: 200;
+        }
+        
+        /* 確保按鈕也有足夠的層級 */
+        #createBatchGridTable button {
+            position: relative;
+            z-index: 50;
         }
