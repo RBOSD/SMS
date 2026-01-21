@@ -3255,6 +3255,53 @@ if (dashboard) {
             currentBatchHandlingRowIndex = -1;
         }
         
+        // 切換批次設定鐵路機構回復日期的顯示
+        function toggleBatchHandlingReplyDateSetting() {
+            const checkbox = document.getElementById('batchHandlingReplyDateToggle');
+            const container = document.getElementById('batchHandlingReplyDateContainer');
+            if (checkbox && container) {
+                container.style.display = checkbox.checked ? 'block' : 'none';
+            }
+        }
+        
+        // 批次設定鐵路機構回復日期
+        function batchSetHandlingReplyDate() {
+            const dateInput = document.getElementById('batchHandlingReplyDate');
+            if (!dateInput) return;
+            
+            const replyDate = dateInput.value.trim();
+            
+            if (!replyDate) {
+                showToast('請輸入回復日期', 'error');
+                return;
+            }
+            
+            // 驗證日期格式（應該是6或7位數字，例如：1130601 或 1141001）
+            if (!/^\d{6,7}$/.test(replyDate)) {
+                showToast('日期格式錯誤，應為6或7位數字（例如：1130601 或 1141001）', 'error');
+                return;
+            }
+            
+            if (currentBatchHandlingRowIndex === -1) return;
+            
+            const rounds = batchHandlingData[currentBatchHandlingRowIndex] || [];
+            
+            if (rounds.length === 0) {
+                showToast('請先新增辦理情形', 'error');
+                return;
+            }
+            
+            // 批次設定所有辦理情形的回復日期
+            rounds.forEach((roundData) => {
+                roundData.replyDate = replyDate;
+            });
+            
+            // 重新渲染辦理情形輪次以更新顯示
+            renderBatchHandlingRounds();
+            
+            showToast(`已為所有辦理情形設定回復日期：${replyDate}`, 'success');
+        }
+        
         // 新增批次辦理情形輪次
         function addBatchHandlingRound() {
             if (currentBatchHandlingRowIndex === -1) return;
