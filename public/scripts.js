@@ -2518,7 +2518,7 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項
-                showToast('載入事項中，請稍候...', 'info');
+                // 移除載入中的提示訊息，只保留錯誤訊息
                 const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
                 if (!res.ok) throw new Error('載入事項列表失敗');
                 
@@ -2540,7 +2540,7 @@ if (dashboard) {
                     return;
                 }
                 
-                showToast('批次設定中，請稍候...', 'info');
+                // 移除批次設定中的提示訊息，只保留錯誤訊息
                 
                 let successCount = 0;
                 let errorCount = 0;
@@ -2605,15 +2605,21 @@ if (dashboard) {
                     }
                 }
                 
-                if (successCount > 0) {
-                    showToast(`批次設定完成！成功 ${successCount} 筆${errorCount > 0 ? `，失敗 ${errorCount} 筆` : ''}`, errorCount > 0 ? 'warning' : 'success');
+                // 顯示資料庫操作結果（成功或警告）
+                if (errorCount > 0) {
+                    showToast(`批次設定完成，但有 ${errorCount} 筆失敗${successCount > 0 ? `，成功 ${successCount} 筆` : ''}`, 'warning');
                     
                     // 如果有錯誤，顯示詳細資訊
-                    if (errorCount > 0 && errors.length > 0) {
+                    if (errors.length > 0) {
                         console.error('批次設定回復日期錯誤:', errors);
                     }
-                    
-                    // 清空輸入欄位並重置為預設模式
+                } else if (successCount > 0) {
+                    // 完全成功時顯示成功訊息（資料庫操作結果）
+                    showToast(`批次設定完成！成功 ${successCount} 筆`, 'success');
+                }
+                
+                // 清空輸入欄位並重置為預設模式
+                if (successCount > 0 || errorCount === 0) {
                     roundSelect.value = '';
                     roundManualInput.value = '';
                     dateInput.value = '';
@@ -2732,19 +2738,12 @@ if (dashboard) {
                 if (suggestedRound <= 200) {
                     roundSelect.value = suggestedRound;
                     roundManualInput.value = '';
-                    // 顯示提示訊息
-                    if (foundIncompleteRound) {
-                        showToast(`已自動預填為第 ${suggestedRound} 次辦理情形回復（該輪次有辦理情形但尚未填寫回復日期）`, 'info');
-                    } else if (maxRound > 0) {
-                        showToast(`已自動預填為第 ${suggestedRound} 次辦理情形回復（最高已完成：第 ${maxRound} 次）`, 'info');
-                    } else {
-                        showToast(`已自動預填為第 ${suggestedRound} 次辦理情形回復（尚無辦理情形紀錄）`, 'info');
-                    }
+                    // 移除自動預填的提示訊息，只保留錯誤訊息
                 } else {
                     // 如果超過200次，使用手動輸入
                     roundSelect.value = '';
                     roundManualInput.value = suggestedRound;
-                    showToast(`已自動預填為第 ${suggestedRound} 次辦理情形回復（超過選單範圍，請使用手動輸入）`, 'info');
+                    // 移除自動預填的提示訊息，只保留錯誤訊息
                 }
             } catch (e) {
                 console.error('查詢辦理情形輪次失敗:', e);
@@ -2796,10 +2795,7 @@ if (dashboard) {
                     if (yearDisplay) {
                         const oldYear = yearDisplay.value;
                         yearDisplay.value = year;
-                        // 如果年度有變更，顯示提示訊息
-                        if (oldYear && oldYear !== year) {
-                            showToast(`已自動更新為計畫年度：${year}（原：${oldYear}）`, 'info');
-                        }
+                        // 移除年度變更的提示訊息，只保留錯誤訊息
                     }
                 }
             }
@@ -2828,7 +2824,7 @@ if (dashboard) {
             }
             
             try {
-                showToast('載入事項中，請稍候...', 'info');
+                // 移除載入中的提示訊息，只保留錯誤訊息
                 
                 // 載入該計畫下的所有事項
                 const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
@@ -2838,7 +2834,7 @@ if (dashboard) {
                 const issueList = json.data || [];
                 
                 if (issueList.length === 0) {
-                    showToast('該檢查計畫下尚無開立事項', 'info');
+                    // 移除無事項的提示訊息，只保留錯誤訊息
                     return;
                 }
                 
@@ -2941,7 +2937,7 @@ if (dashboard) {
                     }
                 });
                 
-                showToast(`已載入 ${issueList.length} 筆事項資料`, 'success');
+                // 移除成功消息，只保留錯誤消息
             } catch (e) {
                 showToast('載入事項失敗: ' + e.message, 'error');
             }
@@ -3021,19 +3017,12 @@ if (dashboard) {
                 if (suggestedRound <= 200) {
                     roundSelect.value = suggestedRound;
                     roundManualInput.value = '';
-                    // 顯示提示訊息
-                    if (foundIncompleteRound) {
-                        showToast(`已自動預填為第 ${suggestedRound} 次審查函復（該輪次有審查內容但尚未填寫函復日期）`, 'info');
-                    } else if (maxRound > 0) {
-                        showToast(`已自動預填為第 ${suggestedRound} 次審查函復（最高已完成：第 ${maxRound} 次）`, 'info');
-                    } else {
-                        showToast(`已自動預填為第 ${suggestedRound} 次審查函復（尚無審查紀錄）`, 'info');
-                    }
+                    // 移除自動預填的提示訊息，只保留錯誤訊息
                 } else {
                     // 如果超過200次，使用手動輸入
                     roundSelect.value = '';
                     roundManualInput.value = suggestedRound;
-                    showToast(`已自動預填為第 ${suggestedRound} 次審查函復（超過選單範圍，請使用手動輸入）`, 'info');
+                    // 移除自動預填的提示訊息，只保留錯誤訊息
                 }
             } catch (e) {
                 console.error('查詢審查輪次失敗:', e);
@@ -3092,10 +3081,7 @@ if (dashboard) {
                 }
             });
             
-            // 如果有更新，顯示提示訊息
-            if (updatedCount > 0) {
-                showToast(`已同步更新 ${updatedCount} 列的年度為 ${planYear}`, 'success');
-            }
+            // 移除年度同步更新的提示訊息，只保留錯誤訊息
         }
         
         // 從編號自動填入欄位（單筆模式）
@@ -3723,7 +3709,7 @@ if (dashboard) {
             // 如果事項已存在於資料庫（有 ID），則立即儲存到資料庫
             if (issueId && number) {
                 try {
-                    showToast('儲存辦理情形中，請稍候...', 'info');
+                    // 移除儲存中的提示訊息，只保留錯誤訊息
                     
                     // 先更新第一次辦理情形（如果有的話）
                     if (handlingRounds.length > 0 && handlingRounds[0].handling && handlingRounds[0].handling.trim()) {
@@ -3770,6 +3756,7 @@ if (dashboard) {
                         }
                     }
                     
+                    // 保留儲存成功的提示訊息（資料庫操作結果）
                     showToast('辦理情形已成功儲存至資料庫', 'success');
                     // 更新辦理情形狀態顯示
                     updateBatchHandlingStatus(currentBatchHandlingRowIndex);
@@ -3779,6 +3766,7 @@ if (dashboard) {
                 }
             } else {
                 // 如果事項尚未存在於資料庫（新建立的事項），則保持現有行為
+                // 保留儲存成功的提示訊息（資料庫操作結果）
                 showToast('辦理情形已儲存（將在批次新增時一併保存）', 'success');
                 // 更新辦理情形狀態顯示
                 updateBatchHandlingStatus(currentBatchHandlingRowIndex);
@@ -5951,7 +5939,7 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項
-                showToast('載入事項中，請稍候...', 'info');
+                // 移除載入中的提示訊息，只保留錯誤訊息
                 const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
                 if (!res.ok) throw new Error('載入事項列表失敗');
                 
@@ -5975,7 +5963,7 @@ if (dashboard) {
                     return;
                 }
                 
-                showToast('批次設定中，請稍候...', 'info');
+                // 移除批次設定中的提示訊息，只保留錯誤訊息
                 
                 let successCount = 0;
                 let errorCount = 0;
@@ -6044,15 +6032,21 @@ if (dashboard) {
                     }
                 }
                 
-                if (successCount > 0) {
-                    showToast(`批次設定完成！成功 ${successCount} 筆${errorCount > 0 ? `，失敗 ${errorCount} 筆` : ''}`, errorCount > 0 ? 'warning' : 'success');
+                // 顯示資料庫操作結果（成功或警告）
+                if (errorCount > 0) {
+                    showToast(`批次設定完成，但有 ${errorCount} 筆失敗${successCount > 0 ? `，成功 ${successCount} 筆` : ''}`, 'warning');
                     
                     // 如果有錯誤，顯示詳細資訊
-                    if (errorCount > 0 && errors.length > 0) {
+                    if (errors.length > 0) {
                         console.error('批次設定函復日期錯誤:', errors);
                     }
-                    
-                    // 清空輸入欄位並重置為預設模式
+                } else if (successCount > 0) {
+                    // 完全成功時顯示成功訊息（資料庫操作結果）
+                    showToast(`批次設定完成！成功 ${successCount} 筆`, 'success');
+                }
+                
+                // 清空輸入欄位並重置為預設模式
+                if (successCount > 0 || errorCount === 0) {
                     roundSelect.value = '';
                     roundManualInput.value = '';
                     dateInput.value = '';
