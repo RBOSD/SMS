@@ -5816,7 +5816,8 @@ if (dashboard) {
                 round = parseInt(roundManualInput.value);
             }
             
-            const responseDate = dateInput.value.trim();
+            // 立即從輸入框獲取用戶輸入的日期值並存儲，避免後續被修改
+            const userInputResponseDate = dateInput.value.trim();
             const planValue = planSelect.value.trim();
             
             if (!planValue) {
@@ -5834,13 +5835,13 @@ if (dashboard) {
                 return;
             }
             
-            if (!responseDate) {
+            if (!userInputResponseDate) {
                 showToast('請輸入函復日期', 'error');
                 return;
             }
             
             // 驗證日期格式（應該是6或7位數字，例如：1130615 或 1141001）
-            if (!/^\d{6,7}$/.test(responseDate)) {
+            if (!/^\d{6,7}$/.test(userInputResponseDate)) {
                 showToast('日期格式錯誤，應為6或7位數字（例如：1130615 或 1141001）', 'error');
                 return;
             }
@@ -5861,8 +5862,7 @@ if (dashboard) {
                     return;
                 }
                 
-                // 確保使用用戶輸入的日期值，存儲在局部變量中避免被修改
-                const userInputResponseDate = responseDate; // 從輸入框獲取的用戶輸入日期
+                // userInputResponseDate 已經在函數開始時從輸入框獲取並保存
                 
                 const confirmed = await showConfirmModal(
                     `確定要批次設定第 ${round} 次審查的函復日期為 ${userInputResponseDate} 嗎？\n\n將更新 ${issueList.length} 筆事項。`,
@@ -5905,21 +5905,30 @@ if (dashboard) {
                         }
                         
                         // 明確使用用戶輸入的日期，不使用任何從資料庫讀取的日期值
-                        // userInputResponseDate 是在確認前就從輸入框獲取的用戶輸入值
+                        // userInputResponseDate 是在函數開始時從輸入框獲取的用戶輸入值，不會被修改
+                        // 確保不使用 issue 物件中的任何日期欄位（包括 reply_date_r 和 response_date_r）
+                        
+                        // 調試：確認要發送的日期值
+                        console.log(`[批次設定審查函復日期] 事項編號: ${issue.number || issueId}, 用戶輸入日期: ${userInputResponseDate}, 輪次: ${round}`);
                         
                         // 更新該輪次的函復日期
                         // 注意：只更新 responseDate（審查函復日期），不更新 replyDate（回復日期）
+                        const updatePayload = {
+                            status: issue.status || '持續列管',
+                            round: round,
+                            handling: handling,
+                            review: review,
+                            // 重要：不發送 replyDate，讓後端保持原有值不變
+                            // 只發送 responseDate，使用用戶在輸入框中輸入的日期
+                            responseDate: userInputResponseDate  // 明確使用用戶輸入的審查函復日期，不從資料庫讀取
+                        };
+                        
+                        console.log(`[批次設定審查函復日期] 發送給後端的 payload:`, JSON.stringify(updatePayload));
+                        
                         const updateRes = await fetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                status: issue.status || '持續列管',
-                                round: round,
-                                handling: handling,
-                                review: review,
-                                // 不發送 replyDate，讓後端保持原有值不變
-                                responseDate: userInputResponseDate  // 明確使用用戶輸入的審查函復日期
-                            })
+                            body: JSON.stringify(updatePayload)
                         });
                         
                         if (updateRes.ok) {

@@ -493,6 +493,12 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
     const rField = r === 1 ? 'review' : `review${r}`;
     const replyField = `reply_date_r${r}`;
     const respField = `response_date_r${r}`;
+    
+    // 調試：記錄接收到的日期值
+    if (responseDate !== undefined) {
+        console.log(`[PUT /api/issues/:id] 更新事項 ID: ${id}, 輪次: ${r}, responseDate: ${responseDate}, replyDate: ${replyDate !== undefined ? replyDate : '未提供'}`);
+    }
+    
     try {
         // 先查詢 issue number
         const issueRes = await pool.query("SELECT number FROM issues WHERE id=$1", [id]);
