@@ -514,9 +514,25 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
         }
         
         // 構建更新語句，如果提供了 content 或 issueDate 則包含它們
-        let updateFields = [`status=$1`, `${hField}=$2`, `${rField}=$3`, `${replyField}=$4`, `${respField}=$5`, `updated_at=CURRENT_TIMESTAMP`];
-        let params = [status, handling || '', review || '', replyDate || '', responseDate || ''];
-        let paramIdx = 6;
+        // 注意：replyDate 和 responseDate 如果提供空字符串，應該明確更新為空字符串
+        // 如果未提供（undefined），則不更新該欄位
+        let updateFields = [`status=$1`, `${hField}=$2`, `${rField}=$3`, `updated_at=CURRENT_TIMESTAMP`];
+        let params = [status, handling || '', review || ''];
+        let paramIdx = 4;
+        
+        // 處理 replyDate：如果提供了（即使是空字符串），也要更新
+        if (replyDate !== undefined) {
+            updateFields.splice(updateFields.length - 1, 0, `${replyField}=$${paramIdx}`);
+            params.push(replyDate || '');
+            paramIdx++;
+        }
+        
+        // 處理 responseDate：如果提供了（即使是空字符串），也要更新
+        if (responseDate !== undefined) {
+            updateFields.splice(updateFields.length - 1, 0, `${respField}=$${paramIdx}`);
+            params.push(responseDate || '');
+            paramIdx++;
+        }
         
         if (content !== undefined) {
             updateFields.push(`content=$${paramIdx}`);

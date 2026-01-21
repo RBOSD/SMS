@@ -5893,7 +5893,8 @@ if (dashboard) {
                         const suffix = round === 1 ? '' : round;
                         const handling = issue['handling' + suffix] || '';
                         const review = issue['review' + suffix] || '';
-                        const replyDate = issue['reply_date_r' + round] || '';
+                        // 保持原有的回復日期不變
+                        const existingReplyDate = issue['reply_date_r' + round] || '';
                         
                         // 檢查是否有審查內容，沒有審查內容則跳過
                         if (!review || !review.trim()) {
@@ -5903,6 +5904,7 @@ if (dashboard) {
                         }
                         
                         // 更新該輪次的函復日期
+                        // 注意：只更新 responseDate（審查函復日期），不更新 replyDate（回復日期）
                         const updateRes = await fetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -5911,8 +5913,8 @@ if (dashboard) {
                                 round: round,
                                 handling: handling,
                                 review: review,
-                                replyDate: replyDate || null,
-                                responseDate: responseDate
+                                // 不發送 replyDate，讓後端保持原有值不變
+                                responseDate: responseDate  // 只更新用戶輸入的審查函復日期
                             })
                         });
                         
@@ -6023,7 +6025,8 @@ if (dashboard) {
                         const suffix = round === 1 ? '' : round;
                         const handling = issue['handling' + suffix] || '';
                         const review = issue['review' + suffix] || '';
-                        const replyDate = issue['reply_date_r' + round] || '';
+                        // 保持原有的回復日期不變
+                        const existingReplyDate = issue['reply_date_r' + round] || '';
                         
                         // 檢查是否有審查內容，沒有審查內容則跳過
                         if (!review || !review.trim()) {
@@ -6033,6 +6036,7 @@ if (dashboard) {
                         }
                         
                         // 更新該輪次的函復日期
+                        // 注意：只更新 responseDate（審查函復日期），不更新 replyDate（回復日期）
                         const res = await fetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -6041,8 +6045,8 @@ if (dashboard) {
                                 round: round,
                                 handling: handling,
                                 review: review,
-                                replyDate: replyDate || null,
-                                responseDate: responseDate
+                                // 不發送 replyDate，讓後端保持原有值不變
+                                responseDate: responseDate  // 只更新用戶輸入的審查函復日期
                             })
                         });
                         
