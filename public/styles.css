@@ -1478,8 +1478,8 @@
                 cursor: pointer;
                 transition: transform 0.1s;
                 display: flex;
-                flex-direction: column;
-                align-items: stretch;
+                flex-wrap: wrap;
+                align-items: flex-start;
                 gap: 0;
             }
 
@@ -1491,10 +1491,14 @@
             td {
                 padding: 0;
                 border: none;
-                display: block;
                 text-align: left;
-                width: 100%;
                 margin-bottom: 0;
+            }
+
+            /* 大部分 td 是 block */
+            td:not([data-label="年度"]):not([data-label="機構"]) {
+                display: block;
+                width: 100%;
             }
 
             /* 檢核方框保持在左上角 */
@@ -1516,19 +1520,19 @@
                 cursor: pointer;
             }
 
-            /* 第一行容器：編號和狀態與類型 */
+            /* 第一行：編號（左）和狀態與類型（右） */
             td[data-label="編號"] {
                 font-size: 16px;
                 font-weight: 700;
                 color: var(--text-main);
-                margin-bottom: 10px;
+                margin-bottom: 8px;
                 margin-left: 0;
                 padding-left: 36px;
                 padding-right: 140px;
                 width: 100%;
                 order: 1;
-                line-height: 24px;
-                min-height: 24px;
+                line-height: 26px;
+                min-height: 26px;
                 display: flex;
                 align-items: center;
                 position: relative;
@@ -1551,8 +1555,8 @@
                 flex-wrap: wrap;
                 justify-content: flex-end;
                 order: 1;
-                line-height: 24px;
-                min-height: 24px;
+                line-height: 26px;
+                min-height: 26px;
                 z-index: 1;
             }
 
@@ -1565,9 +1569,8 @@
                 line-height: 1.4;
             }
 
-            /* 第二行：年度和機構標籤容器 - 改為更自然的展示方式 */
-            td[data-label="年度"],
-            td[data-label="機構"] {
+            /* 第二行：年度和機構 - 在同一行顯示 */
+            td[data-label="年度"] {
                 display: inline-block;
                 width: auto;
                 font-size: 13px;
@@ -1575,13 +1578,15 @@
                 background: none;
                 padding: 0;
                 border-radius: 0;
-                margin-right: 16px;
-                margin-bottom: 8px;
+                margin-right: 0;
+                margin-bottom: 10px;
                 margin-left: 0;
                 margin-top: 0;
                 vertical-align: baseline;
                 line-height: 1.6;
                 font-weight: 400;
+                order: 2;
+                white-space: nowrap;
             }
 
             /* 年度標籤前面加上標籤文字 */
@@ -1592,8 +1597,31 @@
                 margin-right: 4px;
             }
 
-            td[data-label="年度"] {
+            /* 年度後面加上分隔符 */
+            td[data-label="年度"]::after {
+                content: " | ";
+                color: #cbd5e1;
+                margin: 0 8px;
+                font-weight: 300;
+            }
+
+            td[data-label="機構"] {
+                display: inline-block;
+                width: auto;
+                font-size: 13px;
+                color: #64748b;
+                background: none;
+                padding: 0;
+                border-radius: 0;
+                margin-right: 0;
+                margin-bottom: 10px;
+                margin-left: 0;
+                margin-top: 0;
+                vertical-align: baseline;
+                line-height: 1.6;
+                font-weight: 400;
                 order: 2;
+                white-space: nowrap;
             }
 
             /* 機構標籤前面加上標籤文字 */
@@ -1602,10 +1630,6 @@
                 color: #94a3b8;
                 font-weight: 500;
                 margin-right: 4px;
-            }
-
-            td[data-label="機構"] {
-                order: 3;
             }
 
             /* 第三行：事項內容 */
@@ -1621,7 +1645,7 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
                 width: 100%;
-                order: 4;
+                order: 3;
             }
 
             /* 第四行：最新辦理/審查情形 */
@@ -1635,7 +1659,7 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
                 width: 100%;
-                order: 5;
+                order: 4;
                 line-height: 1.5;
             }
 
@@ -1645,7 +1669,7 @@
                 border-top: 1px solid #f1f5f9;
                 padding-top: 12px;
                 width: 100%;
-                order: 6;
+                order: 5;
             }
 
             td[data-label="操作"] > div {
