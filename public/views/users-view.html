@@ -14,7 +14,7 @@
     <div
         style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
         <input id="userSearch" class="filter-input" placeholder="搜尋姓名、帳號..." style="max-width:300px;"
-            oninput="loadUsersPage(1)">
+            oninput="loadUsersPage(1)" autocomplete="off">
         <select id="usersPageSize" class="page-size-select" onchange="loadUsersPage(1)">
             <option value="10">10 筆/頁</option>
             <option value="20" selected>20 筆/頁</option>
@@ -48,7 +48,7 @@
     <div
         style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff; flex-wrap:wrap;">
         <input id="loginSearch" class="filter-input" placeholder="搜尋所有內容" style="width:240px;"
-            oninput="loadLogsPage(1)">
+            oninput="loadLogsPage(1)" autocomplete="off">
         <button class="btn btn-outline btn-sm" onclick="exportLogs('login')">匯出 CSV</button>
         <div style="display:flex; gap:8px; align-items:center;">
             <select id="loginCleanupDays" class="filter-input" style="width:140px; padding:6px 10px; font-size:13px;">
@@ -87,7 +87,7 @@
     <div
         style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff; flex-wrap:wrap;">
         <input id="actionSearch" class="filter-input" placeholder="搜尋所有內容" style="width:240px;"
-            oninput="loadActionsPage(1)">
+            oninput="loadActionsPage(1)" autocomplete="off">
         <button class="btn btn-outline btn-sm" onclick="exportLogs('action')">匯出 CSV</button>
         <div style="display:flex; gap:8px; align-items:center;">
             <select id="actionCleanupDays" class="filter-input" style="width:140px; padding:6px 10px; font-size:13px;">

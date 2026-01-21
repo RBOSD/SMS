@@ -100,7 +100,7 @@
                         <div class="filter-primary-row">
                             <div class="search-item" style="flex:2;">
                                 <label>關鍵字</label>
-                                <input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字...">
+                                <input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字..." autocomplete="off">
                             </div>
 
                             <div class="search-item"><label>年度</label><select id="filterYear"
@@ -402,7 +402,7 @@
                                 </div>
                                 <textarea id="editReview" class="filter-input"
                                     style="flex:1;resize:vertical;line-height:1.6;min-height:200px;padding:12px;border:1px solid #cbd5e1;font-size:14px;"
-                                    placeholder="請輸入審查意見..."></textarea>
+                                    placeholder="請輸入審查意見..." autocomplete="off"></textarea>
                             </div>
                         </div>
 
@@ -421,8 +421,8 @@
         <div class="modal-box">
             <h3 style="margin-top:0;" id="userModalTitle">使用者</h3>
             <input type="hidden" id="targetUserId">
-            <div class="form-group"><label>姓名</label><input type="text" id="uName" class="filter-input"></div>
-            <div class="form-group"><label>帳號 (Username)</label><input type="text" id="uEmail" class="filter-input">
+            <div class="form-group"><label>姓名</label><input type="text" id="uName" class="filter-input" autocomplete="off"></div>
+            <div class="form-group"><label>帳號 (Username)</label><input type="text" id="uEmail" class="filter-input" autocomplete="username">
             </div>
             <div class="form-group">
                 <label>密碼 <span style="font-weight:400;color:#666;font-size:12px" id="pwdHint"></span></label>
@@ -456,7 +456,7 @@
     <div class="modal-overlay" id="profileModal">
         <div class="modal-box">
             <h3 style="margin-top:0;">個人設定</h3>
-            <div class="form-group"><label>姓名</label><input type="text" id="myProfileName" class="filter-input"></div>
+            <div class="form-group"><label>姓名</label><input type="text" id="myProfileName" class="filter-input" autocomplete="off"></div>
             <div class="form-group">
                 <label>新密碼 <span style="font-weight:400;color:#666;font-size:12px">(若不修改請留空)</span></label>
                 <div class="pwd-wrapper">

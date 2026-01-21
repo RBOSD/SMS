@@ -7,7 +7,7 @@
     <div
         style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
         <input id="planSearch" class="filter-input" placeholder="搜尋計畫名稱、描述..." style="max-width:300px;"
-            oninput="loadPlansPage(1)">
+            oninput="loadPlansPage(1)" autocomplete="off">
         <select id="planYearFilter" class="filter-select" style="width:120px;" onchange="loadPlansPage(1)">
             <option value="">全部年度</option>
             <!-- JavaScript 會自動產生選項 -->

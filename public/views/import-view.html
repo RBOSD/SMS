@@ -77,7 +77,7 @@
                         <div style="font-size:12px;color:#64748b;margin-bottom:4px;">監理機關初次發函日期 (例如:
                             1130615)</div>
                         <input type="text" id="importIssueDate" class="filter-input" placeholder="必填"
-                            onkeyup="checkImportReady()">
+                            onkeyup="checkImportReady()" autocomplete="off">
                     </div>
 
                     <div id="importDateGroup_Review" style="display:none;">
@@ -88,13 +88,13 @@
                                 <div style="font-size:12px;color:#64748b;margin-bottom:4px;">機構回復辦理情形日期
                                 </div>
                                 <input type="text" id="importReplyDate" class="filter-input"
-                                    placeholder="例如: 1130701">
+                                    placeholder="例如: 1130701" autocomplete="off">
                             </div>
                             <div>
                                 <div style="font-size:12px;color:#64748b;margin-bottom:4px;">監理機關本次函復日期
                                 </div>
                                 <input type="text" id="importResponseDate" class="filter-input"
-                                    placeholder="例如: 1130715">
+                                    placeholder="例如: 1130715" autocomplete="off">
                             </div>
                         </div>
                     </div>
@@ -197,7 +197,7 @@
                             初次發函日期 <span style="color:#ef4444;">*</span>
                         </label>
                         <input type="text" id="createIssueDate" class="filter-input" placeholder="例如: 1130501" 
-                            style="background:white;">
+                            style="background:white;" autocomplete="off">
                     </div>
                 </div>
                 <!-- 批次模式：載入現有事項按鈕 -->
@@ -221,7 +221,7 @@
                                 事項編號 <span style="color:#ef4444;">*</span>
                             </label>
                             <input type="text" id="createNumber" class="filter-input" 
-                                placeholder="例如: 113-TRA-1-A01-N01" oninput="autoFillFromNumberCreate()"
+                                placeholder="例如: 113-TRA-1-A01-N01" oninput="autoFillFromNumberCreate()" autocomplete="off"
                                 style="background:white;">
                         </div>
                         <div>
@@ -237,7 +237,7 @@
                             <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
                                 機構 <span style="color:#ef4444;">*</span>
                             </label>
-                            <input type="text" id="createUnit" class="filter-input" placeholder="自動帶入" style="background:white;">
+                            <input type="text" id="createUnit" class="filter-input" placeholder="自動帶入" style="background:white;" autocomplete="off">
                         </div>
                         <div>
                             <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">分組</label>
@@ -343,12 +343,12 @@
                                 <input type="number" id="createBatchReplyRoundManual" class="filter-input" 
                                     placeholder="手動輸入" min="1" max="200" 
                                     style="width:100px; font-size:13px; padding:8px;"
-                                    onchange="onBatchReplyRoundManualChange()">
+                                    onchange="onBatchReplyRoundManualChange()" autocomplete="off">
                             </div>
                             <div style="display:flex; gap:8px; align-items:center;">
                                 <label style="font-size:13px; color:#475569; font-weight:500;">回復日期：</label>
                                 <input type="text" id="createBatchReplyDate" class="filter-input" placeholder="例如: 1130601" 
-                                    style="width:150px; font-size:13px; padding:8px;">
+                                    style="width:150px; font-size:13px; padding:8px;" autocomplete="off">
                             </div>
                             <button class="btn btn-primary btn-sm" onclick="batchSetReplyDateForAll()" 
                                 style="padding:8px 16px; font-size:13px;">設定</button>
@@ -374,12 +374,12 @@
                                 <input type="number" id="createBatchResponseRoundManual" class="filter-input" 
                                     placeholder="手動輸入" min="1" max="200" 
                                     style="width:100px; font-size:13px; padding:8px;"
-                                    onchange="onBatchResponseRoundManualChange()">
+                                    onchange="onBatchResponseRoundManualChange()" autocomplete="off">
                             </div>
                             <div style="display:flex; gap:8px; align-items:center;">
                                 <label style="font-size:13px; color:#475569; font-weight:500;">函復日期：</label>
                                 <input type="text" id="createBatchResponseDate" class="filter-input" placeholder="例如: 1130615 或 1141001" 
-                                    style="width:150px; font-size:13px; padding:8px;">
+                                    style="width:150px; font-size:13px; padding:8px;" autocomplete="off">
                             </div>
                             <button class="btn btn-primary btn-sm" onclick="batchSetResponseDateForPlan()" 
                                 style="padding:8px 16px; font-size:13px;">設定</button>
@@ -512,7 +512,7 @@
         <div class="main-card" style="margin-top:20px;">
             <div style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
                 <input id="planSearch" class="filter-input" placeholder="搜尋計畫名稱..." style="max-width:300px;"
-                    oninput="loadPlansPage(1)">
+                    oninput="loadPlansPage(1)" autocomplete="off">
                 <select id="planYearFilter" class="filter-select" style="width:120px;" onchange="loadPlansPage(1)">
                     <option value="">全部年度</option>
                 </select>
@@ -564,11 +564,11 @@
             <input type="hidden" id="targetPlanId">
             <div class="form-group">
                 <label>年度 <span style="color:#ef4444;">*</span></label>
-                <input type="text" id="planYear" class="filter-input" placeholder="例如: 113">
+                <input type="text" id="planYear" class="filter-input" placeholder="例如: 113" autocomplete="off">
             </div>
             <div class="form-group">
                 <label>計畫名稱 <span style="color:#ef4444;">*</span></label>
-                <input type="text" id="planName" class="filter-input" placeholder="例如: 113年度上半年定期檢查">
+                <input type="text" id="planName" class="filter-input" placeholder="例如: 113年度上半年定期檢查" autocomplete="off">
             </div>
             <div style="display:flex;gap:12px;margin-top:24px;">
                 <button class="btn btn-primary" style="flex:1;" onclick="submitPlan()">儲存</button>
