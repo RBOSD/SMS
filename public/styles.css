@@ -2193,14 +2193,16 @@
         }
         
         /* 批次模式表格優化 */
-        /* 批次模式表格容器：移除橫向滾動條，讓表格適應容器寬度 */
+        /* 批次模式表格容器：允許橫向滾動以確保表格內容完整顯示 */
         .main-card > .data-container[style*="overflow"] {
-            overflow: visible !important;
+            overflow-x: auto !important;
+            overflow-y: visible !important;
         }
         
         #createBatchGridTable {
-            table-layout: fixed;
+            table-layout: auto;
             width: 100%;
+            min-width: 1200px;
             position: relative;
         }
         
@@ -2327,10 +2329,10 @@
             text-align: center;
         }
         
-        /* 事項內容按鈕樣式 - 大幅優化可讀性，擴大顯示區域 */
+        /* 事項內容按鈕樣式 - 大幅優化可讀性，擴大顯示區域，確保文字正常顯示 */
         #createBatchGridTable .create-batch-content-btn {
             width: 100% !important;
-            min-width: 0;
+            min-width: 300px !important;
             position: relative;
             z-index: 1;
             white-space: normal !important;
@@ -2353,6 +2355,7 @@
             font-weight: 400;
             letter-spacing: 0.02em;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            box-sizing: border-box;
         }
         
         #createBatchGridTable .create-batch-content-btn:hover {
