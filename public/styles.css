@@ -2283,42 +2283,42 @@
         
         #createBatchGridTable th:nth-child(3),
         #createBatchGridTable td:nth-child(3) {
-            width: 35%;
+            width: 40%;
         }
         
         #createBatchGridTable th:nth-child(4),
         #createBatchGridTable td:nth-child(4) {
-            width: 4.5%;
+            width: 4%;
         }
         
         #createBatchGridTable th:nth-child(5),
         #createBatchGridTable td:nth-child(5) {
-            width: 6%;
+            width: 5.5%;
         }
         
         #createBatchGridTable th:nth-child(6),
         #createBatchGridTable td:nth-child(6) {
-            width: 5.5%;
+            width: 5%;
         }
         
         #createBatchGridTable th:nth-child(7),
         #createBatchGridTable td:nth-child(7) {
-            width: 7.5%;
+            width: 7%;
         }
         
         #createBatchGridTable th:nth-child(8),
         #createBatchGridTable td:nth-child(8) {
-            width: 4.5%;
+            width: 4%;
         }
         
         #createBatchGridTable th:nth-child(9),
         #createBatchGridTable td:nth-child(9) {
-            width: 6%;
+            width: 5.5%;
         }
         
         #createBatchGridTable th:nth-child(10),
         #createBatchGridTable td:nth-child(10) {
-            width: 7.5%;
+            width: 7%;
         }
         
         #createBatchGridTable th:nth-child(11),
@@ -2335,7 +2335,7 @@
             z-index: 1;
             white-space: normal !important;
             word-wrap: break-word !important;
-            word-break: break-word !important;
+            word-break: normal !important;
             text-align: left !important;
             justify-content: flex-start;
             padding: 16px 20px !important;
@@ -2369,7 +2369,7 @@
             color: inherit !important;
             width: 100% !important;
             text-align: left !important;
-            word-break: break-word !important;
+            word-break: normal !important;
             overflow-wrap: break-word !important;
             font-size: 15px !important;
             letter-spacing: 0.02em;
