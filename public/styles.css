@@ -1469,17 +1469,18 @@
 
             tr {
                 background: white;
-                margin-bottom: 10px;
+                margin-bottom: 12px;
                 border-radius: 12px;
-                padding: 14px;
+                padding: 16px;
                 border: 1px solid #e2e8f0;
                 box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
                 position: relative;
                 cursor: pointer;
                 transition: transform 0.1s;
                 display: flex;
-                flex-wrap: wrap;
-                align-items: flex-start;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0;
             }
 
             tr:active {
@@ -1493,14 +1494,14 @@
                 display: block;
                 text-align: left;
                 width: 100%;
-                margin-bottom: 6px;
+                margin-bottom: 0;
             }
 
-            /* 檢核方框保持在左上角，與編號文字對齊 */
+            /* 檢核方框保持在左上角 */
             .manager-col {
                 position: absolute;
                 top: 16px;
-                left: 14px;
+                left: 16px;
                 width: auto;
                 z-index: 2;
                 display: flex;
@@ -1515,28 +1516,29 @@
                 cursor: pointer;
             }
 
-            /* 第一行：編號（左側，讓檢核方框在旁邊） */
+            /* 第一行容器：編號和狀態與類型 */
             td[data-label="編號"] {
                 font-size: 18px;
                 font-weight: 700;
                 color: var(--text-main);
-                margin-bottom: 8px;
-                margin-left: 42px;
-                margin-right: auto;
-                padding-right: 120px;
+                margin-bottom: 10px;
+                margin-left: 0;
+                padding-left: 36px;
+                padding-right: 0;
                 width: 100%;
                 order: 1;
-                line-height: 24px;
-                min-height: 24px;
+                line-height: 28px;
+                min-height: 28px;
                 display: flex;
                 align-items: center;
+                position: relative;
             }
 
-            /* 狀態與類型在右側，與編號同一行 */
+            /* 狀態與類型在編號同一行右側 */
             td[data-label="狀態與類型"] {
                 position: absolute;
                 top: 16px;
-                right: 14px;
+                right: 16px;
                 width: auto;
                 margin-bottom: 0;
                 display: flex;
@@ -1544,65 +1546,60 @@
                 gap: 6px;
                 flex-wrap: wrap;
                 justify-content: flex-end;
-                max-width: calc(45% - 14px);
-                order: 2;
-                line-height: 24px;
-                min-height: 24px;
+                order: 1;
+                line-height: 28px;
+                min-height: 28px;
             }
 
             /* 確保狀態與類型的徽章和標籤不會過大 */
             td[data-label="狀態與類型"] .badge,
             td[data-label="狀態與類型"] .kind-tag {
-                font-size: 13px;
+                font-size: 12px;
                 padding: 3px 8px;
                 white-space: nowrap;
+                line-height: 1.4;
             }
 
-            /* 第二行：年度 + 機構合併顯示在同一行 */
-            td[data-label="年度"] {
-                display: inline-block;
-                width: auto;
-                font-size: 14px;
-                color: #64748b;
-                background: #f1f5f9;
-                padding: 4px 10px;
-                border-radius: 6px;
-                margin-right: 8px;
-                margin-bottom: 8px;
-                margin-left: 0;
-                margin-top: 0;
-                order: 3;
-            }
-
+            /* 第二行：年度和機構標籤容器 */
+            td[data-label="年度"],
             td[data-label="機構"] {
                 display: inline-block;
                 width: auto;
-                font-size: 14px;
+                font-size: 13px;
                 color: #64748b;
                 background: #f1f5f9;
-                padding: 4px 10px;
+                padding: 5px 12px;
                 border-radius: 6px;
                 margin-right: 8px;
-                margin-bottom: 8px;
+                margin-bottom: 10px;
                 margin-left: 0;
                 margin-top: 0;
-                order: 4;
+                vertical-align: middle;
+                line-height: 1.5;
+            }
+
+            td[data-label="年度"] {
+                order: 2;
+            }
+
+            td[data-label="機構"] {
+                order: 3;
             }
 
             /* 第三行：事項內容 */
             td[data-label="事項內容"] {
-                font-size: 16px;
+                font-size: 15px;
                 color: #334155;
                 line-height: 1.6;
-                margin-bottom: 10px;
-                margin-top: 8px;
+                margin-bottom: 12px;
+                margin-top: 0;
                 display: -webkit-box;
                 -webkit-line-clamp: 3;
                 -webkit-box-orient: vertical;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 width: 100%;
-                order: 5;
+                order: 4;
             }
 
             /* 第四行：最新辦理/審查情形 */
@@ -1610,25 +1607,54 @@
                 font-size: 14px;
                 color: #64748b;
                 border-top: 1px solid #f1f5f9;
-                padding-top: 10px;
-                margin-top: 8px;
+                padding-top: 12px;
+                margin-top: 0;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 width: 100%;
+                order: 5;
+                line-height: 1.5;
+            }
+
+            /* 第五行：操作（管理功能） */
+            td[data-label="操作"] {
+                margin-top: 0;
+                border-top: 1px solid #f1f5f9;
+                padding-top: 12px;
+                width: 100%;
                 order: 6;
             }
 
-            /* 第五行：管理功能 */
+            td[data-label="操作"] > div {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                width: 100%;
+                align-items: flex-end;
+            }
+
+            td[data-label="操作"] .btn {
+                font-size: 13px;
+                padding: 6px 12px;
+                white-space: nowrap;
+            }
+
+            td[data-label="操作"] .ai-tag,
+            td[data-label="操作"] .badge {
+                align-self: flex-end;
+            }
+
+            /* 相容舊的標籤 */
             td[data-label="管理功能"] {
-                margin-top: 8px;
+                margin-top: 0;
                 display: flex;
                 gap: 8px;
                 justify-content: flex-end;
                 border-top: 1px solid #f1f5f9;
-                padding-top: 10px;
+                padding-top: 12px;
                 width: 100%;
-                order: 7;
+                order: 6;
             }
 
             td[data-label="管理功能"] .btn {
