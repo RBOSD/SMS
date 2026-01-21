@@ -2442,34 +2442,53 @@ if (dashboard) {
             // 為所有行的辦理情形設定指定輪次的回復日期
             const rows = document.querySelectorAll('#createBatchGridBody tr');
             let count = 0;
+            let skippedCount = 0;
+            const skippedItems = [];
             
             rows.forEach((row, rowIndex) => {
                 if (batchHandlingData[rowIndex] && batchHandlingData[rowIndex].length > 0) {
                     // 找到指定輪次的辦理情形並設定回復日期
                     const roundData = batchHandlingData[rowIndex].find(r => r.round === round);
                     if (roundData) {
+                        // 檢查是否有辦理情形內容，沒有內容則跳過
+                        if (!roundData.handling || !roundData.handling.trim()) {
+                            skippedCount++;
+                            const number = row.querySelector('.create-batch-number')?.value.trim() || `第 ${rowIndex + 1} 列`;
+                            skippedItems.push(number);
+                            return;
+                        }
                         roundData.replyDate = replyDate;
                         count++;
                     } else {
-                        // 如果該輪次不存在，創建一個新的辦理情形輪次
-                        batchHandlingData[rowIndex].push({
-                            round: round,
-                            handling: '',
-                            replyDate: replyDate
-                        });
-                        // 按輪次排序
-                        batchHandlingData[rowIndex].sort((a, b) => a.round - b.round);
-                        count++;
+                        // 如果該輪次不存在，不允許建立空白的辦理情形輪次來設定日期
+                        skippedCount++;
+                        const number = row.querySelector('.create-batch-number')?.value.trim() || `第 ${rowIndex + 1} 列`;
+                        skippedItems.push(`${number} (第 ${round} 次辦理情形不存在)`);
                     }
+                } else {
+                    skippedCount++;
+                    const number = row.querySelector('.create-batch-number')?.value.trim() || `第 ${rowIndex + 1} 列`;
+                    skippedItems.push(`${number} (尚無辦理情形)`);
                 }
             });
             
             if (count === 0) {
-                showToast('目前沒有事項可設定', 'error');
+                if (skippedCount > 0 && skippedItems.length > 0) {
+                    const skippedMsg = skippedItems.length <= 3 
+                        ? skippedItems.join('、')
+                        : skippedItems.slice(0, 3).join('、') + ` 等 ${skippedCount} 筆`;
+                    showToast(`無法設定：${skippedMsg} 尚無第 ${round} 次辦理情形內容或辦理情形為空`, 'error');
+                } else {
+                    showToast('目前沒有事項可設定', 'error');
+                }
                 return;
             }
             
-            showToast(`已為 ${count} 筆事項的第 ${round} 次辦理情形設定回復日期：${replyDate}`, 'success');
+            let successMsg = `已為 ${count} 筆事項的第 ${round} 次辦理情形設定回復日期：${replyDate}`;
+            if (skippedCount > 0) {
+                successMsg += `（已跳過 ${skippedCount} 筆無辦理情形內容的事項）`;
+            }
+            showToast(successMsg, 'success');
         }
         
         // 回復日期輪次選擇改變時的處理
@@ -3622,6 +3641,7 @@ if (dashboard) {
                     planName: planName,
                     issueDate: issueDate,
                     handling: firstHandling.handling ? firstHandling.handling.trim() : '',
+                    replyDate: firstHandling.replyDate ? firstHandling.replyDate.trim() : '',
                     scheme: 'BATCH',
                     handlingRounds: handlingRounds // 保存所有辦理情形輪次，用於後續更新
                 });
@@ -3634,6 +3654,7 @@ if (dashboard) {
 
             try {
                 // 先新增所有事項（第一次辦理情形）
+                // 注意：每個事項可能有不同的回復日期，需要在服務器端使用 item.replyDate
                 const itemsForImport = items.map(item => {
                     const { handlingRounds, ...itemData } = item;
                     return itemData;
@@ -3645,8 +3666,8 @@ if (dashboard) {
                     body: JSON.stringify({
                         data: itemsForImport,
                         round: 1,
-                        reviewDate: '',
-                        replyDate: ''
+                        reviewDate: ''
+                        // 不再使用統一的 replyDate，改為使用每個 item 的 replyDate
                     })
                 });
 
@@ -5728,6 +5749,13 @@ if (dashboard) {
                         const review = issue['review' + suffix] || '';
                         const replyDate = issue['reply_date_r' + round] || '';
                         
+                        // 檢查是否有審查內容，沒有審查內容則跳過
+                        if (!review || !review.trim()) {
+                            errorCount++;
+                            errors.push(`${issue.number || '未知編號'}: 第 ${round} 次尚無審查意見，無法設定函復日期`);
+                            continue;
+                        }
+                        
                         // 更新該輪次的函復日期
                         const updateRes = await fetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
@@ -5842,6 +5870,13 @@ if (dashboard) {
                         const handling = issue['handling' + suffix] || '';
                         const review = issue['review' + suffix] || '';
                         const replyDate = issue['reply_date_r' + round] || '';
+                        
+                        // 檢查是否有審查內容，沒有審查內容則跳過
+                        if (!review || !review.trim()) {
+                            errorCount++;
+                            errors.push(`${issue.number || '未知編號'}: 第 ${round} 次尚無審查意見，無法設定函復日期`);
+                            continue;
+                        }
                         
                         // 更新該輪次的函復日期
                         const res = await fetch(`/api/issues/${issueId}`, {

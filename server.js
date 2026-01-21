@@ -654,6 +654,8 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                 const respCol = `response_date_r${r}`;
                 
                 // 如果是新增事項（round=1），也更新內容和其他欄位
+                // 優先使用 item.replyDate，如果沒有則使用統一的 replyDate
+                const itemReplyDate = item.replyDate || replyDate || '';
                 if (r === 1) {
                     await client.query(
                         `UPDATE issues SET 
@@ -667,7 +669,7 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                         WHERE TRIM(number)=$14`,
                         [
                             item.status, item.content, item.handling||'', item.review||'', 
-                            replyDate||'', reviewDate||'', item.planName || null, item.issueDate || null,
+                            itemReplyDate, reviewDate||'', item.planName || null, item.issueDate || null,
                             item.year || null, item.unit || null,
                             item.divisionName || null, item.inspectionCategoryName || null,
                             item.itemKindCode || null, trimmedNumber
@@ -682,12 +684,14 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                             status=$1, ${hCol}=$2, ${rCol}=$3, ${replyCol}=$4, ${respCol}=$5,
                             plan_name=COALESCE($6, plan_name), updated_at=CURRENT_TIMESTAMP 
                         WHERE TRIM(number)=$7`,
-                        [item.status, item.handling||'', item.review||'', replyDate||'', reviewDate||'', item.planName || null, trimmedNumber]
+                        [item.status, item.handling||'', item.review||'', itemReplyDate, reviewDate||'', item.planName || null, trimmedNumber]
                     );
                     operationResults.push({ number: trimmedNumber, action: 'updated' });
                 }
             } else {
                 // 新增記錄（使用trimmedNumber確保編號沒有前後空格）
+                // 優先使用 item.replyDate，如果沒有則使用統一的 replyDate
+                const itemReplyDate = item.replyDate || replyDate || '';
                 await client.query(
                     `INSERT INTO issues (
                         number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
@@ -697,7 +701,7 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
                         trimmedNumber, item.year, item.unit, item.content, item.status||'持續列管',
                         item.itemKindCode, item.category, item.divisionName, item.inspectionCategoryName,
                         item.handling||'', item.review||'', item.planName || null, item.issueDate || null, 
-                        reviewDate || '', replyDate || '' 
+                        reviewDate || '', itemReplyDate
                     ]
                 );
                 // 記錄為新增操作
