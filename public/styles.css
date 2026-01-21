@@ -2207,6 +2207,19 @@
         #createBatchGridTable .create-batch-content {
             resize: both;
             overflow: auto;
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* 確保表格單元格不會遮蓋事項內容 */
+        #createBatchGridTable td {
+            position: relative;
+            overflow: visible;
+        }
+        
+        /* 確保事項內容欄位有足夠的層級 */
+        #createBatchGridTable td:nth-child(3) {
+            z-index: 10;
         }
         
         #createBatchGridTable select,
@@ -2215,4 +2228,12 @@
             font-size: 13px;
             padding: 6px 8px;
             box-sizing: border-box;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 確保textarea在所有輸入框之上 */
+        #createBatchGridTable textarea {
+            position: relative;
+            z-index: 10;
         }
