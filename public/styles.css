@@ -1524,7 +1524,7 @@
                 cursor: pointer;
             }
 
-            /* 第一行：編號（左）和狀態與類型（右） */
+            /* 第一行：編號（左）和狀態與類型（右） - 確保在同一行 */
             td[data-label="編號"] {
                 font-size: 16px;
                 font-weight: 700;
@@ -1534,13 +1534,13 @@
                 padding-left: 32px;
                 padding-right: 140px;
                 width: 100%;
+                max-width: calc(100% - 140px);
                 order: 1;
                 line-height: 26px;
                 min-height: 26px;
-                display: flex;
-                align-items: center;
+                display: block;
                 position: relative;
-                overflow: visible;
+                overflow: hidden;
                 white-space: nowrap;
                 text-overflow: ellipsis;
             }

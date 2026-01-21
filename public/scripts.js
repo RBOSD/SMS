@@ -2391,6 +2391,54 @@ if (dashboard) {
             }
         }
         
+        // 切換批次設定回復日期的顯示
+        function toggleBatchReplyDateSetting() {
+            const checkbox = document.getElementById('createBatchReplyDateToggle');
+            const container = document.getElementById('createBatchReplyDateContainer');
+            if (checkbox && container) {
+                container.style.display = checkbox.checked ? 'block' : 'none';
+            }
+        }
+        
+        // 批次設定回復日期（為所有事項的辦理情形）
+        function batchSetReplyDateForAll() {
+            const dateInput = document.getElementById('createBatchReplyDate');
+            if (!dateInput) return;
+            
+            const replyDate = dateInput.value.trim();
+            
+            if (!replyDate) {
+                showToast('請輸入回復日期', 'error');
+                return;
+            }
+            
+            // 驗證日期格式（應該是6或7位數字，例如：1130601 或 1141001）
+            if (!/^\d{6,7}$/.test(replyDate)) {
+                showToast('日期格式錯誤，應為6或7位數字（例如：1130601 或 1141001）', 'error');
+                return;
+            }
+            
+            // 為所有行的辦理情形設定回復日期
+            const rows = document.querySelectorAll('#createBatchGridBody tr');
+            let count = 0;
+            
+            rows.forEach((row, rowIndex) => {
+                if (batchHandlingData[rowIndex] && batchHandlingData[rowIndex].length > 0) {
+                    batchHandlingData[rowIndex].forEach((roundData) => {
+                        roundData.replyDate = replyDate;
+                    });
+                    count++;
+                }
+            });
+            
+            if (count === 0) {
+                showToast('目前沒有辦理情形可設定', 'error');
+                return;
+            }
+            
+            showToast(`已為 ${count} 筆事項的所有辦理情形設定回復日期：${replyDate}`, 'success');
+        }
+        
         // 初始化批次設定函復日期的選項（動態生成，最多200次）
         function initBatchResponseRoundOptions() {
             const select = document.getElementById('createBatchResponseRound');
@@ -3255,52 +3303,6 @@ if (dashboard) {
             currentBatchHandlingRowIndex = -1;
         }
         
-        // 切換批次設定鐵路機構回復日期的顯示
-        function toggleBatchHandlingReplyDateSetting() {
-            const checkbox = document.getElementById('batchHandlingReplyDateToggle');
-            const container = document.getElementById('batchHandlingReplyDateContainer');
-            if (checkbox && container) {
-                container.style.display = checkbox.checked ? 'block' : 'none';
-            }
-        }
-        
-        // 批次設定鐵路機構回復日期
-        function batchSetHandlingReplyDate() {
-            const dateInput = document.getElementById('batchHandlingReplyDate');
-            if (!dateInput) return;
-            
-            const replyDate = dateInput.value.trim();
-            
-            if (!replyDate) {
-                showToast('請輸入回復日期', 'error');
-                return;
-            }
-            
-            // 驗證日期格式（應該是6或7位數字，例如：1130601 或 1141001）
-            if (!/^\d{6,7}$/.test(replyDate)) {
-                showToast('日期格式錯誤，應為6或7位數字（例如：1130601 或 1141001）', 'error');
-                return;
-            }
-            
-            if (currentBatchHandlingRowIndex === -1) return;
-            
-            const rounds = batchHandlingData[currentBatchHandlingRowIndex] || [];
-            
-            if (rounds.length === 0) {
-                showToast('請先新增辦理情形', 'error');
-                return;
-            }
-            
-            // 批次設定所有辦理情形的回復日期
-            rounds.forEach((roundData) => {
-                roundData.replyDate = replyDate;
-            });
-            
-            // 重新渲染辦理情形輪次以更新顯示
-            renderBatchHandlingRounds();
-            
-            showToast(`已為所有辦理情形設定回復日期：${replyDate}`, 'success');
-        }
         
         // 新增批次辦理情形輪次
         function addBatchHandlingRound() {
@@ -3361,13 +3363,6 @@ if (dashboard) {
                                 placeholder="請輸入機構辦理情形..." 
                                 style="width:100%; min-height:120px; padding:12px; font-size:14px; line-height:1.6; resize:vertical; background:white;"
                                 oninput="updateBatchHandlingRound(${index}, 'handling', this.value)">${roundData.handling}</textarea>
-                        </div>
-                        <div>
-                            <label style="display:block; font-weight:600; color:#475569; font-size:12px; margin-bottom:6px;">鐵路機構回復日期</label>
-                            <input type="text" class="filter-input batch-handling-reply-date" data-index="${index}" 
-                                value="${roundData.replyDate}" placeholder="例如: 1130601" 
-                                style="width:100%; background:white;"
-                                oninput="updateBatchHandlingRound(${index}, 'replyDate', this.value)">
                         </div>
                     </div>
                 `;
