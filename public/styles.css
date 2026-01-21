@@ -269,17 +269,23 @@
             color: var(--danger);
         }
 
-        /* Main Content */
+        /* Main Content - 擴大頁面寬度 */
         .main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding:  24px;
-    background: var(--bg-body);
-    width: 100%;
-    max-width: 100%;
-    min-height: calc(100vh - 60px);
-}
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            background: var(--bg-body);
+            width: 100%;
+            max-width: 100%;
+            min-height: calc(100vh - 60px);
+        }
+        
+        /* 擴大主要卡片容器 */
+        .main-card {
+            max-width: 100%;
+            width: 100%;
+        }
 
         .content-header {
             display: flex;
@@ -2263,64 +2269,65 @@
         }
         
         /* 優化欄位寬度，使用百分比讓表格適應容器寬度，無需橫向滾動 */
+        /* 擴大事項內容欄位，其他欄位相應調整 */
         #createBatchGridTable th:nth-child(1),
         #createBatchGridTable td:nth-child(1) {
-            width: 4%;
+            width: 3.5%;
             text-align: center;
         }
         
         #createBatchGridTable th:nth-child(2),
         #createBatchGridTable td:nth-child(2) {
-            width: 14%;
+            width: 12%;
         }
         
         #createBatchGridTable th:nth-child(3),
         #createBatchGridTable td:nth-child(3) {
-            width: 18%;
+            width: 25%;
         }
         
         #createBatchGridTable th:nth-child(4),
         #createBatchGridTable td:nth-child(4) {
-            width: 6%;
+            width: 5.5%;
         }
         
         #createBatchGridTable th:nth-child(5),
         #createBatchGridTable td:nth-child(5) {
-            width: 8%;
+            width: 7%;
         }
         
         #createBatchGridTable th:nth-child(6),
         #createBatchGridTable td:nth-child(6) {
-            width: 7%;
+            width: 6.5%;
         }
         
         #createBatchGridTable th:nth-child(7),
         #createBatchGridTable td:nth-child(7) {
-            width: 9%;
+            width: 8.5%;
         }
         
         #createBatchGridTable th:nth-child(8),
         #createBatchGridTable td:nth-child(8) {
-            width: 6%;
+            width: 5.5%;
         }
         
         #createBatchGridTable th:nth-child(9),
         #createBatchGridTable td:nth-child(9) {
-            width: 8%;
+            width: 7%;
         }
         
         #createBatchGridTable th:nth-child(10),
         #createBatchGridTable td:nth-child(10) {
-            width: 9%;
+            width: 8.5%;
         }
         
         #createBatchGridTable th:nth-child(11),
         #createBatchGridTable td:nth-child(11) {
-            width: 5%;
+            width: 4.5%;
             text-align: center;
         }
         
-        /* 事項內容按鈕樣式 */
+        /* 事項內容按鈕樣式 - 美化優化 */
         #createBatchGridTable .create-batch-content-btn {
             width: 100%;
             min-width: 0;
@@ -2330,11 +2337,38 @@
             word-wrap: break-word;
             text-align: left;
             justify-content: flex-start;
+            padding: 10px 14px;
+            min-height: 50px;
+            height: auto;
+            border: 2px dashed #cbd5e1;
+            background: #f8fafc;
+            color: #475569;
+            transition: all 0.2s ease;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        
+        #createBatchGridTable .create-batch-content-btn:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+            color: #1e40af;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
         }
         
         #createBatchGridTable .create-batch-content-preview {
             display: block;
-            line-height: 1.4;
+            line-height: 1.6;
+            color: inherit;
+        }
+        
+        /* 當有內容時，按鈕樣式改變 */
+        #createBatchGridTable .create-batch-content-btn.has-content {
+            border-style: solid;
+            border-color: #3b82f6;
+            background: #eff6ff;
+            color: #1e40af;
         }
         
         /* 隱藏的事項內容輸入框 */

@@ -2885,7 +2885,7 @@ if (dashboard) {
                         <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx + 1}</td>
                         <td><input type="text" class="filter-input create-batch-number" value="${escapeHtml(issue.number || '')}" onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
                         <td style="position:relative;">
-                            <button type="button" class="btn btn-outline btn-sm create-batch-content-btn" onclick="openBatchContentModal(${rowIdx})" data-row-index="${rowIdx}" style="width:100%; padding:8px 12px; text-align:left; font-size:12px; white-space:normal; word-wrap:break-word; min-height:36px; height:auto;">
+                            <button type="button" class="btn btn-outline btn-sm create-batch-content-btn ${(issue.content || '').trim() ? 'has-content' : ''}" onclick="openBatchContentModal(${rowIdx})" data-row-index="${rowIdx}" style="width:100%; padding:8px 12px; text-align:left; font-size:12px; white-space:normal; word-wrap:break-word; min-height:36px; height:auto;">
                                 <span class="create-batch-content-preview">${(issue.content || '').trim() ? (stripHtml(issue.content).substring(0, 50) + (stripHtml(issue.content).length > 50 ? '...' : '')) : '點擊編輯事項內容'}</span>
                             </button>
                             <input type="hidden" class="create-batch-content" value="${escapeHtml(issue.content || '')}">
@@ -2919,6 +2919,12 @@ if (dashboard) {
                     if (contentBtn && contentPreview && contentHidden) {
                         const content = contentHidden.value || '';
                         contentPreview.textContent = content.trim() ? (content.substring(0, 50) + (content.length > 50 ? '...' : '')) : '點擊編輯事項內容';
+                        // 根據是否有內容更新按鈕樣式
+                        if (content && content.trim()) {
+                            contentBtn.classList.add('has-content');
+                        } else {
+                            contentBtn.classList.remove('has-content');
+                        }
                     }
                     
                     // 載入現有的辦理情形資料（如果有）
@@ -3607,6 +3613,13 @@ if (dashboard) {
                 
                 // 更新按鈕顯示
                 contentPreview.textContent = content ? (content.substring(0, 50) + (content.length > 50 ? '...' : '')) : '點擊編輯事項內容';
+                
+                // 根據是否有內容更新按鈕樣式
+                if (content && content.trim()) {
+                    contentBtn.classList.add('has-content');
+                } else {
+                    contentBtn.classList.remove('has-content');
+                }
                 
                 closeBatchContentModal();
             }
