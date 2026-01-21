@@ -2531,21 +2531,29 @@ if (dashboard) {
                 }
                 
                 if (successCount > 0) {
-                    let successMsg = `已成功為 ${successCount} 筆事項的第 ${round} 次辦理情形設定回復日期：${replyDate}`;
-                    if (errorCount > 0) {
-                        successMsg += `（已跳過 ${errorCount} 筆無辦理情形內容的事項）`;
-                        if (errors.length > 0 && errors.length <= 5) {
-                            console.warn('批次設定回復日期部分失敗：', errors);
-                        }
+                    showToast(`批次設定完成！成功 ${successCount} 筆${errorCount > 0 ? `，失敗 ${errorCount} 筆` : ''}`, errorCount > 0 ? 'warning' : 'success');
+                    
+                    // 如果有錯誤，顯示詳細資訊
+                    if (errorCount > 0 && errors.length > 0) {
+                        console.error('批次設定回復日期錯誤:', errors);
                     }
-                    showToast(successMsg, 'success');
+                    
+                    // 清空輸入欄位並重置為預設模式
+                    roundSelect.value = '';
+                    roundManualInput.value = '';
+                    dateInput.value = '';
+                    
+                    // 取消勾選並隱藏設定區塊
+                    const toggleCheckbox = document.getElementById('createBatchReplyDateToggle');
+                    if (toggleCheckbox) {
+                        toggleCheckbox.checked = false;
+                        toggleBatchReplyDateSetting();
+                    }
                 } else {
-                    let errorMsg = '無法設定回復日期';
+                    showToast('批次設定失敗，所有事項都無法更新', 'error');
                     if (errors.length > 0) {
-                        const errorPreview = errors.slice(0, 3).join('；');
-                        errorMsg += `：${errorPreview}${errors.length > 3 ? '...' : ''}`;
+                        console.error('批次設定回復日期錯誤:', errors);
                     }
-                    showToast(errorMsg, 'error');
                 }
             } catch (e) {
                 showToast('批次設定失敗: ' + e.message, 'error');
@@ -5858,9 +5866,17 @@ if (dashboard) {
                         console.error('批次設定函復日期錯誤:', errors);
                     }
                     
-                    // 清空輸入欄位
+                    // 清空輸入欄位並重置為預設模式
                     roundSelect.value = '';
+                    roundManualInput.value = '';
                     dateInput.value = '';
+                    
+                    // 取消勾選並隱藏設定區塊
+                    const toggleCheckbox = document.getElementById('createBatchResponseDateToggle');
+                    if (toggleCheckbox) {
+                        toggleCheckbox.checked = false;
+                        toggleBatchResponseDateSetting();
+                    }
                 } else {
                     showToast('批次設定失敗，所有事項都無法更新', 'error');
                     if (errors.length > 0) {
