@@ -2269,65 +2269,65 @@
         }
         
         /* 優化欄位寬度，使用百分比讓表格適應容器寬度，無需橫向滾動 */
-        /* 擴大事項內容欄位，其他欄位相應調整 */
+        /* 大幅擴大事項內容欄位，讓內容可以呈現更多 */
         #createBatchGridTable th:nth-child(1),
         #createBatchGridTable td:nth-child(1) {
-            width: 3.5%;
+            width: 3%;
             text-align: center;
         }
         
         #createBatchGridTable th:nth-child(2),
         #createBatchGridTable td:nth-child(2) {
-            width: 12%;
+            width: 11%;
         }
         
         #createBatchGridTable th:nth-child(3),
         #createBatchGridTable td:nth-child(3) {
-            width: 25%;
+            width: 30%;
         }
         
         #createBatchGridTable th:nth-child(4),
         #createBatchGridTable td:nth-child(4) {
-            width: 5.5%;
+            width: 5%;
         }
         
         #createBatchGridTable th:nth-child(5),
         #createBatchGridTable td:nth-child(5) {
-            width: 7%;
+            width: 6.5%;
         }
         
         #createBatchGridTable th:nth-child(6),
         #createBatchGridTable td:nth-child(6) {
-            width: 6.5%;
+            width: 6%;
         }
         
         #createBatchGridTable th:nth-child(7),
         #createBatchGridTable td:nth-child(7) {
-            width: 8.5%;
+            width: 8%;
         }
         
         #createBatchGridTable th:nth-child(8),
         #createBatchGridTable td:nth-child(8) {
-            width: 5.5%;
+            width: 5%;
         }
         
         #createBatchGridTable th:nth-child(9),
         #createBatchGridTable td:nth-child(9) {
-            width: 7%;
+            width: 6.5%;
         }
         
         #createBatchGridTable th:nth-child(10),
         #createBatchGridTable td:nth-child(10) {
-            width: 8.5%;
+            width: 8%;
         }
         
         #createBatchGridTable th:nth-child(11),
         #createBatchGridTable td:nth-child(11) {
-            width: 4.5%;
+            width: 4%;
             text-align: center;
         }
         
-        /* 事項內容按鈕樣式 - 美化優化 */
+        /* 事項內容按鈕樣式 - 美化優化，擴大顯示區域 */
         #createBatchGridTable .create-batch-content-btn {
             width: 100%;
             min-width: 0;
@@ -2335,18 +2335,21 @@
             z-index: 1;
             white-space: normal;
             word-wrap: break-word;
+            word-break: break-word;
             text-align: left;
             justify-content: flex-start;
-            padding: 10px 14px;
-            min-height: 50px;
+            padding: 12px 16px;
+            min-height: 60px;
             height: auto;
             border: 2px dashed #cbd5e1;
             background: #f8fafc;
             color: #475569;
             transition: all 0.2s ease;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 13px;
-            line-height: 1.5;
+            line-height: 1.7;
+            display: flex;
+            align-items: flex-start;
         }
         
         #createBatchGridTable .create-batch-content-btn:hover {
@@ -2354,13 +2357,17 @@
             background: #eff6ff;
             color: #1e40af;
             transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
         }
         
         #createBatchGridTable .create-batch-content-preview {
             display: block;
-            line-height: 1.6;
+            line-height: 1.7;
             color: inherit;
+            width: 100%;
+            text-align: left;
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
         
         /* 當有內容時，按鈕樣式改變 */
@@ -2369,6 +2376,13 @@
             border-color: #3b82f6;
             background: #eff6ff;
             color: #1e40af;
+            border-width: 2px;
+        }
+        
+        /* 空內容時的提示文字樣式 */
+        #createBatchGridTable .create-batch-content-btn:not(.has-content) .create-batch-content-preview {
+            color: #94a3b8;
+            font-style: italic;
         }
         
         /* 隱藏的事項內容輸入框 */
