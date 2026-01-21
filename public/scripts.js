@@ -2884,7 +2884,12 @@ if (dashboard) {
                     tr.innerHTML = `
                         <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx + 1}</td>
                         <td><input type="text" class="filter-input create-batch-number" value="${escapeHtml(issue.number || '')}" onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
-                        <td><textarea class="filter-input create-batch-content" rows="1" style="resize:both; min-width:200px; width:200px; min-height:32px;" oninput="adjustTextareaWidth(this)">${stripHtml(issue.content || '')}</textarea></td>
+                        <td style="position:relative;">
+                            <button type="button" class="btn btn-outline btn-sm create-batch-content-btn" onclick="openBatchContentModal(${rowIdx})" data-row-index="${rowIdx}" style="width:100%; padding:8px 12px; text-align:left; font-size:12px; white-space:normal; word-wrap:break-word; min-height:36px; height:auto;">
+                                <span class="create-batch-content-preview">${(issue.content || '').trim() ? (stripHtml(issue.content).substring(0, 50) + (stripHtml(issue.content).length > 50 ? '...' : '')) : '點擊編輯事項內容'}</span>
+                            </button>
+                            <input type="hidden" class="create-batch-content" value="${escapeHtml(issue.content || '')}">
+                        </td>
                         <td><input type="text" class="filter-input create-batch-year" value="${escapeHtml(issue.year || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
                         <td><input type="text" class="filter-input create-batch-unit" value="${escapeHtml(issue.unit || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
                         <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務" ${divisionName === '運務' ? 'selected' : ''}>運務</option><option value="工務" ${divisionName === '工務' ? 'selected' : ''}>工務</option><option value="機務" ${divisionName === '機務' ? 'selected' : ''}>機務</option><option value="電務" ${divisionName === '電務' ? 'selected' : ''}>電務</option><option value="安全" ${divisionName === '安全' ? 'selected' : ''}>安全</option><option value="審核" ${divisionName === '審核' ? 'selected' : ''}>審核</option><option value="災防" ${divisionName === '災防' ? 'selected' : ''}>災防</option><option value="運轉" ${divisionName === '運轉' ? 'selected' : ''}>運轉</option><option value="土木" ${divisionName === '土木' ? 'selected' : ''}>土木</option><option value="機電" ${divisionName === '機電' ? 'selected' : ''}>機電</option></select></td>
@@ -2907,10 +2912,13 @@ if (dashboard) {
                         tr.setAttribute('data-issue-id', issue.id);
                     }
                     
-                    // 調整 textarea 寬度
-                    const contentTextarea = tr.querySelector('.create-batch-content');
-                    if (contentTextarea) {
-                        adjustTextareaWidth(contentTextarea);
+                    // 更新事項內容按鈕顯示
+                    const contentBtn = tr.querySelector('.create-batch-content-btn');
+                    const contentPreview = tr.querySelector('.create-batch-content-preview');
+                    const contentHidden = tr.querySelector('.create-batch-content');
+                    if (contentBtn && contentPreview && contentHidden) {
+                        const content = contentHidden.value || '';
+                        contentPreview.textContent = content.trim() ? (content.substring(0, 50) + (content.length > 50 ? '...' : '')) : '點擊編輯事項內容';
                     }
                     
                     // 載入現有的辦理情形資料（如果有）
@@ -3449,7 +3457,12 @@ if (dashboard) {
             tr.innerHTML = `
                 <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx + 1}</td>
                 <td><input type="text" class="filter-input create-batch-number" placeholder="編號..." onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
-                <td><textarea class="filter-input create-batch-content" rows="1" placeholder="內容..." style="resize:both; min-width:200px; width:200px; min-height:32px;" oninput="adjustTextareaWidth(this)"></textarea></td>
+                <td style="position:relative;">
+                    <button type="button" class="btn btn-outline btn-sm create-batch-content-btn" onclick="openBatchContentModal(${rowIdx})" data-row-index="${rowIdx}" style="width:100%; padding:8px 12px; text-align:left; font-size:12px; white-space:normal; word-wrap:break-word; min-height:36px; height:auto;">
+                        <span class="create-batch-content-preview">點擊編輯事項內容</span>
+                    </button>
+                    <input type="hidden" class="create-batch-content" value="">
+                </td>
                 <td><input type="text" class="filter-input create-batch-year" style="background:#f1f5f9;color:#64748b;" readonly></td>
                 <td><input type="text" class="filter-input create-batch-unit" style="background:#f1f5f9;color:#64748b;" readonly></td>
                 <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="安全">安全</option><option value="審核">審核</option><option value="災防">災防</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option></select></td>
@@ -3817,7 +3830,8 @@ if (dashboard) {
 
             rows.forEach((tr, idx) => {
                 const number = tr.querySelector('.create-batch-number').value.trim();
-                const content = tr.querySelector('.create-batch-content').value.trim();
+                const contentHidden = tr.querySelector('.create-batch-content');
+                const content = contentHidden ? contentHidden.value.trim() : '';
 
                 if (!number && !content) return;
 

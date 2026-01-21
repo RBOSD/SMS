@@ -2212,17 +2212,31 @@
             overflow: visible !important;
         }
         
-        #createBatchGridTable .create-batch-number,
-        #createBatchGridTable .create-batch-content {
+        #createBatchGridTable .create-batch-number {
             width: 100%;
             min-width: 0;
         }
         
-        #createBatchGridTable .create-batch-content {
-            resize: both;
-            overflow: auto;
+        /* 事項內容按鈕樣式 */
+        #createBatchGridTable .create-batch-content-btn {
+            width: 100%;
+            min-width: 0;
             position: relative;
-            z-index: 100;
+            z-index: 1;
+            white-space: normal;
+            word-wrap: break-word;
+            text-align: left;
+            justify-content: flex-start;
+        }
+        
+        #createBatchGridTable .create-batch-content-preview {
+            display: block;
+            line-height: 1.4;
+        }
+        
+        /* 隱藏的事項內容輸入框 */
+        #createBatchGridTable .create-batch-content[type="hidden"] {
+            display: none;
         }
         
         /* 確保所有輸入框都有足夠的層級，不被遮蓋 */
