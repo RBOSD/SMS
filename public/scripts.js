@@ -2367,6 +2367,8 @@ if (dashboard) {
                 }
                 // 初始化批次設定函復日期的選項
                 initBatchResponseRoundOptions();
+                // 初始化批次設定回復日期的選項
+                initBatchReplyRoundOptions();
                 // 顯示載入現有事項按鈕（如果已選擇計畫）
                 const planSelect = document.getElementById('createPlanName');
                 const loadContainer = document.getElementById('createLoadExistingContainer');
@@ -2402,10 +2404,29 @@ if (dashboard) {
         
         // 批次設定回復日期（為所有事項的辦理情形）
         function batchSetReplyDateForAll() {
+            const roundSelect = document.getElementById('createBatchReplyRound');
+            const roundManualInput = document.getElementById('createBatchReplyRoundManual');
             const dateInput = document.getElementById('createBatchReplyDate');
-            if (!dateInput) return;
+            
+            if (!roundSelect || !roundManualInput || !dateInput) return;
+            
+            // 優先使用下拉選單的值，如果沒有則使用手動輸入
+            let round = parseInt(roundSelect.value);
+            if (!round || round < 1) {
+                round = parseInt(roundManualInput.value);
+            }
             
             const replyDate = dateInput.value.trim();
+            
+            if (!round || round < 1) {
+                showToast('請選擇或輸入回復輪次', 'error');
+                return;
+            }
+            
+            if (round > 200) {
+                showToast('回復輪次不能超過200次', 'error');
+                return;
+            }
             
             if (!replyDate) {
                 showToast('請輸入回復日期', 'error');
@@ -2418,30 +2439,90 @@ if (dashboard) {
                 return;
             }
             
-            // 為所有行的辦理情形設定回復日期
+            // 為所有行的辦理情形設定指定輪次的回復日期
             const rows = document.querySelectorAll('#createBatchGridBody tr');
             let count = 0;
             
             rows.forEach((row, rowIndex) => {
                 if (batchHandlingData[rowIndex] && batchHandlingData[rowIndex].length > 0) {
-                    batchHandlingData[rowIndex].forEach((roundData) => {
+                    // 找到指定輪次的辦理情形並設定回復日期
+                    const roundData = batchHandlingData[rowIndex].find(r => r.round === round);
+                    if (roundData) {
                         roundData.replyDate = replyDate;
-                    });
-                    count++;
+                        count++;
+                    } else {
+                        // 如果該輪次不存在，創建一個新的辦理情形輪次
+                        batchHandlingData[rowIndex].push({
+                            round: round,
+                            handling: '',
+                            replyDate: replyDate
+                        });
+                        // 按輪次排序
+                        batchHandlingData[rowIndex].sort((a, b) => a.round - b.round);
+                        count++;
+                    }
                 }
             });
             
             if (count === 0) {
-                showToast('目前沒有辦理情形可設定', 'error');
+                showToast('目前沒有事項可設定', 'error');
                 return;
             }
             
-            showToast(`已為 ${count} 筆事項的所有辦理情形設定回復日期：${replyDate}`, 'success');
+            showToast(`已為 ${count} 筆事項的第 ${round} 次辦理情形設定回復日期：${replyDate}`, 'success');
+        }
+        
+        // 回復日期輪次選擇改變時的處理
+        function onBatchReplyRoundChange() {
+            const roundSelect = document.getElementById('createBatchReplyRound');
+            const roundManualInput = document.getElementById('createBatchReplyRoundManual');
+            
+            if (!roundSelect || !roundManualInput) return;
+            
+            if (roundSelect.value) {
+                roundManualInput.value = '';
+            }
+        }
+        
+        // 回復日期輪次手動輸入改變時的處理
+        function onBatchReplyRoundManualChange() {
+            const roundSelect = document.getElementById('createBatchReplyRound');
+            const roundManualInput = document.getElementById('createBatchReplyRoundManual');
+            
+            if (!roundSelect || !roundManualInput) return;
+            
+            if (roundManualInput.value) {
+                const manualValue = parseInt(roundManualInput.value);
+                if (manualValue >= 1 && manualValue <= 200) {
+                    // 如果在選單範圍內，同步到選單
+                    roundSelect.value = manualValue;
+                } else {
+                    // 如果超出範圍，清空選單
+                    roundSelect.value = '';
+                }
+            }
         }
         
         // 初始化批次設定函復日期的選項（動態生成，最多200次）
         function initBatchResponseRoundOptions() {
             const select = document.getElementById('createBatchResponseRound');
+            if (!select) return;
+            
+            // 清空現有選項（保留第一個「請選擇」選項）
+            select.innerHTML = '<option value="">請選擇</option>';
+            
+            // 動態生成選項（最多200次）
+            for (let i = 1; i <= 200; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `第 ${i} 次`;
+                select.appendChild(option);
+            }
+        }
+        
+        // 初始化批次設定回復日期的選項（動態生成，最多200次）
+        function initBatchReplyRoundOptions() {
+            const select = document.getElementById('createBatchReplyRound');
             if (!select) return;
             
             // 清空現有選項（保留第一個「請選擇」選項）
