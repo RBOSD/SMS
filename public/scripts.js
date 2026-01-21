@@ -2663,6 +2663,91 @@ if (dashboard) {
             }
         }
         
+        // 從檢查計畫查詢並預填辦理情形回復輪次
+        async function updateBatchReplyRoundFromPlan() {
+            const planSelect = document.getElementById('createPlanName');
+            const roundSelect = document.getElementById('createBatchReplyRound');
+            const roundManualInput = document.getElementById('createBatchReplyRoundManual');
+            
+            if (!planSelect || !roundSelect || !roundManualInput) return;
+            
+            const planValue = planSelect.value.trim();
+            if (!planValue) {
+                // 清空選項
+                roundSelect.value = '';
+                roundManualInput.value = '';
+                return;
+            }
+            
+            try {
+                // 載入該計畫下的所有事項
+                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
+                if (!res.ok) return;
+                
+                const json = await res.json();
+                const issueList = json.data || [];
+                
+                if (issueList.length === 0) {
+                    // 沒有事項，預設為第1次
+                    roundSelect.value = '1';
+                    roundManualInput.value = '';
+                    return;
+                }
+                
+                // 找出第一個「有辦理情形內容但沒有回復日期」的輪次
+                // 如果所有輪次都有日期，則找下一個需要填寫的輪次
+                let foundIncompleteRound = null;
+                let maxRound = 0;
+                
+                issueList.forEach(issue => {
+                    // 檢查所有可能的辦理情形輪次（最多200次）
+                    for (let i = 1; i <= 200; i++) {
+                        const suffix = i === 1 ? '' : i;
+                        const handling = issue['handling' + suffix] || '';
+                        const replyDate = issue['reply_date_r' + i] || '';
+                        
+                        // 如果有辦理情形，記錄最高輪次
+                        if (handling.trim()) {
+                            if (i > maxRound) {
+                                maxRound = i;
+                            }
+                            
+                            // 如果有辦理情形內容但沒有回復日期，這是需要填寫的輪次
+                            if (handling.trim() && !replyDate) {
+                                if (!foundIncompleteRound || i < foundIncompleteRound) {
+                                    foundIncompleteRound = i;
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // 如果找到有辦理情形內容但無日期的輪次，使用該輪次
+                // 否則使用最高輪次 + 1（如果最高輪次是0，則為第1次）
+                const suggestedRound = foundIncompleteRound || (maxRound + 1);
+                
+                if (suggestedRound <= 200) {
+                    roundSelect.value = suggestedRound;
+                    roundManualInput.value = '';
+                    // 顯示提示訊息
+                    if (foundIncompleteRound) {
+                        showToast(`已自動預填為第 ${suggestedRound} 次辦理情形回復（該輪次有辦理情形但尚未填寫回復日期）`, 'info');
+                    } else if (maxRound > 0) {
+                        showToast(`已自動預填為第 ${suggestedRound} 次辦理情形回復（最高已完成：第 ${maxRound} 次）`, 'info');
+                    } else {
+                        showToast(`已自動預填為第 ${suggestedRound} 次辦理情形回復（尚無辦理情形紀錄）`, 'info');
+                    }
+                } else {
+                    // 如果超過200次，使用手動輸入
+                    roundSelect.value = '';
+                    roundManualInput.value = suggestedRound;
+                    showToast(`已自動預填為第 ${suggestedRound} 次辦理情形回復（超過選單範圍，請使用手動輸入）`, 'info');
+                }
+            } catch (e) {
+                console.error('查詢辦理情形輪次失敗:', e);
+            }
+        }
+        
         // 初始化批次設定函復日期的選項（動態生成，最多200次）
         function initBatchResponseRoundOptions() {
             const select = document.getElementById('createBatchResponseRound');
@@ -2716,9 +2801,10 @@ if (dashboard) {
                 }
             }
             
-            // 如果是批次模式，查詢並預填審查函復輪次
+            // 如果是批次模式，查詢並預填審查函復輪次和辦理情形回復輪次
             if (createMode === 'batch') {
                 updateBatchResponseRoundFromPlan();
+                updateBatchReplyRoundFromPlan();
                 // 顯示/隱藏載入現有事項按鈕
                 const loadContainer = document.getElementById('createLoadExistingContainer');
                 if (loadContainer) {
