@@ -3523,7 +3523,7 @@ if (dashboard) {
             }
         }
         
-        // 批次模式：調整textarea寬度和高度
+        // 批次模式：調整textarea寬度和高度（已棄用，保留以備不時之需）
         function adjustTextareaWidth(textarea) {
             // 根據內容長度動態調整寬度和高度
             const content = textarea.value;
@@ -3547,6 +3547,86 @@ if (dashboard) {
                 // 單行時根據內容長度調整
                 const calculatedWidth = Math.max(minWidth, Math.min(maxWidth, contentLength * charWidth + padding));
                 textarea.style.width = calculatedWidth + 'px';
+            }
+        }
+        
+        // 批次模式：事項內容編輯模態框管理
+        let currentBatchContentRowIndex = null;
+        
+        function openBatchContentModal(rowIndex) {
+            currentBatchContentRowIndex = rowIndex;
+            const tbody = document.getElementById('createBatchGridBody');
+            if (!tbody) return;
+            
+            const tr = tbody.children[rowIndex];
+            if (!tr) return;
+            
+            const numberInput = tr.querySelector('.create-batch-number');
+            const contentHidden = tr.querySelector('.create-batch-content');
+            
+            const number = numberInput ? numberInput.value.trim() : '';
+            const content = contentHidden ? contentHidden.value : '';
+            
+            const modal = document.getElementById('batchContentModal');
+            const numberSpan = document.getElementById('batchContentModalNumber');
+            const textarea = document.getElementById('batchContentModalTextarea');
+            
+            if (modal && numberSpan && textarea) {
+                numberSpan.textContent = number || `第 ${rowIndex + 1} 列`;
+                textarea.value = content;
+                modal.style.display = 'flex';
+                textarea.focus();
+            }
+        }
+        
+        function closeBatchContentModal() {
+            const modal = document.getElementById('batchContentModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            currentBatchContentRowIndex = null;
+        }
+        
+        function saveBatchContent() {
+            if (currentBatchContentRowIndex === null) return;
+            
+            const tbody = document.getElementById('createBatchGridBody');
+            if (!tbody) return;
+            
+            const tr = tbody.children[currentBatchContentRowIndex];
+            if (!tr) return;
+            
+            const textarea = document.getElementById('batchContentModalTextarea');
+            const contentHidden = tr.querySelector('.create-batch-content');
+            const contentBtn = tr.querySelector('.create-batch-content-btn');
+            const contentPreview = tr.querySelector('.create-batch-content-preview');
+            
+            if (textarea && contentHidden && contentBtn && contentPreview) {
+                const content = textarea.value.trim();
+                contentHidden.value = content;
+                
+                // 更新按鈕顯示
+                contentPreview.textContent = content ? (content.substring(0, 50) + (content.length > 50 ? '...' : '')) : '點擊編輯事項內容';
+                
+                closeBatchContentModal();
+            }
+        }
+        
+        // 點擊模態框背景關閉（在DOMContentLoaded中初始化）
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initBatchContentModal);
+        } else {
+            initBatchContentModal();
+        }
+        
+        function initBatchContentModal() {
+            const modal = document.getElementById('batchContentModal');
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeBatchContentModal();
+                    }
+                });
             }
         }
         
