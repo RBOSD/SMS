@@ -2402,13 +2402,14 @@ if (dashboard) {
             }
         }
         
-        // 批次設定回復日期（為所有事項的辦理情形）
-        function batchSetReplyDateForAll() {
+        // 批次設定回復日期（為所有事項的辦理情形）- 比照審查函覆日期的處理流程
+        async function batchSetReplyDateForAll() {
             const roundSelect = document.getElementById('createBatchReplyRound');
             const roundManualInput = document.getElementById('createBatchReplyRoundManual');
             const dateInput = document.getElementById('createBatchReplyDate');
+            const planSelect = document.getElementById('createPlanName');
             
-            if (!roundSelect || !roundManualInput || !dateInput) return;
+            if (!roundSelect || !roundManualInput || !dateInput || !planSelect) return;
             
             // 優先使用下拉選單的值，如果沒有則使用手動輸入
             let round = parseInt(roundSelect.value);
@@ -2417,6 +2418,12 @@ if (dashboard) {
             }
             
             const replyDate = dateInput.value.trim();
+            const planValue = planSelect.value.trim();
+            
+            if (!planValue) {
+                showToast('請先選擇檢查計畫', 'error');
+                return;
+            }
             
             if (!round || round < 1) {
                 showToast('請選擇或輸入回復輪次', 'error');
@@ -2439,56 +2446,110 @@ if (dashboard) {
                 return;
             }
             
-            // 為所有行的辦理情形設定指定輪次的回復日期
-            const rows = document.querySelectorAll('#createBatchGridBody tr');
-            let count = 0;
-            let skippedCount = 0;
-            const skippedItems = [];
+            const { name: planName } = parsePlanValue(planValue);
             
-            rows.forEach((row, rowIndex) => {
-                if (batchHandlingData[rowIndex] && batchHandlingData[rowIndex].length > 0) {
-                    // 找到指定輪次的辦理情形並設定回復日期
-                    const roundData = batchHandlingData[rowIndex].find(r => r.round === round);
-                    if (roundData) {
-                        // 檢查是否有辦理情形內容，沒有內容則跳過
-                        if (!roundData.handling || !roundData.handling.trim()) {
-                            skippedCount++;
-                            const number = row.querySelector('.create-batch-number')?.value.trim() || `第 ${rowIndex + 1} 列`;
-                            skippedItems.push(number);
-                            return;
-                        }
-                        roundData.replyDate = replyDate;
-                        count++;
-                    } else {
-                        // 如果該輪次不存在，不允許建立空白的辦理情形輪次來設定日期
-                        skippedCount++;
-                        const number = row.querySelector('.create-batch-number')?.value.trim() || `第 ${rowIndex + 1} 列`;
-                        skippedItems.push(`${number} (第 ${round} 次辦理情形不存在)`);
+            try {
+                // 載入該計畫下的所有事項
+                showToast('載入事項中，請稍候...', 'info');
+                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
+                if (!res.ok) throw new Error('載入事項列表失敗');
+                
+                const json = await res.json();
+                const issueList = json.data || [];
+                
+                if (issueList.length === 0) {
+                    showToast('該檢查計畫下尚無開立事項', 'error');
+                    return;
+                }
+                
+                if (!confirm(`確定要批次設定第 ${round} 次辦理情形的回復日期為 ${replyDate} 嗎？\n將更新 ${issueList.length} 筆事項。`)) {
+                    return;
+                }
+                
+                showToast('批次設定中，請稍候...', 'info');
+                
+                let successCount = 0;
+                let errorCount = 0;
+                const errors = [];
+                
+                // 批次更新所有事項
+                for (let i = 0; i < issueList.length; i++) {
+                    const issue = issueList[i];
+                    const issueId = issue.id;
+                    
+                    if (!issueId) {
+                        errorCount++;
+                        errors.push(`${issue.number || '未知編號'}: 缺少事項ID`);
+                        continue;
                     }
-                } else {
-                    skippedCount++;
-                    const number = row.querySelector('.create-batch-number')?.value.trim() || `第 ${rowIndex + 1} 列`;
-                    skippedItems.push(`${number} (尚無辦理情形)`);
+                    
+                    try {
+                        // 讀取該輪次的現有資料
+                        const suffix = round === 1 ? '' : round;
+                        const handling = issue['handling' + suffix] || '';
+                        const review = issue['review' + suffix] || '';
+                        const existingReplyDate = issue['reply_date_r' + round] || '';
+                        
+                        // 檢查是否有辦理情形內容，沒有辦理情形內容則跳過
+                        if (!handling || !handling.trim()) {
+                            errorCount++;
+                            errors.push(`${issue.number || '未知編號'}: 第 ${round} 次尚無辦理情形，無法設定回復日期`);
+                            continue;
+                        }
+                        
+                        // 更新該輪次的回復日期
+                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                status: issue.status || '持續列管',
+                                round: round,
+                                handling: handling,
+                                review: review,
+                                replyDate: replyDate,
+                                responseDate: existingReplyDate || null
+                            })
+                        });
+                        
+                        if (updateRes.ok) {
+                            const result = await updateRes.json();
+                            if (result.success) {
+                                successCount++;
+                            } else {
+                                errorCount++;
+                                errors.push(`${issue.number || '未知編號'}: 更新失敗`);
+                            }
+                        } else {
+                            errorCount++;
+                            const errorData = await updateRes.json().catch(() => ({}));
+                            errors.push(`${issue.number || '未知編號'}: ${errorData.error || '更新失敗'}`);
+                        }
+                    } catch (e) {
+                        errorCount++;
+                        errors.push(`${issue.number || '未知編號'}: ${e.message}`);
+                    }
                 }
-            });
-            
-            if (count === 0) {
-                if (skippedCount > 0 && skippedItems.length > 0) {
-                    const skippedMsg = skippedItems.length <= 3 
-                        ? skippedItems.join('、')
-                        : skippedItems.slice(0, 3).join('、') + ` 等 ${skippedCount} 筆`;
-                    showToast(`無法設定：${skippedMsg} 尚無第 ${round} 次辦理情形內容或辦理情形為空`, 'error');
+                
+                if (successCount > 0) {
+                    let successMsg = `已成功為 ${successCount} 筆事項的第 ${round} 次辦理情形設定回復日期：${replyDate}`;
+                    if (errorCount > 0) {
+                        successMsg += `（已跳過 ${errorCount} 筆無辦理情形內容的事項）`;
+                        if (errors.length > 0 && errors.length <= 5) {
+                            console.warn('批次設定回復日期部分失敗：', errors);
+                        }
+                    }
+                    showToast(successMsg, 'success');
                 } else {
-                    showToast('目前沒有事項可設定', 'error');
+                    let errorMsg = '無法設定回復日期';
+                    if (errors.length > 0) {
+                        const errorPreview = errors.slice(0, 3).join('；');
+                        errorMsg += `：${errorPreview}${errors.length > 3 ? '...' : ''}`;
+                    }
+                    showToast(errorMsg, 'error');
                 }
-                return;
+            } catch (e) {
+                showToast('批次設定失敗: ' + e.message, 'error');
             }
-            
-            let successMsg = `已為 ${count} 筆事項的第 ${round} 次辦理情形設定回復日期：${replyDate}`;
-            if (skippedCount > 0) {
-                successMsg += `（已跳過 ${skippedCount} 筆無辦理情形內容的事項）`;
-            }
-            showToast(successMsg, 'success');
         }
         
         // 回復日期輪次選擇改變時的處理
