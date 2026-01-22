@@ -2845,7 +2845,8 @@ if (dashboard) {
                 const existingRows = tbody.querySelectorAll('tr');
                 const hasExistingData = Array.from(existingRows).some(tr => {
                     const number = tr.querySelector('.create-batch-number')?.value.trim();
-                    const content = tr.querySelector('.create-batch-content')?.value.trim();
+                    const contentTextarea = tr.querySelector('.create-batch-content-textarea');
+                    const content = contentTextarea ? contentTextarea.value.trim() : '';
                     return number || content;
                 });
                 
@@ -2885,10 +2886,7 @@ if (dashboard) {
                         <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx + 1}</td>
                         <td><input type="text" class="filter-input create-batch-number" value="${escapeHtml(issue.number || '')}" onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
                         <td style="position:relative;">
-                            <button type="button" class="btn btn-outline btn-sm create-batch-content-btn ${(issue.content || '').trim() ? 'has-content' : ''}" onclick="openBatchContentModal(${rowIdx})" data-row-index="${rowIdx}">
-                                <span class="create-batch-content-preview">${(issue.content || '').trim() ? stripHtml(issue.content) : '點擊編輯事項內容'}</span>
-                            </button>
-                            <input type="hidden" class="create-batch-content" value="${escapeHtml(issue.content || '')}">
+                            <textarea class="filter-input create-batch-content-textarea" rows="3" style="resize:vertical;min-height:60px;max-height:120px;font-size:13px;line-height:1.6;padding:8px 10px;">${escapeHtml(issue.content || '')}</textarea>
                         </td>
                         <td><input type="text" class="filter-input create-batch-year" value="${escapeHtml(issue.year || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
                         <td><input type="text" class="filter-input create-batch-unit" value="${escapeHtml(issue.unit || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
@@ -2912,21 +2910,7 @@ if (dashboard) {
                         tr.setAttribute('data-issue-id', issue.id);
                     }
                     
-                    // 更新事項內容按鈕顯示
-                    const contentBtn = tr.querySelector('.create-batch-content-btn');
-                    const contentPreview = tr.querySelector('.create-batch-content-preview');
-                    const contentHidden = tr.querySelector('.create-batch-content');
-                    if (contentBtn && contentPreview && contentHidden) {
-                        const content = contentHidden.value || '';
-                        // 顯示完整內容，由 CSS 控制多行截斷顯示
-                        contentPreview.textContent = content.trim() ? content : '點擊編輯事項內容';
-                        // 根據是否有內容更新按鈕樣式
-                        if (content && content.trim()) {
-                            contentBtn.classList.add('has-content');
-                        } else {
-                            contentBtn.classList.remove('has-content');
-                        }
-                    }
+                    // 載入現有事項時，內容已經在 textarea 中，不需要額外處理
                     
                     // 載入現有的辦理情形資料（如果有）
                     const handlingRounds = [];
@@ -3442,20 +3426,21 @@ if (dashboard) {
             }
         }
         
-        // 批次模式：初始化表格
+        // 批次模式：初始化表格（快速新增模式：預設只顯示一列）
         function initCreateBatchGrid() {
             const tbody = document.getElementById('createBatchGridBody');
             if (!tbody) return;
             tbody.innerHTML = '';
             batchHandlingData = {}; // 重置辦理情形資料
-            for (let i = 0; i < 5; i++) addCreateBatchRow();
+            // 快速新增模式：預設只顯示一列
+            addCreateBatchRow();
             // 初始化後更新所有行的辦理情形狀態
             setTimeout(() => {
                 updateAllBatchHandlingStatus();
             }, 100);
         }
         
-        // 批次模式：新增一列
+        // 批次模式：新增一列（改為直接使用 textarea 輸入事項內容）
         function addCreateBatchRow() {
             const tbody = document.getElementById('createBatchGridBody');
             if (!tbody) return;
@@ -3465,10 +3450,7 @@ if (dashboard) {
                 <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx + 1}</td>
                 <td><input type="text" class="filter-input create-batch-number" placeholder="編號..." onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
                 <td style="position:relative;">
-                    <button type="button" class="btn btn-outline btn-sm create-batch-content-btn" onclick="openBatchContentModal(${rowIdx})" data-row-index="${rowIdx}">
-                        <span class="create-batch-content-preview">點擊編輯事項內容</span>
-                    </button>
-                    <input type="hidden" class="create-batch-content" value="">
+                    <textarea class="filter-input create-batch-content-textarea" rows="3" placeholder="請輸入事項內容..." style="resize:vertical;min-height:60px;max-height:120px;font-size:13px;line-height:1.6;padding:8px 10px;"></textarea>
                 </td>
                 <td><input type="text" class="filter-input create-batch-year" style="background:#f1f5f9;color:#64748b;" readonly></td>
                 <td><input type="text" class="filter-input create-batch-unit" style="background:#f1f5f9;color:#64748b;" readonly></td>
@@ -3561,70 +3543,26 @@ if (dashboard) {
         let currentBatchContentRowIndex = null;
         
         function openBatchContentModal(rowIndex) {
-            currentBatchContentRowIndex = rowIndex;
+            // 已改為直接在表格中輸入，此函數不再使用
+            // 如果需要，可以聚焦到該行的 textarea
             const tbody = document.getElementById('createBatchGridBody');
             if (!tbody) return;
-            
             const tr = tbody.children[rowIndex];
             if (!tr) return;
-            
-            const numberInput = tr.querySelector('.create-batch-number');
-            const contentHidden = tr.querySelector('.create-batch-content');
-            
-            const number = numberInput ? numberInput.value.trim() : '';
-            const content = contentHidden ? contentHidden.value : '';
-            
-            const modal = document.getElementById('batchContentModal');
-            const numberSpan = document.getElementById('batchContentModalNumber');
-            const textarea = document.getElementById('batchContentModalTextarea');
-            
-            if (modal && numberSpan && textarea) {
-                numberSpan.textContent = number || `第 ${rowIndex + 1} 列`;
-                textarea.value = content;
-                modal.style.display = 'flex';
+            const textarea = tr.querySelector('.create-batch-content-textarea');
+            if (textarea) {
                 textarea.focus();
             }
         }
         
         function closeBatchContentModal() {
-            const modal = document.getElementById('batchContentModal');
-            if (modal) {
-                modal.style.display = 'none';
-            }
-            currentBatchContentRowIndex = null;
+            // 已改為直接在表格中輸入，此函數不再使用
+            return;
         }
         
         function saveBatchContent() {
-            if (currentBatchContentRowIndex === null) return;
-            
-            const tbody = document.getElementById('createBatchGridBody');
-            if (!tbody) return;
-            
-            const tr = tbody.children[currentBatchContentRowIndex];
-            if (!tr) return;
-            
-            const textarea = document.getElementById('batchContentModalTextarea');
-            const contentHidden = tr.querySelector('.create-batch-content');
-            const contentBtn = tr.querySelector('.create-batch-content-btn');
-            const contentPreview = tr.querySelector('.create-batch-content-preview');
-            
-            if (textarea && contentHidden && contentBtn && contentPreview) {
-                const content = textarea.value.trim();
-                contentHidden.value = content;
-                
-                // 更新按鈕顯示
-                // 顯示完整內容，由 CSS 控制多行截斷顯示
-                contentPreview.textContent = content ? content : '點擊編輯事項內容';
-                
-                // 根據是否有內容更新按鈕樣式
-                if (content && content.trim()) {
-                    contentBtn.classList.add('has-content');
-                } else {
-                    contentBtn.classList.remove('has-content');
-                }
-                
-                closeBatchContentModal();
-            }
+            // 已改為直接在表格中輸入，此函數不再使用
+            return;
         }
         
         // 點擊模態框背景關閉（在DOMContentLoaded中初始化）
@@ -3925,8 +3863,9 @@ if (dashboard) {
 
             rows.forEach((tr, idx) => {
                 const number = tr.querySelector('.create-batch-number').value.trim();
-                const contentHidden = tr.querySelector('.create-batch-content');
-                const content = contentHidden ? contentHidden.value.trim() : '';
+                // 改為從 textarea 讀取內容
+                const contentTextarea = tr.querySelector('.create-batch-content-textarea');
+                const content = contentTextarea ? contentTextarea.value.trim() : '';
 
                 if (!number && !content) return;
 
@@ -4064,11 +4003,47 @@ if (dashboard) {
                         showToast('批次新增成功！');
                     }
                     
-                    // 清理資料
-                    initCreateBatchGrid();
-                    batchHandlingData = {};
-                    document.getElementById('createPlanName').value = '';
-                    document.getElementById('createIssueDate').value = '';
+                    // 檢查是否啟用連續新增模式
+                    const continuousMode = document.getElementById('createBatchContinuousMode')?.checked || false;
+                    
+                    if (continuousMode) {
+                        // 連續新增模式：清空已儲存的列，保留計畫和機構設定，自動新增新列
+                        const savedRows = document.querySelectorAll('#createBatchGridBody tr');
+                        savedRows.forEach((tr, idx) => {
+                            if (idx < items.length) {
+                                // 只清空編號、類型、事項內容，保留其他欄位
+                                const numberInput = tr.querySelector('.create-batch-number');
+                                const contentTextarea = tr.querySelector('.create-batch-content-textarea');
+                                const kindSelect = tr.querySelector('.create-batch-kind');
+                                
+                                if (numberInput) numberInput.value = '';
+                                if (contentTextarea) contentTextarea.value = '';
+                                if (kindSelect) kindSelect.value = '';
+                                
+                                // 清空該行的辦理情形資料
+                                if (batchHandlingData[idx]) {
+                                    delete batchHandlingData[idx];
+                                }
+                                updateBatchHandlingStatus(idx);
+                            }
+                        });
+                        
+                        // 如果只有一列，確保該列被清空並聚焦到編號欄位
+                        if (savedRows.length === 1) {
+                            const firstRow = savedRows[0];
+                            const numberInput = firstRow.querySelector('.create-batch-number');
+                            if (numberInput) {
+                                setTimeout(() => numberInput.focus(), 100);
+                            }
+                        }
+                    } else {
+                        // 非連續新增模式：清空所有列並重新初始化
+                        initCreateBatchGrid();
+                        batchHandlingData = {};
+                        document.getElementById('createPlanName').value = '';
+                        document.getElementById('createIssueDate').value = '';
+                    }
+                    
                     loadIssuesPage(1);
                     loadPlanOptions();
                 } else {

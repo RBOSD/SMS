@@ -423,7 +423,12 @@
                         </button>
                     </div>
                 </div>
-                <div style="margin-top:24px; display:flex; justify-content:flex-end;">
+                <div style="margin-top:24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+                    <div style="display:flex; gap:12px; align-items:center; padding:12px; background:#f8fafc; border-radius:8px;">
+                        <label style="font-size:13px; color:#2563eb; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                            <input type="checkbox" id="createBatchContinuousMode"> 連續新增模式 (儲存後自動新增新列，保留計畫與機構)
+                        </label>
+                    </div>
                     <button class="btn btn-primary" style="padding:12px 32px; font-size:15px;" onclick="saveCreateBatchItems()">
                         💾 批次儲存至資料庫
                     </button>

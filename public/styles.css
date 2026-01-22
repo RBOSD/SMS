@@ -2465,82 +2465,36 @@
             padding: 8px 2px !important;
         }
         
-        /* 事項內容按鈕樣式 - 確保寬度不超出單元格，不會覆蓋其他欄位，顏色與其他欄位相同，減少空白 */
-        #createBatchGridTable .create-batch-content-btn {
+        /* 事項內容 textarea 樣式 - 直接在表格中輸入 */
+        #createBatchGridTable .create-batch-content-textarea {
             width: 100% !important;
             max-width: 100% !important;
             min-width: 0 !important;
             position: relative !important;
             z-index: 11 !important;
-            white-space: normal !important;
-            word-wrap: break-word !important;
-            word-break: break-word !important;
-            text-align: left !important;
-            justify-content: flex-start;
-            padding: 8px 10px !important;
-            min-height: 60px !important;
-            max-height: 150px !important;
-            height: auto !important;
             border: 1px solid #cbd5e1 !important;
             background: #f8fafc !important;
             color: #334155 !important;
-            transition: all 0.2s ease;
             border-radius: 6px;
             font-size: 13px !important;
             line-height: 1.6 !important;
-            display: flex !important;
-            align-items: flex-start;
             font-weight: 400;
             box-sizing: border-box !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            overflow: hidden !important;
-            cursor: pointer;
+            resize: vertical !important;
+            font-family: inherit !important;
             margin: 0 !important;
         }
         
-        #createBatchGridTable .create-batch-content-btn:hover {
-            border-color: #94a3b8 !important;
-            background: #f1f5f9 !important;
-            color: #334155 !important;
+        #createBatchGridTable .create-batch-content-textarea:focus {
+            border-color: #3b82f6 !important;
+            background: #ffffff !important;
+            outline: none !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
         }
         
-        #createBatchGridTable .create-batch-content-preview {
-            display: block !important;
-            line-height: 1.6 !important;
-            color: inherit !important;
-            width: 100% !important;
-            text-align: left !important;
-            word-break: break-word !important;
-            overflow-wrap: break-word !important;
-            font-size: 13px !important;
-            white-space: normal !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            /* 使用多行截斷，最多顯示6行，超過部分用省略號，更容易閱讀 */
-            display: -webkit-box !important;
-            -webkit-line-clamp: 6 !important;
-            -webkit-box-orient: vertical !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            max-height: calc(1.6em * 6) !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-        
-        /* 當有內容時，按鈕樣式保持與其他欄位相同 */
-        #createBatchGridTable .create-batch-content-btn.has-content {
-            border-color: #cbd5e1 !important;
-            background: #f8fafc !important;
-            color: #334155 !important;
-            font-weight: 400;
-        }
-        
-        /* 空內容時的提示文字樣式 */
-        #createBatchGridTable .create-batch-content-btn:not(.has-content) .create-batch-content-preview {
+        #createBatchGridTable .create-batch-content-textarea::placeholder {
             color: #94a3b8 !important;
             font-style: italic;
-            font-weight: 400;
         }
         
         /* 確保事項內容欄位不會被其他元素遮住 - 已移到上方統一管理 */
@@ -2582,12 +2536,12 @@
             box-sizing: border-box !important;
         }
         
-        /* 確保事項內容欄位內的按鈕不會溢出 */
+        /* 確保事項內容欄位內的 textarea 不會溢出 */
         #createBatchGridTable tbody tr td:nth-child(3) {
-            overflow: hidden !important;
+            overflow: visible !important;
         }
         
-        #createBatchGridTable tbody tr td:nth-child(3) .create-batch-content-btn {
+        #createBatchGridTable tbody tr td:nth-child(3) .create-batch-content-textarea {
             max-width: 100% !important;
             box-sizing: border-box !important;
         }
