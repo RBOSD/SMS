@@ -2233,23 +2233,23 @@
         }
         
         #createBatchGridTable th {
-            padding: 12px 8px;
+            padding: 10px 6px;
             vertical-align: middle;
             text-align: center;
             font-weight: 600;
-            font-size: 13px;
+            font-size: 12px;
             color: #334155;
             background: #f8fafc;
             border-bottom: 2px solid #e2e8f0;
             position: relative;
-            overflow: visible !important;
+            overflow: hidden !important;
         }
         
         #createBatchGridTable td {
-            padding: 10px 8px;
+            padding: 8px 6px;
             vertical-align: top;
             position: relative;
-            overflow: visible !important;
+            overflow: hidden !important;
         }
         
         /* 確保事項內容欄位有最高的 z-index，不會被其他元素遮住 */
@@ -2315,23 +2315,23 @@
             min-width: 0;
             font-family: monospace;
             font-size: 11px;
-            padding: 6px 8px;
+            padding: 5px 6px;
             box-sizing: border-box;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
             vertical-align: middle;
-            height: 36px;
+            height: 32px;
         }
         
-        /* 確保所有輸入框和下拉選單對齊 */
+        /* 確保所有輸入框和下拉選單對齊，減少 padding 以節省空間 */
         #createBatchGridTable input[type="text"],
         #createBatchGridTable select {
-            padding: 6px 8px;
+            padding: 5px 6px;
             box-sizing: border-box;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
             vertical-align: middle;
-            height: 36px;
+            height: 32px;
             font-size: 12px;
         }
         
@@ -2345,76 +2345,99 @@
         /* 優化按鈕大小，確保在較小欄位中也能正常顯示 */
         #createBatchGridTable button {
             font-size: 11px;
-            padding: 6px 8px;
+            padding: 5px 8px;
             white-space: nowrap;
+            height: 32px;
         }
         
-        /* 優化欄位寬度，平衡各欄位空間，確保所有內容都能完整顯示 */
+        /* 優化欄位寬度，減少空白，將更多空間分配給事項內容欄位 */
         #createBatchGridTable th:nth-child(1),
         #createBatchGridTable td:nth-child(1) {
-            width: 3%;
+            width: 2.5%;
+            min-width: 45px;
+            max-width: 50px;
             text-align: center;
+            padding: 8px 4px !important;
         }
         
         #createBatchGridTable th:nth-child(2),
         #createBatchGridTable td:nth-child(2) {
-            width: 12%;
-            min-width: 140px;
+            width: 11%;
+            min-width: 130px;
+            max-width: 160px;
+            padding: 8px 6px !important;
         }
         
         #createBatchGridTable th:nth-child(3),
         #createBatchGridTable td:nth-child(3) {
-            width: 28%;
-            min-width: 280px;
+            width: 38%;
+            min-width: 350px;
+            padding: 8px 10px !important;
         }
         
         #createBatchGridTable th:nth-child(4),
         #createBatchGridTable td:nth-child(4) {
-            width: 5%;
-            min-width: 60px;
+            width: 4.5%;
+            min-width: 55px;
+            max-width: 70px;
+            padding: 8px 4px !important;
         }
         
         #createBatchGridTable th:nth-child(5),
         #createBatchGridTable td:nth-child(5) {
-            width: 7%;
-            min-width: 80px;
+            width: 6%;
+            min-width: 70px;
+            max-width: 90px;
+            padding: 8px 4px !important;
         }
         
         #createBatchGridTable th:nth-child(6),
         #createBatchGridTable td:nth-child(6) {
-            width: 6.5%;
-            min-width: 75px;
+            width: 5.5%;
+            min-width: 65px;
+            max-width: 80px;
+            padding: 8px 4px !important;
         }
         
         #createBatchGridTable th:nth-child(7),
         #createBatchGridTable td:nth-child(7) {
-            width: 9%;
-            min-width: 100px;
+            width: 7.5%;
+            min-width: 85px;
+            max-width: 100px;
+            padding: 8px 4px !important;
         }
         
         #createBatchGridTable th:nth-child(8),
         #createBatchGridTable td:nth-child(8) {
-            width: 5.5%;
-            min-width: 65px;
+            width: 4.5%;
+            min-width: 55px;
+            max-width: 70px;
+            padding: 8px 4px !important;
         }
         
         #createBatchGridTable th:nth-child(9),
         #createBatchGridTable td:nth-child(9) {
-            width: 7%;
-            min-width: 80px;
+            width: 6.5%;
+            min-width: 75px;
+            max-width: 90px;
+            padding: 8px 4px !important;
         }
         
         #createBatchGridTable th:nth-child(10),
         #createBatchGridTable td:nth-child(10) {
-            width: 8.5%;
-            min-width: 95px;
+            width: 7.5%;
+            min-width: 85px;
+            max-width: 100px;
+            padding: 8px 4px !important;
         }
         
         #createBatchGridTable th:nth-child(11),
         #createBatchGridTable td:nth-child(11) {
-            width: 4.5%;
-            min-width: 50px;
+            width: 3.5%;
+            min-width: 40px;
+            max-width: 50px;
             text-align: center;
+            padding: 8px 4px !important;
         }
         
         /* 事項內容按鈕樣式 - 確保寬度不超出單元格，不會覆蓋其他欄位 */
@@ -2498,10 +2521,10 @@
         
         /* 確保事項內容欄位有足夠的空間且可見，不會超出單元格範圍 */
         #createBatchGridTable td:nth-child(3) {
-            padding: 10px 8px !important;
-            width: 28% !important;
-            min-width: 280px !important;
-            max-width: 28% !important;
+            padding: 8px 10px !important;
+            width: 38% !important;
+            min-width: 350px !important;
+            max-width: 38% !important;
             visibility: visible !important;
             display: table-cell !important;
             position: relative !important;
@@ -2512,10 +2535,10 @@
         
         /* 確保事項內容欄位的表頭也有足夠空間且可見 */
         #createBatchGridTable th:nth-child(3) {
-            padding: 12px 8px !important;
-            width: 28% !important;
-            min-width: 280px !important;
-            max-width: 28% !important;
+            padding: 10px 10px !important;
+            width: 38% !important;
+            min-width: 350px !important;
+            max-width: 38% !important;
             visibility: visible !important;
             display: table-cell !important;
             position: relative !important;
