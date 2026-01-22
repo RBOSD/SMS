@@ -2391,7 +2391,7 @@
         #createBatchGridTable td:nth-child(3) {
             width: 38%;
             min-width: 350px;
-            padding: 8px 10px !important;
+            padding: 6px 6px !important;
         }
         
         /* 年度欄位 - 進一步減少寬度和空白 */
@@ -2465,7 +2465,7 @@
             padding: 8px 2px !important;
         }
         
-        /* 事項內容按鈕樣式 - 確保寬度不超出單元格，不會覆蓋其他欄位，顏色與其他欄位相同 */
+        /* 事項內容按鈕樣式 - 確保寬度不超出單元格，不會覆蓋其他欄位，顏色與其他欄位相同，減少空白 */
         #createBatchGridTable .create-batch-content-btn {
             width: 100% !important;
             max-width: 100% !important;
@@ -2477,8 +2477,8 @@
             word-break: break-word !important;
             text-align: left !important;
             justify-content: flex-start;
-            padding: 12px 14px !important;
-            min-height: 80px !important;
+            padding: 8px 10px !important;
+            min-height: 60px !important;
             max-height: 150px !important;
             height: auto !important;
             border: 1px solid #cbd5e1 !important;
@@ -2487,7 +2487,7 @@
             transition: all 0.2s ease;
             border-radius: 6px;
             font-size: 13px !important;
-            line-height: 1.7 !important;
+            line-height: 1.6 !important;
             display: flex !important;
             align-items: flex-start;
             font-weight: 400;
@@ -2507,7 +2507,7 @@
         
         #createBatchGridTable .create-batch-content-preview {
             display: block !important;
-            line-height: 1.7 !important;
+            line-height: 1.6 !important;
             color: inherit !important;
             width: 100% !important;
             text-align: left !important;
@@ -2523,7 +2523,9 @@
             -webkit-box-orient: vertical !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-            max-height: calc(1.7em * 6) !important;
+            max-height: calc(1.6em * 6) !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
         
         /* 當有內容時，按鈕樣式保持與其他欄位相同 */
@@ -2543,9 +2545,9 @@
         
         /* 確保事項內容欄位不會被其他元素遮住 - 已移到上方統一管理 */
         
-        /* 確保事項內容欄位有足夠的空間且可見，不會超出單元格範圍 */
+        /* 確保事項內容欄位有足夠的空間且可見，不會超出單元格範圍，減少空白 */
         #createBatchGridTable td:nth-child(3) {
-            padding: 8px 10px !important;
+            padding: 6px 6px !important;
             width: 38% !important;
             min-width: 350px !important;
             max-width: 38% !important;
@@ -2557,9 +2559,9 @@
             box-sizing: border-box !important;
         }
         
-        /* 確保事項內容欄位的表頭也有足夠空間且可見 */
+        /* 確保事項內容欄位的表頭也有足夠空間且可見，減少空白 */
         #createBatchGridTable th:nth-child(3) {
-            padding: 10px 10px !important;
+            padding: 8px 6px !important;
             width: 38% !important;
             min-width: 350px !important;
             max-width: 38% !important;
