@@ -2212,12 +2212,19 @@
         }
         
         #createBatchGridTable {
-            table-layout: fixed;
+            table-layout: fixed !important;
             width: 100%;
             min-width: 1150px;
             position: relative;
             border-collapse: separate;
             border-spacing: 0;
+        }
+        
+        /* 確保所有表格單元格都遵守寬度限制，不會溢出 */
+        #createBatchGridTable td,
+        #createBatchGridTable th {
+            box-sizing: border-box !important;
+            overflow: hidden !important;
         }
         
         /* 確保表格行和單元格允許內容溢出 */
@@ -2410,10 +2417,11 @@
             text-align: center;
         }
         
-        /* 事項內容按鈕樣式 - 改善可讀性和顯示，確保不會被遮蔽 */
+        /* 事項內容按鈕樣式 - 確保寬度不超出單元格，不會覆蓋其他欄位 */
         #createBatchGridTable .create-batch-content-btn {
             width: 100% !important;
-            min-width: 250px !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
             position: relative !important;
             z-index: 11 !important;
             white-space: normal !important;
@@ -2435,7 +2443,7 @@
             display: flex !important;
             align-items: flex-start;
             font-weight: 400;
-            box-sizing: border-box;
+            box-sizing: border-box !important;
             visibility: visible !important;
             opacity: 1 !important;
             overflow: hidden !important;
@@ -2488,16 +2496,18 @@
         
         /* 確保事項內容欄位不會被其他元素遮住 - 已移到上方統一管理 */
         
-        /* 確保事項內容欄位有足夠的空間且可見，不會被裁切 */
+        /* 確保事項內容欄位有足夠的空間且可見，不會超出單元格範圍 */
         #createBatchGridTable td:nth-child(3) {
             padding: 10px 8px !important;
             width: 28% !important;
             min-width: 280px !important;
+            max-width: 28% !important;
             visibility: visible !important;
             display: table-cell !important;
             position: relative !important;
             z-index: 10 !important;
-            overflow: visible !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
         }
         
         /* 確保事項內容欄位的表頭也有足夠空間且可見 */
@@ -2505,21 +2515,32 @@
             padding: 12px 8px !important;
             width: 28% !important;
             min-width: 280px !important;
+            max-width: 28% !important;
             visibility: visible !important;
             display: table-cell !important;
             position: relative !important;
-            overflow: visible !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
         }
         
-        /* 確保表格容器不會裁切事項內容欄位 */
+        /* 確保表格行和單元格不會讓內容溢出 */
         #createBatchGridTable tbody tr {
             position: relative;
         }
         
+        #createBatchGridTable tbody tr td {
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+        }
+        
+        /* 確保事項內容欄位內的按鈕不會溢出 */
         #createBatchGridTable tbody tr td:nth-child(3) {
-            overflow: visible !important;
-            clip: unset !important;
-            clip-path: none !important;
+            overflow: hidden !important;
+        }
+        
+        #createBatchGridTable tbody tr td:nth-child(3) .create-batch-content-btn {
+            max-width: 100% !important;
+            box-sizing: border-box !important;
         }
         
         /* 確保所有輸入框和下拉選單內容完整顯示 */
