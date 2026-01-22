@@ -3,10 +3,56 @@
         let autoLogoutTimer;
         let currentLogs = { login: [], action: [] };
         let cachedGlobalStats = null;
+        let csrfToken = null; // CSRF token 快取
         
-        // 統一的 API 請求包裝函數，自動處理認證錯誤
+        // 取得 CSRF token
+        async function getCsrfToken() {
+            if (csrfToken) return csrfToken;
+            try {
+                const res = await fetch('/api/csrf-token', {
+                    credentials: 'include'
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    csrfToken = data.csrfToken;
+                    return csrfToken;
+                }
+            } catch (e) {
+                console.error('Failed to get CSRF token:', e);
+            }
+            return null;
+        }
+        
+        // 密碼複雜度驗證函數（前端）
+        function validatePasswordFrontend(password) {
+            if (!password || password.length < 8) {
+                return { valid: false, message: '密碼至少需要 8 個字元' };
+            }
+            if (!/[A-Z]/.test(password)) {
+                return { valid: false, message: '密碼必須包含至少一個大寫字母' };
+            }
+            if (!/[a-z]/.test(password)) {
+                return { valid: false, message: '密碼必須包含至少一個小寫字母' };
+            }
+            if (!/[0-9]/.test(password)) {
+                return { valid: false, message: '密碼必須包含至少一個數字' };
+            }
+            return { valid: true };
+        }
+        
+        // 統一的 API 請求包裝函數，自動處理認證錯誤和 CSRF token
         async function apiFetch(url, options = {}) {
             try {
+                // 對於需要 CSRF 保護的請求（POST, PUT, DELETE），自動加入 token
+                const needsCsrf = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method);
+                if (needsCsrf) {
+                    const token = await getCsrfToken();
+                    if (token) {
+                        options.headers = options.headers || {};
+                        options.headers['X-CSRF-Token'] = token;
+                    }
+                }
+                
                 const response = await fetch(url, {
                     ...options,
                     credentials: 'include', // 確保包含 cookies
@@ -18,6 +64,28 @@
                 
                 // 處理認證錯誤
                 if (response.status === 401 || response.status === 403) {
+                    // 如果是 CSRF token 錯誤，清除快取並重試一次
+                    if (response.status === 403 && needsCsrf) {
+                        const errorData = await response.json().catch(() => ({}));
+                        if (errorData.error && errorData.error.includes('CSRF')) {
+                            csrfToken = null; // 清除快取的 token
+                            const newToken = await getCsrfToken();
+                            if (newToken) {
+                                options.headers['X-CSRF-Token'] = newToken;
+                                const retryResponse = await fetch(url, {
+                                    ...options,
+                                    credentials: 'include',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        ...options.headers
+                                    }
+                                });
+                                if (retryResponse.ok || retryResponse.status !== 403) {
+                                    return retryResponse;
+                                }
+                            }
+                        }
+                    }
                     console.warn('認證失敗，重定向到登入頁');
                     // 清除 sessionStorage
                     sessionStorage.clear();
@@ -4365,11 +4433,78 @@ if (dashboard) {
 
         // --- User modal submit & password strength ---
         document.getElementById('uPwd')?.addEventListener('input', updatePwdStrength); document.getElementById('uPwdConfirm')?.addEventListener('input', updatePwdStrength);
-        function updatePwdStrength() { const p = document.getElementById('uPwd').value || ''; const conf = document.getElementById('uPwdConfirm').value || ''; let score = 0; if (p.length >= 8) score++; if (/[A-Z]/.test(p)) score++; if (/[0-9]/.test(p)) score++; if (/[^A-Za-z0-9]/.test(p)) score++; const texts = ['弱', '偏弱', '一般', '良好', '強']; document.getElementById('pwdStrength').innerText = `密碼強度: ${texts[Math.min(score, 4)]} ${conf && p !== conf ? '(密碼不相符)' : ''}`; }
+        function updatePwdStrength() { 
+            const p = document.getElementById('uPwd').value || ''; 
+            const conf = document.getElementById('uPwdConfirm').value || ''; 
+            let score = 0; 
+            let issues = [];
+            
+            if (p.length >= 8) score++; else issues.push('至少8字元');
+            if (/[A-Z]/.test(p)) score++; else issues.push('大寫字母');
+            if (/[a-z]/.test(p)) score++; else issues.push('小寫字母');
+            if (/[0-9]/.test(p)) score++; else issues.push('數字');
+            if (/[^A-Za-z0-9]/.test(p)) score++;
+            
+            const texts = ['弱', '偏弱', '一般', '良好', '強']; 
+            const strengthText = texts[Math.min(score, 4)];
+            const mismatchText = conf && p !== conf ? ' (密碼不相符)' : '';
+            const issuesText = issues.length > 0 && p.length > 0 ? ` - 缺少: ${issues.join(', ')}` : '';
+            
+            document.getElementById('pwdStrength').innerText = `密碼強度: ${strengthText}${mismatchText}${issuesText}`; 
+        }
 
         // User CRUD
         async function openUserModal(mode, id) { const m = document.getElementById('userModal'), t = document.getElementById('userModalTitle'), e = document.getElementById('uEmail'); if (mode === 'create') { t.innerText = '新增'; document.getElementById('targetUserId').value = ''; document.getElementById('uName').value = ''; e.value = ''; e.disabled = false; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('pwdHint').innerText = ''; document.getElementById('uRole').value = 'viewer'; } else { const u = userList.find(x => x.id === id) || {}; t.innerText = '編輯'; document.getElementById('targetUserId').value = u.id || ''; document.getElementById('uName').value = u.name || ''; e.value = u.username || ''; e.disabled = true; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdHint').innerText = '(留空不改)'; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('uRole').value = u.role || 'viewer'; } m.classList.add('open'); }
-        async function submitUser() { const id = document.getElementById('targetUserId').value, name = document.getElementById('uName').value, email = document.getElementById('uEmail').value, pwd = document.getElementById('uPwd').value, pwdConfirm = document.getElementById('uPwdConfirm').value, role = document.getElementById('uRole').value; if (!id) { if (!email) return showToast('請輸入帳號', 'error'); if (!pwd) return showToast('請輸入密碼', 'error'); if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: email, name, password: pwd, role }) }); const j = await res.json(); if (res.ok) { showToast('新增成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(1); } else showToast(j.error || '新增失敗', 'error'); } else { const payload = { name, role }; if (pwd) { if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); payload.password = pwd; } const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const j = await res.json(); if (res.ok) { showToast('更新成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(usersPage); } else showToast(j.error || '更新失敗', 'error'); } }
+        async function submitUser() { 
+            const id = document.getElementById('targetUserId').value, 
+                name = document.getElementById('uName').value, 
+                email = document.getElementById('uEmail').value, 
+                pwd = document.getElementById('uPwd').value, 
+                pwdConfirm = document.getElementById('uPwdConfirm').value, 
+                role = document.getElementById('uRole').value; 
+            
+            if (!id) { 
+                if (!email) return showToast('請輸入帳號', 'error'); 
+                if (!pwd) return showToast('請輸入密碼', 'error'); 
+                if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); 
+                
+                // 使用前端驗證函數
+                const validation = validatePasswordFrontend(pwd);
+                if (!validation.valid) return showToast(validation.message, 'error');
+                
+                const res = await apiFetch('/api/users', { 
+                    method: 'POST', 
+                    body: JSON.stringify({ username: email, name, password: pwd, role }) 
+                }); 
+                const j = await res.json(); 
+                if (res.ok) { 
+                    showToast('新增成功'); 
+                    document.getElementById('userModal').classList.remove('open'); 
+                    loadUsersPage(1); 
+                } else showToast(j.error || '新增失敗', 'error'); 
+            } else { 
+                const payload = { name, role }; 
+                if (pwd) { 
+                    if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); 
+                    
+                    // 使用前端驗證函數
+                    const validation = validatePasswordFrontend(pwd);
+                    if (!validation.valid) return showToast(validation.message, 'error');
+                    
+                    payload.password = pwd; 
+                } 
+                const res = await apiFetch(`/api/users/${id}`, { 
+                    method: 'PUT', 
+                    body: JSON.stringify(payload) 
+                }); 
+                const j = await res.json(); 
+                if (res.ok) { 
+                    showToast('更新成功'); 
+                    document.getElementById('userModal').classList.remove('open'); 
+                    loadUsersPage(usersPage); 
+                } else showToast(j.error || '更新失敗', 'error'); 
+            } 
+        }
         async function deleteUser(id) { if (!confirm('確定?')) return; const res = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if (res.ok) { showToast('刪除成功'); loadUsersPage(1); } else showToast('刪除失敗', 'error'); }
         
         // 帳號匯出功能
@@ -5087,7 +5222,35 @@ if (dashboard) {
 
         // Profile
         function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
-        async function submitProfile() { const name = document.getElementById('myProfileName').value, pwd = document.getElementById('myProfilePwd').value; try { const res = await fetch('/api/auth/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password: pwd }) }); if (res.ok) { showToast('更新成功，請重新登入'); document.getElementById('profileModal').classList.remove('open'); logout(); } else { const j = await res.json(); showToast(j.error || '更新失敗', 'error'); } } catch (e) { showToast('更新失敗', 'error'); } }
+        async function submitProfile() { 
+            const name = document.getElementById('myProfileName').value, 
+                pwd = document.getElementById('myProfilePwd').value; 
+            
+            try { 
+                // 如果有提供密碼，驗證複雜度
+                if (pwd) {
+                    const validation = validatePasswordFrontend(pwd);
+                    if (!validation.valid) {
+                        return showToast(validation.message, 'error');
+                    }
+                }
+                
+                const res = await apiFetch('/api/auth/profile', { 
+                    method: 'PUT', 
+                    body: JSON.stringify({ name, password: pwd }) 
+                }); 
+                if (res.ok) { 
+                    showToast('更新成功，請重新登入'); 
+                    document.getElementById('profileModal').classList.remove('open'); 
+                    logout(); 
+                } else { 
+                    const j = await res.json(); 
+                    showToast(j.error || '更新失敗', 'error'); 
+                } 
+            } catch (e) { 
+                showToast('更新失敗', 'error'); 
+            } 
+        }
 
         function toggleEditMode(edit) { 
             document.getElementById('viewModeContent').classList.toggle('hidden', edit); 
