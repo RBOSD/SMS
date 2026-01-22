@@ -1692,9 +1692,8 @@ if (dashboard) {
             
             const endpoint = type === 'login' ? '/api/admin/logs/cleanup' : '/api/admin/action_logs/cleanup';
             try {
-                const res = await fetch(endpoint, {
+                const res = await apiFetch(endpoint, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ days })
                 });
                 const data = await res.json();
@@ -5071,10 +5070,8 @@ if (dashboard) {
                             }
                             
                             try {
-                                const res = await fetch('/api/plans/import', {
+                                const res = await apiFetch('/api/plans/import', {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    credentials: 'include', // 確保包含 session cookie
                                     body: JSON.stringify({ data: validData })
                                 });
                                 
@@ -5194,7 +5191,7 @@ if (dashboard) {
             try {
                 const url = id ? `/api/plans/${id}` : '/api/plans';
                 const method = id ? 'PUT' : 'POST';
-                const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const res = await apiFetch(url, { method, body: JSON.stringify(payload) });
                 const j = await res.json();
                 if (res.ok) {
                     showToast(id ? '更新成功' : '新增成功');
