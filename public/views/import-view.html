@@ -20,8 +20,7 @@
     <div id="subtab-issues-import">
         <!-- Part A: Word Import -->
         <div class="main-card" id="uploadCardWord" style="margin-bottom:30px;">
-            <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#0369a1;">📝 例行作業區 (Word
-                解析)</div>
+            <h3 style="margin:0 0 12px 0; font-weight:700; font-size:18px; color:#334155;">📝 例行作業區 (Word 解析)</h3>
             <div
                 style="margin-bottom:20px; background:#f0f9ff; border:1px solid #bae6fd; padding:16px; border-radius:8px; font-size:13px; color:#0369a1; line-height:1.5;">
                 <p style="margin:0 0 8px 0;">用於新增新的審查紀錄。請選擇本次的作業階段。</p>
@@ -115,8 +114,7 @@
 
         <!-- Part B: Backup Import (Restricted to Admin) -->
         <div class="main-card hidden" id="uploadCardBackup">
-            <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#b91c1c;">🚑 資料救援區 (還原備份)
-                [Admin Only]</div>
+            <h3 style="margin:0 0 12px 0; font-weight:700; font-size:18px; color:#334155;">🚑 資料救援區 (還原備份) [Admin Only]</h3>
             <div
                 style="margin-bottom:20px; background:#fef2f2; border:1px solid #fecaca; padding:16px; border-radius:8px; font-size:13px; color:#b91c1c; line-height:1.5;">
                 用於資料庫清空後的災難復原。支援 CSV 或 JSON 格式。</div>
@@ -136,8 +134,8 @@
         <!-- Preview Modal Container (Shared) -->
         <div id="previewContainer" class="hidden">
             <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
-                <div style="font-weight:700;font-size:16px;">解析結果預覽 (<span id="previewCount"
-                        style="color:var(--primary);">0</span> 筆) <span id="previewModeBadge"></span></div>
+                <h3 style="margin:0; font-weight:700; font-size:18px; color:#334155;">解析結果預覽 (<span id="previewCount"
+                        style="color:var(--primary);">0</span> 筆) <span id="previewModeBadge"></span></h3>
                 <div style="display:flex;gap:10px;"><button class="btn btn-outline"
                         onclick="cancelImport()">取消</button><button class="btn btn-primary"
                         onclick="confirmImport()">確認寫入資料庫</button></div>
@@ -166,10 +164,10 @@
         <div class="main-card" style="width:100%;">
             <!-- 標題 -->
             <div style="margin-bottom:20px;">
-                <span style="font-weight:700; color:#334155; font-size:16px;">📝 開立事項建檔</span>
-                <div style="font-size:13px; color:#64748b; margin-top:4px;">
+                <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">📝 開立事項建檔</h3>
+                <p style="margin:0; font-size:13px; color:#64748b;">
                     選擇計畫後，可連續輸入多筆事項。系統會自動根據編號判斷年度、機構與分組。可同時新增事項內容及多次辦理情形。
-                </div>
+                </p>
             </div>
 
             <!-- 共用設定：檢查計畫和日期 -->
@@ -387,7 +385,7 @@
 <div id="tab-data-plans" class="hidden">
     <div style="margin-bottom:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h3 style="margin:0;">檢查計畫管理</h3>
+            <h3 style="margin:0; font-weight:700; font-size:18px; color:#334155;">檢查計畫管理</h3>
             <div style="display:flex; gap:8px;">
                 <button class="btn btn-primary" onclick="openPlanModal('create')">新增計畫</button>
                 <button class="btn btn-outline" onclick="openPlanImportModal()">📥 CSV 匯入</button>

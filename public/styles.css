@@ -316,6 +316,17 @@
 
         .users-add-btn {
             flex-shrink: 0;
+            background: #ffffff !important;
+            color: var(--primary) !important;
+            border: 2px solid #ffffff !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+        }
+        
+        .users-add-btn:hover {
+            background: #f8fafc !important;
+            color: var(--primary) !important;
+            border-color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
         }
 
         /* 電腦版：按鈕不要那麼靠右，更靠近標題 */
@@ -2700,5 +2711,4 @@
         
         #createHandlingRoundsContainer textarea:focus {
             z-index: 6;
-        }
         }
