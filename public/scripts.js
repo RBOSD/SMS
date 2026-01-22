@@ -6278,7 +6278,10 @@ if (dashboard) {
             try {
                 // 載入該計畫下的所有事項
                 const issueList = await loadIssuesByPlan(planValue);
-                if (!issueList) return;
+                if (!issueList || issueList.length === 0) {
+                    showToast('該檢查計畫下尚無開立事項', 'error');
+                    return;
+                }
                 
                 // userInputResponseDate 已經在函數開始時從輸入框獲取並保存
                 
@@ -6361,35 +6364,36 @@ if (dashboard) {
                 }
                 
                 // 顯示資料庫操作結果（成功或警告）
-                if (errorCount > 0) {
-                    showToast(`批次設定完成，但有 ${errorCount} 筆失敗${successCount > 0 ? `，成功 ${successCount} 筆` : ''}`, 'warning');
-                    
-                    // 如果有錯誤，顯示詳細資訊
-                    if (errors.length > 0) {
-                        console.error('批次設定函復日期錯誤:', errors);
-                    }
-                } else if (successCount > 0) {
-                    // 完全成功時顯示成功訊息（資料庫操作結果）
+                if (successCount > 0 && errorCount === 0) {
+                    // 完全成功時顯示成功訊息
                     showToast(`批次設定完成！成功 ${successCount} 筆`, 'success');
-                }
-                
-                // 清空輸入欄位並重置為預設模式
-                if (successCount > 0 || errorCount === 0) {
+                    // 清空輸入欄位並重置為預設模式
                     roundSelect.value = '';
                     roundManualInput.value = '';
                     dateInput.value = '';
-                    
                     // 取消勾選並隱藏設定區塊
                     const toggleCheckbox = document.getElementById('createBatchResponseDateToggle');
                     if (toggleCheckbox) {
                         toggleCheckbox.checked = false;
                         toggleBatchResponseDateSetting();
                     }
-                } else {
-                    showToast('批次設定失敗，所有事項都無法更新', 'error');
+                } else if (successCount > 0 && errorCount > 0) {
+                    // 部分成功
+                    showToast(`批次設定完成，但有 ${errorCount} 筆失敗，成功 ${successCount} 筆`, 'warning');
                     if (errors.length > 0) {
                         console.error('批次設定函復日期錯誤:', errors);
                     }
+                } else if (errorCount > 0) {
+                    // 全部失敗
+                    showToast(`批次設定失敗，所有 ${errorCount} 筆事項都無法更新`, 'error');
+                    if (errors.length > 0) {
+                        console.error('批次設定函復日期錯誤:', errors);
+                        // 顯示第一個錯誤的詳細資訊
+                        showToast(`錯誤詳情：${errors[0]}`, 'error');
+                    }
+                } else {
+                    // 沒有處理任何事項（理論上不應該發生）
+                    showToast('沒有事項需要更新', 'warning');
                 }
             } catch (e) {
                 showToast('批次設定失敗: ' + e.message, 'error');
