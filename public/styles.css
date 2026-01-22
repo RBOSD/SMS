@@ -2375,8 +2375,8 @@
             text-align: left !important;
             justify-content: flex-start;
             padding: 12px 14px !important;
-            min-height: 60px !important;
-            max-height: 120px !important;
+            min-height: 80px !important;
+            max-height: 150px !important;
             height: auto !important;
             border: 1px solid #cbd5e1 !important;
             background: #ffffff !important;
@@ -2391,8 +2391,7 @@
             box-sizing: border-box;
             visibility: visible !important;
             opacity: 1 !important;
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
+            overflow: hidden !important;
             cursor: pointer;
         }
         
@@ -2415,13 +2414,13 @@
             white-space: normal !important;
             visibility: visible !important;
             opacity: 1 !important;
-            /* 使用多行截斷，最多顯示4行，超過部分用省略號 */
+            /* 使用多行截斷，最多顯示6行，超過部分用省略號，更容易閱讀 */
             display: -webkit-box !important;
-            -webkit-line-clamp: 4 !important;
+            -webkit-line-clamp: 6 !important;
             -webkit-box-orient: vertical !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-            max-height: calc(1.7em * 4) !important;
+            max-height: calc(1.7em * 6) !important;
         }
         
         /* 當有內容時，按鈕樣式改變 - 更清晰的視覺反饋 */

@@ -2886,7 +2886,7 @@ if (dashboard) {
                         <td><input type="text" class="filter-input create-batch-number" value="${escapeHtml(issue.number || '')}" onchange="handleCreateBatchNumberChange(this)" style="font-family:monospace;"></td>
                         <td style="position:relative;">
                             <button type="button" class="btn btn-outline btn-sm create-batch-content-btn ${(issue.content || '').trim() ? 'has-content' : ''}" onclick="openBatchContentModal(${rowIdx})" data-row-index="${rowIdx}">
-                                <span class="create-batch-content-preview">${(issue.content || '').trim() ? (stripHtml(issue.content).substring(0, 200) + (stripHtml(issue.content).length > 200 ? '...' : '')) : '點擊編輯事項內容'}</span>
+                                <span class="create-batch-content-preview">${(issue.content || '').trim() ? stripHtml(issue.content) : '點擊編輯事項內容'}</span>
                             </button>
                             <input type="hidden" class="create-batch-content" value="${escapeHtml(issue.content || '')}">
                         </td>
@@ -2918,8 +2918,8 @@ if (dashboard) {
                     const contentHidden = tr.querySelector('.create-batch-content');
                     if (contentBtn && contentPreview && contentHidden) {
                         const content = contentHidden.value || '';
-                        // 顯示更多預覽文字（增加到200字，更容易閱讀）
-                        contentPreview.textContent = content.trim() ? (content.substring(0, 200) + (content.length > 200 ? '...' : '')) : '點擊編輯事項內容';
+                        // 顯示完整內容，由 CSS 控制多行截斷顯示
+                        contentPreview.textContent = content.trim() ? content : '點擊編輯事項內容';
                         // 根據是否有內容更新按鈕樣式
                         if (content && content.trim()) {
                             contentBtn.classList.add('has-content');
@@ -3613,8 +3613,8 @@ if (dashboard) {
                 contentHidden.value = content;
                 
                 // 更新按鈕顯示
-                // 顯示更多預覽文字（增加到200字，更容易閱讀）
-                contentPreview.textContent = content ? (content.substring(0, 200) + (content.length > 200 ? '...' : '')) : '點擊編輯事項內容';
+                // 顯示完整內容，由 CSS 控制多行截斷顯示
+                contentPreview.textContent = content ? content : '點擊編輯事項內容';
                 
                 // 根據是否有內容更新按鈕樣式
                 if (content && content.trim()) {
