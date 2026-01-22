@@ -1,6 +1,6 @@
 <div class="content-header users-header">
     <div class="content-title">帳號與紀錄</div>
-    <button class="btn btn-primary users-add-btn" onclick="openUserModal('create')" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.3); color: #ffffff; backdrop-filter: blur(10px);">新增</button>
+    <button class="btn btn-primary users-add-btn" onclick="openUserModal('create')">新增</button>
 </div>
 <div class="admin-tabs">
     <button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button>
@@ -51,7 +51,7 @@
             oninput="loadLogsPage(1)" autocomplete="off">
         <button class="btn btn-outline btn-sm" onclick="exportLogs('login')">匯出 CSV</button>
         <div style="display:flex; gap:8px; align-items:center;">
-            <select id="loginCleanupDays" class="filter-input" style="width:140px; padding:6px 10px; font-size:13px;">
+            <select id="loginCleanupDays" class="filter-select" style="width:140px;">
                 <option value="30">保留30天</option>
                 <option value="60">保留60天</option>
                 <option value="90">保留90天</option>
@@ -61,7 +61,7 @@
                 <option value="all">刪除全部</option>
             </select>
             <input id="loginCustomDays" type="number" min="1" placeholder="天數" 
-                class="filter-input hidden" style="width:80px; padding:6px 10px; font-size:13px;">
+                class="filter-input hidden" style="width:80px;">
             <button class="btn btn-danger btn-sm" onclick="deleteLogsFromDB('login')">刪除資料庫記錄</button>
         </div>
     </div>
@@ -90,7 +90,7 @@
             oninput="loadActionsPage(1)" autocomplete="off">
         <button class="btn btn-outline btn-sm" onclick="exportLogs('action')">匯出 CSV</button>
         <div style="display:flex; gap:8px; align-items:center;">
-            <select id="actionCleanupDays" class="filter-input" style="width:140px; padding:6px 10px; font-size:13px;">
+            <select id="actionCleanupDays" class="filter-select" style="width:140px;">
                 <option value="30">保留30天</option>
                 <option value="60">保留60天</option>
                 <option value="90">保留90天</option>
@@ -100,7 +100,7 @@
                 <option value="all">刪除全部</option>
             </select>
             <input id="actionCustomDays" type="number" min="1" placeholder="天數" 
-                class="filter-input hidden" style="width:80px; padding:6px 10px; font-size:13px;">
+                class="filter-input hidden" style="width:80px;">
             <button class="btn btn-danger btn-sm" onclick="deleteLogsFromDB('action')">刪除資料庫記錄</button>
         </div>
     </div>

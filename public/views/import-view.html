@@ -34,7 +34,7 @@
                     設定整批匯入參數 (必填)</label>
 
                 <div style="margin-bottom:16px;">
-                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">請選擇本次匯入的作業階段</div>
+                    <div style="font-size:13px;color:#64748b;margin-bottom:4px;">請選擇本次匯入的作業階段</div>
                     <div style="display:flex; gap:16px;">
                         <label
                             style="cursor:pointer; display:flex; align-items:center; gap:8px; background:#f0f9ff; padding:10px 16px; border-radius:8px; border:1px solid #bae6fd; color:#0369a1; flex:1;">
@@ -53,14 +53,14 @@
 
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:12px;">
                     <div id="importRoundContainer" style="display:none;">
-                        <div style="font-size:12px;color:#64748b;margin-bottom:4px;">這是第幾次審查？</div>
+                        <div style="font-size:13px;color:#64748b;margin-bottom:4px;">這是第幾次審查？</div>
                         <select id="importRoundSelect" class="filter-select">
                             <!-- JavaScript 會自動產生選項 -->
                         </select>
                     </div>
 
                     <div style="grid-column: span 2;" id="importPlanNameContainer">
-                        <div style="font-size:12px;color:#64748b;margin-bottom:4px;">檢查計畫名稱 <span style="color:#ef4444;">*</span></div>
+                        <div style="font-size:13px;color:#64748b;margin-bottom:4px;">檢查計畫名稱 <span style="color:#ef4444;">*</span></div>
                         <select id="importPlanName" class="filter-select">
                             <option value="">請選擇計畫</option>
                             <!-- JavaScript 會自動產生選項 -->
@@ -72,26 +72,26 @@
                 <div
                     style="background:#fafafa; padding:12px; border-radius:6px; border:1px dashed #cbd5e1;">
                     <div id="importDateGroup_Initial" style="display:block;">
-                        <div style="font-size:12px;color:#0369a1;margin-bottom:4px;font-weight:700;">📆 日期設定
+                        <div style="font-size:13px;color:#0369a1;margin-bottom:4px;font-weight:600;">📆 日期設定
                             (初次開立)</div>
-                        <div style="font-size:12px;color:#64748b;margin-bottom:4px;">監理機關初次發函日期 (例如:
+                        <div style="font-size:13px;color:#64748b;margin-bottom:4px;">監理機關初次發函日期 (例如:
                             1130615)</div>
                         <input type="text" id="importIssueDate" class="filter-input" placeholder="必填"
                             onkeyup="checkImportReady()" autocomplete="off">
                     </div>
 
                     <div id="importDateGroup_Review" style="display:none;">
-                        <div style="font-size:12px;color:#be185d;margin-bottom:4px;font-weight:700;">📆 日期設定
+                        <div style="font-size:13px;color:#be185d;margin-bottom:4px;font-weight:600;">📆 日期設定
                             (審查階段)</div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
                             <div>
-                                <div style="font-size:12px;color:#64748b;margin-bottom:4px;">機構回復辦理情形日期
+                                <div style="font-size:13px;color:#64748b;margin-bottom:4px;">機構回復辦理情形日期
                                 </div>
                                 <input type="text" id="importReplyDate" class="filter-input"
                                     placeholder="例如: 1130701" autocomplete="off">
                             </div>
                             <div>
-                                <div style="font-size:12px;color:#64748b;margin-bottom:4px;">監理機關本次函復日期
+                                <div style="font-size:13px;color:#64748b;margin-bottom:4px;">監理機關本次函復日期
                                 </div>
                                 <input type="text" id="importResponseDate" class="filter-input"
                                     placeholder="例如: 1130715" autocomplete="off">
@@ -179,7 +179,7 @@
                         <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
                             檢查計畫名稱 <span style="color:#ef4444;">*</span>
                         </label>
-                        <select id="createPlanName" class="filter-input" style="background:white;padding:10px;" onchange="onCreatePlanChange(); handleCreateBatchPlanChange();">
+                        <select id="createPlanName" class="filter-select" onchange="onCreatePlanChange(); handleCreateBatchPlanChange();">
                             <option value="">請選擇計畫</option>
                             <!-- JavaScript 會自動產生選項 -->
                         </select>
@@ -188,17 +188,15 @@
                         <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
                             初次發函日期 <span style="color:#ef4444;">*</span>
                         </label>
-                        <input type="text" id="createIssueDate" class="filter-input" placeholder="例如: 1130501" 
-                            style="background:white;" autocomplete="off">
+                        <input type="text" id="createIssueDate" class="filter-input" placeholder="例如: 1130501" autocomplete="off">
                     </div>
                 </div>
                 <!-- 載入現有事項按鈕 -->
                 <div id="createLoadExistingContainer" style="display:none;">
-                    <button class="btn btn-outline btn-sm" onclick="loadExistingIssuesToBatch()" 
-                        style="padding:8px 16px; font-size:13px;">
+                    <button class="btn btn-outline btn-sm" onclick="loadExistingIssuesToBatch()">
                         📥 載入該計畫下現有事項
                     </button>
-                    <span style="font-size:12px; color:#64748b; margin-left:12px;">
+                    <span style="font-size:13px; color:#64748b; margin-left:12px;">
                         💡 可載入該檢查計畫下已有的事項資料，方便繼續填寫新的辦理情形
                     </span>
                 </div>
@@ -208,65 +206,63 @@
             <div id="createBatchMode" style="display:block;">
                 <!-- 批次設定日期（回復日期和函復日期） -->
                 <div style="background:#f8fafc; padding:16px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color:#334155; font-size:14px; margin-bottom:12px;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color:#334155; font-size:13px; margin-bottom:12px;">
                         <input type="checkbox" id="createBatchReplyDateToggle" onchange="toggleBatchReplyDateSetting()" style="width:18px; height:18px; cursor:pointer;">
                         <span>📅 設定辦理情形回復日期（選填）</span>
                     </label>
                     <div id="createBatchReplyDateContainer" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid #e2e8f0;">
-                        <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
+                        <div style="font-size:13px; color:#64748b; margin-bottom:12px;">
                             💡 可為所有事項的辦理情形設定相同的回復日期。
                         </div>
                         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
                             <div style="display:flex; gap:8px; align-items:center;">
-                                <label style="font-size:13px; color:#475569; font-weight:500;">第幾次回復：</label>
-                                <select id="createBatchReplyRound" class="filter-select" style="width:140px; font-size:13px;" onchange="onBatchReplyRoundChange()">
+                                <label style="font-size:13px; color:#475569; font-weight:600;">第幾次回復：</label>
+                                <select id="createBatchReplyRound" class="filter-select" style="width:140px;" onchange="onBatchReplyRoundChange()">
                                     <option value="">請選擇</option>
                                     <!-- JavaScript 會動態產生選項（最多200次） -->
                                 </select>
-                                <span style="font-size:12px; color:#64748b;">或</span>
+                                <span style="font-size:13px; color:#64748b;">或</span>
                                 <input type="number" id="createBatchReplyRoundManual" class="filter-input" 
                                     placeholder="手動輸入" min="1" max="200" 
-                                    style="width:100px; font-size:13px; padding:8px;"
+                                    style="width:100px;"
                                     onchange="onBatchReplyRoundManualChange()" autocomplete="off">
                             </div>
                             <div style="display:flex; gap:8px; align-items:center;">
-                                <label style="font-size:13px; color:#475569; font-weight:500;">回復日期：</label>
+                                <label style="font-size:13px; color:#475569; font-weight:600;">回復日期：</label>
                                 <input type="text" id="createBatchReplyDate" class="filter-input" placeholder="例如: 1130601" 
-                                    style="width:150px; font-size:13px; padding:8px;" autocomplete="off">
+                                    style="width:150px;" autocomplete="off">
                             </div>
-                            <button class="btn btn-primary btn-sm" onclick="batchSetReplyDateForAll()" 
-                                style="padding:8px 16px; font-size:13px;">設定</button>
+                            <button class="btn btn-primary btn-sm" onclick="batchSetReplyDateForAll()">設定</button>
                         </div>
                     </div>
                     
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color:#334155; font-size:14px; margin-top:16px; margin-bottom:12px;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color:#334155; font-size:13px; margin-top:16px; margin-bottom:12px;">
                         <input type="checkbox" id="createBatchResponseDateToggle" onchange="toggleBatchResponseDateSetting()" style="width:18px; height:18px; cursor:pointer;">
                         <span>📅 設定審查函復日期（選填）</span>
                     </label>
                     <div id="createBatchResponseDateContainer" style="display:none; margin-top:12px; padding-top:12px; border-top:1px solid #e2e8f0;">
-                        <div style="font-size:12px; color:#64748b; margin-bottom:12px;">
+                        <div style="font-size:13px; color:#64748b; margin-bottom:12px;">
                             💡 可為該檢查計畫下所有事項設定函復日期。通常在審查完成後使用。
                         </div>
                         <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
                             <div style="display:flex; gap:8px; align-items:center;">
-                                <label style="font-size:13px; color:#475569; font-weight:500;">第幾次審查函復：</label>
-                                <select id="createBatchResponseRound" class="filter-select" style="width:140px; font-size:13px;" onchange="onBatchResponseRoundChange()">
+                                <label style="font-size:13px; color:#475569; font-weight:600;">第幾次審查函復：</label>
+                                <select id="createBatchResponseRound" class="filter-select" style="width:140px;" onchange="onBatchResponseRoundChange()">
                                     <option value="">請選擇</option>
                                     <!-- JavaScript 會動態產生選項（最多200次） -->
                                 </select>
-                                <span style="font-size:12px; color:#64748b;">或</span>
+                                <span style="font-size:13px; color:#64748b;">或</span>
                                 <input type="number" id="createBatchResponseRoundManual" class="filter-input" 
                                     placeholder="手動輸入" min="1" max="200" 
-                                    style="width:100px; font-size:13px; padding:8px;"
+                                    style="width:100px;"
                                     onchange="onBatchResponseRoundManualChange()" autocomplete="off">
                             </div>
                             <div style="display:flex; gap:8px; align-items:center;">
-                                <label style="font-size:13px; color:#475569; font-weight:500;">函復日期：</label>
+                                <label style="font-size:13px; color:#475569; font-weight:600;">函復日期：</label>
                                 <input type="text" id="createBatchResponseDate" class="filter-input" placeholder="例如: 1130615 或 1141001" 
-                                    style="width:150px; font-size:13px; padding:8px;" autocomplete="off">
+                                    style="width:150px;" autocomplete="off">
                             </div>
-                            <button class="btn btn-primary btn-sm" onclick="batchSetResponseDateForPlan()" 
-                                style="padding:8px 16px; font-size:13px;">設定</button>
+                            <button class="btn btn-primary btn-sm" onclick="batchSetResponseDateForPlan()">設定</button>
                         </div>
                     </div>
                 </div>
@@ -313,7 +309,7 @@
                             <input type="checkbox" id="createBatchContinuousMode"> 連續新增模式 (儲存後自動新增新列，保留計畫與機構)
                         </label>
                     </div>
-                    <button class="btn btn-primary" style="padding:12px 32px; font-size:15px;" onclick="saveCreateBatchItems()">
+                    <button class="btn btn-primary" style="padding:12px 32px;" onclick="saveCreateBatchItems()">
                         💾 批次儲存至資料庫
                     </button>
                 </div>
@@ -332,7 +328,7 @@
             <!-- 選擇檢查計畫（下拉選單，類似查詢看板） -->
             <div style="background:#f8fafc; padding:20px; border-radius:8px; margin-bottom:24px; border:1px solid #e2e8f0;">
                 <div>
-                    <label style="display:block; font-weight:600; color:#475569; font-size:14px; margin-bottom:8px;">檢查計畫 <span style="color:#ef4444;">*</span></label>
+                    <label style="display:block; font-weight:600; color:#475569; font-size:13px; margin-bottom:8px;">檢查計畫 <span style="color:#ef4444;">*</span></label>
                     <select id="yearEditPlanName" class="filter-select" onchange="onYearEditPlanChange()" style="width:100%;">
                         <option value="">載入中...</option>
                         <!-- JavaScript 會自動產生選項 -->
@@ -353,7 +349,7 @@
             <!-- 事項詳細內容 -->
             <div id="yearEditIssueContent" style="display:none;">
                 <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-                    <button class="btn btn-outline" onclick="backToYearEditIssueList()" style="padding:8px 16px; font-size:13px;">
+                    <button class="btn btn-outline" onclick="backToYearEditIssueList()" style="padding:8px 16px;">
                         ← 返回事項列表
                     </button>
                     <div style="padding:12px; background:#fef3c7; border:1px solid #fcd34d; border-radius:6px; flex:1; margin-left:16px;">
@@ -368,7 +364,7 @@
                 </div>
                 
                 <div style="margin-top:24px; padding:20px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
-                    <button class="btn btn-success" onclick="saveYearEditIssue()" id="yearEditSaveBtn" style="width:100%; padding:14px; font-size:16px;">💾 儲存所有變更</button>
+                    <button class="btn btn-success" onclick="saveYearEditIssue()" id="yearEditSaveBtn" style="width:100%; padding:14px;">💾 儲存所有變更</button>
                 </div>
             </div>
             
@@ -583,7 +579,7 @@
 
         <!-- 執行按鈕 -->
         <div style="display:flex; justify-content:flex-end; padding-top:20px; border-top:1px solid #e2e8f0;">
-            <button class="btn btn-primary" onclick="exportAllData()" style="padding:12px 32px; font-size:15px; font-weight:600;">
+            <button class="btn btn-primary" onclick="exportAllData()" style="padding:12px 32px;">
                 📥 執行匯出
             </button>
         </div>
