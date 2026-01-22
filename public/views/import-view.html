@@ -383,16 +383,18 @@
 
 <!-- Tab 2: 檢查計畫管理 -->
 <div id="tab-data-plans" class="hidden">
-    <div style="margin-bottom:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h3 style="margin:0; font-weight:700; font-size:18px; color:#334155;">檢查計畫管理</h3>
-            <div style="display:flex; gap:8px;">
-                <button class="btn btn-primary" onclick="openPlanModal('create')">新增計畫</button>
-                <button class="btn btn-outline" onclick="openPlanImportModal()">📥 CSV 匯入</button>
-            </div>
+    <div class="main-card">
+        <div style="margin-bottom:24px;">
+            <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">檢查計畫管理</h3>
+            <p style="margin:0; color:#64748b; font-size:13px;">
+                管理檢查計畫資料，可新增、編輯、刪除檢查計畫，並支援 CSV 匯入功能。
+            </p>
         </div>
         
-        <div class="main-card" style="margin-top:20px;">
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:16px;">
+            <button class="btn btn-primary" onclick="openPlanModal('create')">新增計畫</button>
+            <button class="btn btn-outline" onclick="openPlanImportModal()">📥 CSV 匯入</button>
+        </div>
             <div style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
                 <input id="planSearch" class="filter-input" placeholder="搜尋計畫名稱..." style="max-width:300px;"
                     oninput="loadPlansPage(1)" autocomplete="off">
