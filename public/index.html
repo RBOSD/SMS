@@ -305,15 +305,15 @@
                             
                             <!-- 開立事項內容 -->
                             <div style="margin-bottom:16px;">
-                                <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">開立事項內容</div>
+                                <div style="font-size:13px;color:#475569;margin-bottom:6px;font-weight:600;">開立事項內容</div>
                                 <div style="background:#f8fafc;padding:16px;border-radius:12px;font-size:14px;line-height:1.6;border:1px solid #e2e8f0;max-height:250px;overflow-y:auto;"
                                     id="editContentDisplay"></div>
                             </div>
 
                             <!-- [新增] 選擇查看哪一次的審查及回復內容 -->
                             <div style="margin-bottom:16px;">
-                                <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">選擇查看內容</div>
-                                <select id="viewRoundSelect" class="filter-select" onchange="onViewRoundChange()" style="font-size:13px;padding:6px;">
+                                <div style="font-size:13px;color:#475569;margin-bottom:6px;font-weight:600;">選擇查看內容</div>
+                                <select id="viewRoundSelect" class="filter-select" onchange="onViewRoundChange()" style="font-size:14px;padding:6px;">
                                     <option value="latest">最新進度</option>
                                     <!-- JavaScript 會自動產生選項 -->
                                 </select>
@@ -347,7 +347,7 @@
                         <!-- 參考資料：當前回合機構辦理情形（只讀顯示） -->
                         <div style="margin-bottom:24px; background:#f8fafc; padding:16px; border-radius:10px; border:1px solid #e2e8f0;">
                             <div style="font-size:12px;color:#64748b;margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">📋 參考資料</div>
-                            <div style="font-size:12px;color:#059669;margin-bottom:8px;font-weight:600;">第 <span id="currentHandlingRoundNum">1</span> 次機構辦理情形</div>
+                            <div style="font-size:13px;color:#475569;margin-bottom:8px;font-weight:600;">第 <span id="currentHandlingRoundNum">1</span> 次機構辦理情形</div>
                             <div id="currentHandlingDisplay" style="background:#ffffff;padding:12px;border-radius:8px;font-size:14px;color:#334155;border:1px solid #cbd5e1;line-height:1.6;min-height:80px;max-height:200px;overflow-y:auto;white-space:pre-wrap;"
                                 >（尚未有機構辦理情形）</div>
                             <div style="margin-top:12px; padding:10px; background:#fff3cd; border-radius:6px; border:1px solid #ffc107; font-size:12px; color:#856404;">
@@ -369,15 +369,15 @@
 
                             <!-- 審查輪次設定 -->
                             <div style="margin-bottom:20px;">
-                                <div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:500;">審查輪次</div>
+                                <div style="font-size:13px;color:#475569;margin-bottom:6px;font-weight:600;">審查輪次</div>
                                 <span id="editRoundDisplay" style="display:inline-block;padding:10px 14px;background:#f1f5f9;border-radius:8px;border:1px solid #e2e8f0;color:#334155;font-weight:500;font-size:13px;min-width:80px;text-align:center;">第 1 次</span>
                                 <input type="hidden" id="editRound" value="1">
                             </div>
 
                             <!-- 審查結果 -->
                             <div style="margin-bottom:20px;">
-                                <div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:500;">審查結果</div>
-                                <select id="editStatus" class="filter-select" style="width:100%;padding:10px;border:1px solid #cbd5e1;background:#fff;font-size:13px;">
+                                <div style="font-size:13px;color:#475569;margin-bottom:6px;font-weight:600;">審查結果</div>
+                                <select id="editStatus" class="filter-select" style="width:100%;padding:10px;border:1px solid #cbd5e1;background:#fff;font-size:14px;">
                                     <option value="持續列管">🔴 持續列管</option>
                                     <option value="解除列管">🟢 解除列管</option>
                                     <option value="自行列管">🟠 自行列管</option>
@@ -387,7 +387,7 @@
                             <!-- 審查意見 -->
                             <div style="flex:1;display:flex;flex-direction:column;">
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                                    <div style="font-size:11px;color:#64748b;font-weight:500;">審查意見</div>
+                                    <div style="font-size:13px;color:#475569;font-weight:600;">審查意見</div>
                                     <button class="btn btn-ai" style="padding:4px 10px;font-size:11px;" onclick="runAiInEdit(this)">🤖 AI 智能分析</button>
                                 </div>
                                 <div id="aiBox"
@@ -408,7 +408,7 @@
 
                         <!-- 操作按鈕 -->
                         <div style="display:flex;gap:12px;margin-top:auto;padding-top:16px;">
-                            <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="saveEdit()">💾 儲存審查結果</button>
+                            <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="saveEdit()">💾 上傳至資料庫</button>
                             <button class="btn btn-outline" style="flex:1;padding:12px;" onclick="toggleEditMode(false)">取消</button>
                         </div>
                     </div>
