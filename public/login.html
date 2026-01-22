@@ -293,6 +293,10 @@
                 const data = await res.json();
 
                 if (res.ok) {
+                    // 清除視圖狀態，讓登入後顯示預設頁面
+                    sessionStorage.removeItem('currentView');
+                    sessionStorage.removeItem('currentDataTab');
+                    sessionStorage.removeItem('currentUsersTab');
                     btn.innerText = '登入成功';
                     setTimeout(() => {
                         window.location.href = '/';
