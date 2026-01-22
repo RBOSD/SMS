@@ -1,6 +1,5 @@
-<div class="content-header users-header">
+<div class="content-header">
     <div class="content-title">帳號與紀錄</div>
-    <button class="btn btn-primary users-add-btn" onclick="openUserModal('create')">新增</button>
 </div>
 <div class="admin-tabs">
     <button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button>
@@ -16,6 +15,10 @@
         <p style="margin:0; color:#64748b; font-size:13px;">
             管理系統使用者帳號，可新增、編輯、刪除帳號，並設定使用者權限。
         </p>
+    </div>
+    
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:16px;">
+        <button class="btn btn-primary" onclick="openUserModal('create')">新增</button>
     </div>
     
     <div

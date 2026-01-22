@@ -310,38 +310,7 @@
             letter-spacing: -0.5px;
         }
 
-        /* 帳號管理頁面按鈕位置調整 */
-        .users-header {
-            justify-content: space-between;
-            gap: 16px;
-        }
-
-        .users-add-btn {
-            flex-shrink: 0;
-            background: #ffffff !important;
-            color: var(--primary) !important;
-            border: 2px solid #ffffff !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
-        }
-        
-        .users-add-btn:hover {
-            background: #f8fafc !important;
-            color: var(--primary) !important;
-            border-color: #ffffff !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
-        }
-
-        /* 電腦版：按鈕不要那麼靠右，更靠近標題 */
-        @media (min-width: 769px) {
-            .users-header {
-                justify-content: flex-start;
-                gap: 24px;
-            }
-            
-            .users-add-btn {
-                margin-left: 0;
-            }
-        }
+        /* 已移除：按鈕現在放在分頁內容內，不再需要特殊樣式 */
 
         /* Dashboard */
         .dashboard-section {
