@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
     <title>SMS開立事項查詢與AI審查系統</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap"
@@ -13,1479 +13,9 @@
         src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <style>
-        /* 1. 基礎設定 */
-        html,
-        body {
-            min-height: 100vh;
-            overflow-x: hidden;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            display: none;
-            font-family: 'Inter', 'Noto Sans TC', sans-serif;
-            background-color: #f8fafc;
-            flex-direction: column;
-        }
-
-        :root {
-            --primary: #2563eb;
-            --primary-light: #eff6ff;
-            --bg-body: #f8fafc;
-            --bg-card: #ffffff;
-            --text-main: #0f172a;
-            --text-sub: #64748b;
-            --border: #e2e8f0;
-            --header-h: 60px;
-            --danger: #ef4444;
-            --success: #10b981;
-        }
-
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-        }
-
-        /* Header */
-        .app-header {
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border);
-            padding: 0 24px;
-            height: var(--header-h);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: relative;
-            z-index: 40;
-            width: 100%;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-            flex-shrink: 0;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            font-weight: 700;
-            font-size: 18px;
-            color: var(--text-main);
-            flex-shrink: 0;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        .brand:hover {
-            opacity: 0.8;
-        }
-
-        .brand-icon {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
-            width: 36px;
-            height: 36px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            box-shadow: 0 2px 5px rgba(37, 99, 235, 0.2);
-            flex-shrink: 0;
-        }
-
-        .filter-toggle-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            background: #f1f5f9;
-            border: 1px solid transparent;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 20px;
-            color: var(--text-main);
-            transition: all 0.2s;
-            flex-shrink: 0;
-        }
-
-        .filter-toggle-btn:hover {
-            background: #e2e8f0;
-            color: var(--primary);
-        }
-
-        .filter-toggle-btn:active {
-            transform: scale(0.95);
-        }
-
-        /* User Menu */
-        .user-menu-container {
-            position: relative;
-            max-width: 50%;
-        }
-
-        .user-capsule {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 6px 16px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.2s;
-            max-width: 100%;
-        }
-
-        .user-capsule:hover {
-            background: #eff6ff;
-            border-color: #bfdbfe;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-
-        .user-name {
-            font-weight: 600;
-            font-size: 14px;
-            color: #334155;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 120px;
-        }
-
-        .user-role {
-            font-size: 11px;
-            color: #2563eb;
-            background: #dbeafe;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-
-        .user-dropdown {
-            position: absolute;
-            top: 130%;
-            right: 0;
-            width: 180px;
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            display: none;
-            flex-direction: column;
-            overflow: hidden;
-            z-index: 50;
-            padding: 6px;
-        }
-
-        .user-dropdown.show {
-            display: flex;
-        }
-
-        .dropdown-item {
-            padding: 10px 12px;
-            font-size: 14px;
-            color: #334155;
-            cursor: pointer;
-            transition: background 0.1s;
-            text-align: left;
-            border: none;
-            background: none;
-            width: 100%;
-            border-radius: 8px;
-        }
-
-        .dropdown-item:hover {
-            background: #f1f5f9;
-            color: var(--primary);
-        }
-
-        .dropdown-divider {
-            height: 1px;
-            background: #f1f5f9;
-            margin: 4px 0;
-        }
-
-        /* Layout */
-        .app-body {
-            display: flex;
-            flex: 1;
-            flex-direction: column;
-            position: relative;
-            min-height: calc(100vh - 60px);
-        }
-
-        /* Drawer Sidebar */
-        .filters-panel {
-            position: fixed;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            width: 280px;
-            background: var(--bg-card);
-            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
-            padding: 80px 20px 20px 20px;
-            z-index: 1000;
-            transform: translateX(-100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .filters-panel.open {
-            transform: translateX(0);
-        }
-
-        #filterBackdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.4);
-            backdrop-filter: blur(2px);
-            z-index: 999;
-            display: none;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        #filterBackdrop.visible {
-            display: block;
-            opacity: 1;
-        }
-
-        .sidebar-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .sidebar-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--text-main);
-        }
-
-        .sidebar-close-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: var(--text-sub);
-            padding: 4px;
-        }
-
-        .sidebar-close-btn:hover {
-            color: var(--danger);
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 24px;
-            background: var(--bg-body);
-            width: 100%;
-            max-width: 100%;
-        }
-
-        .content-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            flex-shrink: 0;
-            min-height: 30px;
-        }
-
-        .content-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text-main);
-        }
-
-        /* Dashboard */
-        .view-section {
-            display: none;
-            width: 100%;
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out;
-        }
-
-        .view-section.active {
-            display: block;
-            opacity: 1;
-        }
-
-        .dashboard-section {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
-            max-height: 1000px;
-            opacity: 1;
-            margin-bottom: 24px;
-            flex-shrink: 0;
-        }
-
-        .dashboard-section.collapsed {
-            max-height: 0;
-            opacity: 0;
-            margin-bottom: 0 !important;
-        }
-
-        .dashboard-toggle-btn {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 6px 14px;
-            font-size: 13px;
-            cursor: pointer;
-            color: var(--text-sub);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-            margin-left: auto;
-        }
-
-        .dashboard-toggle-btn:hover {
-            background: #f8fafc;
-            color: var(--primary);
-            border-color: var(--primary);
-        }
-
-        .stats-bar {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-bottom: 24px;
-            flex-shrink: 0;
-        }
-
-        .stat-item {
-            background: white;
-            padding: 20px;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            text-align: center;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
-        }
-
-        .stat-val {
-            font-size: 28px;
-            font-weight: 800;
-            margin-bottom: 6px;
-            letter-spacing: -0.5px;
-        }
-
-        .stat-label {
-            font-size: 14px;
-            color: var(--text-sub);
-            font-weight: 500;
-        }
-
-        .charts-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1.5fr;
-            gap: 16px;
-            margin-bottom: 20px;
-            flex-shrink: 0;
-            width: 100%;
-        }
-
-        .chart-card {
-            background: white;
-            border-radius: 16px;
-            padding: 24px;
-            border: 1px solid var(--border);
-            height: 300px;
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01), 0 2px 4px -1px rgba(0, 0, 0, 0.01);
-            position: relative;
-        }
-
-        /* Main Card */
-        .main-card {
-            background: white;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.01);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-            margin-bottom: 20px;
-        }
-
-        /* Filters Optimization */
-        .integrated-controls {
-            padding: 20px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            background: #ffffff;
-        }
-
-        .filter-primary-row {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            align-items: flex-end;
-        }
-
-        .filter-advanced-row {
-            display: none;
-            gap: 16px;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            padding-top: 12px;
-            margin-top: 4px;
-            border-top: 1px dashed #e2e8f0;
-        }
-
-        .filter-advanced-row.show {
-            display: flex;
-        }
-
-        .control-row-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-top: 4px;
-        }
-
-        .search-item {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            flex: 1;
-            min-width: 140px;
-        }
-
-        .search-item label {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-main);
-        }
-
-        .btn {
-            padding: 9px 16px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 13px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            transition: 0.2s;
-            white-space: nowrap;
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
-        }
-
-        .btn-primary:hover {
-            background: #1d4ed8;
-        }
-
-        .btn-outline {
-            background: white;
-            border: 1px solid var(--border);
-            color: var(--text-main);
-        }
-
-        .btn-outline:hover {
-            background: #f8fafc;
-            border-color: #cbd5e1;
-        }
-
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-ai {
-            background: #7c3aed;
-            color: white;
-        }
-
-        .btn-link {
-            background: none;
-            border: none;
-            color: var(--primary);
-            padding: 0;
-            cursor: pointer;
-            font-size: 13px;
-            text-decoration: none;
-        }
-
-        .btn-link:hover {
-            text-decoration: underline;
-        }
-
-        .filter-input,
-        .filter-select {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: #f8fafc;
-            font-size: 14px;
-            transition: all 0.2s;
-            color: #334155;
-        }
-
-        .filter-input:focus,
-        .filter-select:focus {
-            border-color: var(--primary);
-            outline: none;
-            background: white;
-            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-        }
-
-        .filter-input::placeholder {
-            color: #94a3b8;
-        }
-
-        .pwd-wrapper {
-            position: relative;
-            width: 100%;
-        }
-
-        .pwd-toggle {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            cursor: pointer;
-            color: #94a3b8;
-            border: none;
-            background: none;
-            font-size: 16px;
-        }
-
-        .pwd-toggle:hover {
-            color: var(--primary);
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .sidebar-btn {
-            width: 100%;
-            text-align: left;
-            padding: 14px 16px;
-            background: transparent;
-            border: none;
-            color: var(--text-sub);
-            font-weight: 600;
-            cursor: pointer;
-            border-radius: 10px;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 6px;
-            font-size: 15px;
-        }
-
-        .sidebar-btn:hover {
-            background: #f1f5f9;
-            color: var(--text-main);
-        }
-
-        .sidebar-btn.active {
-            background: #eff6ff;
-            color: var(--primary);
-        }
-
-        .sidebar-btn span {
-            font-size: 18px;
-        }
-
-        .admin-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 16px;
-            border-bottom: 1px solid #e2e8f0;
-            overflow-x: auto;
-        }
-
-        .admin-tab-btn {
-            padding: 10px 16px;
-            background: none;
-            border: none;
-            border-bottom: 2px solid transparent;
-            font-weight: 600;
-            color: #64748b;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .admin-tab-btn.active {
-            color: var(--primary);
-            border-bottom-color: var(--primary);
-        }
-
-        .data-container {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 1000px;
-        }
-
-        th {
-            position: sticky;
-            top: 0;
-            background: #f8fafc;
-            padding: 16px 16px;
-            text-align: left;
-            font-size: 13px;
-            color: var(--text-sub);
-            border-bottom: 1px solid var(--border);
-            cursor: pointer;
-            user-select: none;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.02em;
-        }
-
-        th:hover {
-            background: #f1f5f9;
-            color: var(--primary);
-        }
-
-        td {
-            padding: 16px 16px;
-            border-bottom: 1px solid var(--border);
-            font-size: 14px;
-            vertical-align: top;
-            color: #334155;
-            line-height: 1.5;
-        }
-
-        tr:hover {
-            background: #f8fafc;
-            cursor: pointer;
-        }
-
-        tr:last-child td {
-            border-bottom: none;
-        }
-
-        .preview-table {
-            table-layout: fixed;
-            width: 100%;
-            min-width: 900px;
-        }
-
-        .preview-table th:nth-child(1) {
-            width: 60px;
-        }
-
-        /* Status */
-        .preview-table th:nth-child(2) {
-            width: 140px;
-        }
-
-        /* Number */
-        .preview-table th:nth-child(3) {
-            width: 80px;
-        }
-
-        /* Unit */
-        .preview-table th:nth-child(4) {
-            width: 40%;
-        }
-
-        /* Content */
-        .preview-table th:nth-child(5) {
-            width: 35%;
-        }
-
-        /* Review */
-        .preview-content-box {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            white-space: normal;
-            word-break: break-word;
-            font-size: 13px;
-            line-height: 1.5;
-            color: #475569;
-        }
-
-        .pagination-bar {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
-
-        .page-btn {
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid var(--border);
-            background: white;
-            border-radius: 8px;
-            cursor: pointer;
-            color: var(--text-main);
-            font-size: 13px;
-            transition: all 0.2s;
-        }
-
-        .page-btn:hover:not(:disabled) {
-            background: #f1f5f9;
-            border-color: #cbd5e1;
-            color: var(--primary);
-        }
-
-        .page-btn.active {
-            background: var(--primary);
-            border-color: var(--primary);
-            color: white;
-            font-weight: 600;
-        }
-
-        .page-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            background: #f8fafc;
-        }
-
-        .page-dots {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            color: var(--text-sub);
-            font-size: 12px;
-        }
-
-        .page-size-select {
-            padding: 6px 10px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 13px;
-            background: white;
-            cursor: pointer;
-            color: var(--text-sub);
-            font-weight: 500;
-        }
-
-        .page-size-select:hover {
-            border-color: #cbd5e1;
-            color: var(--text-main);
-        }
-
-        /* [Modified] Badges and Tags unified style */
-        .badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            display: inline-block;
-            white-space: nowrap;
-        }
-
-        .badge.active {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .badge.resolved {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .badge.self {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .badge.new {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .badge.update {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .ai-tag {
-            font-size: 11px;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 4px;
-            border: 1px solid transparent;
-        }
-
-        .ai-tag.yes {
-            color: #059669;
-            background: #ecfdf5;
-            border-color: #a7f3d0;
-        }
-
-        .ai-tag.no {
-            color: #dc2626;
-            background: #fef2f2;
-            border-color: #fecaca;
-        }
-
-        /* Kind tag now matches Badge style */
-        .kind-tag {
-            font-size: 12px;
-            font-weight: 600;
-            border-radius: 20px;
-            padding: 4px 10px;
-            border: none;
-            color: #555;
-            background: #f8fafc;
-            display: inline-block;
-            width: fit-content;
-        }
-
-        .kind-tag.N {
-            color: #b91c1c;
-            background: #fef2f2;
-        }
-
-        /* 缺失 */
-        .kind-tag.O {
-            color: #c2410c;
-            background: #fff7ed;
-        }
-
-        /* 觀察 */
-        .kind-tag.R {
-            color: #15803d;
-            background: #f0fdf4;
-        }
-
-        /* 建議 */
-
-        .drawer-backdrop,
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.4);
-            z-index: 100;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            backdrop-filter: blur(2px);
-        }
-
-        .drawer-backdrop.open,
-        .modal-overlay.open {
-            display: flex;
-        }
-
-        .drawer {
-            position: fixed;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            width: 900px;
-            max-width: 100vw;
-            background: white;
-            z-index: 101;
-            transform: translateX(100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
-            flex-direction: column;
-            box-shadow: -5px 0 25px rgba(0, 0, 0, 0.15);
-        }
-
-        .drawer.open {
-            transform: translateX(0);
-        }
-
-        .drawer-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #fcfcfc;
-        }
-
-        .drawer-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 32px;
-        }
-
-        .modal-box {
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
-            width: 400px;
-            max-width: 90%;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-            z-index: 200;
-        }
-
-        .detail-card {
-            background: white;
-            padding: 24px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.01);
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            font-size: 13px;
-            margin-bottom: 8px;
-            color: #475569;
-        }
-
-        .view-section {
-            display: none;
-            width: 100%;
-            height: 100%;
-            flex-direction: column;
-        }
-
-        .view-section.active {
-            display: flex;
-        }
-
-        /* NEW: Single Row Metadata */
-        .detail-header-row {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid #e2e8f0;
-            margin-bottom: 16px;
-            font-size: 14px;
-            color: #334155;
-            line-height: 1.6;
-        }
-
-        .detail-header-row .separator {
-            color: #cbd5e1;
-            font-size: 12px;
-            margin: 0 2px;
-        }
-
-        .detail-number {
-            font-family: 'Inter', monospace;
-            font-weight: 600;
-            color: #0f172a;
-        }
-
-        .detail-unit-badge {
-            background: #eff6ff;
-            color: #1d4ed8;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: 600;
-            font-size: 12px;
-        }
-
-        .content-text {
-            font-size: 15px;
-            line-height: 1.8;
-            color: #1e293b;
-            background: #fafafa;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #cbd5e1;
-        }
-
-        .timeline-line {
-            position: absolute;
-            left: 20px;
-            top: 24px;
-            bottom: 0;
-            width: 2px;
-            background: #e2e8f0;
-        }
-
-        .timeline-item {
-            position: relative;
-            padding-left: 48px;
-            margin-bottom: 32px;
-        }
-
-        .timeline-dot {
-            position: absolute;
-            left: 14px;
-            top: 4px;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: white;
-            border: 3px solid var(--primary);
-            z-index: 1;
-        }
-
-        .timeline-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 8px;
-        }
-
-        .timeline-date-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #f1f5f9;
-            color: #475569;
-            font-size: 12px;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-weight: 500;
-            margin-bottom: 12px;
-            border: 1px solid #e2e8f0;
-        }
-
-        #toast-container {
-            position: fixed;
-            top: 80px;
-            right: 24px;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            pointer-events: none;
-        }
-
-        .toast {
-            pointer-events: auto;
-            background: white;
-            padding: 16px 20px;
-            border-radius: 12px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 300px;
-            transform: translateX(120%);
-            transition: transform 0.3s;
-            border-left: 4px solid #cbd5e1;
-        }
-
-        .toast.show {
-            transform: translateX(0);
-        }
-
-        .toast.success {
-            border-left-color: var(--success);
-        }
-
-        .toast.error {
-            border-left-color: var(--danger);
-        }
-
-        .toast-icon {
-            font-size: 20px;
-        }
-
-        .toast-content {
-            flex: 1;
-        }
-
-        .toast-title {
-            font-weight: 700;
-            font-size: 14px;
-            color: var(--text-main);
-            margin-bottom: 2px;
-        }
-
-        .toast-msg {
-            font-size: 13px;
-            color: var(--text-sub);
-        }
-
-        /* 編輯視窗 CSS - 優化手機版 */
-        .review-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 32px;
-            height: 100%;
-        }
-
-        .review-left {
-            border-right: 1px solid #e2e8f0;
-            padding-right: 32px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .review-right {
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-
-        th.sort-asc::after {
-            content: " ▲";
-            font-size: 10px;
-            margin-left: 4px;
-            color: var(--primary);
-        }
-
-        th.sort-desc::after {
-            content: " ▼";
-            font-size: 10px;
-            margin-left: 4px;
-            color: var(--primary);
-        }
-
-        /* Mobile Optimization */
-        @media (max-width: 768px) {
-
-            /* Header Optimizations */
-            .brand-title {
-                display: none;
-            }
-
-            /* Hide full title */
-            .brand::after {
-                content: "SMS";
-                font-weight: 700;
-                font-size: 18px;
-                color: var(--text-main);
-            }
-
-            .app-header {
-                padding: 0 12px;
-            }
-
-            .user-menu-container {
-                max-width: unset;
-            }
-
-            .user-capsule {
-                padding: 4px 10px;
-            }
-
-            .user-role {
-                display: none;
-            }
-
-            .user-name {
-                max-width: 100px;
-            }
-
-            /* Body Optimizations */
-            .app-body {
-                display: block;
-                height: auto;
-                overflow: visible;
-                background: #f8fafc;
-            }
-
-            .main-content {
-                height: auto;
-                overflow: visible;
-                padding: 16px;
-                width: 100%;
-            }
-
-            .stats-bar {
-                grid-template-columns: 1fr 1fr;
-                gap: 12px;
-                margin-bottom: 16px;
-            }
-
-            .stat-item {
-                padding: 16px;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .stat-item:last-child {
-                grid-column: span 2;
-                flex-direction: row;
-                gap: 12px;
-                justify-content: center;
-            }
-
-            .charts-grid {
-                grid-template-columns: 1fr;
-                gap: 16px;
-                margin-bottom: 16px;
-            }
-
-            .chart-card {
-                height: 240px;
-                padding: 16px;
-            }
-
-            /* Optimized Filters for Mobile */
-            .filter-primary-row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .filter-advanced-row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .control-row-actions {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 16px;
-            }
-
-            .pagination-bar {
-                justify-content: center;
-            }
-
-            .data-container {
-                overflow: visible;
-            }
-
-            table,
-            thead,
-            tbody,
-            th,
-            td,
-            tr {
-                display: block;
-                width: 100%;
-                min-width: 0;
-            }
-
-            thead {
-                display: none;
-            }
-
-            tr {
-                background: white;
-                margin-bottom: 12px;
-                border-radius: 12px;
-                padding: 16px;
-                border: 1px solid #e2e8f0;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-                position: relative;
-                cursor: pointer;
-                transition: transform 0.1s;
-            }
-
-            tr:active {
-                transform: scale(0.98);
-                background: #fafafa;
-            }
-
-            td {
-                padding: 0;
-                border: none;
-                display: block;
-                text-align: left;
-                width: 100%;
-                margin-bottom: 6px;
-            }
-
-            td[data-label="編號"] {
-                font-size: 16px;
-                font-weight: 700;
-                color: var(--text-main);
-                margin-bottom: 8px;
-                padding-right: 80px;
-                margin-left: 30px;
-            }
-
-            td[data-label="狀態"] {
-                position: absolute;
-                top: 16px;
-                right: 16px;
-                width: auto;
-                pointer-events: none;
-            }
-
-            td[data-label="年度"],
-            td[data-label="機構"] {
-                display: inline-block;
-                width: auto;
-                font-size: 12px;
-                color: #64748b;
-                background: #f1f5f9;
-                padding: 2px 8px;
-                border-radius: 6px;
-                margin-right: 6px;
-                margin-bottom: 12px;
-            }
-
-            td[data-label="事項內容"] {
-                font-size: 14px;
-                color: #334155;
-                line-height: 1.5;
-                margin-bottom: 12px;
-                display: -webkit-box;
-                -webkit-line-clamp: 3;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-
-            td[data-label="最新辦理/審查情形"] {
-                font-size: 12px;
-                color: #94a3b8;
-                border-top: 1px solid #f1f5f9;
-                padding-top: 8px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-
-            td[data-label="管理功能"] {
-                margin-top: 12px;
-                display: flex;
-                gap: 8px;
-                justify-content: flex-end;
-                border-top: 1px solid #f1f5f9;
-                padding-top: 12px;
-            }
-
-            .manager-col {
-                display: block !important;
-                position: absolute;
-                top: 16px;
-                left: 16px;
-                width: auto;
-            }
-
-            .issue-check {
-                transform: scale(1.3);
-            }
-
-            .user-table tr {
-                padding-bottom: 40px;
-            }
-
-            .user-table td[data-label="姓名"] {
-                font-weight: 700;
-                font-size: 16px;
-                margin-bottom: 4px;
-            }
-
-            .user-table td[data-label="帳號"] {
-                font-size: 13px;
-                color: #666;
-                margin-bottom: 8px;
-            }
-
-            .user-table td[data-label="權限"] {
-                display: inline-block;
-                width: auto;
-                background: #eff6ff;
-                color: var(--primary);
-                padding: 2px 8px;
-                border-radius: 4px;
-                font-size: 12px;
-                margin-bottom: 8px;
-            }
-
-            .user-table td[data-label="操作"] {
-                position: absolute;
-                bottom: 16px;
-                right: 16px;
-                width: auto;
-                margin-top: 0;
-            }
-
-            .drawer {
-                width: 100%;
-                max-width: 100%;
-                top: 0;
-                height: 100%;
-                z-index: 9999;
-            }
-
-            /* 編輯視窗 - 手機版垂直堆疊優化 */
-            .review-grid {
-                grid-template-columns: 1fr;
-                gap: 20px;
-                display: block;
-            }
-
-            .review-left {
-                border-right: none;
-                border-bottom: 1px solid #e2e8f0;
-                padding-right: 0;
-                padding-bottom: 20px;
-                margin-bottom: 20px;
-                height: auto;
-                overflow: visible;
-            }
-
-            .review-right {
-                height: auto;
-                overflow: visible;
-            }
-
-            .drawer-body {
-                padding: 20px;
-            }
-
-            /* 加大手機版輸入框高度 */
-            #editHandling,
-            #editReview {
-                min-height: 200px !important;
-            }
-
-            #toast-container {
-                left: 20px;
-                right: 20px;
-                top: 80px;
-                width: auto;
-            }
-        }
-    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="icon" href="data:,">
 </head>
 
 <body>
@@ -1518,11 +48,11 @@
                 <div class="sidebar-title">功能選單</div>
                 <button class="sidebar-close-btn" onclick="onToggleSidebar()">×</button>
             </div>
-            <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')"><span>📊</span>
+            <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')">
                 查詢看板</button>
-            <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')"><span>📂</span>
+            <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')">
                 資料管理</button>
-            <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')"><span>👥</span>
+            <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')">
                 帳號管理</button>
         </aside>
 
@@ -1547,13 +77,12 @@
                         </div>
                         <div class="stat-item">
                             <div class="stat-val" style="color:#10b981" id="countResolved">0</div>
-                            <div class="stat-label">已解除</div>
+                            <div class="stat-label">已解除/自行列管</div>
                         </div>
                     </div>
                     <div class="charts-grid">
                         <div class="chart-card">
-                            <div style="height:250px;width:100%;display:flex;justify-content:center;"><canvas
-                                    id="statusChart"></canvas></div>
+                            <div><canvas id="statusChart"></canvas></div>
                         </div>
                         <div class="chart-card">
                             <div style="height:250px;width:100%;"><canvas id="unitChart"></canvas></div>
@@ -1570,19 +99,20 @@
                         <div class="filter-primary-row">
                             <div class="search-item" style="flex:2;">
                                 <label>關鍵字</label>
-                                <input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字...">
-                            </div>
-
-                            <!-- [新增] 檢查計畫篩選 (使用 datalist 實現可選可搜) -->
-                            <div class="search-item" style="flex:1.5; min-width: 200px;">
-                                <label>檢查計畫 (可輸入或下拉)</label>
-                                <input type="text" id="filterPlan" list="planOptionsList" class="filter-input"
-                                    placeholder="選擇或輸入計畫名稱..." onchange="applyFilters()">
-                                <datalist id="planOptionsList"></datalist>
+                                <input type="text" id="filterKeyword" class="filter-input" placeholder="輸入關鍵字..." autocomplete="off">
                             </div>
 
                             <div class="search-item"><label>年度</label><select id="filterYear"
                                     class="filter-select"></select></div>
+
+                            <!-- [修改] 檢查計畫篩選 (改為下拉選單) -->
+                            <div class="search-item" style="flex:1.5; min-width: 200px;">
+                                <label>檢查計畫</label>
+                                <select id="filterPlan" class="filter-select" onchange="applyFilters()">
+                                    <option value="">全部計畫</option>
+                                    <!-- JavaScript 會自動產生選項 -->
+                                </select>
+                            </div>
                             <div class="search-item"><label>機構</label><select id="filterUnit"
                                     class="filter-select"></select></div>
                             <div class="search-item"><label>狀態</label><select id="filterStatus" class="filter-select">
@@ -1592,7 +122,7 @@
                                     <option value="自行列管">自行列管</option>
                                 </select></div>
                             <div style="display:flex;gap:8px;align-self:flex-end;">
-                                <button class="btn btn-primary" onclick="applyFilters()">🔍 搜尋</button>
+                                <button class="btn btn-primary" onclick="applyFilters()">搜尋</button>
                                 <button class="btn btn-outline" onclick="resetFilters()">重設</button>
                             </div>
                         </div>
@@ -1637,11 +167,11 @@
                             <div style="display:flex; gap:12px; align-items:center;">
                                 <div id="batchActionContainer" style="display:none;">
                                     <button class="btn btn-danger btn-sm" onclick="batchDeleteIssues()">
-                                        <i style="margin-right:4px">🗑️</i> 批次刪除 <span id="selectedCountBadge"></span>
+                                        批次刪除 <span id="selectedCountBadge"></span>
                                     </button>
                                 </div>
                                 <div style="font-size:13px;color:#64748b;display:flex;align-items:center;gap:6px;">
-                                    <span>📅</span> <span id="dataTimestamp">...</span>
+                                    <span id="dataTimestamp">...</span>
                                 </div>
                             </div>
                             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
@@ -1670,7 +200,7 @@
                                     <th style="width:130px" onclick="sortData('status')">狀態與類型</th>
                                     <th onclick="sortData('content')">事項內容</th>
                                     <th onclick="sortData('latest')">最新辦理/審查情形</th>
-                                    <th style="width:150px">管理功能</th>
+                                    <th style="width:120px">操作</th>
                                 </tr>
                             </thead>
                             <tbody id="dataBody"></tbody>
@@ -1693,498 +223,10 @@
             </div>
 
             <div id="importView" class="view-section">
-                <div class="content-header" style="justify-content: flex-start;">
-                    <div class="content-title">📂 資料管理</div>
-                </div>
-
-                <div class="admin-tabs">
-                    <button class="admin-tab-btn active" onclick="switchDataTab('import')">📥 批次匯入</button>
-                    <!-- [新增] 批次建檔 -->
-                    <button class="admin-tab-btn" onclick="switchDataTab('batch')">🏗️ 批次建檔</button>
-                    <!-- [新增] 計畫管理 -->
-                    <button class="admin-tab-btn" onclick="switchDataTab('plans')">📅 計畫管理</button>
-                    <button class="admin-tab-btn" onclick="switchDataTab('manual')">✍️ 手動新增</button>
-                    <button class="admin-tab-btn" onclick="switchDataTab('export')">📤 資料匯出</button>
-                </div>
-
-                <!-- Tab 1: Import -->
-                <div id="tab-data-import">
-                    <!-- Part A: Word Import -->
-                    <div class="detail-card" id="uploadCardWord" style="max-width:800px; margin-bottom:30px;">
-                        <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#0369a1;">📝 例行作業區 (Word
-                            解析)</div>
-                        <div
-                            style="margin-bottom:20px; background:#f0f9ff; border:1px solid #bae6fd; padding:16px; border-radius:8px; font-size:13px; color:#0369a1; line-height:1.5;">
-                            <p style="margin:0 0 8px 0;">用於新增新的審查紀錄。請選擇本次的作業階段。</p>
-                        </div>
-
-                        <!-- Global Settings for Import -->
-                        <div
-                            style="background:white; border:1px solid #e2e8f0; padding:16px; border-radius:8px; margin-bottom:24px;">
-                            <label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">1.
-                                設定整批匯入參數 (必填)</label>
-
-                            <!-- [修改] 改為「作業階段」選擇，邏輯更清晰 -->
-                            <div style="margin-bottom:16px;">
-                                <div style="font-size:12px;color:#64748b;margin-bottom:4px;">請選擇本次匯入的作業階段</div>
-                                <div style="display:flex; gap:16px;">
-                                    <label
-                                        style="cursor:pointer; display:flex; align-items:center; gap:8px; background:#f0f9ff; padding:10px 16px; border-radius:8px; border:1px solid #bae6fd; color:#0369a1; flex:1;">
-                                        <input type="radio" name="importStage" value="initial" checked
-                                            onchange="onImportStageChange()">
-                                        <span style="font-weight:700;">🆕 初次開立 (新案)</span>
-                                    </label>
-                                    <label
-                                        style="cursor:pointer; display:flex; align-items:center; gap:8px; background:#fdf2f8; padding:10px 16px; border-radius:8px; border:1px solid #fbcfe8; color:#be185d; flex:1;">
-                                        <input type="radio" name="importStage" value="review"
-                                            onchange="onImportStageChange()">
-                                        <span style="font-weight:700;">🔄 後續審查 (第 N 次)</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:12px;">
-                                <!-- [修改] 此欄位只有在選擇「後續審查」時才需要輸入數字，初次開立隱藏 -->
-                                <div id="importRoundContainer" style="display:none;">
-                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">這是第幾次審查？</div>
-                                    <select id="importRoundSelect" class="filter-select">
-                                        <!-- JavaScript 會自動產生選項 -->
-                                    </select>
-                                </div>
-
-                                <div style="grid-column: span 2;" id="importPlanNameContainer">
-                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">檢查計畫名稱 (例如:
-                                        113年度上半年定期檢查)</div>
-                                    <input type="text" id="importPlanName" list="planOptionsList" class="filter-input"
-                                        placeholder="選填 (會套用到所有項目)">
-                                </div>
-                            </div>
-
-                            <!-- [修改] 日期欄位區塊，根據 Stage 動態切換 -->
-                            <div
-                                style="background:#fafafa; padding:12px; border-radius:6px; border:1px dashed #cbd5e1;">
-                                <div id="importDateGroup_Initial" style="display:block;">
-                                    <div style="font-size:12px;color:#0369a1;margin-bottom:4px;font-weight:700;">📆 日期設定
-                                        (初次開立)</div>
-                                    <div style="font-size:12px;color:#64748b;margin-bottom:4px;">監理機關初次發函日期 (例如:
-                                        1130615)</div>
-                                    <input type="text" id="importIssueDate" class="filter-input" placeholder="必填"
-                                        onkeyup="checkImportReady()">
-                                </div>
-
-                                <div id="importDateGroup_Review" style="display:none;">
-                                    <div style="font-size:12px;color:#be185d;margin-bottom:4px;font-weight:700;">📆 日期設定
-                                        (審查階段)</div>
-                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-                                        <div>
-                                            <div style="font-size:12px;color:#64748b;margin-bottom:4px;">機構回復辦理情形日期
-                                            </div>
-                                            <input type="text" id="importReplyDate" class="filter-input"
-                                                placeholder="例如: 1130701">
-                                        </div>
-                                        <div>
-                                            <div style="font-size:12px;color:#64748b;margin-bottom:4px;">監理機關本次函復日期
-                                            </div>
-                                            <input type="text" id="importResponseDate" class="filter-input"
-                                                placeholder="例如: 1130715">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div style="margin-bottom:24px;">
-                            <label style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">2.
-                                選擇 Word 檔案 (.docx)</label>
-                            <input type="file" id="wordInput" class="filter-input" accept=".docx" disabled
-                                style="padding:8px;">
-                        </div>
-                        <button id="btnParseWord" class="btn btn-primary" style="width:100%; padding:12px;"
-                            onclick="previewWord()" disabled>解析並預覽 Word</button>
-                        <div id="importStatusWord"
-                            style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
-                    </div>
-
-                    <!-- Part B: Backup Import (Restricted to Admin) -->
-                    <div class="detail-card hidden" id="uploadCardBackup" style="max-width:800px;">
-                        <div style="margin-bottom:12px; font-weight:700; font-size:16px; color:#b91c1c;">🚑 資料救援區 (還原備份)
-                            [Admin Only]</div>
-                        <div
-                            style="margin-bottom:20px; background:#fef2f2; border:1px solid #fecaca; padding:16px; border-radius:8px; font-size:13px; color:#b91c1c; line-height:1.5;">
-                            用於資料庫清空後的災難復原。支援 CSV 或 JSON 格式。</div>
-                        <div style="margin-bottom:24px;">
-                            <label
-                                style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">選擇備份檔案
-                                (.csv, .json)</label>
-                            <input type="file" id="backupInput" class="filter-input" accept=".csv, .json"
-                                style="padding:8px;">
-                        </div>
-                        <button id="btnParseBackup" class="btn btn-danger" style="width:100%; padding:12px;"
-                            onclick="previewBackup()">解析並還原備份資料</button>
-                        <div id="importStatusBackup"
-                            style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
-                    </div>
-
-                    <!-- Preview Modal Container (Shared) -->
-                    <div id="previewContainer" class="hidden">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
-                            <div style="font-weight:700;font-size:16px;">解析結果預覽 (<span id="previewCount"
-                                    style="color:var(--primary);">0</span> 筆) <span id="previewModeBadge"></span></div>
-                            <div style="display:flex;gap:10px;"><button class="btn btn-outline"
-                                    onclick="cancelImport()">取消</button><button class="btn btn-primary"
-                                    onclick="confirmImport()">✅ 確認寫入資料庫</button></div>
-                        </div>
-                        <div class="main-card">
-                            <div class="data-container">
-                                <table class="preview-table">
-                                    <thead>
-                                        <tr>
-                                            <th>操作</th>
-                                            <th>編號</th>
-                                            <th>機構</th>
-                                            <th>事項內容</th>
-                                            <th>辦理/審查內容</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="previewBody"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- 內容將由 switchView 函數動態載入 -->
             </div>
-
-            <!-- Tab 1.5: Batch Entry (The New Feature) -->
-            <div id="tab-data-batch" class="hidden">
-                <div class="detail-card" style="width:100%; max-width:1200px;">
-                    <div style="margin-bottom:20px;font-size:14px;color:#475569;">
-                        <span style="font-weight:700; color:#334155; font-size:16px;">🏗️ 計畫導向批次建檔</span><br>
-                        選擇計畫名稱後，可連續輸入多筆事項。系統會自動根據編號判斷年度、機構與分組。
-                    </div>
-
-                    <!-- Batch Settings Header -->
-                    <div
-                        style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:24px; border:1px solid #e2e8f0; display:flex; gap:24px; align-items:flex-end; flex-wrap:wrap;">
-                        <div style="flex: 2; min-width: 300px;">
-                            <label
-                                style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">檢查計畫名稱
-                                (必填)</label>
-                            <input type="text" id="batchPlanName" list="planOptionsList" class="filter-input"
-                                placeholder="例如: 113年度上半年定期檢查" style="background:white;">
-                        </div>
-                        <div style="flex: 1; min-width: 150px;">
-                            <label
-                                style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">初次發函日期
-                                (必填)</label>
-                            <input type="text" id="batchIssueDate" class="filter-input" placeholder="例如: 1130501"
-                                style="background:white;">
-                        </div>
-                        <div style="flex:0 0 auto;">
-                            <button class="btn btn-primary" onclick="initBatchGrid()">🔄 重置表格</button>
-                        </div>
-                    </div>
-
-                    <!-- Data Grid -->
-                    <div class="main-card" style="box-shadow:none; border:1px solid #e2e8f0;">
-                        <div class="data-container" style="overflow-x:auto;">
-                            <table id="batchGridTable" style="min-width:1100px;">
-                                <thead>
-                                    <tr>
-                                        <th style="width:50px;">#</th>
-                                        <th style="width:160px;">編號 (Key)</th>
-                                        <th style="width:200px;">事項內容</th>
-                                        <th style="width:90px;">年度</th>
-                                        <th style="width:100px;">機構</th>
-                                        <th style="width:80px;">分組</th>
-                                        <th style="width:100px;">檢查種類</th>
-                                        <th style="width:80px;">類型</th>
-                                        <th style="width:100px;">狀態</th>
-                                        <th style="width:60px;">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="batchGridBody">
-                                    <!-- Rows generated by JS -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <div
-                            style="padding:16px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:center;">
-                            <button class="btn btn-outline" style="width:100%; border-style:dashed;"
-                                onclick="addBatchRow()">➕ 新增一列</button>
-                        </div>
-                    </div>
-
-                    <div style="margin-top:24px; display:flex; justify-content:flex-end; gap:12px;">
-                        <div style="flex:1; display:flex; align-items:center; color:#64748b; font-size:13px;">
-                            💡 提示：輸入編號後，按下 Enter 或 離開欄位，系統會自動帶入相關欄位。
-                        </div>
-                        <button class="btn btn-primary" style="padding:12px 32px; font-size:15px;"
-                            onclick="saveBatchItems()">💾 批次儲存至資料庫</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tab 1.8: Plan Management (New) -->
-            <div id="tab-data-plans" class="hidden">
-                <div class="detail-card" style="max-width:800px;">
-                    <div style="margin-bottom:20px;font-size:14px;color:#475569;">
-                        <span style="font-weight:700; color:#334155; font-size:16px;">📅 年度檢查計畫管理</span><br>
-                        在此管理所有的檢查計畫名稱。建立後，可由「批次建檔」或「手動新增」時選取。
-                    </div>
-
-                    <!-- Add Plan Form -->
-                    <div
-                        style="background:#f8fafc; padding:16px; border-radius:8px; border:1px solid #e2e8f0; margin-bottom:24px;">
-                        <div style="font-weight:700; color:#334155; margin-bottom:12px;">新增計畫</div>
-                        <div style="display:flex; gap:12px;">
-                            <input type="number" id="newPlanYear" class="filter-input" placeholder="年度 (如: 114)"
-                                style="width:120px;">
-                            <input type="text" id="newPlanName" class="filter-input" placeholder="計畫名稱 (如: 114年度定期檢查)"
-                                style="flex:1;">
-                            <button class="btn btn-primary" onclick="savePlans()">＋ 新增</button>
-                        </div>
-                    </div>
-
-                    <!-- Plan List -->
-                    <div class="main-card" style="box-shadow:none; border:1px solid #e2e8f0;">
-                        <div class="data-container">
-                            <table style="width:100%;">
-                                <thead>
-                                    <tr style="background:#f1f5f9; text-align:left;">
-                                        <th style="padding:10px;">年度</th>
-                                        <th style="padding:10px;">計畫名稱</th>
-                                        <th style="padding:10px; width:80px; text-align:center;">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="planListBody">
-                                    <!-- Plans loaded via JS -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tab 2: Manual Entry -->
-            <div id="tab-data-manual" class="hidden">
-                <div class="detail-card" style="max-width:800px;">
-                    <div style="margin-bottom:20px;font-size:14px;color:#475569;">手動新增單筆開立事項至資料庫。<br><span
-                            style="color:var(--primary);">💡 提示：輸入編號後，系統會自動帶入年度、機構、分組與種類資訊。</span></div>
-
-                    <!-- New Fields for Plan and Date -->
-                    <div
-                        style="background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:20px; border:1px solid #e2e8f0;">
-                        <div
-                            style="font-weight:700; margin-bottom:12px; color:#334155; display:flex; justify-content:space-between; align-items:center;">
-                            <span>專案資訊</span>
-                            <!-- [新增] 連續新增開關 -->
-                            <label
-                                style="font-size:13px; color:#2563eb; display:flex; align-items:center; gap:6px; cursor:pointer;">
-                                <input type="checkbox" id="manualContinuousMode"> 🔒 連續新增模式 (鎖定計畫與機構)
-                            </label>
-                        </div>
-                        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
-                            <div class="form-group" style="margin-bottom:0;">
-                                <label>檢查計畫名稱</label>
-                                <!-- [修改] 增加 datalist 支援 -->
-                                <input type="text" id="manualPlanName" list="planOptionsList" class="filter-input"
-                                    placeholder="例如: 113年度上半年定期檢查">
-                            </div>
-                            <div class="form-group" style="margin-bottom:0;">
-                                <label>初次發函日期</label>
-                                <input type="text" id="manualIssueDate" class="filter-input" placeholder="例如: 1130501">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-                        <div class="form-group"><label>事項編號 (必填)</label><input type="text" id="manualNumber"
-                                class="filter-input" placeholder="例如: 113-TRA-1-A01-N01" oninput="autoFillFromNumber()">
-                        </div>
-                        <div class="form-group"><label>年度 (必填)</label><input type="number" id="manualYear"
-                                class="filter-input" placeholder="自動帶入"></div>
-                    </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-                        <div class="form-group"><label>機構 (必填)</label><input type="text" id="manualUnit"
-                                class="filter-input" placeholder="自動帶入"></div>
-                        <div class="form-group"><label>分組</label><select id="manualDivision" class="filter-select">
-                                <option value="">(自動帶入)</option>
-                                <option value="運務">運務</option>
-                                <option value="工務">工務</option>
-                                <option value="機務">機務</option>
-                                <option value="電務">電務</option>
-                                <option value="安全">安全</option>
-                                <option value="審核">審核</option>
-                                <option value="災防">災防</option>
-                                <option value="運轉">運轉</option>
-                                <option value="土木">土木</option>
-                                <option value="機電">機電</option>
-                            </select></div>
-                    </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-                        <div class="form-group"><label>檢查種類</label><select id="manualInspection" class="filter-select">
-                                <option value="">(自動帶入)</option>
-                                <option value="定期檢查">定期檢查</option>
-                                <option value="例行性檢查">例行性檢查</option>
-                                <option value="特別檢查">特別檢查</option>
-                                <option value="臨時檢查">臨時檢查</option>
-                            </select></div>
-                        <div class="form-group"><label>開立類型</label><select id="manualKind" class="filter-select">
-                                <option value="">(自動帶入)</option>
-                                <option value="N">缺失事項</option>
-                                <option value="O">觀察事項</option>
-                                <option value="R">建議事項</option>
-                            </select></div>
-                    </div>
-                    <div class="form-group"><label>初始狀態</label><select id="manualStatus" class="filter-select">
-                            <option value="持續列管">持續列管</option>
-                            <option value="解除列管">解除列管</option>
-                            <option value="自行列管">自行列管</option>
-                        </select></div>
-                    <div class="form-group"><label>事項內容 (必填)</label><textarea id="manualContent" class="filter-input"
-                            rows="6" style="resize:vertical;"></textarea></div>
-                    <button class="btn btn-primary" style="width:100%; padding:12px;" onclick="submitManualIssue()">💾
-                        新增事項</button>
-                </div>
-            </div>
-
-            <!-- Tab 3: Export -->
-            <div id="tab-data-export" class="hidden">
-                <div class="detail-card" style="max-width:800px; text-align:center; padding:40px;">
-                    <div style="font-size:40px; margin-bottom:16px;">📤</div>
-                    <h3 style="margin-top:0; color:#334155;">匯出所有資料</h3>
-                    <p style="color:#64748b; margin-bottom:24px;">將系統中所有開立事項匯出。<br>CSV 適合 Excel 編輯，JSON 適合系統備份與還原。</p>
-
-                    <div style="margin-bottom:24px; display:flex; flex-direction:column; gap:12px; align-items:center;">
-                        <div style="font-weight:600; color:#475569; font-size:13px; margin-bottom:4px;">1. 選擇匯出內容</div>
-                        <div style="display:flex; gap:20px;">
-                            <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-                                <input type="radio" name="exportScope" value="latest" checked> 僅匯出最新進度
-                            </label>
-                            <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-                                <input type="radio" name="exportScope" value="full"> 匯出完整歷程
-                            </label>
-                        </div>
-                    </div>
-
-                    <div style="margin-bottom:30px; display:flex; flex-direction:column; gap:12px; align-items:center;">
-                        <div style="font-weight:600; color:#475569; font-size:13px; margin-bottom:4px;">2. 選擇檔案格式</div>
-                        <div style="display:flex; gap:20px;">
-                            <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-                                <input type="radio" name="exportFormat" value="csv" checked> CSV (Excel)
-                            </label>
-                            <label id="exportJsonOption"
-                                style="cursor:pointer; display:none; align-items:center; gap:8px;">
-                                <input type="radio" name="exportFormat" value="json"> JSON (備份用)
-                            </label>
-                        </div>
-                    </div>
-
-                    <button class="btn btn-primary" onclick="exportAllIssues()">執行匯出</button>
-                </div>
-            </div>
-    </div>
-
     <div id="usersView" class="view-section">
-        <div class="content-header" style="justify-content: flex-start; gap: 16px;">
-            <div class="content-title">👥 帳號與紀錄</div>
-            <button class="btn btn-primary" onclick="openUserModal('create')">➕ 新增</button>
-        </div>
-        <div class="admin-tabs">
-            <button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button>
-            <button class="admin-tab-btn" onclick="switchAdminTab('logs')">登入紀錄</button>
-            <button class="admin-tab-btn" onclick="switchAdminTab('actions')">操作歷程</button>
-        </div>
-
-        <!-- Users Tab -->
-        <div id="tab-users" class="main-card">
-            <div
-                style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border);">
-                <input id="userSearch" class="filter-input" placeholder="搜尋姓名、帳號..." style="max-width:300px;"
-                    oninput="loadUsersPage(1)">
-                <select id="usersPageSize" class="page-size-select" onchange="loadUsersPage(1)">
-                    <option value="10">10 筆/頁</option>
-                    <option value="20" selected>20 筆/頁</option>
-                    <option value="50">50 筆/頁</option>
-                </select>
-                <div style="margin-left:auto;">
-                    <button class="btn btn-outline" onclick="loadUsersPage(1)">🔍</button>
-                </div>
-            </div>
-            <div id="usersPaginationTop" class="pagination-bar"
-                style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
-            <div class="data-container">
-                <table class="user-table">
-                    <thead>
-                        <tr>
-                            <th style="padding:16px;" onclick="usersSortBy('name')">姓名</th>
-                            <th onclick="usersSortBy('username')">帳號</th>
-                            <th onclick="usersSortBy('role')">權限</th>
-                            <th onclick="usersSortBy('created_at')">註冊時間</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usersTableBody"></tbody>
-                </table>
-            </div>
-            <div id="usersPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
-        </div>
-
-        <!-- Login Logs Tab -->
-        <div id="tab-logs" class="main-card hidden">
-            <div
-                style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff;">
-                <input id="loginSearch" class="filter-input" placeholder="搜尋帳號或 IP" style="width:240px;"
-                    oninput="loadLogsPage(1)">
-                <button class="btn btn-outline btn-sm" onclick="exportLogs('login')">📥 匯出 CSV</button>
-                <button class="btn btn-danger btn-sm" onclick="clearLogs('login')">🗑️ 清除紀錄</button>
-            </div>
-            <div id="logsPaginationTop" class="pagination-bar"
-                style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
-            <div class="data-container">
-                <table class="user-table">
-                    <thead>
-                        <tr>
-                            <th style="padding:16px;">時間</th>
-                            <th>帳號</th>
-                            <th>IP 位址</th>
-                        </tr>
-                    </thead>
-                    <tbody id="logsTableBody"></tbody>
-                </table>
-            </div>
-            <div id="logsPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
-        </div>
-
-        <!-- Action Logs Tab -->
-        <div id="tab-actions" class="main-card hidden">
-            <div
-                style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff;">
-                <input id="actionSearch" class="filter-input" placeholder="搜尋帳號或操作" style="width:240px;"
-                    oninput="loadActionsPage(1)">
-                <button class="btn btn-outline btn-sm" onclick="exportLogs('action')">📥 匯出 CSV</button>
-                <button class="btn btn-danger btn-sm" onclick="clearLogs('action')">🗑️ 清除紀錄</button>
-            </div>
-            <div id="actionsPaginationTop" class="pagination-bar"
-                style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
-            <div class="data-container">
-                <table class="user-table">
-                    <thead>
-                        <tr>
-                            <th style="padding:16px;">時間</th>
-                            <th>帳號</th>
-                            <th>動作</th>
-                            <th>詳細內容</th>
-                        </tr>
-                    </thead>
-                    <tbody id="actionsTableBody"></tbody>
-                </table>
-            </div>
-            <div id="actionsPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;">
-            </div>
-        </div>
-
-        <div id="logsLoading" style="display:none; padding:30px; text-align:center; color:#64748b;">⏳ 載入紀錄中...</div>
+        <!-- 內容將由 switchView 函數動態載入 -->
     </div>
     </main>
     </div>
@@ -2201,16 +243,18 @@
                 <!-- NEW: 單行資訊條設計 -->
                 <div class="detail-card">
                     <div class="detail-header-row">
-                        <span class="detail-unit-badge" id="dUnit"></span>
                         <span class="detail-number" id="dNumber"></span>
-                        <span id="dStatus"></span>
                         <span class="separator">|</span>
                         <span style="font-weight:500;" id="dPlanName"></span>
                         <span class="separator">|</span>
+                        <span style="color:#64748b;" id="dInspection"></span>
+                        <span class="separator">|</span>
+                        <span id="dStatus"></span>
+                        <span class="separator">|</span>
+                        <span style="color:#64748b;" id="dDivision"></span>
+                        <span class="separator">|</span>
                         <span style="color:#64748b;">發函: <span id="dIssueDate"
                                 style="color:#334155;font-weight:500;"></span></span>
-                        <span class="separator">|</span>
-                        <span style="color:#64748b;font-size:13px;" id="dCategoryInfo"></span>
                     </div>
 
                     <div
@@ -2221,14 +265,14 @@
 
                 <div
                     style="font-weight:700;margin:24px 0 20px;font-size:18px;color:#0f172a;display:flex;align-items:center;gap:8px;">
-                    <span>📅</span> 歷程紀錄
+                    歷程紀錄
                 </div>
 
                 <div id="dTimeline" style="position: relative;"></div>
 
                 <div style="margin-top:40px; display:flex; flex-direction:column; gap:12px;">
                     <button class="btn btn-primary hidden" id="editBtn" style="width:100%;padding:14px;font-size:15px;"
-                        onclick="toggleEditMode(true)">✏️ 編輯 / 審查</button>
+                        onclick="toggleEditMode(true)">✏️ 審查</button>
                     <button class="btn btn-danger hidden" id="deleteBtnDrawer"
                         style="width:100%;padding:14px;font-size:15px;" onclick="deleteIssueFromDrawer()">🗑️
                         刪除此項目</button>
@@ -2236,83 +280,136 @@
             </div>
             <div id="editModeContent" class="hidden" style="height:100%;">
                 <input type="hidden" id="editId">
-                <div
-                    style="background:#eff6ff; padding:16px; border-radius:12px; margin-bottom:20px; border:1px solid #dbeafe; display:flex; gap:12px; align-items:center;">
-                    <span style="font-weight:bold; color:#1e40af; font-size:16px;" id="editHeaderNumber"></span>
-                    <span style="color:#cbd5e1;">|</span>
-                    <span style="font-weight:500; color:#334155;" id="editHeaderYear"></span>
-                    <span style="color:#cbd5e1;">|</span>
-                    <span style="font-weight:500; color:#334155;" id="editHeaderUnit"></span>
+                <div class="detail-card" style="margin-bottom:20px;">
+                    <div class="detail-header-row" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
+                        <span class="detail-number" id="editHeaderNumber"></span>
+                        <span class="separator">|</span>
+                        <span style="font-weight:500;" id="editHeaderPlanName"></span>
+                        <span class="separator">|</span>
+                        <span style="color:#64748b;" id="editHeaderInspection"></span>
+                        <span class="separator">|</span>
+                        <span id="editHeaderStatusKind"></span>
+                        <span class="separator">|</span>
+                        <span style="color:#64748b;" id="editHeaderDivision"></span>
+                        <span class="separator">|</span>
+                        <span style="color:#64748b;">發函: <span id="editHeaderIssueDate"
+                                style="color:#334155;font-weight:500;"></span></span>
+                    </div>
                 </div>
                 <div class="review-grid">
                     <div class="review-left">
-                        <div style="font-size:12px;color:#64748b;margin-bottom:6px;font-weight:600;">開立事項內容</div>
-                        <div style="background:#f8fafc;padding:16px;border-radius:12px;font-size:14px;margin-bottom:20px;line-height:1.6;border:1px solid #e2e8f0;"
-                            id="editContentDisplay"></div>
-                        <div id="prevReviewBox" style="display:none; margin-bottom:20px;">
-                            <div style="font-size:12px;color:#6366f1;margin-bottom:6px;font-weight:700;">👀 上一回合 (<span
-                                    id="prevRoundNum"></span>) 審查意見參考：</div>
-                            <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;"
-                                id="prevReviewText"></div>
-                        </div>
-                        <div class="form-group"><label>第幾次審查</label><select id="editRound" class="filter-select"
-                                onchange="loadRoundData()"></select></div>
+                        <!-- 參考資料區（只讀）：開立事項內容、前次審查意見 -->
+                        <div style="margin-bottom:24px;">
+                            <div style="font-size:13px;color:#64748b;margin-bottom:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">📋 參考資料</div>
+                            
+                            <!-- 開立事項內容 -->
+                            <div style="margin-bottom:16px;">
+                                <div style="font-size:13px;color:#475569;margin-bottom:6px;font-weight:600;">開立事項內容</div>
+                                <div style="background:#f8fafc;padding:16px;border-radius:12px;font-size:14px;line-height:1.6;border:1px solid #e2e8f0;max-height:250px;overflow-y:auto;"
+                                    id="editContentDisplay"></div>
+                            </div>
 
-                        <div class="form-group"
-                            style="background:#f1f5f9; padding:12px; border-radius:8px; border:1px solid #e2e8f0;">
-                            <label style="margin-bottom:8px; color:#0f172a;">歷程日期設定</label>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                                <div>
-                                    <div style="font-size:11px;color:#64748b;margin-bottom:2px;">機構回復日期</div>
-                                    <input type="text" id="editReplyDate" class="filter-input" placeholder="例: 1130601"
-                                        style="font-size:13px;padding:6px;">
+                            <!-- [新增] 選擇查看哪一次的審查及回復內容 -->
+                            <div style="margin-bottom:16px;">
+                                <div style="font-size:13px;color:#475569;margin-bottom:6px;font-weight:600;">選擇查看內容</div>
+                                <select id="viewRoundSelect" class="filter-select" onchange="onViewRoundChange()" style="font-size:14px;padding:6px;">
+                                    <option value="latest">最新進度</option>
+                                    <!-- JavaScript 會自動產生選項 -->
+                                </select>
+                            </div>
+                            
+                            <!-- 查看的審查意見（根據選擇顯示） -->
+                            <div id="viewReviewBox" style="display:none; margin-bottom:16px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <div style="font-size:12px;color:#6366f1;font-weight:700;">👀 第<span id="viewReviewRoundNum"></span>次審查意見：</div>
+                                    <div style="font-size:11px;color:#64748b;" id="viewReviewDate"></div>
                                 </div>
-                                <div>
-                                    <div style="font-size:11px;color:#64748b;margin-bottom:2px;">本次函復日期</div>
-                                    <input type="text" id="editResponseDate" class="filter-input"
-                                        placeholder="例: 1130615" style="font-size:13px;padding:6px;">
+                                <div style="background:#eef2ff;padding:12px;border-radius:8px;font-size:14px;color:#4338ca;border:1px solid #c7d2fe;line-height:1.5;max-height:200px;overflow-y:auto;white-space:pre-wrap;"
+                                    id="viewReviewText"></div>
+                            </div>
+                            
+                            <!-- 查看的機構辦理情形（根據選擇顯示） -->
+                            <div id="viewHandlingBox" style="display:none; margin-bottom:0;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <div style="font-size:12px;color:#059669;font-weight:700;">📝 第<span id="viewHandlingRoundNum"></span>次機構辦理情形：</div>
+                                    <div style="font-size:11px;color:#64748b;" id="viewHandlingDate"></div>
                                 </div>
+                                <div style="background:#ecfdf5;padding:12px;border-radius:8px;font-size:14px;color:#047857;border:1px solid #a7f3d0;line-height:1.5;max-height:200px;overflow-y:auto;white-space:pre-wrap;"
+                                    id="viewHandlingText"></div>
                             </div>
                         </div>
 
-                        <div class="form-group" style="flex:1;display:flex;flex-direction:column;">
-                            <label>機構辦理情形</label><textarea id="editHandling" class="filter-input" rows="10"
-                                style="background:#ffffff;line-height:1.5;flex:1;min-height:200px;resize:vertical;"></textarea>
-                        </div>
+                        <!-- 機構辦理情形輸入框（隱藏，但保留用於儲存） -->
+                        <textarea id="editHandling" style="display:none;"></textarea>
                     </div>
                     <div class="review-right">
-                        <div class="form-group"><label>審查結果</label><select id="editStatus" class="filter-select">
-                                <option value="持續列管">🔴 持續列管</option>
-                                <option value="解除列管">🟢 解除列管</option>
-                                <option value="自行列管">🟠 自行列管</option>
-                            </select></div>
-                        <div class="form-group" style="flex:1;display:flex;flex-direction:column;">
-                            <div
-                                style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                                <label style="margin-bottom:0;">審查意見</label><button class="btn btn-ai"
-                                    style="padding:4px 10px;font-size:11px;" onclick="runAiInEdit(this)">🤖 AI
-                                    智能分析</button>
+                        <!-- 參考資料：當前回合機構辦理情形（只讀顯示） -->
+                        <div style="margin-bottom:24px; background:#f8fafc; padding:16px; border-radius:10px; border:1px solid #e2e8f0;">
+                            <div style="font-size:12px;color:#64748b;margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">📋 參考資料</div>
+                            <div style="font-size:13px;color:#475569;margin-bottom:8px;font-weight:600;">第 <span id="currentHandlingRoundNum">1</span> 次機構辦理情形</div>
+                            <div id="currentHandlingDisplay" style="background:#ffffff;padding:12px;border-radius:8px;font-size:14px;color:#334155;border:1px solid #cbd5e1;line-height:1.6;min-height:80px;max-height:200px;overflow-y:auto;white-space:pre-wrap;"
+                                >（尚未有機構辦理情形）</div>
+                            <div style="margin-top:12px; padding:10px; background:#fff3cd; border-radius:6px; border:1px solid #ffc107; font-size:12px; color:#856404;">
+                                💡 提示：如需新增或編輯辦理情形，請至「資料管理」頁面的「年度編輯」功能中操作
                             </div>
-                            <div id="aiBox"
-                                style="background:#f0f9ff;padding:16px;border-radius:8px;border:1px solid #bae6fd;margin-bottom:16px;display:none;">
-                                <div style="font-size:13px;margin-bottom:8px;font-weight:bold;color:#0369a1;">💡 AI
-                                    分析建議：</div>
-                                <div id="aiPreviewText"
-                                    style="background:white; padding:12px; border:1px solid #e0f2fe; border-radius:6px; font-size:14px; margin-bottom:12px; line-height:1.6; color:#334155;">
-                                </div>
-                                <div style="display:flex; align-items:center; justify-content:space-between;"><span
-                                        id="aiResBadge" style="font-size:13px;"></span><button class="btn btn-primary"
-                                        style="font-size:12px;padding:6px 14px;" onclick="applyAiSuggestion()">⬇️
-                                        帶入此意見</button></div>
-                            </div>
-                            <textarea id="editReview" class="filter-input"
-                                style="flex:1;resize:vertical;line-height:1.5;min-height:200px;"
-                                placeholder="請輸入審查意見..."></textarea>
                         </div>
-                        <div style="display:flex;gap:12px;margin-top:auto;padding-top:16px;"><button
-                                class="btn btn-primary" style="flex:1;padding:12px;" onclick="saveEdit()">💾
-                                儲存審查結果</button><button class="btn btn-outline" style="flex:1;padding:12px;"
-                                onclick="toggleEditMode(false)">取消</button></div>
+                        
+                        <!-- 隱藏的處理欄位（用於儲存） -->
+                        <textarea id="editHandling" style="display:none;"></textarea>
+
+                        <!-- 審查作業區：統一的輸入區塊 -->
+
+                        <!-- 審查作業區：統一的輸入區塊 -->
+                        <div style="background:#ffffff; padding:20px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:20px;">
+                            <div style="font-size:13px;color:#1e293b;margin-bottom:20px;font-weight:600;display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:2px solid #f1f5f9;">
+                                ✍️ 審查作業
+                                <span style="font-size:11px;color:#ef4444;font-weight:400;margin-left:4px;">(必填)</span>
+                            </div>
+
+                            <!-- 審查輪次設定 -->
+                            <div style="margin-bottom:20px;">
+                                <div style="font-size:13px;color:#475569;margin-bottom:6px;font-weight:600;">審查輪次</div>
+                                <span id="editRoundDisplay" style="display:inline-block;padding:10px 14px;background:#f1f5f9;border-radius:8px;border:1px solid #e2e8f0;color:#334155;font-weight:500;font-size:13px;min-width:80px;text-align:center;">第 1 次</span>
+                                <input type="hidden" id="editRound" value="1">
+                            </div>
+
+                            <!-- 審查結果 -->
+                            <div style="margin-bottom:20px;">
+                                <div style="font-size:13px;color:#475569;margin-bottom:6px;font-weight:600;">審查結果</div>
+                                <select id="editStatus" class="filter-select" style="width:100%;padding:10px;border:1px solid #cbd5e1;background:#fff;font-size:14px;">
+                                    <option value="持續列管">🔴 持續列管</option>
+                                    <option value="解除列管">🟢 解除列管</option>
+                                    <option value="自行列管">🟠 自行列管</option>
+                                </select>
+                            </div>
+
+                            <!-- 審查意見 -->
+                            <div style="flex:1;display:flex;flex-direction:column;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                    <div style="font-size:13px;color:#475569;font-weight:600;">審查意見</div>
+                                    <button class="btn btn-ai" style="padding:4px 10px;font-size:11px;" onclick="runAiInEdit(this)">🤖 AI 智能分析</button>
+                                </div>
+                                <div id="aiBox"
+                                    style="background:#f0f9ff;padding:16px;border-radius:8px;border:1px solid #bae6fd;margin-bottom:16px;display:none;">
+                                    <div style="font-size:13px;margin-bottom:8px;font-weight:bold;color:#0369a1;">💡 AI 分析建議：</div>
+                                    <div id="aiPreviewText"
+                                        style="background:white; padding:12px; border:1px solid #e0f2fe; border-radius:6px; font-size:14px; margin-bottom:12px; line-height:1.6; color:#334155;">
+                                    </div>
+                                    <div style="display:flex; align-items:center; justify-content:space-between;"><span
+                                            id="aiResBadge" style="font-size:13px;"></span><button class="btn btn-primary"
+                                            style="font-size:12px;padding:6px 14px;" onclick="applyAiSuggestion()">⬇️ 帶入此意見</button></div>
+                                </div>
+                                <textarea id="editReview" class="filter-input"
+                                    style="flex:1;resize:vertical;line-height:1.6;min-height:200px;padding:12px;border:1px solid #cbd5e1;font-size:14px;"
+                                    placeholder="請輸入審查意見..." autocomplete="off"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- 操作按鈕 -->
+                        <div style="display:flex;gap:12px;margin-top:auto;padding-top:16px;">
+                            <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="saveEdit()">💾 上傳至資料庫</button>
+                            <button class="btn btn-outline" style="flex:1;padding:12px;" onclick="toggleEditMode(false)">取消</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2323,8 +420,8 @@
         <div class="modal-box">
             <h3 style="margin-top:0;" id="userModalTitle">使用者</h3>
             <input type="hidden" id="targetUserId">
-            <div class="form-group"><label>姓名</label><input type="text" id="uName" class="filter-input"></div>
-            <div class="form-group"><label>帳號 (Username)</label><input type="text" id="uEmail" class="filter-input">
+            <div class="form-group"><label>姓名</label><input type="text" id="uName" class="filter-input" autocomplete="off"></div>
+            <div class="form-group"><label>帳號 (Username)</label><input type="text" id="uEmail" class="filter-input" autocomplete="username">
             </div>
             <div class="form-group">
                 <label>密碼 <span style="font-weight:400;color:#666;font-size:12px" id="pwdHint"></span></label>
@@ -2358,7 +455,7 @@
     <div class="modal-overlay" id="profileModal">
         <div class="modal-box">
             <h3 style="margin-top:0;">個人設定</h3>
-            <div class="form-group"><label>姓名</label><input type="text" id="myProfileName" class="filter-input"></div>
+            <div class="form-group"><label>姓名</label><input type="text" id="myProfileName" class="filter-input" autocomplete="off"></div>
             <div class="form-group">
                 <label>新密碼 <span style="font-weight:400;color:#666;font-size:12px">(若不修改請留空)</span></label>
                 <div class="pwd-wrapper">
@@ -2383,1142 +480,71 @@
         </div>
     </div>
 
-    <script>
-        // 全域狀態
-        let rawData = [], currentData = [], currentUser = null, charts = {}, currentEditItem = null, userList = [], sortState = { field: null, dir: 'asc' }, stagedImportData = [];
-        let autoLogoutTimer;
-        let currentLogs = { login: [], action: [] };
-        let cachedGlobalStats = null;
-        let issuesPage = 1, issuesPageSize = 20, issuesTotal = 0, issuesPages = 1;
-        let usersPage = 1, usersPageSize = 20, usersTotal = 0, usersPages = 1, usersSortField = 'id', usersSortDir = 'asc';
-        let logsPage = 1, logsPageSize = 20, logsTotal = 0, logsPages = 1;
-        let actionsPage = 1, actionsPageSize = 20, actionsTotal = 0, actionsPages = 1;
-        // Current import mode: 'word' (uses param) or 'backup' (ignores param)
-        let currentImportMode = 'word';
-
-        function resetAutoLogout() { clearTimeout(autoLogoutTimer); autoLogoutTimer = setTimeout(() => { alert("您已閒置過久，系統將自動登出。"); logout(); }, 1800000); }
-        window.onload = resetAutoLogout; document.onmousemove = resetAutoLogout; document.onkeypress = resetAutoLogout;
-
-        function toggleDashboard(btn) { const d = document.getElementById('dashboardSection'); const c = d.classList.contains('collapsed'); d.classList.toggle('collapsed', !c); btn.innerHTML = c ? '<span>收合統計圖表</span> <span>▲</span>' : '<span>展開統計圖表</span> <span>▼</span>'; }
-        function toggleUserMenu() { document.getElementById('userDropdown').classList.toggle('show'); }
-        window.addEventListener('click', function (e) { if (!e.target.closest('.user-menu-container')) { document.getElementById('userDropdown').classList.remove('show'); } });
-
-        function togglePwdVisibility(inputId, btn) { const input = document.getElementById(inputId); if (input.type === 'password') { input.type = 'text'; btn.innerText = '🚫'; } else { input.type = 'password'; btn.innerText = '👁️'; } }
-
-        // [New] Toggle Advanced Filters
-        function toggleAdvancedFilters(btn) {
-            const panel = document.getElementById('advancedFilters');
-            const isShown = panel.classList.contains('show');
-            if (isShown) {
-                panel.classList.remove('show');
-                btn.innerText = '⬇️ 顯示更多篩選條件';
-            } else {
-                panel.classList.add('show');
-                btn.innerText = '⬆️ 收合篩選條件';
-            }
-        }
-
-        // --- Helper functions (Safe Versions) ---
-        function normalizeCodeString(str) {
-            if (!str) return "";
-            var s = String(str);
-            s = (s.normalize ? s.normalize("NFKC") : s);
-            s = s.replace(/[\u200B-\u200D\uFEFF]/g, "");
-            s = s.replace(/[\u2010-\u2015\u2212\uFE63\uFF0D]/g, "-");
-            s = s.replace(/[ \t]+/g, " ").replace(/\s*-\s*/g, "-");
-            return s.trim();
-        }
-        function stripHtml(h) {
-            if (!h) return '';
-            let t = document.createElement("DIV");
-            t.innerHTML = String(h);
-            return t.textContent || t.innerText || "";
-        }
-        function getLatest(i, p) { for (let k = 20; k >= 1; k--) { const key = k === 1 ? p : `${p}${k}`; if (i[key]) return i[key]; } return null; }
-        function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' }; return map[r] || r; }
-        function extractNumberFromCell(cell) { if (!cell) return ""; var whole = normalizeCodeString(cell.innerText || cell.textContent || ""); return whole.trim(); }
-
-        // [Updated] Map & Parser
-        const ORG_MAP = { "T": "臺鐵", "H": "高鐵", "A": "林鐵", "S": "糖鐵", "TRC": "臺鐵", "HSR": "高鐵", "AFR": "林鐵", "TSC": "糖鐵" };
-        const INSPECTION_MAP = { "1": "定期檢查", "2": "例行性檢查", "3": "特別檢查", "4": "臨時檢查" };
-        // [Verified] Division Map includes all requested codes
-        const DIVISION_MAP = { "A": "運務", "B": "工務", "C": "機務", "D": "電務", "E": "安全", "F": "審核", "G": "災防", "OP": "運轉", "CP": "土木", "EM": "機電" };
-        const KIND_MAP = { "N": "缺失事項", "O": "觀察事項", "R": "建議事項" };
-        const FILLED_MARKS = ["■", "☑", "☒", "✔", "✅", "●", "◉", "✓"]; var EMPTY_MARKS = ["□", "☐", "◻", "○", "◯", "◇", "△"];
-
-        function parseItemNumber(numberStr) {
-            var raw = normalizeCodeString(numberStr || "");
-            if (!raw) return null;
-            var cleanRaw = raw.replace(/[^a-zA-Z0-9\-]/g, "");
-            var mLong = cleanRaw.match(/^(\d{3})-([A-Z]{3,4})-([0-9])-(\d+)-([A-Z]{2,4})-([NOR])(\d+)$/i);
-            if (mLong) {
-                return { raw: mLong[0], yearRoc: parseInt(mLong[1], 10), orgCode: mLong[2].toUpperCase(), inspectCode: mLong[3], divCode: mLong[5].toUpperCase(), kindCode: mLong[6].toUpperCase() };
-            }
-            var mShort = cleanRaw.match(/^(\d{2,3})([A-Z])([0-9])-([A-Z])(\d{2})-([NOR])(\d{2})$/i);
-            if (mShort) {
-                var yy = parseInt(mShort[1], 10);
-                var rocYear = (yy < 1000) ? (yy + (yy < 100 ? 100 : 0)) : (yy - 1911);
-                return { raw: mShort[0], yearRoc: rocYear, orgCode: mShort[2].toUpperCase(), inspectCode: mShort[3], divCode: mShort[4].toUpperCase(), kindCode: mShort[6].toUpperCase() };
-            }
-            var mLoose = cleanRaw.match(/(\d{2,3}).*([NOR])\d+/i);
-            if (mLoose) {
-                return { raw: mLoose[0], yearRoc: parseInt(mLoose[1], 10), orgCode: "?", inspectCode: "?", divCode: "?", kindCode: mLoose[2].toUpperCase() };
-            }
-            return { raw: cleanRaw, yearRoc: "", orgCode: "", inspectCode: "", divCode: "", kindCode: "" };
-        }
-
-        function normalizeMultiline(s) { s = String(s || ""); return s.replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/\u00A0/g, " ").replace(/\u3000/g, " ").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim(); }
-
-        // [修正與增強] 內容清理與切割：只抓取最新的回覆內容
-        function sanitizeContent(html) {
-            if (!html) return "";
-            var s = String(html);
-
-            // 1. 先做基礎清理，移除多餘的樣式標籤，保留換行結構
-            s = s.replace(/<\s*br\s*\/?>/gi, "\n")
-                .replace(/<\s*\/p\s*>/gi, "\n")
-                .replace(/<\s*p[^>]*>/gi, "")
-                .replace(/<[^>]+>/g, ""); // 移除剩餘所有 HTML 標籤
-
-            // 2. 正規化空白與特殊字元
-            s = s.replace(/&nbsp;/g, " ")
-                .replace(/[\u200B-\u200D\uFEFF]/g, "")
-                .trim();
-
-            // 3. [關鍵邏輯] 智慧切割：抓取「最上面」的內容
-            var lines = s.split('\n');
-            var resultLines = [];
-            var hasContent = false;
-
-            for (var i = 0; i < lines.length; i++) {
-                var line = lines[i].trim();
-
-                // 略過開頭的空行
-                if (!hasContent && line.length === 0) continue;
-
-                // 遇到常見的分隔線符號，視為舊資料開始，直接結束截取
-                if (/^[-=_]{3,}/.test(line)) {
-                    break;
-                }
-
-                // 遇到明顯的「日期標籤」且不是第一行時，視為舊資料的開始
-                if (hasContent && /^(\d{2,3}[./-]\d{1,2}[./-]\d{1,2})/.test(line)) {
-                    break;
-                }
-
-                // 遇到「前次」、「上次」關鍵字開頭，視為舊資料
-                if (hasContent && /^(前次|上次|第\d+次)(辦理|審查|回復|說明)/.test(line)) {
-                    break;
-                }
-
-                // 加入有效行
-                resultLines.push(line);
-                if (line.length > 0) hasContent = true;
-            }
-
-            return resultLines.join("\n").trim();
-        }
-
-        function parseStatusFromResultCell(cell) { if (!cell) return ""; var src = normalizeMultiline((cell.innerText || cell.textContent || "") + "\n" + (cell.innerHTML || "").replace(/<[^>]+>/g, "")); if (!src) return ""; var allMarks = FILLED_MARKS.concat(EMPTY_MARKS).join(""); allMarks = allMarks.replace(/[-\\^$*+?.()|[\]{}]/g, "\\$&"); var reFront = new RegExp("([" + allMarks + "])\\s*(?:[:：﹕-]?\\s*)?(解除列管|持續列管|自行列管)", "g"); var reBack = new RegExp("(解除列管|持續列管|自行列管)\\s*(?:[:：﹕-]?\\s*)?([" + allMarks + "])", "g"); var hits = [], m; while ((m = reFront.exec(src)) !== null) { hits.push({ idx: m.index, label: m[2], mark: m[1], filled: FILLED_MARKS.indexOf(m[1]) >= 0 }); } while ((m = reBack.exec(src)) !== null) { hits.push({ idx: m.index, label: m[1], mark: m[2], filled: FILLED_MARKS.indexOf(m[2]) >= 0 }); } var filled = hits.filter(function (h) { return h.filled; }).sort(function (a, b) { return a.idx - b.idx; }); if (filled.length) return filled[filled.length - 1].label; var labels = ["解除列管", "持續列管", "自行列管"]; var present = labels.filter(function (l) { return src.indexOf(l) >= 0; }); if (present.length === 1) return present[0]; return ""; }
-        function formatHtmlToText(html) { if (!html) return ""; let temp = String(html).replace(/<li[^>]*>/gi, "\n• ").replace(/<\/li>/gi, "").replace(/<ul[^>]*>/gi, "").replace(/<\/ul>/gi, "").replace(/<ol[^>]*>/gi, "").replace(/<\/ol>/gi, "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<p[^>]*>/gi, ""); let div = document.createElement("div"); div.innerHTML = temp; return (div.textContent || div.innerText || "").replace(/\n\s*\n/g, "\n").trim(); }
-
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            const icon = type === 'success' ? '✅' : '⚠️';
-            const title = type === 'success' ? '成功' : '錯誤';
-            toast.className = `toast ${type}`;
-            toast.innerHTML = `<div class="toast-icon">${icon}</div><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-msg">${message}</div></div>`;
-            container.appendChild(toast);
-            requestAnimationFrame(() => { toast.classList.add('show'); });
-            setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 3000);
-        }
-
-        function showPreview(html, title) { document.getElementById('previewTitle').innerText = title || '內容預覽'; document.getElementById('previewContent').innerHTML = html || '(無內容)'; document.getElementById('previewModal').classList.add('open'); }
-        function closePreview() { document.getElementById('previewModal').classList.remove('open'); }
-
-        async function loadPlanOptions() {
-            try {
-                const res = await fetch('/api/options/plans?t=' + Date.now());
-                const json = await res.json();
-                const list = document.getElementById('planOptionsList');
-                if (list && json.data) {
-                    list.innerHTML = json.data.map(p => `<option value="${p}">`).join('');
-                }
-            } catch (e) {
-                console.error("Load plans failed", e);
-            }
-        }
-
-        function initImportRoundOptions() {
-            const s = document.getElementById('importRoundSelect');
-            if (!s) return;
-            s.innerHTML = '';
-            for (let i = 1; i <= 20; i++) {
-                s.innerHTML += `<option value="${i}">第 ${i} 次審查</option>`;
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            console.log("App init...");
-            await checkAuth();
-            if (currentUser) {
-                document.body.style.display = 'flex';
-                initListeners();
-                initEditForm();
-                initCharts();
-                loadPlanOptions();
-                initImportRoundOptions();
-                await loadIssuesPage(1);
-                loadUsersPage(1);
-            }
-        });
-
-        async function checkAuth() {
-            try {
-                const res = await fetch('/api/auth/me?t=' + Date.now(), { headers: { 'Cache-Control': 'no-cache' } });
-                const data = await res.json();
-                if (data.isLogin) {
-                    currentUser = data;
-                    const nameEl = document.getElementById('headerUserName');
-                    const roleEl = document.getElementById('headerUserRole');
-                    if (nameEl) nameEl.innerText = data.name || data.username;
-                    if (roleEl) roleEl.innerText = getRoleName(data.role);
-                    if (['admin', 'manager'].includes(data.role)) {
-                        document.getElementById('btn-importView').classList.remove('hidden');
-                        if (data.role === 'admin') {
-                            document.getElementById('btn-usersView').classList.remove('hidden');
-                            document.getElementById('uploadCardBackup').classList.remove('hidden');
-                            document.getElementById('exportJsonOption').style.display = 'flex';
-                        }
-                    }
-                } else window.location.href = '/login.html';
-            } catch (e) { window.location.href = '/login.html'; }
-        }
-
-        function renderPagination(containerId, currentPage, totalPages, onPageChange) {
-            const containerTop = document.getElementById(containerId + 'Top'); const containerBottom = document.getElementById(containerId + 'Bottom'); let html = '';
-            html += `<button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="${onPageChange}(${currentPage - 1})">◀</button>`;
-            const delta = 2, range = [];
-            for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) { range.push(i); }
-            if (currentPage - delta > 2) range.unshift('...'); if (currentPage + delta < totalPages - 1) range.push('...');
-            range.unshift(1); if (totalPages > 1) range.push(totalPages);
-            range.forEach(i => { if (i === '...') html += `<div class="page-dots">...</div>`; else html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${onPageChange}(${i})">${i}</button>`; });
-            html += `<button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="${onPageChange}(${currentPage + 1})">▶</button>`;
-            if (containerTop) containerTop.innerHTML = html; if (containerBottom) containerBottom.innerHTML = html;
-        }
-
-        async function loadIssuesPage(page = 1) {
-            issuesPage = page; document.getElementById('issuesPageSizeTop').value = issuesPageSize; document.getElementById('issuesPageSizeBottom').value = issuesPageSize;
-            const q = document.getElementById('filterKeyword').value || '', year = document.getElementById('filterYear').value || '', unit = document.getElementById('filterUnit').value || '', status = document.getElementById('filterStatus').value || '', kind = document.getElementById('filterKind').value || '';
-            const division = document.getElementById('filterDivision') ? document.getElementById('filterDivision').value : '';
-            const inspection = document.getElementById('filterInspection') ? document.getElementById('filterInspection').value : '';
-            const planName = document.getElementById('filterPlan') ? document.getElementById('filterPlan').value : '';
-
-            let sortField = 'created_at', sortDir = 'desc';
-            if (sortState.field) { if (sortState.field === 'number') sortField = 'title'; else if (sortState.field === 'year') sortField = 'year'; else if (sortState.field === 'unit') sortField = 'unit'; else if (sortState.field === 'status') sortField = 'status'; sortDir = sortState.dir || 'asc'; }
-
-            const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, planName, sortField, sortDir, _t: Date.now() });
-
-            try {
-                const res = await fetch('/api/issues?' + params.toString());
-                if (!res.ok) {
-                    const errJson = await res.json().catch(() => ({}));
-                    console.error("Server Error:", errJson);
-                    showToast('載入資料失敗: ' + (errJson.error || res.statusText), 'error');
-                    return;
-                }
-                const j = await res.json(); currentData = j.data || []; issuesTotal = j.total || 0; issuesPages = j.pages || 1;
-                if (j.latestCreatedAt) { const d = new Date(j.latestCreatedAt); document.getElementById('dataTimestamp').innerText = `資料庫更新時間：${d.toLocaleDateString('zh-TW')} ${d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`; } else { document.getElementById('dataTimestamp').innerText = ''; }
-                if (document.getElementById('filterYear').options.length === 0 && j.globalStats) { const years = [...new Set(j.globalStats.year.map(x => x.year).filter(Boolean))].sort().reverse(); document.getElementById('filterYear').innerHTML = '<option value="">全部年度</option>' + years.map(v => `<option value="${v}">${v}</option>`).join(''); const units = [...new Set(j.globalStats.unit.map(x => x.unit).filter(Boolean))].sort(); document.getElementById('filterUnit').innerHTML = '<option value="">全部機構</option>' + units.map(v => `<option value="${v}">${v}</option>`).join(''); }
-                if (j.globalStats) { cachedGlobalStats = j.globalStats; updateChartsData(j.globalStats); renderStats(j.globalStats); }
-                renderTable(); renderPagination('issuesPagination', issuesPage, issuesPages, 'loadIssuesPage'); document.getElementById('issuesTotalCount').innerText = issuesTotal;
-            } catch (e) { console.error(e); showToast('載入資料錯誤 (請檢查 Console)', 'error'); }
-        }
-
-        function applyFilters() { issuesPage = 1; loadIssuesPage(1); }
-        function resetFilters() { document.querySelectorAll('.filter-input,.filter-select').forEach(e => e.value = ''); applyFilters(); }
-        function sortData(field) { if (sortState.field === field) sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc'; else { sortState.field = field; sortState.dir = 'asc'; } loadIssuesPage(1); updateSortUI(); }
-        function updateSortUI() { document.querySelectorAll('th').forEach(th => { th.classList.remove('sort-asc', 'sort-desc'); if (th.getAttribute('onclick') && th.getAttribute('onclick').includes(`'${sortState.field}'`)) th.classList.add(sortState.dir === 'asc' ? 'sort-asc' : 'sort-desc'); }); }
-        function renderStats(stats) { const s = stats.status; const total = s.reduce((sum, item) => sum + parseInt(item.count), 0); const active = s.find(x => x.status === '持續列管')?.count || 0; const resolved = s.filter(x => ['解除列管', '自行列管'].includes(x.status)).reduce((sum, x) => sum + parseInt(x.count), 0); document.getElementById('countTotal').innerText = total; document.getElementById('countActive').innerText = active; document.getElementById('countResolved').innerText = resolved; }
-
-        function renderTable() {
-            const tbody = document.getElementById('dataBody'); tbody.innerHTML = '';
-            if (!currentData || currentData.length === 0) { document.getElementById('emptyMsg').style.display = 'block'; return; }
-            document.getElementById('emptyMsg').style.display = 'none';
-            const canManage = currentUser && ['admin', 'manager'].includes(currentUser.role);
-            const canEdit = currentUser && ['admin', 'manager', 'editor'].includes(currentUser.role);
-            document.getElementById('batchActionContainer').style.display = 'none'; document.getElementById('selectedCountBadge').innerText = ''; document.getElementById('selectAll').checked = false;
-            document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
-
-            let html = '';
-            currentData.forEach(item => {
-                try {
-                    let badge = '';
-                    const st = String(item.status || 'Open');
-                    if (st !== 'Open') {
-                        const stClass = st === '持續列管' ? 'active' : (st === '解除列管' ? 'resolved' : 'self');
-                        badge = `<span class="badge ${stClass}">${st}</span>`;
-                    }
-                    let updateTxt = '-'; const lr = getLatest(item, 'review'), lh = getLatest(item, 'handling'); if (lr) updateTxt = `[審] ${stripHtml(lr).slice(0, 80)}`; else if (lh) updateTxt = `[回] ${stripHtml(lh).slice(0, 80)}`;
-                    let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if (item.aiResult && item.aiResult.status === 'done') { const f = String(item.aiResult.fulfill || ''); const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes ? 'yes' : 'no'}">${isYes ? '✅' : '⚠️'} ${f}</div>`; }
-                    const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',true)">✏️ 編輯</button>` : '';
-                    const delBtn = canManage ? `<button class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #fca5a5;cursor:pointer;margin-top:4px;margin-left:2px;" onclick="event.stopPropagation();deleteIssue('${item.id}')">🗑️</button>` : '';
-                    const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
-
-                    let k = item.itemKindCode;
-                    const numStr = String(item.number || '');
-                    if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
-
-                    let kindLabel = '';
-                    if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
-                    else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
-                    else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
-
-                    const statusHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${badge}</div>`;
-                    const snippet = stripHtml(item.content || '').slice(0, 180);
-                    const fullHtml = String(item.content || '');
-
-                    html += `<tr onclick="openDetail('${item.id}',false)"> ${checkbox} <td data-label="年度">${item.year}</td><td data-label="編號" style="font-weight:600;color:var(--primary);">${item.number}</td><td data-label="機構">${item.unit}</td><td data-label="狀態與類型">${statusHtml}</td><td data-label="事項內容"><div class="text-content">${snippet}${(stripHtml(item.content || '').length > 180 ? ` <a href='javascript:void(0)' onclick="event.stopPropagation();showPreview(${JSON.stringify(fullHtml)}, '編號 ${item.number} 內容')">...更多</a>` : '')}</div></td><td data-label="最新辦理/審查情形"><div class="text-content">${stripHtml(updateTxt)}</div></td><td data-label="管理功能"><div>${aiContent}${editBtn}${delBtn}</div></td></tr>`;
-                } catch (err) {
-                    console.error("Skipping bad row:", item, err);
-                }
-            });
-            tbody.innerHTML = html;
-        }
-
-        function onIssuesPageSizeChange(val) { issuesPageSize = parseInt(val, 10); loadIssuesPage(1); }
-        async function loadUsersPage(page = 1) { usersPage = page; usersPageSize = parseInt(document.getElementById('usersPageSize').value, 10); const q = document.getElementById('userSearch').value || ''; const params = new URLSearchParams({ page: usersPage, pageSize: usersPageSize, q, sortField: usersSortField, sortDir: usersSortDir, _t: Date.now() }); try { const res = await fetch('/api/users?' + params.toString()); if (!res.ok) { showToast('載入使用者失敗', 'error'); return; } const j = await res.json(); userList = j.data || []; usersTotal = j.total || 0; usersPages = j.pages || 1; renderUsers(); renderPagination('usersPagination', usersPage, usersPages, 'loadUsersPage'); } catch (e) { console.error(e); showToast('載入使用者錯誤', 'error'); } }
-        function renderUsers() { document.getElementById('usersTableBody').innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name || '-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id !== currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); }
-        function usersSortBy(field) { if (usersSortField === field) usersSortDir = usersSortDir === 'asc' ? 'desc' : 'asc'; else { usersSortField = field; usersSortDir = 'asc'; } loadUsersPage(1); }
-
-        async function loadLogsPage(page = 1) { logsPage = page; const q = document.getElementById('loginSearch').value || ''; const params = new URLSearchParams({ page: logsPage, pageSize: logsPageSize, q, _t: Date.now() }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/logs?' + params.toString()); if (!res.ok) { showToast('載入登入紀錄失敗', 'error'); return; } const j = await res.json(); currentLogs.login = j.data || []; logsTotal = j.total || 0; logsPages = j.pages || 1; document.getElementById('logsTableBody').innerHTML = currentLogs.login.map(l => `<tr><td data-label="時間" style="padding:12px;">${new Date(l.login_time).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="IP">${l.ip_address || '-'}</td></tr>`).join(''); renderPagination('logsPagination', logsPage, logsPages, 'loadLogsPage'); } catch (e) { console.error(e); showToast('載入登入紀錄錯誤', 'error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
-        async function loadActionsPage(page = 1) { actionsPage = page; const q = document.getElementById('actionSearch').value || ''; const params = new URLSearchParams({ page: actionsPage, pageSize: actionsPageSize, q, _t: Date.now() }); document.getElementById('logsLoading').style.display = 'block'; try { const res = await fetch('/api/admin/action_logs?' + params.toString()); if (!res.ok) { showToast('載入操作紀錄失敗', 'error'); return; } const j = await res.json(); currentLogs.action = j.data || []; actionsTotal = j.total || 0; actionsPages = j.pages || 1; document.getElementById('actionsTableBody').innerHTML = currentLogs.action.map(l => `<tr><td data-label="時間" style="padding:12px;white-space:nowrap;">${new Date(l.created_at).toLocaleString('zh-TW')}</td><td data-label="帳號">${l.username}</td><td data-label="動作"><span class="badge new">${l.action}</span></td><td data-label="詳細內容"><div style="font-size:12px;color:#666;">${l.details}</div></td></tr>`).join(''); renderPagination('actionsPagination', actionsPage, actionsPages, 'loadActionsPage'); } catch (e) { console.error(e); showToast('載入操作紀錄錯誤', 'error'); } finally { document.getElementById('logsLoading').style.display = 'none'; } }
-
-        function exportLogs(type) { const data = type === 'login' ? currentLogs.login : currentLogs.action; if (!data || data.length === 0) return showToast('無資料可匯出', 'error'); let csvContent = '\uFEFF'; if (type === 'login') { csvContent += "時間,帳號,IP位址\n"; data.forEach(row => { csvContent += `"${new Date(row.login_time).toLocaleString('zh-TW')}","${row.username}","${row.ip_address}"\n`; }); } else { csvContent += "時間,帳號,動作,詳細內容\n"; data.forEach(row => { csvContent += `"${new Date(row.created_at).toLocaleString('zh-TW')}","${row.username}","${row.action}","${(row.details || '').replace(/"/g, '""')}"\n`; }); } const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); link.setAttribute("download", `${type}_logs_${new Date().toISOString().slice(0, 10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
-        async function clearLogs(type) { if (!confirm(`確定要清空所有「${type === 'login' ? '登入' : '操作'}」紀錄嗎？此動作無法復原！`)) return; const endpoint = type === 'login' ? '/api/admin/logs' : '/api/admin/action_logs'; try { const res = await fetch(endpoint, { method: 'DELETE' }); if (res.ok) { showToast('紀錄已清空'); if (type === 'login') loadLogsPage(1); else loadActionsPage(1); } else showToast('清除失敗', 'error'); } catch (e) { showToast('Error: ' + e.message, 'error'); } }
-
-        function switchAdminTab(tab) { document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users'); document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs'); document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions'); if (tab === 'logs') loadLogsPage(1); if (tab === 'actions') loadActionsPage(1); }
-
-        // [修正與增強] HTML 解析核心：提升對 Word 表格的容錯率
-        function parseFromHTML(html) {
-            var items = [];
-            try {
-                var doc = new DOMParser().parseFromString(html, "text/html");
-                var tables = doc.querySelectorAll("table");
-
-                tables.forEach(function (table) {
-                    var rows = table.querySelectorAll("tr");
-                    var headerRow = -1, dataStart = -1;
-
-                    for (var i = 0; i < Math.min(rows.length, 10); i++) {
-                        var t = (rows[i].innerText || rows[i].textContent || "").replace(/\s+/g, "");
-                        if ((/編號|項次|序號/).test(t) && (/內容|摘要/).test(t)) {
-                            headerRow = i;
-                            dataStart = i + 1;
-                            break;
-                        }
-                    }
-
-                    if (headerRow === -1) return;
-
-                    var headerCells = rows[headerRow].querySelectorAll("td,th");
-                    var col = { number: -1, content: -1, handling: -1, result: -1 };
-                    var reviewCols = [];
-
-                    headerCells.forEach(function (cell, idx) {
-                        var text = (cell.innerText || cell.textContent || "").replace(/\s+/g, "");
-                        if ((/編號|項次|序號/).test(text)) col.number = idx;
-                        else if ((/事項內容|缺失內容|觀察內容|內容/).test(text)) col.content = idx;
-                        else if ((/辦理情形|改善情形/).test(text)) col.handling = idx;
-                        else if ((/結果|狀態|列管/).test(text)) col.result = idx;
-
-                        var mm = text.match(/第(\d+)次.*(審查|意見)/);
-                        if (mm) {
-                            reviewCols.push({ idx: idx, round: parseInt(mm[1], 10) });
-                        } else if ((/審查意見|意見審查/).test(text)) {
-                            reviewCols.push({ idx: idx, round: 1 });
-                        }
-                    });
-
-                    if (col.number === -1) col.number = 0;
-                    if (col.content === -1) col.content = (col.number === 0) ? 1 : 0;
-
-                    for (var r = dataStart; r < rows.length; r++) {
-                        var cells = rows[r].querySelectorAll("td,th");
-                        if (cells.length < 2) continue;
-
-                        var rawNumText = cells[col.number] ? (cells[col.number].innerText || cells[col.number].textContent || "") : "";
-                        var info = parseItemNumber(rawNumText);
-                        if (!info || !info.raw) continue;
-
-                        var unitName = ORG_MAP[info.orgCode] || info.orgCode || "";
-                        var inspectName = INSPECTION_MAP[info.inspectCode] || info.inspectCode || "";
-                        var divName = DIVISION_MAP[info.divCode] || info.divCode || "";
-                        var kindName = KIND_MAP[info.kindCode] || "其他";
-
-                        var item = {
-                            number: info.raw.toUpperCase(),
-                            year: String(info.yearRoc),
-                            unit: unitName,
-                            itemKindCode: info.kindCode,
-                            category: kindName,
-                            inspectionCategoryName: inspectName,
-                            divisionName: divName,
-                            content: "",
-                            handling: "",
-                            status: "持續列管"
-                        };
-
-                        if (col.content !== -1 && cells[col.content]) item.content = sanitizeContent(cells[col.content].innerHTML);
-                        if (col.handling !== -1 && cells[col.handling]) item.handling = sanitizeContent(cells[col.handling].innerHTML);
-                        if (info.kindCode === "R") item.status = "自行列管"; else if (col.result !== -1 && cells[col.result]) item.status = parseStatusFromResultCell(cells[col.result]) || "持續列管";
-
-                        reviewCols.forEach(function (rc) {
-                            var key = (rc.round === 1 ? "review" : ("review" + rc.round));
-                            if (cells[rc.idx]) item[key] = sanitizeContent(cells[rc.idx].innerHTML);
-                        });
-
-                        items.push(item);
-                    }
-                });
-            } catch (e) {
-                console.error("Parse error:", e);
-                alert("解析 Word 表格時發生錯誤，請確認表格格式是否包含「編號」與「內容」欄位。");
-            }
-            return items;
-        }
-
-        function onImportStageChange() {
-            const stage = document.querySelector('input[name="importStage"]:checked').value;
-            const roundContainer = document.getElementById('importRoundContainer');
-            const planNameContainer = document.getElementById('importPlanNameContainer');
-
-            if (stage === 'initial') {
-                roundContainer.style.display = 'none';
-                planNameContainer.style.gridColumn = 'span 2';
-                document.getElementById('importDateGroup_Initial').style.display = 'block';
-                document.getElementById('importDateGroup_Review').style.display = 'none';
-                document.getElementById('importStatusWord').innerText = '';
-            } else {
-                roundContainer.style.display = 'block';
-                planNameContainer.style.gridColumn = 'auto';
-                document.getElementById('importDateGroup_Initial').style.display = 'none';
-                document.getElementById('importDateGroup_Review').style.display = 'block';
-            }
-            checkImportReady();
-        }
-
-        function checkImportReady() {
-            const f = document.getElementById('wordInput').files[0];
-            if (currentImportMode === 'backup') return;
-
-            const stageRadio = document.querySelector('input[name="importStage"]:checked');
-            if (!stageRadio) return;
-
-            const stage = stageRadio.value;
-            let valid = false;
-
-            if (stage === 'initial') {
-                const d = document.getElementById('importIssueDate').value.trim();
-                valid = (d.length > 0);
-            } else {
-                valid = true;
-            }
-
-            document.getElementById('wordInput').disabled = !valid;
-            document.getElementById('btnParseWord').disabled = !valid || !f;
-        }
-        document.getElementById('wordInput').addEventListener('change', checkImportReady);
-
-        async function previewWord() {
-            const f = document.getElementById('wordInput').files[0], round = document.getElementById('importRoundSelect') ? document.getElementById('importRoundSelect').value : 1, msg = document.getElementById('importStatusWord');
-            if (!f) return showToast('請先選擇 Word 檔案', 'error');
-            msg.innerText = 'Word 解析中...';
-            currentImportMode = 'word';
-            try {
-                const b = await f.arrayBuffer();
-                const r = await mammoth.convertToHtml({ arrayBuffer: b });
-                const items = parseFromHTML(r.value);
-                processParsedItems(items, round, msg);
-            } catch (e) { console.error(e); msg.innerText = 'Word 解析錯誤: ' + e.message; }
-        }
-
-        function parseHistoryField(text) {
-            if (!text || typeof text !== 'string') return {};
-            const chunks = {};
-            const matches = [...text.matchAll(/\[第(\d+)次\]/g)];
-            if (matches.length === 0) return {};
-            matches.forEach((m, i) => {
-                const round = parseInt(m[1], 10);
-                const start = m.index + m[0].length;
-                const end = (i + 1 < matches.length) ? matches[i + 1].index : text.length;
-                let content = text.substring(start, end).trim();
-                content = content.replace(/^-+\s*|\s*-+$/g, '');
-                if (content) chunks[round] = content;
-            });
-            return chunks;
-        }
-
-        async function previewBackup() {
-            const f = document.getElementById('backupInput').files[0];
-            const msg = document.getElementById('importStatusBackup');
-
-            if (!f) return showToast('請先選擇備份檔案', 'error');
-            if (!msg) { alert("系統錯誤：找不到狀態顯示區域"); return; }
-
-            msg.innerText = '備份檔解析中...';
-            currentImportMode = 'backup';
-            const ext = f.name.split('.').pop().toLowerCase();
-
-            try {
-                let items = [];
-                if (ext === 'json') {
-                    const text = await f.text();
-                    const json = JSON.parse(text);
-                    const rawItems = Array.isArray(json) ? json : (json.data || []);
-                    items = rawItems.map(i => {
-                        const newItem = {
-                            number: i.number || i['編號'] || '',
-                            year: i.year || i['年度'] || '',
-                            unit: i.unit || i['機構'] || '',
-                            content: i.content || i['內容'] || i['事項內容'] || i['內容摘要'] || '',
-                            status: i.status || i['狀態'] || '持續列管',
-                            handling: i.handling || i['辦理情形'] || i['最新辦理情形'] || '',
-                            review: i.review || i['審查意見'] || i['最新審查意見'] || '',
-                            itemKindCode: i.itemKindCode,
-                            category: i.category,
-                            divisionName: i.division,
-                            inspectionCategoryName: i.inspection_category,
-                            planName: i.planName,
-                            issueDate: i.issueDate
-                        };
-
-                        for (let k = 1; k <= 20; k++) {
-                            if (i[`handling${k}`]) newItem[`handling${k}`] = i[`handling${k}`];
-                            if (i[`review${k}`]) newItem[`review${k}`] = i[`review${k}`];
-                        }
-
-                        const potentialHandling = i['完整辦理情形歷程'] || i.fullHandling || i.handling || i['辦理情形'] || '';
-                        const potentialReview = i['完整審查意見歷程'] || i.fullReview || i.review || i['審查意見'] || '';
-
-                        const hChunks = parseHistoryField(potentialHandling);
-                        const rChunks = parseHistoryField(potentialReview);
-
-                        Object.keys(hChunks).forEach(r => { const key = parseInt(r) === 1 ? 'handling' : `handling${r}`; newItem[key] = hChunks[r]; });
-                        Object.keys(rChunks).forEach(r => { const key = parseInt(r) === 1 ? 'review' : `review${r}`; newItem[key] = rChunks[r]; });
-
-                        return newItem;
-                    });
-                    processParsedItems(items, 0, msg);
-                } else if (ext === 'csv') {
-                    Papa.parse(f, {
-                        header: true,
-                        skipEmptyLines: true,
-                        encoding: "UTF-8",
-                        complete: function (results) {
-                            const msgInside = document.getElementById('importStatusBackup');
-                            try {
-                                if (results.errors.length && results.data.length === 0) { if (msgInside) msgInside.innerText = 'CSV 解析錯誤'; return; }
-                                const mapped = results.data.map(i => {
-                                    let item = {
-                                        number: i['編號'] || i.number || '',
-                                        year: i['年度'] || i.year || '',
-                                        unit: i['機構'] || i.unit || '',
-                                        content: i['內容'] || i['事項內容'] || i['內容摘要'] || i.content || '',
-                                        status: i['狀態'] || i.status || '持續列管',
-                                        handling: i['最新辦理情形'] || i['辦理情形'] || i.handling || '',
-                                        review: i['最新審查意見'] || i['審查意見'] || i.review || ''
-                                    };
-                                    const fullH = i['完整辦理情形歷程'] || i.handling || '';
-                                    const fullR = i['完整審查意見歷程'] || i.review || '';
-                                    const hChunks = parseHistoryField(fullH);
-                                    const rChunks = parseHistoryField(fullR);
-                                    Object.keys(hChunks).forEach(r => { const key = parseInt(r) === 1 ? 'handling' : `handling${r}`; item[key] = hChunks[r]; });
-                                    Object.keys(rChunks).forEach(r => { const key = parseInt(r) === 1 ? 'review' : `review${r}`; item[key] = rChunks[r]; });
-                                    return item;
-                                });
-                                const validRows = mapped.filter(r => r.number || r.content);
-                                if (validRows.length === 0) { if (msgInside) msgInside.innerText = '錯誤：未解析到有效資料'; return; }
-                                processParsedItems(mapped, 0, msgInside);
-                            } catch (err) { console.error(err); if (msgInside) msgInside.innerText = 'CSV 處理錯誤: ' + err.message; }
-                        }
-                    });
-                } else { throw new Error('不支援的檔案格式 (僅限 JSON 或 CSV)'); }
-            } catch (e) { console.error(e); msg.innerText = '解析錯誤: ' + e.message; }
-        }
-
-        function processParsedItems(items, round, msgElement) {
-            if (msgElement && items.length === 0) { msgElement.innerText = '錯誤：未解析到有效資料'; return; }
-            stagedImportData = items.map(item => ({ ...item, _importStatus: 'new' }));
-
-            if (currentImportMode === 'word') {
-                const stageRadio = document.querySelector('input[name="importStage"]:checked');
-                const stageText = stageRadio && stageRadio.value === 'initial' ? '初次開立' : `第 ${round} 次審查`;
-                const badgeClass = stageRadio && stageRadio.value === 'initial' ? 'new' : 'update';
-
-                document.getElementById('previewModeBadge').innerHTML = `<span class="badge ${badgeClass}">Word 匯入 (${stageText})</span>`;
-                document.getElementById('uploadCardWord').classList.add('hidden');
-                document.getElementById('uploadCardBackup').classList.add('hidden');
-            } else {
-                document.getElementById('previewModeBadge').innerHTML = `<span class="badge active">⚠️ 災難復原模式</span>`;
-                document.getElementById('uploadCardWord').classList.add('hidden');
-                document.getElementById('uploadCardBackup').classList.add('hidden');
-            }
-            renderPreviewTable();
-            document.getElementById('previewContainer').classList.remove('hidden');
-            if (msgElement) msgElement.innerText = '';
-        }
-
-        function cancelImport() {
-            stagedImportData = [];
-            document.getElementById('previewContainer').classList.add('hidden');
-            document.getElementById('uploadCardWord').classList.remove('hidden');
-            if (currentUser && currentUser.role === 'admin') { document.getElementById('uploadCardBackup').classList.remove('hidden'); }
-            document.getElementById('wordInput').value = '';
-            document.getElementById('backupInput').value = '';
-            document.getElementById('importStatusWord').innerText = '';
-            document.getElementById('importStatusBackup').innerText = '';
-        }
-
-        async function confirmImport() {
-            const count = stagedImportData.length;
-            const isBackup = currentImportMode === 'backup';
-            const msg = isBackup ? `⚠️ 警告：即將進行「災難復原」，這將覆蓋或新增 ${count} 筆資料。\n確定要執行嗎？` : `確定要匯入 ${count} 筆資料嗎？`;
-            if (!confirm(msg)) return;
-
-            let round = 1;
-            let issueDate = '';
-            let replyDate = '';
-            let responseDate = '';
-
-            if (!isBackup) {
-                const stage = document.querySelector('input[name="importStage"]:checked').value;
-
-                if (stage === 'initial') {
-                    round = 1;
-                    issueDate = document.getElementById('importIssueDate').value;
-                } else {
-                    round = document.getElementById('importRoundSelect').value;
-                    replyDate = document.getElementById('importReplyDate').value;
-                    responseDate = document.getElementById('importResponseDate').value;
-                }
-            }
-
-            const planName = isBackup ? '' : document.getElementById('importPlanName').value;
-
-            let cleanData = stagedImportData.map(({ _importStatus, ...item }) => {
-                if (currentImportMode === 'word') {
-                    if (!item.planName && planName) item.planName = planName;
-                    const stage = document.querySelector('input[name="importStage"]:checked') ? document.querySelector('input[name="importStage"]:checked').value : 'initial';
-                    if (!item.issueDate && stage === 'initial') item.issueDate = issueDate;
-                }
-                return item;
-            });
-
-            try {
-                const res = await fetch('/api/issues/import', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        data: cleanData,
-                        round: round,
-                        reviewDate: responseDate,
-                        replyDate: replyDate,
-                        mode: currentImportMode
-                    })
-                });
-                if (res.ok) { showToast('匯入成功！'); cancelImport(); loadIssuesPage(1); loadPlanOptions(); } else { showToast('匯入失敗', 'error'); }
-            } catch (e) { showToast('Error: ' + e.message, 'error'); }
-        }
-
-        function switchDataTab(tab) {
-            document.querySelectorAll('#importView .admin-tab-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-            document.getElementById('tab-data-import').classList.toggle('hidden', tab !== 'import');
-            document.getElementById('tab-data-batch').classList.toggle('hidden', tab !== 'batch');
-            document.getElementById('tab-data-plans').classList.toggle('hidden', tab !== 'plans');
-            document.getElementById('tab-data-manual').classList.toggle('hidden', tab !== 'manual');
-            document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export');
-
-            if (tab === 'batch' && document.querySelectorAll('#batchGridBody tr').length === 0) initBatchGrid();
-            if (tab === 'plans') loadPlans();
-        }
-
-        // --- Plan Management Logic ---
-        async function loadPlans() {
-            const tbody = document.getElementById('planListBody');
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:#94a3b8;">載入中...</td></tr>';
-            try {
-                const res = await fetch('/api/plans');
-                const json = await res.json();
-                if (json.success) {
-                    tbody.innerHTML = '';
-                    if (json.data.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:20px;color:#94a3b8;">目前尚無計畫，請新增。</td></tr>';
-                        return;
-                    }
-                    json.data.forEach(p => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td style="padding:10px;border-bottom:1px solid #f1f5f9;">${p.year || '-'}</td>
-                            <td style="padding:10px;border-bottom:1px solid #f1f5f9;">${p.name}</td>
-                            <td style="padding:10px;border-bottom:1px solid #f1f5f9;text-align:center;">
-                                <button class="btn btn-danger btn-sm" style="padding:4px 8px;" onclick="deletePlan(${p.id}, '${p.name}')">🗑️</button>
-                            </td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
-                }
-            } catch (e) { showToast('載入計畫失敗', 'error'); }
-        }
-
-        async function savePlans() {
-            const year = document.getElementById('newPlanYear').value.trim();
-            const name = document.getElementById('newPlanName').value.trim();
-            if (!name) return showToast('請輸入計畫名稱', 'error');
-
-            try {
-                const res = await fetch('/api/plans', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, year })
-                });
-                const json = await res.json();
-                if (res.ok) {
-                    showToast('新增成功');
-                    document.getElementById('newPlanName').value = '';
-                    loadPlans();
-                    loadPlanOptions(); // Reload dropdowns
-                } else {
-                    showToast(json.error || '新增失敗', 'error');
-                }
-            } catch (e) { showToast('Error: ' + e.message, 'error'); }
-        }
-
-        async function deletePlan(id, name) {
-            if (!confirm(`確定要刪除「${name}」嗎？`)) return;
-            try {
-                const res = await fetch(`/api/plans/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    showToast('已刪除');
-                    loadPlans();
-                    loadPlanOptions();
-                } else {
-                    showToast('刪除失敗', 'error');
-                }
-            } catch (e) { showToast('Error: ' + e.message, 'error'); }
-        }
-
-        // --- Batch Edit Logic ---
-        function initBatchGrid() {
-            const tbody = document.getElementById('batchGridBody');
-            tbody.innerHTML = '';
-            for (let i = 0; i < 5; i++) addBatchRow();
-        }
-
-        function addBatchRow() {
-            const tbody = document.getElementById('batchGridBody');
-            const rowIdx = tbody.children.length + 1;
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="text-align:center;color:#94a3b8;font-size:12px;">${rowIdx}</td>
-                <td><input type="text" class="filter-input batch-number" placeholder="編號..." onchange="handleBatchNumberChange(this)" style="font-family:monospace;"></td>
-                <td><textarea class="filter-input batch-content" rows="1" placeholder="內容..." style="resize:vertical;"></textarea></td>
-                <td><input type="text" class="filter-input batch-year" style="background:#f1f5f9;color:#64748b;" readonly></td>
-                <td><input type="text" class="filter-input batch-unit" style="background:#f1f5f9;color:#64748b;" readonly></td>
-                <td><select class="filter-select batch-division"><option value="">-</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="安全">安全</option><option value="審核">審核</option><option value="災防">災防</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option></select></td>
-                <td><select class="filter-select batch-inspection"><option value="">-</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option></select></td>
-                <td><select class="filter-select batch-kind"><option value="">-</option><option value="N">缺失</option><option value="O">觀察</option><option value="R">建議</option></select></td>
-                <td><select class="filter-select batch-status"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></td>
-                <td style="text-align:center;"><button class="btn btn-danger btn-sm" onclick="removeBatchRow(this)" style="padding:4px 8px;">×</button></td>
-            `;
-            tbody.appendChild(tr);
-        }
-
-        function removeBatchRow(btn) {
-            const tr = btn.closest('tr');
-            if (document.querySelectorAll('#batchGridBody tr').length > 1) {
-                tr.remove();
-                // Re-index
-                document.querySelectorAll('#batchGridBody tr').forEach((row, idx) => {
-                    row.cells[0].innerText = idx + 1;
-                });
-            } else {
-                showToast('至少需保留一列', 'error');
-            }
-        }
-
-        function handleBatchNumberChange(input) {
-            const tr = input.closest('tr');
-            const val = input.value.trim();
-            if (!val) return;
-
-            const info = parseItemNumber(val);
-            if (info) {
-                if (info.yearRoc) tr.querySelector('.batch-year').value = info.yearRoc;
-                if (info.orgCode) {
-                    const name = ORG_MAP[info.orgCode] || info.orgCode;
-                    if (name && name !== '?') tr.querySelector('.batch-unit').value = name;
-                }
-                if (info.divCode) {
-                    const divName = DIVISION_MAP[info.divCode];
-                    if (divName) tr.querySelector('.batch-division').value = divName;
-                }
-                if (info.inspectCode) {
-                    const inspectName = INSPECTION_MAP[info.inspectCode];
-                    if (inspectName) tr.querySelector('.batch-inspection').value = inspectName;
-                }
-                if (info.kindCode) {
-                    tr.querySelector('.batch-kind').value = info.kindCode;
-                }
-            }
-        }
-
-        async function saveBatchItems() {
-            const planName = document.getElementById('batchPlanName').value.trim();
-            const issueDate = document.getElementById('batchIssueDate').value.trim();
-
-            if (!planName) return showToast('請填寫檢查計畫名稱', 'error');
-            if (!issueDate) return showToast('請填寫初次發函日期', 'error');
-
-            const rows = document.querySelectorAll('#batchGridBody tr');
-            const items = [];
-            let hasError = false;
-
-            rows.forEach((tr, idx) => {
-                const number = tr.querySelector('.batch-number').value.trim();
-                const content = tr.querySelector('.batch-content').value.trim();
-
-                // Skip empty rows
-                if (!number && !content) return;
-
-                if (!number) {
-                    showToast(`第 ${idx + 1} 列缺少編號`, 'error');
-                    hasError = true;
-                    return;
-                }
-
-                const year = tr.querySelector('.batch-year').value.trim();
-                const unit = tr.querySelector('.batch-unit').value.trim();
-
-                if (!year || !unit) {
-                    showToast(`第 ${idx + 1} 列的年度或機構未能自動判別，請確認編號格式`, 'error');
-                    hasError = true;
-                    return;
-                }
-
-                items.push({
-                    number,
-                    year,
-                    unit,
-                    content,
-                    status: tr.querySelector('.batch-status').value,
-                    itemKindCode: tr.querySelector('.batch-kind').value,
-                    divisionName: tr.querySelector('.batch-division').value,
-                    inspectionCategoryName: tr.querySelector('.batch-inspection').value,
-                    planName: planName,
-                    issueDate: issueDate,
-                    scheme: 'BATCH'
-                });
-            });
-
-            if (hasError) return;
-            if (items.length === 0) return showToast('請至少輸入一筆有效資料', 'error');
-
-            if (!confirm(`確定要批次新增 ${items.length} 筆資料嗎？\n計畫：${planName}`)) return;
-
-            try {
-                const res = await fetch('/api/issues/import', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        data: items,
-                        round: 1,
-                        reviewDate: '',
-                        replyDate: ''
-                    })
-                });
-
-                if (res.ok) {
-                    showToast('批次新增成功！');
-                    initBatchGrid(); // Reset grid
-                    document.getElementById('batchPlanName').value = '';
-                    document.getElementById('batchIssueDate').value = '';
-                    loadIssuesPage(1);
-                    loadPlanOptions();
-                } else {
-                    const j = await res.json();
-                    showToast('新增失敗: ' + (j.error || '不明錯誤'), 'error');
-                }
-            } catch (e) {
-                showToast('Error: ' + e.message, 'error');
-            }
-        }
-
-        function autoFillFromNumber() {
-            const val = document.getElementById('manualNumber').value;
-            const info = parseItemNumber(val);
-            if (info) {
-                if (info.yearRoc) document.getElementById('manualYear').value = info.yearRoc;
-                if (info.orgCode) {
-                    const name = ORG_MAP[info.orgCode] || info.orgCode;
-                    if (name && name !== '?') document.getElementById('manualUnit').value = name;
-                }
-                if (info.divCode) {
-                    const divName = DIVISION_MAP[info.divCode];
-                    if (divName) document.getElementById('manualDivision').value = divName;
-                }
-                if (info.inspectCode) {
-                    const inspectName = INSPECTION_MAP[info.inspectCode];
-                    if (inspectName) document.getElementById('manualInspection').value = inspectName;
-                }
-                if (info.kindCode) {
-                    document.getElementById('manualKind').value = info.kindCode;
-                }
-            }
-        }
-
-        async function submitManualIssue() {
-            const number = document.getElementById('manualNumber').value.trim();
-            const year = document.getElementById('manualYear').value.trim();
-            const unit = document.getElementById('manualUnit').value.trim();
-            const division = document.getElementById('manualDivision').value;
-            const inspection = document.getElementById('manualInspection').value;
-            const kind = document.getElementById('manualKind').value;
-
-            const planName = document.getElementById('manualPlanName').value.trim();
-            const issueDate = document.getElementById('manualIssueDate').value.trim();
-            const continuousMode = document.getElementById('manualContinuousMode').checked;
-
-            const status = document.getElementById('manualStatus').value;
-            const content = document.getElementById('manualContent').value.trim();
-            if (!number || !year || !unit || !content) return showToast('請填寫所有必填欄位', 'error');
-
-            const payload = {
-                data: [{
-                    number, year, unit, content, status,
-                    itemKindCode: kind,
-                    divisionName: division,
-                    inspectionCategoryName: inspection,
-                    planName: planName,
-                    issueDate: issueDate,
-                    scheme: 'MANUAL'
-                }],
-                round: 1, reviewDate: '', replyDate: ''
-            };
-
-            try {
-                const res = await fetch('/api/issues/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (res.ok) {
-                    showToast('新增成功');
-
-                    if (continuousMode) {
-                        document.getElementById('manualNumber').value = '';
-                        document.getElementById('manualKind').value = '';
-                        document.getElementById('manualContent').value = '';
-                        document.getElementById('manualNumber').focus();
-                    } else {
-                        document.getElementById('manualNumber').value = '';
-                        document.getElementById('manualYear').value = '';
-                        document.getElementById('manualUnit').value = '';
-                        document.getElementById('manualDivision').value = '';
-                        document.getElementById('manualInspection').value = '';
-                        document.getElementById('manualKind').value = '';
-                        document.getElementById('manualContent').value = '';
-                        document.getElementById('manualPlanName').value = '';
-                        document.getElementById('manualIssueDate').value = '';
-                    }
-
-                    loadIssuesPage(1);
-                    loadPlanOptions();
-                } else { showToast('新增失敗', 'error'); }
-            } catch (e) { showToast('Error: ' + e.message, 'error'); }
-        }
-
-        async function exportAllIssues() {
-            try {
-                const exportScope = document.querySelector('input[name="exportScope"]:checked').value;
-                const exportFormat = document.querySelector('input[name="exportFormat"]:checked').value;
-                showToast('準備匯出中，請稍候...');
-                const res = await fetch('/api/issues?page=1&pageSize=10000&sortField=created_at&sortDir=desc');
-                if (!res.ok) throw new Error('取得資料失敗');
-                const json = await res.json();
-                const data = json.data || [];
-                if (data.length === 0) return showToast('無資料可匯出', 'error');
-
-                if (exportFormat === 'json') {
-                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `SMS_Backup_${new Date().toISOString().slice(0, 10)}.json`; document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('JSON 匯出完成'); return;
-                }
-
-                let csvContent = '\uFEFF'; const clean = (t) => `"${String(t || '').replace(/"/g, '""').replace(/<[^>]*>/g, '').trim()}"`;
-
-                const baseHeader = "編號,年度,機構,分組,檢查種類,類型,狀態,事項內容";
-
-                if (exportScope === 'latest') {
-                    csvContent += baseHeader + ",最新辦理情形,最新審查意見\n";
-                    data.forEach(item => {
-                        let latestH = '', latestR = '';
-                        for (let i = 20; i >= 1; i--) { if (!latestH && (item[i === 1 ? 'handling' : `handling${i}`])) latestH = item[i === 1 ? 'handling' : `handling${i}`]; if (!latestR && (item[i === 1 ? 'review' : `review${i}`])) latestR = item[i === 1 ? 'review' : `review${i}`]; }
-
-                        csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(latestH)},${clean(latestR)}\n`;
-                    });
-                } else {
-                    csvContent += baseHeader + ",完整辦理情形歷程,完整審查意見歷程\n";
-                    data.forEach(item => {
-                        let fullH = [], fullR = [];
-                        for (let i = 1; i <= 20; i++) {
-                            const valH = item[i === 1 ? 'handling' : `handling${i}`], valR = item[i === 1 ? 'review' : `review${i}`];
-                            if (valH) fullH.push(`[第${i}次] ${stripHtml(valH)}`); if (valR) fullR.push(`[第${i}次] ${stripHtml(valR)}`);
-                        }
-                        const joinedH = fullH.length > 0 ? fullH.join("\n-------------------\n") : "";
-                        const joinedR = fullR.length > 0 ? fullR.join("\n-------------------\n") : "";
-
-                        csvContent += `${clean(item.number)},${clean(item.year)},${clean(item.unit)},${clean(item.divisionName)},${clean(item.inspectionCategoryName)},${clean(item.category)},${clean(item.status)},${clean(item.content)},${clean(joinedH)},${clean(joinedR)}\n`;
-                    });
-                }
-                const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }))); const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory'; link.setAttribute("download", `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0, 10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); showToast('CSV 匯出完成');
-            } catch (e) { showToast('匯出失敗: ' + e.message, 'error'); }
-        }
-
-        // --- User modal submit & password strength ---
-        document.getElementById('uPwd')?.addEventListener('input', updatePwdStrength); document.getElementById('uPwdConfirm')?.addEventListener('input', updatePwdStrength);
-        function updatePwdStrength() { const p = document.getElementById('uPwd').value || ''; const conf = document.getElementById('uPwdConfirm').value || ''; let score = 0; if (p.length >= 8) score++; if (/[A-Z]/.test(p)) score++; if (/[0-9]/.test(p)) score++; if (/[^A-Za-z0-9]/.test(p)) score++; const texts = ['弱', '偏弱', '一般', '良好', '強']; document.getElementById('pwdStrength').innerText = `密碼強度: ${texts[Math.min(score, 4)]} ${conf && p !== conf ? '(密碼不相符)' : ''}`; }
-
-        // User CRUD
-        async function openUserModal(mode, id) { const m = document.getElementById('userModal'), t = document.getElementById('userModalTitle'), e = document.getElementById('uEmail'); if (mode === 'create') { t.innerText = '新增'; document.getElementById('targetUserId').value = ''; document.getElementById('uName').value = ''; e.value = ''; e.disabled = false; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('pwdHint').innerText = ''; document.getElementById('uRole').value = 'viewer'; } else { const u = userList.find(x => x.id === id) || {}; t.innerText = '編輯'; document.getElementById('targetUserId').value = u.id || ''; document.getElementById('uName').value = u.name || ''; e.value = u.username || ''; e.disabled = true; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdHint').innerText = '(留空不改)'; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('uRole').value = u.role || 'viewer'; } m.classList.add('open'); }
-        async function submitUser() { const id = document.getElementById('targetUserId').value, name = document.getElementById('uName').value, email = document.getElementById('uEmail').value, pwd = document.getElementById('uPwd').value, pwdConfirm = document.getElementById('uPwdConfirm').value, role = document.getElementById('uRole').value; if (!id) { if (!email) return showToast('請輸入帳號', 'error'); if (!pwd) return showToast('請輸入密碼', 'error'); if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: email, name, password: pwd, role }) }); const j = await res.json(); if (res.ok) { showToast('新增成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(1); } else showToast(j.error || '新增失敗', 'error'); } else { const payload = { name, role }; if (pwd) { if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); payload.password = pwd; } const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const j = await res.json(); if (res.ok) { showToast('更新成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(usersPage); } else showToast(j.error || '更新失敗', 'error'); } }
-        async function deleteUser(id) { if (!confirm('確定?')) return; const res = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if (res.ok) { showToast('刪除成功'); loadUsersPage(1); } else showToast('刪除失敗', 'error'); }
-
-        // Profile
-        function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
-        async function submitProfile() { const name = document.getElementById('myProfileName').value, pwd = document.getElementById('myProfilePwd').value; try { const res = await fetch('/api/auth/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password: pwd }) }); if (res.ok) { showToast('更新成功，請重新登入'); document.getElementById('profileModal').classList.remove('open'); logout(); } else { const j = await res.json(); showToast(j.error || '更新失敗', 'error'); } } catch (e) { showToast('更新失敗', 'error'); } }
-
-        function toggleEditMode(edit) { document.getElementById('viewModeContent').classList.toggle('hidden', edit); document.getElementById('editModeContent').classList.toggle('hidden', !edit); document.getElementById('drawerTitle').innerText = edit ? "編輯事項" : "詳細資料"; if (edit) { document.getElementById('editId').value = currentEditItem.id; document.getElementById('editHeaderNumber').innerText = currentEditItem.number; document.getElementById('editHeaderYear').innerText = currentEditItem.year + '年'; document.getElementById('editHeaderUnit').innerText = currentEditItem.unit; const st = (currentEditItem.status === 'Open' || !currentEditItem.status) ? '持續列管' : currentEditItem.status; document.getElementById('editStatus').value = st; document.getElementById('editRound').value = 1; document.getElementById('editContentDisplay').innerHTML = stripHtml(currentEditItem.content); loadRoundData(); document.getElementById('aiBox').style.display = 'none'; document.getElementById('aiPreviewText').innerText = ''; } }
-        function initEditForm() { const s = document.getElementById('editRound'); if (!s || s.options.length > 0) return; for (let i = 1; i <= 20; i++) { const o = document.createElement('option'); o.value = i; o.text = `第 ${i} 次`; s.add(o); } }
-
-        function openDetail(id, isEdit) {
-            currentEditItem = currentData.find(d => String(d.id) === String(id)); if (!currentEditItem) return;
-            document.getElementById('dNumber').textContent = currentEditItem.number; document.getElementById('dUnit').textContent = currentEditItem.unit; document.getElementById('dContent').innerHTML = currentEditItem.content;
-
-            // Plan Info
-            document.getElementById('dPlanName').textContent = currentEditItem.plan_name || currentEditItem.planName || '(未設定)';
-            document.getElementById('dIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
-
-            // Category Info
-            const divName = currentEditItem.divisionName || currentEditItem.division_name || '-';
-            const insName = currentEditItem.inspectionCategoryName || currentEditItem.inspection_category_name || '-';
-            const kindName = currentEditItem.category || '-';
-            document.getElementById('dCategoryInfo').textContent = `${divName} / ${insName} / ${kindName}`;
-
-            // Status
-            const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self');
-            document.getElementById('dStatus').innerHTML = currentEditItem.status && currentEditItem.status !== 'Open' ? `<span class="badge ${st}">${currentEditItem.status}</span>` : '(未設定)';
-
-            let h = '';
-            let firstRecord = true;
-            for (let i = 20; i >= 1; i--) {
-                const suffix = i === 1 ? '' : i;
-                const ha = currentEditItem['handling' + suffix], re = currentEditItem['review' + suffix];
-                const replyDate = currentEditItem['reply_date_r' + i];
-                const responseDate = currentEditItem['response_date_r' + i];
-
-                if (ha || re) {
-                    const latestBadge = firstRecord ? '<span class="badge new" style="margin-left:8px;font-size:11px;">最新進度</span>' : '';
-
-                    let dateInfo = '';
-                    if (replyDate || responseDate) {
-                        dateInfo = `<div style="margin-bottom:12px;">`;
-                        if (replyDate) dateInfo += `<span class="timeline-date-tag">🏢 機構回復: ${replyDate}</span> `;
-                        if (responseDate) dateInfo += `<span class="timeline-date-tag">🏛️ 機關函復: ${responseDate}</span>`;
-                        dateInfo += `</div>`;
-                    }
-
-                    h += `<div class="timeline-item">
-                        <div class="timeline-dot"></div>
-                        <div class="timeline-title">第 ${i} 次辦理情形 ${latestBadge}</div>
-                        ${dateInfo}
-                        ${ha ? `<div style="background:#f8fafc;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#334155;border:1px solid #e2e8f0;margin-bottom:12px;">${ha}</div>` : ''}
-                        ${re ? `<div style="background:#fff;padding:16px;border-radius:8px;font-size:14px;line-height:1.6;color:#334155;border:1px solid #e2e8f0;border-left:3px solid var(--primary);"><strong>審查意見：</strong><br>${re}</div>` : ''}
-                    </div>`;
-                    firstRecord = false;
-                }
-            }
-
-            const timelineHtml = `<div class="timeline-line"></div>` + (h || '<div style="color:#999;padding-left:20px;">無歷程紀錄</div>');
-            document.getElementById('dTimeline').innerHTML = timelineHtml;
-
-            const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role); const canDelete = ['admin', 'manager'].includes(currentUser.role); document.getElementById('editBtn').classList.toggle('hidden', !canEdit); document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit);
-        }
-        function logout() { fetch('/api/auth/logout', { method: 'POST' }).then(() => window.location.reload()); }
-        function closeDrawer() { document.getElementById('drawerBackdrop').classList.remove('open'); document.getElementById('detailDrawer').classList.remove('open'); }
-        function initListeners() { document.getElementById('filterKeyword').addEventListener('keyup', (e) => { if (e.key === 'Enter') applyFilters() }); document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer); }
-        function onToggleSidebar() { const panel = document.getElementById('filtersPanel'), backdrop = document.getElementById('filterBackdrop'); if (panel.classList.contains('open')) { panel.classList.remove('open'); backdrop.classList.remove('visible'); setTimeout(() => backdrop.style.display = 'none', 300); } else { backdrop.style.display = 'block'; requestAnimationFrame(() => { panel.classList.add('open'); backdrop.classList.add('visible'); }); } }
-
-        function updateChartsData(stats) {
-            if (!charts.status || !charts.unit || !charts.trend) return;
-            if (!stats) return;
-            const colorMap = { '持續列管': '#ef4444', '解除列管': '#10b981', '自行列管': '#f59e0b' };
-            const sLabels = stats.status.map(x => x.status).filter(s => s && s !== 'Open');
-            const sData = stats.status.filter(x => x.status && x.status !== 'Open').map(x => parseInt(x.count));
-            const sColors = sLabels.map(label => colorMap[label] || '#cbd5e1');
-            charts.status.data = { labels: sLabels, datasets: [{ data: sData, backgroundColor: sColors }] }; charts.status.update();
-            const uSorted = stats.unit.sort((a, b) => parseInt(b.count) - parseInt(a.count)); charts.unit.data = { labels: uSorted.map(x => x.unit), datasets: [{ label: '案件', data: uSorted.map(x => parseInt(x.count)), backgroundColor: '#0ea5e9', borderRadius: 8 }] }; charts.unit.update();
-            const tSorted = stats.year.sort((a, b) => a.year.localeCompare(b.year)); charts.trend.data = { labels: tSorted.map(x => x.year), datasets: [{ label: '開立事項數', data: tSorted.map(x => parseInt(x.count)), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', tension: 0.3, fill: true }] }; charts.trend.update();
-        }
-
-        function initCharts() {
-            try {
-                const c1 = document.getElementById('statusChart'), c2 = document.getElementById('unitChart'), c3 = document.getElementById('trendChart');
-                if (c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if (!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#333', font: { weight: 'bold' } } } } }); }
-                if (c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); }
-                if (c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } } }); }
-                if (cachedGlobalStats) updateChartsData(cachedGlobalStats);
-            } catch (e) { console.error("Chart Init Error:", e); }
-        }
-        async function runAiInEdit(btn) { btn.disabled = true; btn.innerText = 'AI 分析中...'; const handlingTxt = document.getElementById('editHandling').value, r = [{ handling: handlingTxt, review: '(待審查)' }]; try { if (!currentEditItem || !currentEditItem.content) throw new Error('找不到事項內容'); const cleanContent = stripHtml(currentEditItem.content); const res = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: cleanContent, rounds: r }) }); const j = await res.json(); if (!res.ok) throw new Error(j.error || '未知錯誤'); if (!j.fulfill) throw new Error('AI 回傳格式錯誤'); const isPass = j.fulfill.includes('Yes') || j.fulfill.includes('是'); document.getElementById('aiResBadge').innerHTML = `<strong style="color:${isPass ? '#10b981' : '#ef4444'}">[${j.fulfill}]</strong>`; document.getElementById('aiPreviewText').innerText = j.reason; document.getElementById('aiBox').style.display = 'block'; } catch (e) { showToast('AI 失敗: ' + e.message, 'error'); console.error(e); } finally { btn.disabled = false; btn.innerText = '🤖 AI 智能分析'; } }
-        function applyAiSuggestion() { const reason = document.getElementById('aiPreviewText').innerText; if (reason) { const ta = document.getElementById('editReview'); ta.value = ta.value ? (ta.value + "\n" + reason) : reason; document.getElementById('aiBox').style.display = 'none'; } }
-        function toggleAllCheckboxes() { const master = document.getElementById('selectAll'); document.querySelectorAll('.issue-check').forEach(cb => cb.checked = master.checked); updateBatchUI(); }
-        function updateBatchUI() { const checked = document.querySelectorAll('.issue-check:checked'), count = checked.length, container = document.getElementById('batchActionContainer'); if (count > 0) { container.style.display = 'block'; document.getElementById('selectedCountBadge').innerText = `(${count})`; } else { container.style.display = 'none'; } }
-        async function batchDeleteIssues() { const checked = document.querySelectorAll('.issue-check:checked'), ids = Array.from(checked).map(cb => cb.value); if (ids.length === 0) return showToast('請先勾選要刪除的項目', 'error'); if (!confirm(`確定要刪除這 ${ids.length} 筆資料嗎？`)) return; try { const res = await fetch('/api/issues/batch-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); const result = await res.json(); if (result.success) { showToast(`成功刪除 ${ids.length} 筆資料`); loadIssuesPage(1); document.getElementById('selectAll').checked = false; updateBatchUI(); } else { showToast('刪除失敗: ' + result.error, 'error'); } } catch (e) { showToast('連線錯誤', 'error'); } }
-
-        async function saveEdit() {
-            const id = document.getElementById('editId').value;
-            const round = document.getElementById('editRound').value;
-            const replyDate = document.getElementById('editReplyDate').value;
-            const responseDate = document.getElementById('editResponseDate').value;
-
-            const payload = {
-                status: document.getElementById('editStatus').value,
-                round: round,
-                handling: document.getElementById('editHandling').value,
-                review: document.getElementById('editReview').value,
-                replyDate: replyDate,
-                responseDate: responseDate
-            };
-
-            const res = await fetch(`/api/issues/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (res.ok) { showToast('儲存成功'); await loadIssuesPage(issuesPage); toggleEditMode(false); openDetail(id, false); } else showToast('儲存失敗', 'error');
-        }
-
-        async function deleteIssue(id) { if (!confirm('確定要刪除此事項嗎？此操作無法復原。')) return; try { const res = await fetch(`/api/issues/${id}`, { method: 'DELETE' }); if (res.ok) { showToast('已刪除'); await loadIssuesPage(issuesPage); closeDrawer(); } else showToast('刪除失敗', 'error'); } catch (e) { showToast('Error: ' + e.message, 'error'); } }
-        async function deleteIssueFromDrawer() { if (!currentEditItem) return; await deleteIssue(currentEditItem.id); closeDrawer(); }
-
-        function switchView(id) { document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.sidebar-btn').forEach(e => e.classList.remove('active')); const btn = document.getElementById(`btn-${id}`); if (btn) btn.classList.add('active'); const panel = document.getElementById('filtersPanel'); if (panel.classList.contains('open')) { onToggleSidebar(); } }
-
-        function loadRoundData() {
-            const r = parseInt(document.getElementById('editRound').value), s = r === 1 ? '' : r;
-            const rawHandling = currentEditItem['handling' + s] || '';
-            const rawReview = currentEditItem['review' + s] || '';
-            document.getElementById('editHandling').value = formatHtmlToText(rawHandling);
-            document.getElementById('editReview').value = formatHtmlToText(rawReview);
-
-            document.getElementById('editReplyDate').value = currentEditItem['reply_date_r' + r] || currentEditItem['replyDate_r' + r] || '';
-            document.getElementById('editResponseDate').value = currentEditItem['response_date_r' + r] || currentEditItem['responseDate_r' + r] || '';
-
-            const prevBox = document.getElementById('prevReviewBox'), prevText = document.getElementById('prevReviewText'); if (r > 1) { const prevS = (r - 1) === 1 ? '' : (r - 1), prevReviewContent = currentEditItem['review' + prevS]; if (prevReviewContent) { document.getElementById('prevRoundNum').innerText = `第 ${r - 1} 次`; prevText.innerText = formatHtmlToText(prevReviewContent); prevBox.style.display = 'block'; } else { prevBox.style.display = 'none'; } } else { prevBox.style.display = 'none'; }
-        }
-    </script>
+    <!-- 批次模式事項內容編輯 Modal -->
+    <div class="modal-overlay" id="batchContentModal" style="display:none;">
+        <div class="modal-box" style="max-width:800px; width:95%; max-height:85vh; overflow:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center; margin-bottom:20px;">
+                <h3 style="margin:0;">編輯事項內容 - <span id="batchContentModalNumber"></span></h3>
+                <button onclick="closeBatchContentModal()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; font-size:14px; font-weight:500; color:#334155; margin-bottom:8px;">事項內容：</label>
+                <textarea id="batchContentModalTextarea" class="filter-input" 
+                    style="width:100%; min-height:200px; padding:12px; font-size:14px; line-height:1.6; resize:vertical;"
+                    placeholder="請輸入事項內容..."></textarea>
+            </div>
+            <div style="display:flex; gap:12px; margin-top:24px; padding-top:20px; border-top:1px solid #e2e8f0;">
+                <button class="btn btn-primary" onclick="saveBatchContent()" style="flex:1; padding:12px;">儲存</button>
+                <button class="btn btn-outline" onclick="closeBatchContentModal()" style="flex:1; padding:12px;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批次模式辦理情形管理 Modal -->
+    <div class="modal-overlay" id="batchHandlingModal">
+        <div class="modal-box" style="max-width:900px; width:95%; max-height:85vh; overflow:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center; margin-bottom:20px;">
+                <h3 style="margin:0;">管理辦理情形 - <span id="batchHandlingModalNumber"></span></h3>
+                <button onclick="closeBatchHandlingModal()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button>
+            </div>
+            <div style="background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:20px; border:1px solid #e2e8f0;">
+                <div style="font-size:13px; color:#64748b;">
+                    💡 可為此筆事項新增多次辦理情形（選填）
+                </div>
+            </div>
+            <div style="margin-bottom:20px; display:flex; justify-content:flex-end;">
+                <button type="button" class="btn btn-outline" onclick="addBatchHandlingRound()" style="padding:8px 16px; font-size:13px;">
+                    ➕ 新增辦理情形
+                </button>
+            </div>
+            <div id="batchHandlingRoundsContainer" style="margin-bottom:20px;">
+                <!-- 辦理情形輪次將由 JavaScript 動態生成 -->
+            </div>
+            <div style="display:flex; gap:12px; margin-top:24px; padding-top:20px; border-top:1px solid #e2e8f0;">
+                <button class="btn btn-primary" onclick="saveBatchHandlingRounds()" style="flex:1; padding:12px;">💾 儲存辦理情形</button>
+                <button class="btn btn-outline" onclick="closeBatchHandlingModal()" style="flex:1; padding:12px;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自訂確認對話框 Modal -->
+    <div class="modal-overlay" id="confirmModal" style="display:none;">
+        <div class="modal-box" style="max-width:500px; width:90%;">
+            <div style="display:flex;justify-content:space-between;align-items:center; margin-bottom:20px;">
+                <h3 style="margin:0; color:#334155;">確認操作</h3>
+                <button onclick="closeConfirmModal()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button>
+            </div>
+            <div id="confirmModalMessage" style="font-size:15px; line-height:1.6; color:#475569; margin-bottom:24px; white-space: pre-line;">
+                <!-- 訊息內容將由 JavaScript 動態填入 -->
+            </div>
+            <div style="display:flex; gap:12px; margin-top:24px;">
+                <button class="btn btn-primary" id="confirmModalConfirmBtn" style="flex:1; padding:12px;">確認</button>
+                <button class="btn btn-outline" onclick="closeConfirmModal()" style="flex:1; padding:12px;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/scripts.js"></script>
 </body>
 
 </html>
