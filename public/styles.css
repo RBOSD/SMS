@@ -2342,6 +2342,13 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
+        /* 類型和狀態欄位的下拉選單 - 增加字體大小讓內容更易讀 */
+        #createBatchGridTable td:nth-child(8) select,
+        #createBatchGridTable td:nth-child(9) select {
+            font-size: 13px !important;
+            padding: 6px 8px !important;
+        }
+        
         /* 優化按鈕大小，確保在較小欄位中也能正常顯示 */
         #createBatchGridTable button {
             font-size: 11px;
@@ -2383,20 +2390,22 @@
             padding: 8px 4px !important;
         }
         
+        /* 機構欄位 - 減少寬度和空白 */
         #createBatchGridTable th:nth-child(5),
         #createBatchGridTable td:nth-child(5) {
-            width: 6%;
-            min-width: 70px;
-            max-width: 90px;
-            padding: 8px 4px !important;
+            width: 5%;
+            min-width: 60px;
+            max-width: 75px;
+            padding: 8px 3px !important;
         }
         
+        /* 分組欄位 - 減少寬度和空白 */
         #createBatchGridTable th:nth-child(6),
         #createBatchGridTable td:nth-child(6) {
-            width: 5.5%;
-            min-width: 65px;
-            max-width: 80px;
-            padding: 8px 4px !important;
+            width: 4.5%;
+            min-width: 55px;
+            max-width: 70px;
+            padding: 8px 3px !important;
         }
         
         #createBatchGridTable th:nth-child(7),
@@ -2407,20 +2416,22 @@
             padding: 8px 4px !important;
         }
         
+        /* 類型欄位 - 增加寬度讓內容顯示更大 */
         #createBatchGridTable th:nth-child(8),
         #createBatchGridTable td:nth-child(8) {
-            width: 4.5%;
-            min-width: 55px;
-            max-width: 70px;
-            padding: 8px 4px !important;
+            width: 6%;
+            min-width: 70px;
+            max-width: 85px;
+            padding: 8px 5px !important;
         }
         
+        /* 狀態欄位 - 增加寬度讓內容顯示更大 */
         #createBatchGridTable th:nth-child(9),
         #createBatchGridTable td:nth-child(9) {
-            width: 6.5%;
-            min-width: 75px;
-            max-width: 90px;
-            padding: 8px 4px !important;
+            width: 7.5%;
+            min-width: 85px;
+            max-width: 100px;
+            padding: 8px 5px !important;
         }
         
         #createBatchGridTable th:nth-child(10),
@@ -2440,7 +2451,7 @@
             padding: 8px 4px !important;
         }
         
-        /* 事項內容按鈕樣式 - 確保寬度不超出單元格，不會覆蓋其他欄位 */
+        /* 事項內容按鈕樣式 - 確保寬度不超出單元格，不會覆蓋其他欄位，顏色與其他欄位相同 */
         #createBatchGridTable .create-batch-content-btn {
             width: 100% !important;
             max-width: 100% !important;
@@ -2457,10 +2468,10 @@
             max-height: 150px !important;
             height: auto !important;
             border: 1px solid #cbd5e1 !important;
-            background: #ffffff !important;
+            background: #f8fafc !important;
             color: #334155 !important;
             transition: all 0.2s ease;
-            border-radius: 8px;
+            border-radius: 6px;
             font-size: 13px !important;
             line-height: 1.7 !important;
             display: flex !important;
@@ -2475,10 +2486,9 @@
         }
         
         #createBatchGridTable .create-batch-content-btn:hover {
-            border-color: #3b82f6 !important;
-            background: #eff6ff !important;
-            color: #1e40af !important;
-            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+            border-color: #94a3b8 !important;
+            background: #f1f5f9 !important;
+            color: #334155 !important;
         }
         
         #createBatchGridTable .create-batch-content-preview {
@@ -2502,11 +2512,11 @@
             max-height: calc(1.7em * 6) !important;
         }
         
-        /* 當有內容時，按鈕樣式改變 - 更清晰的視覺反饋 */
+        /* 當有內容時，按鈕樣式保持與其他欄位相同 */
         #createBatchGridTable .create-batch-content-btn.has-content {
-            border-color: #3b82f6 !important;
-            background: #eff6ff !important;
-            color: #1e40af !important;
+            border-color: #cbd5e1 !important;
+            background: #f8fafc !important;
+            color: #334155 !important;
             font-weight: 400;
         }
         
