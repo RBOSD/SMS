@@ -808,6 +808,43 @@
             return { name: value, year: '' };
         }
         
+        // 共用函數：載入計畫下的所有事項
+        async function loadIssuesByPlan(planValue, options = {}) {
+            const { showError = true, returnEmpty = false } = options;
+            try {
+                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
+                if (!res.ok) {
+                    if (showError) throw new Error('載入事項列表失敗');
+                    return null;
+                }
+                
+                const json = await res.json();
+                const issueList = json.data || [];
+                
+                if (issueList.length === 0) {
+                    if (showError) {
+                        showToast('該檢查計畫下尚無開立事項', 'error');
+                    }
+                    return returnEmpty ? [] : null;
+                }
+                
+                return issueList;
+            } catch (e) {
+                if (showError) {
+                    console.error('載入計畫事項失敗:', e);
+                    showToast('載入事項列表失敗', 'error');
+                }
+                return null;
+            }
+        }
+        
+        // 共用函數：從編號提取類別代碼
+        function extractKindCodeFromNumber(numberStr) {
+            if (!numberStr) return null;
+            const m = numberStr.match(/-([NOR])\d+$/i);
+            return m ? m[1].toUpperCase() : null;
+        }
+        
         // 批次建檔：當選擇計畫時，自動帶入年度
         async function handleBatchPlanChange() {
             const planValue = this.value;
@@ -1416,8 +1453,9 @@ if (dashboard) {
                     const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
 
                     let k = item.itemKindCode;
-                    const numStr = String(item.number || '');
-                    if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
+                    if (!k) {
+                        k = extractKindCodeFromNumber(item.number);
+                    }
 
                     let kindLabel = '';
                     if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
@@ -2602,17 +2640,8 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項
-                // 移除載入中的提示訊息，只保留錯誤訊息
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) throw new Error('載入事項列表失敗');
-                
-                const json = await res.json();
-                const issueList = json.data || [];
-                
-                if (issueList.length === 0) {
-                    showToast('該檢查計畫下尚無開立事項', 'error');
-                    return;
-                }
+                const issueList = await loadIssuesByPlan(planValue);
+                if (!issueList) return;
                 
                 const confirmed = await showConfirmModal(
                     `確定要批次設定第 ${round} 次辦理情形的回復日期為 ${replyDate} 嗎？\n\n將更新 ${issueList.length} 筆事項。`,
@@ -2773,13 +2802,8 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) return;
-                
-                const json = await res.json();
-                const issueList = json.data || [];
-                
-                if (issueList.length === 0) {
+                const issueList = await loadIssuesByPlan(planValue, { showError: false, returnEmpty: true });
+                if (!issueList || issueList.length === 0) {
                     // 沒有事項，預設為第1次
                     roundSelect.value = '1';
                     roundManualInput.value = '';
@@ -2905,17 +2929,9 @@ if (dashboard) {
             }
             
             try {
-                // 移除載入中的提示訊息，只保留錯誤訊息
-                
                 // 載入該計畫下的所有事項
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) throw new Error('載入事項列表失敗');
-                
-                const json = await res.json();
-                const issueList = json.data || [];
-                
-                if (issueList.length === 0) {
-                    // 移除無事項的提示訊息，只保留錯誤訊息
+                const issueList = await loadIssuesByPlan(planValue, { showError: false, returnEmpty: true });
+                if (!issueList || issueList.length === 0) {
                     return;
                 }
                 
@@ -3049,13 +3065,8 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) return;
-                
-                const json = await res.json();
-                const issueList = json.data || [];
-                
-                if (issueList.length === 0) {
+                const issueList = await loadIssuesByPlan(planValue, { showError: false, returnEmpty: true });
+                if (!issueList || issueList.length === 0) {
                     // 沒有事項，預設為第1次
                     roundSelect.value = '1';
                     roundManualInput.value = '';
@@ -5285,8 +5296,9 @@ if (dashboard) {
                 
                 // 顯示狀態與類型（缺失、觀察、建議）- 使用統一的字段獲取邏輯
                 let k = currentEditItem.item_kind_code || currentEditItem.itemKindCode;
-                const numStr = String(currentEditItem.number || '');
-                if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
+                if (!k) {
+                    k = extractKindCodeFromNumber(currentEditItem.number);
+                }
                 
                 let kindLabel = '';
                 if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
@@ -5399,8 +5411,9 @@ if (dashboard) {
 
             // Status and Kind (狀態與類型) - 使用與dCategoryInfo相同的邏輯
             let k = currentEditItem.item_kind_code || currentEditItem.itemKindCode;
-            const numStr = String(currentEditItem.number || '');
-            if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
+            if (!k) {
+                k = extractKindCodeFromNumber(currentEditItem.number);
+            }
             
             let kindLabel = '';
             if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
@@ -6039,11 +6052,7 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項（不顯示提示，因為已經確認有開立事項）
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) throw new Error('載入事項列表失敗');
-                
-                const json = await res.json();
-                yearEditIssueList = json.data || [];
+                yearEditIssueList = await loadIssuesByPlan(planValue, { showError: true, returnEmpty: true }) || [];
                 
                 // 對事項列表進行排序：先按類型（缺失N、觀察O、建議R），再按編號（數字小的在前）
                 if (yearEditIssueList.length > 0) {
@@ -6112,8 +6121,9 @@ if (dashboard) {
                 
                 // 顯示類型（缺失、觀察、建議）
                 let k = issue.itemKindCode;
-                const numStr = String(issue.number || '');
-                if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
+                if (!k) {
+                    k = extractKindCodeFromNumber(issue.number);
+                }
                 
                 let kindLabel = '';
                 if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
@@ -6267,17 +6277,8 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項
-                // 移除載入中的提示訊息，只保留錯誤訊息
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) throw new Error('載入事項列表失敗');
-                
-                const json = await res.json();
-                const issueList = json.data || [];
-                
-                if (issueList.length === 0) {
-                    showToast('該檢查計畫下尚無開立事項', 'error');
-                    return;
-                }
+                const issueList = await loadIssuesByPlan(planValue);
+                if (!issueList) return;
                 
                 // userInputResponseDate 已經在函數開始時從輸入框獲取並保存
                 
