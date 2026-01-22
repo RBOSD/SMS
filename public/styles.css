@@ -2214,7 +2214,7 @@
         #createBatchGridTable {
             table-layout: fixed !important;
             width: 100%;
-            min-width: 1150px;
+            min-width: 1000px;
             position: relative;
             border-collapse: separate;
             border-spacing: 0;
@@ -2342,11 +2342,23 @@
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
-        /* 類型和狀態欄位的下拉選單 - 增加字體大小讓內容更易讀 */
-        #createBatchGridTable td:nth-child(8) select,
+        /* 類型欄位的下拉選單 - 保持適當字體大小 */
+        #createBatchGridTable td:nth-child(8) select {
+            font-size: 12px !important;
+            padding: 5px 6px !important;
+        }
+        
+        /* 狀態欄位的下拉選單 - 增加字體大小讓內容更易讀 */
         #createBatchGridTable td:nth-child(9) select {
             font-size: 13px !important;
             padding: 6px 8px !important;
+        }
+        
+        /* 年度和機構欄位的輸入框 - 減少 padding */
+        #createBatchGridTable td:nth-child(4) input,
+        #createBatchGridTable td:nth-child(5) input {
+            padding: 5px 4px !important;
+            font-size: 12px !important;
         }
         
         /* 優化按鈕大小，確保在較小欄位中也能正常顯示 */
@@ -2382,21 +2394,22 @@
             padding: 8px 10px !important;
         }
         
+        /* 年度欄位 - 進一步減少寬度和空白 */
         #createBatchGridTable th:nth-child(4),
         #createBatchGridTable td:nth-child(4) {
-            width: 4.5%;
-            min-width: 55px;
-            max-width: 70px;
-            padding: 8px 4px !important;
+            width: 3.5%;
+            min-width: 45px;
+            max-width: 55px;
+            padding: 8px 2px !important;
         }
         
-        /* 機構欄位 - 減少寬度和空白 */
+        /* 機構欄位 - 進一步減少寬度和空白 */
         #createBatchGridTable th:nth-child(5),
         #createBatchGridTable td:nth-child(5) {
-            width: 5%;
-            min-width: 60px;
-            max-width: 75px;
-            padding: 8px 3px !important;
+            width: 4%;
+            min-width: 50px;
+            max-width: 65px;
+            padding: 8px 2px !important;
         }
         
         /* 分組欄位 - 減少寬度和空白 */
@@ -2416,13 +2429,13 @@
             padding: 8px 4px !important;
         }
         
-        /* 類型欄位 - 增加寬度讓內容顯示更大 */
+        /* 類型欄位 - 減少寬度和空白，但仍保持可讀性 */
         #createBatchGridTable th:nth-child(8),
         #createBatchGridTable td:nth-child(8) {
-            width: 6%;
-            min-width: 70px;
-            max-width: 85px;
-            padding: 8px 5px !important;
+            width: 5%;
+            min-width: 60px;
+            max-width: 75px;
+            padding: 8px 3px !important;
         }
         
         /* 狀態欄位 - 增加寬度讓內容顯示更大 */
@@ -2442,13 +2455,14 @@
             padding: 8px 4px !important;
         }
         
+        /* 操作欄位 - 確保能顯示出來 */
         #createBatchGridTable th:nth-child(11),
         #createBatchGridTable td:nth-child(11) {
             width: 3.5%;
             min-width: 40px;
             max-width: 50px;
             text-align: center;
-            padding: 8px 4px !important;
+            padding: 8px 2px !important;
         }
         
         /* 事項內容按鈕樣式 - 確保寬度不超出單元格，不會覆蓋其他欄位，顏色與其他欄位相同 */
