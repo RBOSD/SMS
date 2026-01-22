@@ -391,55 +391,57 @@
             </p>
         </div>
         
-        <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:16px;">
-            <button class="btn btn-primary" onclick="openPlanModal('create')">新增計畫</button>
-            <button class="btn btn-outline" onclick="openPlanImportModal()">📥 CSV 匯入</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="openPlanModal('create')">新增計畫</button>
+                <button class="btn btn-outline" onclick="openPlanImportModal()">📥 CSV 匯入</button>
+            </div>
         </div>
-            <div style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
-                <input id="planSearch" class="filter-input" placeholder="搜尋計畫名稱..." style="max-width:300px;"
-                    oninput="loadPlansPage(1)" autocomplete="off">
-                <select id="planYearFilter" class="filter-select" style="width:120px;" onchange="loadPlansPage(1)">
-                    <option value="">全部年度</option>
+        
+        <div style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
+            <input id="planSearch" class="filter-input" placeholder="搜尋計畫名稱..." style="max-width:300px;"
+                oninput="loadPlansPage(1)" autocomplete="off">
+            <select id="planYearFilter" class="filter-select" style="width:120px;" onchange="loadPlansPage(1)">
+                <option value="">全部年度</option>
+            </select>
+            <div style="margin-left:auto;">
+                <button class="btn btn-outline" onclick="loadPlansPage(1)">搜尋</button>
+            </div>
+        </div>
+        
+        <div class="control-row-actions" style="padding:16px; border-bottom:1px solid var(--border);">
+            <div style="display:flex; gap:12px; align-items:center;">
+                <div id="plansBatchActionContainer" style="display:none;">
+                    <button class="btn btn-danger btn-sm" onclick="batchDeletePlans()">
+                        批次刪除 <span id="selectedPlansCountBadge"></span>
+                    </button>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <select id="plansPageSize" class="page-size-select" onchange="loadPlansPage(1)">
+                    <option value="10">10 筆/頁</option>
+                    <option value="20" selected>20 筆/頁</option>
+                    <option value="50">50 筆/頁</option>
                 </select>
-                <div style="margin-left:auto;">
-                    <button class="btn btn-outline" onclick="loadPlansPage(1)">搜尋</button>
-                </div>
+                <div id="plansPaginationTop" class="pagination-bar"></div>
             </div>
-            
-            <div class="control-row-actions" style="padding:16px; border-bottom:1px solid var(--border);">
-                <div style="display:flex; gap:12px; align-items:center;">
-                    <div id="plansBatchActionContainer" style="display:none;">
-                        <button class="btn btn-danger btn-sm" onclick="batchDeletePlans()">
-                            批次刪除 <span id="selectedPlansCountBadge"></span>
-                        </button>
-                    </div>
-                </div>
-                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                    <select id="plansPageSize" class="page-size-select" onchange="loadPlansPage(1)">
-                        <option value="10">10 筆/頁</option>
-                        <option value="20" selected>20 筆/頁</option>
-                        <option value="50">50 筆/頁</option>
-                    </select>
-                    <div id="plansPaginationTop" class="pagination-bar"></div>
-                </div>
-            </div>
-            <div class="data-container">
-                <table class="user-table">
-                    <thead>
-                        <tr>
-                            <th style="width:50px;"><input type="checkbox" id="selectAllPlans" onchange="toggleSelectAllPlans()"></th>
-                            <th onclick="plansSortBy('year')">年度</th>
-                            <th style="padding:16px;" onclick="plansSortBy('name')">計畫名稱</th>
-                            <th>事項數量</th>
-                            <th onclick="plansSortBy('created_at')">建立時間</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="plansTableBody"></tbody>
-                </table>
-            </div>
-            <div id="plansPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
         </div>
+        <div class="data-container">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th style="width:50px;"><input type="checkbox" id="selectAllPlans" onchange="toggleSelectAllPlans()"></th>
+                        <th onclick="plansSortBy('year')">年度</th>
+                        <th style="padding:16px;" onclick="plansSortBy('name')">計畫名稱</th>
+                        <th>事項數量</th>
+                        <th onclick="plansSortBy('created_at')">建立時間</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="plansTableBody"></tbody>
+            </table>
+        </div>
+        <div id="plansPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
     </div>
 
     <!-- Plan Modal -->
