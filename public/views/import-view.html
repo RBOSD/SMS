@@ -164,19 +164,11 @@
     <!-- Sub-tab 2: Create Issue (合併批次建檔和手動輸入) -->
     <div id="subtab-issues-create" class="hidden">
         <div class="main-card" style="width:100%;">
-            <!-- 模式切換 -->
-            <div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
-                <div style="flex:1;">
-                    <span style="font-weight:700; color:#334155; font-size:16px;">📝 開立事項建檔</span>
-                    <div style="font-size:13px; color:#64748b; margin-top:4px;">
-                        <span id="createModeDescription">選擇計畫後，可連續輸入多筆事項。系統會自動根據編號判斷年度、機構與分組。可同時新增事項內容及多次辦理情形。</span>
-                    </div>
-                </div>
-                <div style="display:flex; gap:8px; background:#f8fafc; padding:4px; border-radius:8px; border:1px solid #e2e8f0;">
-                    <button id="createModeSingle" class="btn btn-outline" onclick="switchCreateMode('single')" 
-                        style="padding:8px 16px; font-size:13px; border-radius:6px;">單筆模式</button>
-                    <button id="createModeBatch" class="btn btn-primary" onclick="switchCreateMode('batch')" 
-                        style="padding:8px 16px; font-size:13px; border-radius:6px;">批次模式</button>
+            <!-- 標題 -->
+            <div style="margin-bottom:20px;">
+                <span style="font-weight:700; color:#334155; font-size:16px;">📝 開立事項建檔</span>
+                <div style="font-size:13px; color:#64748b; margin-top:4px;">
+                    選擇計畫後，可連續輸入多筆事項。系統會自動根據編號判斷年度、機構與分組。可同時新增事項內容及多次辦理情形。
                 </div>
             </div>
 
@@ -200,7 +192,7 @@
                             style="background:white;" autocomplete="off">
                     </div>
                 </div>
-                <!-- 批次模式：載入現有事項按鈕 -->
+                <!-- 載入現有事項按鈕 -->
                 <div id="createLoadExistingContainer" style="display:none;">
                     <button class="btn btn-outline btn-sm" onclick="loadExistingIssuesToBatch()" 
                         style="padding:8px 16px; font-size:13px;">
@@ -212,116 +204,8 @@
                 </div>
             </div>
 
-            <!-- 單筆模式 -->
-            <div id="createSingleMode" style="display:block;">
-                <div style="background:white; padding:24px; border-radius:12px; border:1px solid #e2e8f0;">
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
-                        <div>
-                            <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
-                                事項編號 <span style="color:#ef4444;">*</span>
-                            </label>
-                            <input type="text" id="createNumber" class="filter-input" 
-                                placeholder="例如: 113-TRA-1-A01-N01" oninput="autoFillFromNumberCreate()" autocomplete="off"
-                                style="background:white;">
-                        </div>
-                        <div>
-                            <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
-                                年度 <span style="color:#ef4444;">*</span>
-                            </label>
-                            <input type="number" id="createYearDisplay" class="filter-input" 
-                                placeholder="自動帶入" readonly style="background:#f1f5f9;color:#64748b;">
-                        </div>
-                    </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
-                        <div>
-                            <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
-                                機構 <span style="color:#ef4444;">*</span>
-                            </label>
-                            <input type="text" id="createUnit" class="filter-input" placeholder="自動帶入" style="background:white;" autocomplete="off">
-                        </div>
-                        <div>
-                            <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">分組</label>
-                            <select id="createDivision" class="filter-select" style="background:white;">
-                                <option value="">(自動帶入)</option>
-                                <option value="運務">運務</option>
-                                <option value="工務">工務</option>
-                                <option value="機務">機務</option>
-                                <option value="電務">電務</option>
-                                <option value="安全">安全</option>
-                                <option value="審核">審核</option>
-                                <option value="災防">災防</option>
-                                <option value="運轉">運轉</option>
-                                <option value="土木">土木</option>
-                                <option value="機電">機電</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
-                        <div>
-                            <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">檢查種類</label>
-                            <select id="createInspection" class="filter-select" style="background:white;">
-                                <option value="">(自動帶入)</option>
-                                <option value="定期檢查">定期檢查</option>
-                                <option value="例行性檢查">例行性檢查</option>
-                                <option value="特別檢查">特別檢查</option>
-                                <option value="臨時檢查">臨時檢查</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">開立類型</label>
-                            <select id="createKind" class="filter-select" style="background:white;">
-                                <option value="">(自動帶入)</option>
-                                <option value="N">缺失事項</option>
-                                <option value="O">觀察事項</option>
-                                <option value="R">建議事項</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style="margin-bottom:20px;">
-                        <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">初始狀態</label>
-                        <select id="createStatus" class="filter-select" style="background:white;">
-                            <option value="持續列管">持續列管</option>
-                            <option value="解除列管">解除列管</option>
-                            <option value="自行列管">自行列管</option>
-                        </select>
-                    </div>
-                    <div style="margin-bottom:20px;">
-                        <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
-                            事項內容 <span style="color:#ef4444;">*</span>
-                        </label>
-                        <textarea id="createContent" class="filter-input" rows="6" 
-                            style="resize:vertical;background:white;padding:12px;font-size:14px;line-height:1.6;"></textarea>
-                    </div>
-                    
-                    <!-- 辦理情形管理區塊 -->
-                    <div style="margin-bottom:20px; background:#f8fafc; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-                            <div>
-                                <div style="font-weight:700; color:#334155; font-size:15px; margin-bottom:4px;">📝 機構辦理情形</div>
-                                <div style="font-size:12px; color:#64748b;">可新增多次辦理情形（選填，可稍後再新增）</div>
-                            </div>
-                            <button type="button" class="btn btn-outline" onclick="addCreateHandlingRound()" style="padding:8px 16px; font-size:13px;">
-                                ➕ 新增辦理情形
-                            </button>
-                        </div>
-                        <div id="createHandlingRoundsContainer">
-                            <!-- 辦理情形輪次將由 JavaScript 動態生成 -->
-                        </div>
-                    </div>
-                    
-                    <div style="display:flex; gap:12px; align-items:center; margin-bottom:20px; padding:12px; background:#f8fafc; border-radius:8px;">
-                        <label style="font-size:13px; color:#2563eb; display:flex; align-items:center; gap:6px; cursor:pointer;">
-                            <input type="checkbox" id="createContinuousMode"> 連續新增模式 (鎖定計畫與機構)
-                        </label>
-                    </div>
-                    <button class="btn btn-primary" style="width:100%; padding:14px; font-size:15px;" onclick="submitCreateIssue()">
-                        💾 新增事項
-                    </button>
-                </div>
-            </div>
-
-            <!-- 批次模式 -->
-            <div id="createBatchMode" style="display:none;">
+            <!-- 開立事項建檔表格 -->
+            <div id="createBatchMode" style="display:block;">
                 <!-- 批次設定日期（回復日期和函復日期） -->
                 <div style="background:#f8fafc; padding:16px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color:#334155; font-size:14px; margin-bottom:12px;">

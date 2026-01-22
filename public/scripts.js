@@ -2183,21 +2183,11 @@ if (dashboard) {
             }
             
             if (subTab === 'create') {
-                // 初始化新增事項頁面
-                // 如果還沒有設定模式，預設為批次模式
-                if (!createMode) {
-                    createMode = 'batch';
-                }
-                // 確保模式按鈕狀態正確
-                switchCreateMode(createMode);
+                // 初始化開立事項建檔頁面
+                createMode = 'batch'; // 固定為批次模式
+                initCreateIssuePage();
                 // 確保計畫選項已載入
                 loadPlanOptions();
-                // 初始化辦理情形輪次（單筆模式）
-                setTimeout(() => {
-                    if (createMode === 'single') {
-                        initCreateHandlingRounds();
-                    }
-                }, 100);
             }
             
             if (subTab === 'year-edit') {
@@ -2393,63 +2383,44 @@ if (dashboard) {
             }
         }
 
-        // --- 合併後的新增事項功能 ---
-        let createMode = 'batch'; // 'single' 或 'batch'
+        // --- 開立事項建檔功能（已移除單筆模式，只保留批次模式） ---
+        let createMode = 'batch'; // 固定為批次模式
         
-        // 切換新增模式
-        function switchCreateMode(mode) {
-            createMode = mode;
-            // 切換模式時，如果是單筆模式，初始化辦理情形輪次
-            if (mode === 'single') {
-                setTimeout(() => {
-                    initCreateHandlingRounds();
-                }, 100);
-            }
-            const singleMode = document.getElementById('createSingleMode');
+        // 初始化開立事項建檔頁面
+        function initCreateIssuePage() {
             const batchMode = document.getElementById('createBatchMode');
-            const singleBtn = document.getElementById('createModeSingle');
-            const batchBtn = document.getElementById('createModeBatch');
-            const desc = document.getElementById('createModeDescription');
-            
-            if (mode === 'single') {
-                singleMode.style.display = 'block';
-                batchMode.style.display = 'none';
-                singleBtn.classList.remove('btn-outline');
-                singleBtn.classList.add('btn-primary');
-                batchBtn.classList.remove('btn-primary');
-                batchBtn.classList.add('btn-outline');
-                desc.textContent = '手動新增單筆開立事項。輸入編號後，系統會自動帶入年度、機構、分組與種類資訊。';
-                // 隱藏載入現有事項按鈕
-                const loadContainer = document.getElementById('createLoadExistingContainer');
-                if (loadContainer) loadContainer.style.display = 'none';
-            } else {
-                singleMode.style.display = 'none';
+            if (batchMode) {
                 batchMode.style.display = 'block';
-                batchBtn.classList.remove('btn-outline');
-                batchBtn.classList.add('btn-primary');
-                singleBtn.classList.remove('btn-primary');
-                singleBtn.classList.add('btn-outline');
-                desc.textContent = '選擇計畫後，可連續輸入多筆事項。系統會自動根據編號判斷年度、機構與分組。可載入現有事項繼續填寫辦理情形。';
-                if (document.querySelectorAll('#createBatchGridBody tr').length === 0) {
-                    initCreateBatchGrid();
-                }
-                // 初始化批次設定函復日期的選項
-                initBatchResponseRoundOptions();
-                // 初始化批次設定回復日期的選項
-                initBatchReplyRoundOptions();
-                // 顯示載入現有事項按鈕（如果已選擇計畫）
-                const planSelect = document.getElementById('createPlanName');
-                const loadContainer = document.getElementById('createLoadExistingContainer');
-                if (loadContainer && planSelect && planSelect.value) {
-                    loadContainer.style.display = 'block';
-                }
-                // 重置批次設定函復日期的勾選狀態
-                const toggleCheckbox = document.getElementById('createBatchResponseDateToggle');
-                if (toggleCheckbox) {
-                    toggleCheckbox.checked = false;
-                    toggleBatchResponseDateSetting();
-                }
             }
+            
+            if (document.querySelectorAll('#createBatchGridBody tr').length === 0) {
+                initCreateBatchGrid();
+            }
+            
+            // 初始化批次設定函復日期的選項
+            initBatchResponseRoundOptions();
+            // 初始化批次設定回復日期的選項
+            initBatchReplyRoundOptions();
+            
+            // 顯示載入現有事項按鈕（如果已選擇計畫）
+            const planSelect = document.getElementById('createPlanName');
+            const loadContainer = document.getElementById('createLoadExistingContainer');
+            if (loadContainer && planSelect && planSelect.value) {
+                loadContainer.style.display = 'block';
+            }
+            
+            // 重置批次設定函復日期的勾選狀態
+            const toggleCheckbox = document.getElementById('createBatchResponseDateToggle');
+            if (toggleCheckbox) {
+                toggleCheckbox.checked = false;
+                toggleBatchResponseDateSetting();
+            }
+        }
+        
+        // 保留 switchCreateMode 函數以向後兼容，但只執行批次模式的邏輯
+        function switchCreateMode(mode) {
+            createMode = 'batch'; // 強制為批次模式
+            initCreateIssuePage();
         }
         
         // 切換批次設定函復日期的顯示
@@ -2800,15 +2771,13 @@ if (dashboard) {
                 }
             }
             
-            // 如果是批次模式，查詢並預填審查函復輪次和辦理情形回復輪次
-            if (createMode === 'batch') {
-                updateBatchResponseRoundFromPlan();
-                updateBatchReplyRoundFromPlan();
-                // 顯示/隱藏載入現有事項按鈕
-                const loadContainer = document.getElementById('createLoadExistingContainer');
-                if (loadContainer) {
-                    loadContainer.style.display = planValue ? 'block' : 'none';
-                }
+            // 查詢並預填審查函復輪次和辦理情形回復輪次
+            updateBatchResponseRoundFromPlan();
+            updateBatchReplyRoundFromPlan();
+            // 顯示/隱藏載入現有事項按鈕
+            const loadContainer = document.getElementById('createLoadExistingContainer');
+            if (loadContainer) {
+                loadContainer.style.display = planValue ? 'block' : 'none';
             }
         }
         
@@ -3874,6 +3843,13 @@ if (dashboard) {
                     hasError = true;
                     return;
                 }
+                
+                // 檢查編號是否為空
+                if (!number.trim()) {
+                    showToast(`第 ${idx + 1} 列編號不能為空`, 'error');
+                    hasError = true;
+                    return;
+                }
 
                 // 優先使用計畫的年度，如果計畫沒有年度才使用表格中的年度
                 let year = tr.querySelector('.create-batch-year').value.trim();
@@ -3915,6 +3891,25 @@ if (dashboard) {
 
             if (hasError) return;
             if (items.length === 0) return showToast('請至少輸入一筆有效資料', 'error');
+
+            // 檢查是否有重複編號
+            const numberSet = new Set();
+            const duplicateNumbers = [];
+            items.forEach((item, idx) => {
+                if (item.number && item.number.trim()) {
+                    if (numberSet.has(item.number)) {
+                        duplicateNumbers.push({ number: item.number, row: idx + 1 });
+                    } else {
+                        numberSet.add(item.number);
+                    }
+                }
+            });
+            
+            if (duplicateNumbers.length > 0) {
+                const duplicateList = duplicateNumbers.map(d => `第 ${d.row} 列：${d.number}`).join('\n');
+                showToast(`發現重複編號，請修正後再儲存：\n${duplicateList}`, 'error');
+                return;
+            }
 
             if (!confirm(`確定要批次新增 ${items.length} 筆資料嗎？\n計畫：${planName}`)) return;
 
