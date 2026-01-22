@@ -141,7 +141,7 @@
                         style="color:var(--primary);">0</span> 筆) <span id="previewModeBadge"></span></h3>
                 <div style="display:flex;gap:10px;"><button class="btn btn-outline"
                         onclick="cancelImport()">取消</button><button class="btn btn-primary"
-                        onclick="confirmImport()">確認寫入資料庫</button></div>
+                        onclick="confirmImport()">上傳至資料庫</button></div>
             </div>
             <div class="main-card">
                 <div class="data-container">
@@ -311,7 +311,7 @@
                         </label>
                     </div>
                     <button class="btn btn-primary" style="padding:12px 32px;" onclick="saveCreateBatchItems()">
-                        💾 批次儲存至資料庫
+                        💾 上傳至資料庫
                     </button>
                 </div>
             </div>
@@ -365,7 +365,7 @@
                 </div>
                 
                 <div style="margin-top:24px; padding:20px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
-                    <button class="btn btn-success" onclick="saveYearEditIssue()" id="yearEditSaveBtn" style="width:100%; padding:14px;">💾 儲存所有變更</button>
+                    <button class="btn btn-success" onclick="saveYearEditIssue()" id="yearEditSaveBtn" style="width:100%; padding:14px;">💾 上傳至資料庫</button>
                 </div>
             </div>
             
@@ -460,7 +460,7 @@
                 <input type="text" id="planName" class="filter-input" placeholder="例如: 113年度上半年定期檢查" autocomplete="off">
             </div>
             <div style="display:flex;gap:12px;margin-top:24px;">
-                <button class="btn btn-primary" style="flex:1;" onclick="submitPlan()">儲存</button>
+                <button class="btn btn-primary" style="flex:1;" onclick="submitPlan()">上傳至資料庫</button>
                 <button class="btn btn-outline" style="flex:1;" onclick="closePlanModal()">取消</button>
             </div>
         </div>
