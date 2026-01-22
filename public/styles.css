@@ -1408,6 +1408,21 @@
             .chart-card {
                 height: 240px;
                 padding: 14px;
+                overflow: hidden;
+            }
+            
+            .chart-card > div {
+                max-width: 100%;
+                max-height: calc(100% - 28px);
+                height: auto !important;
+                overflow: hidden;
+            }
+            
+            .chart-card canvas {
+                max-width: 100% !important;
+                max-height: 100% !important;
+                width: auto !important;
+                height: auto !important;
             }
 
             /* Optimized Filters for Mobile */
