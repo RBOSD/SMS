@@ -2486,3 +2486,67 @@
             position: relative;
             z-index: 50;
         }
+        
+        /* 修正開立事項建檔頁面的重疊問題 */
+        /* 確保單筆模式容器有正確的 overflow 設定 */
+        #createSingleMode {
+            position: relative;
+            overflow: visible;
+        }
+        
+        #createSingleMode > div {
+            position: relative;
+            overflow: visible;
+        }
+        
+        /* 確保開立事項內容 textarea 有足夠的 z-index，不會被其他元素覆蓋 */
+        #createContent {
+            position: relative;
+            z-index: 10;
+            min-height: 120px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        /* 確保下拉選單不會遮住 textarea */
+        #createSingleMode .filter-select {
+            position: relative;
+            z-index: 5;
+        }
+        
+        #createSingleMode .filter-select:focus {
+            z-index: 15;
+        }
+        
+        /* 確保辦理情形管理區塊不會覆蓋其他內容 */
+        #createHandlingRoundsContainer {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 確保所有輸入欄位都能正常顯示 */
+        #createSingleMode .filter-input:not(#createContent),
+        #createSingleMode .filter-select {
+            position: relative;
+            z-index: 1;
+        }
+        
+        #createSingleMode .filter-input:not(#createContent):focus,
+        #createSingleMode .filter-select:focus {
+            z-index: 5;
+        }
+        
+        /* 確保開立事項內容在 focus 時有最高的 z-index */
+        #createContent:focus {
+            z-index: 25;
+        }
+        
+        /* 確保辦理情形區塊中的 textarea 也有足夠的 z-index */
+        #createHandlingRoundsContainer textarea {
+            position: relative;
+            z-index: 2;
+        }
+        
+        #createHandlingRoundsContainer textarea:focus {
+            z-index: 6;
+        }
