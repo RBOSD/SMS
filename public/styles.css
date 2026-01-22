@@ -1406,23 +1406,23 @@
             }
 
             .chart-card {
-                height: 240px;
-                padding: 14px;
+                height: 280px;
+                padding: 12px;
                 overflow: hidden;
             }
             
             .chart-card > div {
                 max-width: 100%;
-                max-height: calc(100% - 28px);
-                height: auto !important;
+                height: 100% !important;
                 overflow: hidden;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
             
             .chart-card canvas {
                 max-width: 100% !important;
                 max-height: 100% !important;
-                width: auto !important;
-                height: auto !important;
             }
 
             /* Optimized Filters for Mobile */
