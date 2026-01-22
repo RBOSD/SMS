@@ -1661,7 +1661,7 @@ if (dashboard) {
                 
                 const endpoint = type === 'login' ? '/api/admin/logs' : '/api/admin/action_logs';
                 try {
-                    const res = await fetch(endpoint, { method: 'DELETE' });
+                    const res = await apiFetch(endpoint, { method: 'DELETE' });
                     if (res.ok) {
                         showToast('資料庫記錄已全部刪除');
                         if (type === 'login') loadLogsPage(1);
@@ -2186,9 +2186,8 @@ if (dashboard) {
             });
 
             try {
-                const res = await fetch('/api/issues/import', {
+                const res = await apiFetch('/api/issues/import', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         data: cleanData,
                         round: round,
@@ -2472,9 +2471,8 @@ if (dashboard) {
             if (!confirm(`確定要批次新增 ${items.length} 筆資料嗎？\n計畫：${planName}`)) return;
 
             try {
-                const res = await fetch('/api/issues/import', {
+                const res = await apiFetch('/api/issues/import', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         data: items,
                         round: 1,
@@ -2660,9 +2658,8 @@ if (dashboard) {
                         
                         // 更新該輪次的回復日期
                         // 注意：只更新 replyDate（辦理情形回復日期），不更新 responseDate（審查函復日期）
-                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                        const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 status: issue.status || '持續列管',
                                 round: round,
@@ -3349,9 +3346,8 @@ if (dashboard) {
             };
 
             try {
-                const res = await fetch('/api/issues/import', { 
+                const res = await apiFetch('/api/issues/import', { 
                     method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
                     body: JSON.stringify(payload) 
                 });
                 
@@ -3390,9 +3386,8 @@ if (dashboard) {
                                     if (roundData.handling && roundData.handling.trim()) {
                                         const round = i + 1;
                                         try {
-                                            const updateRes = await fetch(`/api/issues/${issueId}`, {
+                                            const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                                                 method: 'PUT',
-                                                headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({
                                                     status: status,
                                                     round: round,
@@ -3845,9 +3840,8 @@ if (dashboard) {
                     // 先更新第一次辦理情形（如果有的話）
                     if (handlingRounds.length > 0 && handlingRounds[0].handling && handlingRounds[0].handling.trim()) {
                         const firstRound = handlingRounds[0];
-                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                        const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 handling: firstRound.handling.trim(),
                                 replyDate: firstRound.replyDate ? firstRound.replyDate.trim() : null,
@@ -3866,9 +3860,8 @@ if (dashboard) {
                         if (roundData.handling && roundData.handling.trim()) {
                             const round = i + 1;
                             try {
-                                const updateRes = await fetch(`/api/issues/${issueId}`, {
+                                const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                                     method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                         round: round,
                                         handling: roundData.handling.trim(),
@@ -4037,9 +4030,8 @@ if (dashboard) {
                     return itemData;
                 });
                 
-                const res = await fetch('/api/issues/import', {
+                const res = await apiFetch('/api/issues/import', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         data: itemsForImport,
                         round: 1,
@@ -4078,9 +4070,8 @@ if (dashboard) {
                                             if (roundData.handling && roundData.handling.trim()) {
                                                 const round = j + 1;
                                                 try {
-                                            const updateRes = await fetch(`/api/issues/${issueId}`, {
+                                            const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                                                 method: 'PUT',
-                                                headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({
                                                     status: item.status,
                                                     round: round,
@@ -4507,7 +4498,21 @@ if (dashboard) {
                 } else showToast(j.error || '更新失敗', 'error'); 
             } 
         }
-        async function deleteUser(id) { if (!confirm('確定?')) return; const res = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if (res.ok) { showToast('刪除成功'); loadUsersPage(1); } else showToast('刪除失敗', 'error'); }
+        async function deleteUser(id) { 
+            if (!confirm('確定?')) return; 
+            try {
+                const res = await apiFetch(`/api/users/${id}`, { method: 'DELETE' }); 
+                const data = await res.json();
+                if (res.ok) { 
+                    showToast('刪除成功'); 
+                    loadUsersPage(1); 
+                } else {
+                    showToast(data.error || '刪除失敗', 'error'); 
+                }
+            } catch (e) {
+                showToast('刪除失敗: ' + e.message, 'error');
+            }
+        }
         
         // 帳號匯出功能
         async function exportUsers() {
@@ -4684,10 +4689,8 @@ if (dashboard) {
                             }
                             
                             try {
-                                const res = await fetch('/api/users/import', {
+                                const res = await apiFetch('/api/users/import', {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    credentials: 'include',
                                     body: JSON.stringify({ data: validData })
                                 });
                                 
@@ -4896,7 +4899,7 @@ if (dashboard) {
                 
                 for (const id of ids) {
                     try {
-                        const res = await fetch(`/api/plans/${id}`, { method: 'DELETE' });
+                        const res = await apiFetch(`/api/plans/${id}`, { method: 'DELETE' });
                         const j = await res.json().catch(() => ({}));
                         
                         if (res.ok) {
@@ -5208,7 +5211,7 @@ if (dashboard) {
         async function deletePlan(id) {
             if (!confirm('確定要刪除這個計畫嗎？')) return;
             try {
-                const res = await fetch(`/api/plans/${id}`, { method: 'DELETE' });
+                const res = await apiFetch(`/api/plans/${id}`, { method: 'DELETE' });
                 const j = await res.json();
                 if (res.ok) {
                     showToast('刪除成功');
@@ -5760,6 +5763,39 @@ if (dashboard) {
             }
         }
 
+        // 從 Drawer 刪除事項
+        async function deleteIssueFromDrawer() {
+            if (!currentEditItem) {
+                showToast('找不到要刪除的事項', 'error');
+                return;
+            }
+            
+            const issueId = currentEditItem.id;
+            const issueNumber = currentEditItem.number || `ID:${issueId}`;
+            
+            if (!confirm(`確定要刪除事項「${issueNumber}」嗎？此操作無法復原。`)) {
+                return;
+            }
+            
+            try {
+                const res = await apiFetch(`/api/issues/${issueId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('刪除成功');
+                    closeDrawer();
+                    // 重新載入事項列表
+                    loadIssuesPage(issuesPage);
+                } else {
+                    showToast(data.error || '刪除失敗', 'error');
+                }
+            } catch (e) {
+                showToast('刪除失敗: ' + e.message, 'error');
+            }
+        }
+        
         async function saveEdit() {
             if (!currentEditItem) {
                 showToast('找不到目前編輯的事項', 'error');
@@ -5793,9 +5829,8 @@ if (dashboard) {
             // 不應該把審查意見存到辦理情形欄位
             
             try {
-                const res = await fetch(`/api/issues/${id}`, {
+                const res = await apiFetch(`/api/issues/${id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         status,
                         round,
@@ -6295,9 +6330,8 @@ if (dashboard) {
                         
                         // 更新該輪次的函復日期
                         // 注意：只更新 responseDate（審查函復日期），不更新 replyDate（回復日期）
-                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                        const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 status: issue.status || '持續列管',
                                 round: round,
@@ -6436,9 +6470,8 @@ if (dashboard) {
                         
                         // 更新該輪次的函復日期
                         // 注意：只更新 responseDate（審查函復日期），不更新 replyDate（回復日期）
-                        const res = await fetch(`/api/issues/${issueId}`, {
+                        const res = await apiFetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 status: issue.status || '持續列管',
                                 round: round,
@@ -6814,9 +6847,8 @@ if (dashboard) {
                 
                 // 先更新基本資訊（包括所有可編輯欄位）
                 // 即使內容為空也要更新（允許清空）
-                const updateRes = await fetch(`/api/issues/${issueId}`, {
+                const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         status: status,
                         round: 1,
@@ -6861,9 +6893,8 @@ if (dashboard) {
                     
                     // 所有顯示的輪次都要更新，即使內容為空（允許清空欄位）
                     try {
-                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                        const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 status: status, // 保持當前狀態
                                 round: roundNum,
