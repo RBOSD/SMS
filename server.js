@@ -21,12 +21,18 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // [Modified] Initialize PostgreSQL Connection Pool
-// SSL 設定：生產環境應使用有效憑證，開發環境可接受自簽憑證
-const sslConfig = process.env.NODE_ENV === 'production' 
-    ? (process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false' 
-        ? { rejectUnauthorized: false } 
-        : { rejectUnauthorized: true })
-    : { rejectUnauthorized: false }; // 開發環境允許自簽憑證
+// SSL 設定：
+// - 預設允許自簽憑證（適用於 Render、Heroku 等雲端平台）
+// - 可透過 DB_SSL_REJECT_UNAUTHORIZED=true 強制要求有效憑證
+// - 可透過 DB_SSL_REJECT_UNAUTHORIZED=false 明確允許自簽憑證
+const sslConfig = (() => {
+    // 如果明確指定了環境變數，使用該值
+    if (process.env.DB_SSL_REJECT_UNAUTHORIZED !== undefined) {
+        return { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true' };
+    }
+    // 預設允許自簽憑證（適用於大多數雲端平台）
+    return { rejectUnauthorized: false };
+})();
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
