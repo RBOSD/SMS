@@ -11,6 +11,13 @@
 
 <!-- Users Tab -->
 <div id="tab-users" class="main-card">
+    <div style="margin-bottom:24px;">
+        <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">帳號列表</h3>
+        <p style="margin:0; color:#64748b; font-size:13px;">
+            管理系統使用者帳號，可新增、編輯、刪除帳號，並設定使用者權限。
+        </p>
+    </div>
+    
     <div
         style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
         <input id="userSearch" class="filter-input" placeholder="搜尋姓名、帳號..." style="max-width:300px;"
@@ -25,7 +32,7 @@
         </div>
     </div>
     <div id="usersPaginationTop" class="pagination-bar"
-        style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
+        style="padding:16px; border-bottom:1px solid var(--border); justify-content: flex-end;"></div>
     <div class="data-container">
         <table class="user-table">
             <thead>
@@ -45,6 +52,13 @@
 
 <!-- Login Logs Tab -->
 <div id="tab-logs" class="main-card hidden">
+    <div style="margin-bottom:24px;">
+        <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">登入紀錄</h3>
+        <p style="margin:0; color:#64748b; font-size:13px;">
+            查看系統使用者的登入紀錄，包含登入時間、帳號和 IP 位址。可匯出資料或清理舊紀錄。
+        </p>
+    </div>
+    
     <div
         style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff; flex-wrap:wrap;">
         <input id="loginSearch" class="filter-input" placeholder="搜尋所有內容" style="width:240px;"
@@ -66,7 +80,7 @@
         </div>
     </div>
     <div id="logsPaginationTop" class="pagination-bar"
-        style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
+        style="padding:16px; border-bottom:1px solid var(--border); justify-content: flex-end;"></div>
     <div class="data-container">
         <table class="user-table">
             <thead>
@@ -84,6 +98,13 @@
 
 <!-- Action Logs Tab -->
 <div id="tab-actions" class="main-card hidden">
+    <div style="margin-bottom:24px;">
+        <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">操作歷程</h3>
+        <p style="margin:0; color:#64748b; font-size:13px;">
+            查看系統使用者的操作歷程紀錄，包含操作時間、帳號、動作和詳細內容。可匯出資料或清理舊紀錄。
+        </p>
+    </div>
+    
     <div
         style="padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; background:#ffffff; flex-wrap:wrap;">
         <input id="actionSearch" class="filter-input" placeholder="搜尋所有內容" style="width:240px;"
@@ -105,7 +126,7 @@
         </div>
     </div>
     <div id="actionsPaginationTop" class="pagination-bar"
-        style="padding:10px; border-bottom:1px solid #eee; justify-content: flex-end;"></div>
+        style="padding:16px; border-bottom:1px solid var(--border); justify-content: flex-end;"></div>
     <div class="data-container">
         <table class="user-table">
             <thead>
@@ -125,13 +146,19 @@
 
 <!-- User Import/Export Tab -->
 <div id="tab-import-export" class="main-card hidden">
+    <div style="margin-bottom:24px;">
+        <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">帳號匯入與匯出</h3>
+        <p style="margin:0; color:#64748b; font-size:13px;">
+            匯出系統中的所有帳號資料，或從 CSV 檔案批次匯入帳號資料。
+        </p>
+    </div>
+    
     <div style="padding:24px;">
-        <h3 style="margin-top:0; margin-bottom:24px; color:#334155;">帳號匯入與匯出</h3>
         
         <!-- 匯出區塊 -->
         <div class="detail-card" style="margin-bottom:30px; max-width:700px;">
             <div style="margin-bottom:16px;">
-                <h4 style="margin:0 0 8px 0; color:#334155; font-size:16px;">📥 匯出帳號資料</h4>
+                <h4 style="margin:0 0 8px 0; font-weight:600; color:#334155; font-size:16px;">📥 匯出帳號資料</h4>
                 <p style="color:#64748b; font-size:13px; margin:0;">將系統中的所有帳號資料匯出為 CSV 或 JSON 格式。匯出的檔案不包含密碼資訊。</p>
             </div>
             <div style="margin-bottom:16px;">
@@ -151,7 +178,7 @@
         <!-- 匯入區塊 -->
         <div class="detail-card" style="max-width:700px;">
             <div style="margin-bottom:16px;">
-                <h4 style="margin:0 0 8px 0; color:#334155; font-size:16px;">📤 匯入帳號資料</h4>
+                <h4 style="margin:0 0 8px 0; font-weight:600; color:#334155; font-size:16px;">📤 匯入帳號資料</h4>
                 <p style="color:#64748b; font-size:13px; margin:0;">從 CSV 檔案批次匯入帳號資料。檔案格式：姓名,帳號,權限,密碼（選填）</p>
             </div>
             <div style="margin-bottom:16px;">
