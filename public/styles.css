@@ -1029,6 +1029,11 @@
             align-items: center;
             backdrop-filter: blur(2px);
         }
+        
+        /* 批次內容模態視窗需要有更高的 z-index */
+        #batchContentModal {
+            z-index: 1000 !important;
+        }
 
         .drawer-backdrop.open,
         .modal-overlay.open {
@@ -1088,6 +1093,12 @@
             max-width: 90%;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             z-index: 200;
+            position: relative;
+        }
+        
+        /* 批次內容模態視窗的 modal-box 需要更高的 z-index */
+        #batchContentModal .modal-box {
+            z-index: 1001 !important;
         }
 
         .detail-card {
@@ -2485,6 +2496,31 @@
         #createBatchGridTable button {
             position: relative;
             z-index: 50;
+        }
+        
+        /* 修正批次模式模態視窗的重疊問題 */
+        /* 確保模態視窗內的 textarea 有足夠的 z-index 和正確的顯示 */
+        #batchContentModalTextarea {
+            position: relative;
+            z-index: 1;
+            width: 100% !important;
+            min-height: 200px;
+            padding: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        
+        /* 確保模態視窗內的內容區域有正確的 overflow 設定 */
+        #batchContentModal .modal-box {
+            overflow: visible;
+        }
+        
+        /* 確保模態視窗內的 label 和其他元素不會遮住 textarea */
+        #batchContentModal .modal-box > div {
+            position: relative;
+            z-index: 1;
         }
         
         /* 修正開立事項建檔頁面的重疊問題 */
