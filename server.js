@@ -21,9 +21,16 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // [Modified] Initialize PostgreSQL Connection Pool
+// SSL 設定：生產環境應使用有效憑證，開發環境可接受自簽憑證
+const sslConfig = process.env.NODE_ENV === 'production' 
+    ? (process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false' 
+        ? { rejectUnauthorized: false } 
+        : { rejectUnauthorized: true })
+    : { rejectUnauthorized: false }; // 開發環境允許自簽憑證
+
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }, // Allow self-signed certs
+    ssl: process.env.DATABASE_URL ? sslConfig : false, // 如果沒有 DATABASE_URL，不設定 SSL
     max: 20, 
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
@@ -31,9 +38,8 @@ const pool = new Pool({
 
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
 
-// [Modified] Session Configuration
+// [Modified] Session Configuration（必須在路由保護之前，才能使用 req.session）
 app.use(session({
     store: new pgSession({
         pool: pool,
@@ -42,15 +48,32 @@ app.use(session({
     }),
     secret: (() => {
         const secret = process.env.SESSION_SECRET;
-        if (!secret || secret === 'sms-secret-key-pg-final-v3') {
-            console.error('警告: SESSION_SECRET 環境變數未設定或使用預設值！');
-            console.error('請在 .env 檔案中設定一個隨機且複雜的 SESSION_SECRET');
-            console.error('可以使用命令產生: openssl rand -base64 32');
-            if (process.env.NODE_ENV === 'production') {
+        const defaultSecret = 'sms-secret-key-pg-final-v3';
+        const devSecret = 'sms-secret-key-pg-final-v3-dev-only';
+        
+        // 生產環境必須設定 SESSION_SECRET
+        if (process.env.NODE_ENV === 'production') {
+            if (!secret || secret === defaultSecret || secret === devSecret) {
+                console.error('===========================================');
+                console.error('錯誤: 生產環境必須設定 SESSION_SECRET 環境變數！');
+                console.error('請在 .env 檔案中設定一個隨機且複雜的 SESSION_SECRET');
+                console.error('可以使用命令產生: openssl rand -base64 32');
+                console.error('===========================================');
                 throw new Error('SESSION_SECRET environment variable is required in production');
             }
+            // 驗證生產環境的 SESSION_SECRET 長度（至少 32 字元）
+            if (secret.length < 32) {
+                console.error('警告: 生產環境的 SESSION_SECRET 長度建議至少 32 字元');
+            }
+        } else {
+            // 開發環境警告
+            if (!secret || secret === defaultSecret || secret === devSecret) {
+                console.warn('警告: SESSION_SECRET 環境變數未設定或使用預設值！');
+                console.warn('請在 .env 檔案中設定一個隨機且複雜的 SESSION_SECRET');
+                console.warn('可以使用命令產生: openssl rand -base64 32');
+            }
         }
-        return secret || 'sms-secret-key-pg-final-v3-dev-only';
+        return secret || devSecret;
     })(),
     resave: false,
     saveUninitialized: false,
@@ -61,6 +84,40 @@ app.use(session({
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     } 
 }));
+
+// 路由保護中間件：檢查 HTML 頁面訪問權限（必須在 session 之後）
+const protectHtmlPages = (req, res, next) => {
+    // 允許 API 路由
+    if (req.path.startsWith('/api/')) {
+        return next();
+    }
+    
+    // 允許登入頁面
+    if (req.path === '/login.html' || req.path === '/login') {
+        return next();
+    }
+    
+    // 允許靜態資源（CSS、JS、圖片等）
+    if (req.path.match(/\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
+        return next();
+    }
+    
+    // 檢查是否需要認證的頁面（HTML 檔案或根路徑）
+    if (req.path === '/' || req.path.endsWith('.html')) {
+        if (!req.session || !req.session.user) {
+            // 未登入，重定向到登入頁
+            return res.redirect('/login.html');
+        }
+    }
+    
+    next();
+};
+
+// 應用路由保護（在靜態檔案服務之前）
+app.use(protectHtmlPages);
+
+// 靜態檔案服務
+app.use(express.static(path.join(__dirname, 'public')));
 
 const requireAuth = (req, res, next) => {
     if (req.session && req.session.user) {

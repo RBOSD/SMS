@@ -4,12 +4,44 @@
         let currentLogs = { login: [], action: [] };
         let cachedGlobalStats = null;
         
+        // 統一的 API 請求包裝函數，自動處理認證錯誤
+        async function apiFetch(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    credentials: 'include', // 確保包含 cookies
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    }
+                });
+                
+                // 處理認證錯誤
+                if (response.status === 401 || response.status === 403) {
+                    console.warn('認證失敗，重定向到登入頁');
+                    // 清除 sessionStorage
+                    sessionStorage.clear();
+                    // 重定向到登入頁
+                    window.location.href = '/login.html';
+                    throw new Error('Unauthorized');
+                }
+                
+                return response;
+            } catch (error) {
+                // 如果是我們自己拋出的認證錯誤，直接重新拋出
+                if (error.message === 'Unauthorized') {
+                    throw error;
+                }
+                // 其他錯誤正常處理
+                throw error;
+            }
+        }
+        
         // 日誌記錄函數（寫入檔案，不在控制台顯示）
         async function writeLog(message, level = 'INFO') {
             try {
-                await fetch('/api/log', {
+                await apiFetch('/api/log', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message, level })
                 }).catch(() => {}); // 靜默失敗，不影響主流程
             } catch (e) {
@@ -989,7 +1021,7 @@ if (dashboard) {
                     setTimeout(() => reject(new Error('TIMEOUT')), 10000); // 10秒超時
                 });
                 
-                const fetchPromise = fetch('/api/auth/me?t=' + Date.now(), { 
+                const fetchPromise = apiFetch('/api/auth/me?t=' + Date.now(), { 
                     headers: { 'Cache-Control': 'no-cache' }
                 });
                 
@@ -998,28 +1030,38 @@ if (dashboard) {
                 if (!res.ok) {
                     console.error('認證檢查失敗:', res.status, res.statusText);
                     // 如果認證失敗，重定向到登入頁
+                    sessionStorage.clear();
                     window.location.href = '/login.html';
                     return;
                 }
                 
                 const data = await res.json();
-                if (data.isLogin) {
+                if (data.isLogin && data.id && data.username) {
                     currentUser = data;
                     const nameEl = document.getElementById('headerUserName');
                     const roleEl = document.getElementById('headerUserRole');
                     if (nameEl) nameEl.innerText = data.name || data.username;
                     if (roleEl) roleEl.innerText = getRoleName(data.role);
+                    
+                    // 根據角色顯示/隱藏功能按鈕
                     if (['admin', 'manager'].includes(data.role)) {
                         const btnImport = document.getElementById('btn-importView');
                         if (btnImport) btnImport.classList.remove('hidden');
                         if (data.role === 'admin') {
                             const btnUsers = document.getElementById('btn-usersView');
                             if (btnUsers) btnUsers.classList.remove('hidden');
-                            // 這些元素現在在動態載入的視圖中，會在視圖載入後處理
                         }
+                    } else {
+                        // 非管理員隱藏管理功能
+                        const btnImport = document.getElementById('btn-importView');
+                        const btnUsers = document.getElementById('btn-usersView');
+                        if (btnImport) btnImport.classList.add('hidden');
+                        if (btnUsers) btnUsers.classList.add('hidden');
                     }
                 } else {
-                    // 未登入，重定向到登入頁
+                    // 未登入或資料不完整，重定向到登入頁
+                    console.warn('認證資料不完整，重定向到登入頁');
+                    sessionStorage.clear();
                     window.location.href = '/login.html';
                 }
             } catch (e) {
@@ -1040,9 +1082,13 @@ if (dashboard) {
                             </div>
                         `;
                     }
+                } else if (e.message === 'Unauthorized') {
+                    // 認證錯誤已在 apiFetch 中處理，這裡不需要再做什麼
+                    return;
                 } else {
                     console.error('認證檢查錯誤:', e);
                     // 其他錯誤，重定向到登入頁
+                    sessionStorage.clear();
                     window.location.href = '/login.html';
                 }
             }
@@ -1131,7 +1177,7 @@ if (dashboard) {
             const params = new URLSearchParams({ page: issuesPage, pageSize: issuesPageSize, q, year, unit, status, itemKindCode: kind, division, inspectionCategory: inspection, planName, sortField, sortDir, _t: Date.now() });
 
             try {
-                const res = await fetch('/api/issues?' + params.toString());
+                const res = await apiFetch('/api/issues?' + params.toString());
                 if (!res.ok) {
                     const errJson = await res.json().catch(() => ({}));
                     console.error("Server Error:", errJson);
@@ -1247,7 +1293,7 @@ if (dashboard) {
             }
             
             try {
-                const res = await fetch('/api/issues/batch-delete', {
+                const res = await apiFetch('/api/issues/batch-delete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ids })
@@ -1376,7 +1422,7 @@ if (dashboard) {
             saveUsersViewState();
             const params = new URLSearchParams({ page: usersPage, pageSize: usersPageSize, q, sortField: usersSortField, sortDir: usersSortDir, _t: Date.now() }); 
             try { 
-                const res = await fetch('/api/users?' + params.toString()); 
+                const res = await apiFetch('/api/users?' + params.toString()); 
                 if (!res.ok) { showToast('載入使用者失敗', 'error'); return; } 
                 const j = await res.json(); 
                 userList = j.data || []; 
@@ -1448,7 +1494,7 @@ if (dashboard) {
             const logsLoadingEl = document.getElementById('logsLoading');
             if (logsLoadingEl) logsLoadingEl.style.display = 'block';
             try {
-                const res = await fetch('/api/admin/logs?' + params.toString());
+                const res = await apiFetch('/api/admin/logs?' + params.toString());
                 if (!res.ok) {
                     showToast('載入登入紀錄失敗', 'error');
                     return;
@@ -1508,7 +1554,7 @@ if (dashboard) {
             const logsLoadingEl = document.getElementById('logsLoading');
             if (logsLoadingEl) logsLoadingEl.style.display = 'block';
             try {
-                const res = await fetch('/api/admin/action_logs?' + params.toString());
+                const res = await apiFetch('/api/admin/action_logs?' + params.toString());
                 if (!res.ok) {
                     showToast('載入操作紀錄失敗', 'error');
                     return;
