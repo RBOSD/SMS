@@ -148,18 +148,24 @@ const verifyCsrf = (req, res, next) => {
         return next();
     }
     
-    const token = req.headers['x-csrf-token'] || req.body._csrf;
-    const secret = req.session.csrfSecret;
-    
-    if (!secret || !token) {
-        return res.status(403).json({ error: 'CSRF token missing' });
+    try {
+        const token = req.headers['x-csrf-token'] || req.body._csrf;
+        const secret = req.session.csrfSecret;
+        
+        if (!secret || !token) {
+            return res.status(403).json({ error: 'CSRF token missing' });
+        }
+        
+        if (!csrfProtection.verify(secret, token)) {
+            return res.status(403).json({ error: 'Invalid CSRF token' });
+        }
+        
+        next();
+    } catch (e) {
+        console.error('CSRF verification error:', e);
+        logError(e, 'CSRF verification error', req).catch(() => {});
+        return res.status(500).json({ error: 'CSRF verification failed' });
     }
-    
-    if (!csrfProtection.verify(secret, token)) {
-        return res.status(403).json({ error: 'Invalid CSRF token' });
-    }
-    
-    next();
 };
 
 // 為所有需要認證的路由提供 CSRF token
@@ -392,17 +398,23 @@ async function logError(error, context, req) {
         const errorStack = error instanceof Error ? error.stack : '';
         const details = `${context}: ${errorMessage}${errorStack ? `\nStack: ${errorStack.substring(0, 500)}` : ''}`;
         
-        await pool.query(
-            "INSERT INTO logs (username, action, details, ip_address, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)",
-            [username, 'ERROR', details, ip]
-        );
+        // 嘗試記錄到資料庫，如果失敗則只記錄到檔案
+        try {
+            await pool.query(
+                "INSERT INTO logs (username, action, details, ip_address, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)",
+                [username, 'ERROR', details, ip]
+            );
+        } catch (dbError) {
+            // 資料庫記錄失敗，只記錄到檔案
+            console.error("Failed to log error to database:", dbError);
+        }
         
         // 同時寫入檔案日誌
         writeToLogFile(`[ERROR] ${context}: ${errorMessage}`, 'ERROR');
     } catch (e) {
+        // 如果整個錯誤記錄過程失敗，至少輸出到 console
         console.error("Failed to log error:", e);
-        // 如果資料庫記錄失敗，至少記錄到檔案
-        writeToLogFile(`[CRITICAL] Failed to log error to database: ${e.message}`, 'ERROR');
+        console.error("Original error:", error);
     }
 }
 
@@ -1025,11 +1037,20 @@ app.post('/api/users', requireAuth, verifyCsrf, async (req, res) => {
         // Basic Validation
         if (!username || !password) return res.status(400).json({error: 'Username and password required'});
         
+        // 驗證密碼複雜度
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ error: passwordValidation.message });
+        }
+        
         const hash = bcrypt.hashSync(password, 10);
         await pool.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", [username, hash, name, role]);
         logAction(req.session.user.username, 'CREATE_USER', `新增使用者：${name} (${username})，權限：${role}`, req);
         res.json({success:true});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        logError(e, 'Create user error', req).catch(() => {});
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 app.put('/api/users/:id', requireAuth, verifyCsrf, async (req, res) => {

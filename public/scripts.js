@@ -47,10 +47,12 @@
                 const needsCsrf = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method);
                 if (needsCsrf) {
                     const token = await getCsrfToken();
-                    if (token) {
-                        options.headers = options.headers || {};
-                        options.headers['X-CSRF-Token'] = token;
+                    if (!token) {
+                        console.error('Failed to get CSRF token');
+                        throw new Error('無法取得 CSRF token，請重新整理頁面');
                     }
+                    options.headers = options.headers || {};
+                    options.headers['X-CSRF-Token'] = token;
                 }
                 
                 const response = await fetch(url, {
