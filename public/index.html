@@ -24,7 +24,7 @@
     <header class="app-header">
         <div class="brand" onclick="switchView('searchView')" title="回到查詢看板">
             <button class="filter-toggle-btn" onclick="event.stopPropagation();onToggleSidebar()"
-                title="開啟選單">☰</button>
+                title="開啟選單" aria-label="開啟選單">☰</button>
             <div class="brand-icon">🚄</div>
             <div class="brand-title">SMS開立事項查詢與AI審查系統</div>
         </div>
@@ -46,7 +46,7 @@
         <aside class="filters-panel" id="filtersPanel">
             <div class="sidebar-header">
                 <div class="sidebar-title">功能選單</div>
-                <button class="sidebar-close-btn" onclick="onToggleSidebar()">×</button>
+                <button class="sidebar-close-btn" onclick="onToggleSidebar()" aria-label="關閉選單">×</button>
             </div>
             <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')">
                 查詢看板</button>
@@ -236,7 +236,7 @@
     <div class="drawer" id="detailDrawer">
         <div class="drawer-header">
             <div style="font-weight:700;font-size:18px;" id="drawerTitle">詳細資料</div><button onclick="closeDrawer()"
-                style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button>
+                style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;" aria-label="關閉詳細資料">&times;</button>
         </div>
         <div class="drawer-body">
             <div id="viewModeContent">
@@ -427,14 +427,14 @@
                 <label>密碼 <span style="font-weight:400;color:#666;font-size:12px" id="pwdHint"></span></label>
                 <div class="pwd-wrapper">
                     <input type="password" id="uPwd" class="filter-input">
-                    <button class="pwd-toggle" onclick="togglePwdVisibility('uPwd', this)">👁️</button>
+                    <button class="pwd-toggle" onclick="togglePwdVisibility('uPwd', this)" aria-label="顯示/隱藏密碼">👁️</button>
                 </div>
             </div>
             <div class="form-group">
                 <label>確認密碼</label>
                 <div class="pwd-wrapper">
                     <input type="password" id="uPwdConfirm" class="filter-input">
-                    <button class="pwd-toggle" onclick="togglePwdVisibility('uPwdConfirm', this)">👁️</button>
+                    <button class="pwd-toggle" onclick="togglePwdVisibility('uPwdConfirm', this)" aria-label="顯示/隱藏確認密碼">👁️</button>
                 </div>
             </div>
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
@@ -460,7 +460,7 @@
                 <label>新密碼 <span style="font-weight:400;color:#666;font-size:12px">(若不修改請留空)</span></label>
                 <div class="pwd-wrapper">
                     <input type="password" id="myProfilePwd" class="filter-input">
-                    <button class="pwd-toggle" onclick="togglePwdVisibility('myProfilePwd', this)">👁️</button>
+                    <button class="pwd-toggle" onclick="togglePwdVisibility('myProfilePwd', this)" aria-label="顯示/隱藏密碼">👁️</button>
                 </div>
             </div>
             <div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%"
@@ -474,7 +474,7 @@
         <div class="modal-box" id="previewBox" style="max-width:800px; width:90%; max-height:80vh; overflow:auto;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <h3 id="previewTitle">內容預覽</h3><button onclick="closePreview()"
-                    style="border:none;background:none;font-size:20px;">&times;</button>
+                    style="border:none;background:none;font-size:20px;" aria-label="關閉預覽">&times;</button>
             </div>
             <div id="previewContent" style="margin-top:12px;"></div>
         </div>
@@ -485,7 +485,7 @@
         <div class="modal-box" style="max-width:800px; width:95%; max-height:85vh; overflow:auto;">
             <div style="display:flex;justify-content:space-between;align-items:center; margin-bottom:20px;">
                 <h3 style="margin:0;">編輯事項內容 - <span id="batchContentModalNumber"></span></h3>
-                <button onclick="closeBatchContentModal()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button>
+                <button onclick="closeBatchContentModal()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;" aria-label="關閉編輯事項內容">×</button>
             </div>
             <div style="margin-bottom:20px;">
                 <label style="display:block; font-size:14px; font-weight:500; color:#334155; margin-bottom:8px;">事項內容：</label>
@@ -505,7 +505,7 @@
         <div class="modal-box" style="max-width:900px; width:95%; max-height:85vh; overflow:auto;">
             <div style="display:flex;justify-content:space-between;align-items:center; margin-bottom:20px;">
                 <h3 style="margin:0;">管理辦理情形 - <span id="batchHandlingModalNumber"></span></h3>
-                <button onclick="closeBatchHandlingModal()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button>
+                <button onclick="closeBatchHandlingModal()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;" aria-label="關閉管理辦理情形">×</button>
             </div>
             <div style="background:#f8fafc; padding:16px; border-radius:8px; margin-bottom:20px; border:1px solid #e2e8f0;">
                 <div style="font-size:13px; color:#64748b;">
@@ -532,7 +532,7 @@
         <div class="modal-box" style="max-width:500px; width:90%;">
             <div style="display:flex;justify-content:space-between;align-items:center; margin-bottom:20px;">
                 <h3 style="margin:0; color:#334155;">確認操作</h3>
-                <button onclick="closeConfirmModal()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;">&times;</button>
+                <button onclick="closeConfirmModal()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;" aria-label="關閉確認對話框">×</button>
             </div>
             <div id="confirmModalMessage" style="font-size:15px; line-height:1.6; color:#475569; margin-bottom:24px; white-space: pre-line;">
                 <!-- 訊息內容將由 JavaScript 動態填入 -->

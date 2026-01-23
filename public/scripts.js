@@ -5423,8 +5423,8 @@ if (dashboard) {
             // 開立日期（發函）
             document.getElementById('dIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
             
-            // 事項內容
-            document.getElementById('dContent').innerHTML = currentEditItem.content;
+            // 事項內容（使用 escapeHtml 防止 XSS）
+            document.getElementById('dContent').innerHTML = escapeHtml(currentEditItem.content || '');
 
             // Status and Kind (狀態與類型) - 使用與dCategoryInfo相同的邏輯
             let k = currentEditItem.item_kind_code || currentEditItem.itemKindCode;
