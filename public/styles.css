@@ -672,6 +672,10 @@
             width: 100%;
         }
 
+        .pwd-wrapper .filter-input {
+            padding-right: 45px; /* 為顯示/隱藏按鈕留出空間 */
+        }
+
         .pwd-toggle {
             position: absolute;
             right: 12px;
@@ -681,7 +685,13 @@
             color: #94a3b8;
             border: none;
             background: none;
-            font-size: 16px;
+            font-size: 18px;
+            padding: 4px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: color 0.2s;
         }
 
         .pwd-toggle:hover {
