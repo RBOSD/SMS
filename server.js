@@ -800,8 +800,6 @@ app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
             paramIdx++;
         }
         
-        // 注意：replyDate 的處理已經在上面完成（第 529-534 行），這裡不需要重複處理
-        
         if (content !== undefined) {
             updateFields.push(`content=$${paramIdx}`);
             params.push(content);

@@ -59,6 +59,15 @@
             return `<span class="badge ${statusClass}">${status}</span>`;
         }
 
+        // 驗證日期格式（6或7位數字，例如：1130601 或 1141001）
+        function validateDateFormat(dateStr, fieldName = '日期') {
+            if (!dateStr || !/^\d{6,7}$/.test(dateStr)) {
+                showToast(`${fieldName}格式錯誤，應為6或7位數字（例如：1130601 或 1141001）`, 'error');
+                return false;
+            }
+            return true;
+        }
+
         async function apiFetch(url, options = {}) {
             try {
                 // 對於需要 CSRF 保護的請求（POST, PUT, DELETE），自動加入 token
@@ -2645,9 +2654,8 @@ if (dashboard) {
                 return;
             }
             
-            // 驗證日期格式（應該是6或7位數字，例如：1130601 或 1141001）
-            if (!/^\d{6,7}$/.test(replyDate)) {
-                showToast('日期格式錯誤，應為6或7位數字（例如：1130601 或 1141001）', 'error');
+            // 驗證日期格式
+            if (!validateDateFormat(replyDate, '日期')) {
                 return;
             }
             
@@ -6262,9 +6270,8 @@ if (dashboard) {
                 return;
             }
             
-            // 驗證日期格式（應該是6或7位數字，例如：1130615 或 1141001）
-            if (!/^\d{6,7}$/.test(userInputResponseDate)) {
-                showToast('日期格式錯誤，應為6或7位數字（例如：1130615 或 1141001）', 'error');
+            // 驗證日期格式
+            if (!validateDateFormat(userInputResponseDate, '日期')) {
                 return;
             }
             
@@ -6416,9 +6423,8 @@ if (dashboard) {
                 return;
             }
             
-            // 驗證日期格式（應該是6或7位數字，例如：1130615 或 1141001）
-            if (!/^\d{6,7}$/.test(userInputResponseDate)) {
-                showToast('日期格式錯誤，應為6或7位數字（例如：1130615 或 1141001）', 'error');
+            // 驗證日期格式
+            if (!validateDateFormat(userInputResponseDate, '日期')) {
                 return;
             }
             
