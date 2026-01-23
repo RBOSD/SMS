@@ -5641,6 +5641,11 @@ if (dashboard) {
             
             // 趨勢圖表：使用主色調的變體
             const tSorted = stats.year.sort((a, b) => a.year.localeCompare(b.year)); 
+            // 清除舊的資料集，避免破圖
+            if (charts.trend && charts.trend.data) {
+                charts.trend.data.labels = [];
+                charts.trend.data.datasets = [];
+            }
             charts.trend.data = { 
                 labels: tSorted.map(x => x.year), 
                 datasets: [{ 
@@ -5649,7 +5654,10 @@ if (dashboard) {
                     borderColor: '#667eea',  // 使用與標題漸變一致的顏色（直接使用顏色值）
                     backgroundColor: 'rgba(102, 126, 234, 0.1)', 
                     tension: 0.3, 
-                    fill: true 
+                    fill: true,
+                    pointRadius: 0, // 不顯示點，避免破圖
+                    pointHoverRadius: 4,
+                    borderWidth: 2
                 }] 
             }; 
             // 確保更新時保留顏色設定
@@ -5662,7 +5670,22 @@ if (dashboard) {
             if (charts.trend.options && charts.trend.options.plugins && charts.trend.options.plugins.title) {
                 charts.trend.options.plugins.title.color = '#64748b';
             }
-            charts.trend.update();
+            // 先清除 canvas，避免破圖
+            if (charts.trend && charts.trend.canvas) {
+                const ctx = charts.trend.canvas.getContext('2d');
+                if (ctx) {
+                    ctx.clearRect(0, 0, charts.trend.canvas.width, charts.trend.canvas.height);
+                }
+            }
+            // 使用 updateMode: 'none' 避免動畫導致的破圖，並強制重新渲染
+            charts.trend.update('none');
+            // 強制重新繪製 canvas 以避免破圖
+            if (charts.trend && charts.trend.canvas) {
+                setTimeout(() => {
+                    charts.trend.resize();
+                    charts.trend.draw();
+                }, 50);
+            }
         }
 
         function initCharts() {
@@ -5670,7 +5693,7 @@ if (dashboard) {
                 const c1 = document.getElementById('statusChart'), c2 = document.getElementById('unitChart'), c3 = document.getElementById('trendChart');
                 if (c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#64748b', font: { size: 12 } } }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if (!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#64748b', font: { weight: '600', size: 12 } } } } }); }
                 if (c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } }, y: { ticks: { color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } } } } }); }
-                if (c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢', color: '#64748b', font: { size: 14, weight: '600' } } }, scales: { x: { ticks: { color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } }, y: { beginAtZero: true, ticks: { stepSize: 1, color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } } } } }); }
+                if (c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢', color: '#64748b', font: { size: 14, weight: '600' } } }, scales: { x: { ticks: { color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } }, y: { beginAtZero: true, ticks: { stepSize: 1, color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } } }, elements: { point: { radius: 0 }, line: { borderWidth: 2 } } } }); }
                 if (cachedGlobalStats) updateChartsData(cachedGlobalStats);
             } catch (e) { console.error("Chart Init Error:", e); }
         }

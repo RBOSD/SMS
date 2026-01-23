@@ -1486,6 +1486,9 @@
                 max-width: 100% !important;
                 max-height: 100% !important;
                 position: relative;
+                display: block; /* 確保 canvas 正確顯示 */
+                image-rendering: -webkit-optimize-contrast; /* 優化渲染品質 */
+                image-rendering: crisp-edges;
             }
             
             /* 圓餅圖保持原始大小 */
