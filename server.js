@@ -273,8 +273,14 @@ async function initDB() {
                     password TEXT,
                     name TEXT,
                     role TEXT DEFAULT 'viewer',
+                    must_change_password BOOLEAN DEFAULT true,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
+                
+                // 新增 must_change_password 欄位（如果不存在）
+                try {
+                    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT true`);
+                } catch (e) {}
 
                 // Inspection Plans Table (簡化版：只保留計畫名稱和年度)
                 await client.query(`CREATE TABLE IF NOT EXISTS inspection_plans (
@@ -342,8 +348,8 @@ async function initDB() {
                     const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || 
                         require('crypto').randomBytes(16).toString('hex');
                     const hash = bcrypt.hashSync(defaultPassword, 10);
-                    await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
-                        ['admin', hash, '系統管理員', 'admin']);
+                    await client.query("INSERT INTO users (username, password, name, role, must_change_password) VALUES ($1, $2, $3, $4, $5)", 
+                        ['admin', hash, '系統管理員', 'admin', true]);
                     console.log("===========================================");
                     console.log("警告: 已建立預設管理員帳號");
                     console.log("帳號: admin");
@@ -584,7 +590,13 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
                     return res.status(500).json({error: 'Session error'});
                 }
                 logAction(user.username, 'LOGIN', 'User logged in', req).catch(()=>{});
-                res.json({ success: true, user: req.session.user });
+                // 檢查是否需要更新密碼
+                const mustChangePassword = user.must_change_password === true || user.must_change_password === null;
+                res.json({ 
+                    success: true, 
+                    user: req.session.user,
+                    mustChangePassword: mustChangePassword
+                });
             });
         } else {
             res.status(401).json({ error: 'Invalid credentials' });
@@ -637,7 +649,7 @@ app.put('/api/auth/profile', requireAuth, verifyCsrf, async (req, res) => {
                 return res.status(400).json({ error: passwordValidation.message });
             }
             const hash = bcrypt.hashSync(password, 10);
-            await pool.query("UPDATE users SET name = $1, password = $2 WHERE id = $3", [name, hash, id]);
+            await pool.query("UPDATE users SET name = $1, password = $2, must_change_password = $3 WHERE id = $4", [name, hash, false, id]);
             logAction(req.session.user.username, 'UPDATE_PROFILE', `更新個人資料：已更新姓名為「${name}」並變更密碼`, req);
         } else {
             await pool.query("UPDATE users SET name = $1 WHERE id = $2", [name, id]);
@@ -647,6 +659,32 @@ app.put('/api/auth/profile', requireAuth, verifyCsrf, async (req, res) => {
     } catch (e) { 
         logError(e, 'Update profile error', req).catch(() => {});
         res.status(500).json({ error: e.message }); 
+    }
+});
+
+// 首次登入強制更新密碼 API
+app.post('/api/auth/change-password', requireAuth, verifyCsrf, async (req, res) => {
+    const { password } = req.body;
+    const id = req.session.user.id;
+    try {
+        if (!password) {
+            return res.status(400).json({ error: '密碼為必填項目' });
+        }
+        
+        // 驗證密碼複雜度
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ error: passwordValidation.message });
+        }
+        
+        // 更新密碼並清除 must_change_password 標記
+        const hash = bcrypt.hashSync(password, 10);
+        await pool.query("UPDATE users SET password = $1, must_change_password = $2 WHERE id = $3", [hash, false, id]);
+        
+        logAction(req.session.user.username, 'CHANGE_PASSWORD', 'User changed password (first login)', req).catch(()=>{});
+        res.json({ success: true });
+    } catch (e) {
+        handleApiError(e, req, res, 'Change password error');
     }
 });
 
@@ -1071,7 +1109,7 @@ app.post('/api/users', requireAuth, requireAdmin, verifyCsrf, async (req, res) =
         }
         
         const hash = bcrypt.hashSync(password, 10);
-        await pool.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", [username, hash, name, role]);
+        await pool.query("INSERT INTO users (username, password, name, role, must_change_password) VALUES ($1, $2, $3, $4, $5)", [username, hash, name, role, true]);
         logAction(req.session.user.username, 'CREATE_USER', `新增使用者：${name} (${username})，權限：${role}`, req);
         res.json({success:true});
     } catch (e) { 
@@ -1096,7 +1134,7 @@ app.put('/api/users/:id', requireAuth, requireAdmin, verifyCsrf, async (req, res
                 return res.status(400).json({ error: passwordValidation.message });
             }
             const hash = bcrypt.hashSync(password, 10);
-            await pool.query("UPDATE users SET name=$1, role=$2, password=$3 WHERE id=$4", [name, role, hash, id]);
+            await pool.query("UPDATE users SET name=$1, role=$2, password=$3, must_change_password=$4 WHERE id=$5", [name, role, hash, true, id]);
             logAction(req.session.user.username, 'UPDATE_USER', `修改使用者：${targetName} (${targetUsername})，已更新姓名、權限和密碼`, req);
         } else {
             await pool.query("UPDATE users SET name=$1, role=$2 WHERE id=$3", [name, role, id]);
@@ -1168,8 +1206,8 @@ app.post('/api/users/import', requireAuth, requireAdmin, verifyCsrf, async (req,
                     }
                     const hash = bcrypt.hashSync(password, 10);
                     await pool.query(
-                        "UPDATE users SET name=$1, role=$2, password=$3 WHERE username=$4",
-                        [name, role.toLowerCase(), hash, username]
+                        "UPDATE users SET name=$1, role=$2, password=$3, must_change_password=$4 WHERE username=$5",
+                        [name, role.toLowerCase(), hash, true, username]
                     );
                 } else {
                     await pool.query(
@@ -1197,8 +1235,8 @@ app.post('/api/users/import', requireAuth, requireAdmin, verifyCsrf, async (req,
                 }
                 
                 await pool.query(
-                    "INSERT INTO users (name, username, role, password) VALUES ($1, $2, $3, $4) RETURNING id",
-                    [name, username, role.toLowerCase(), hash]
+                    "INSERT INTO users (name, username, role, password, must_change_password) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+                    [name, username, role.toLowerCase(), hash, true]
                 );
                 results.success++;
             }

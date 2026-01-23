@@ -1038,6 +1038,20 @@ if (dashboard) {
             try {
                 await checkAuth();
                 if (currentUser) {
+                    // 檢查是否需要更新密碼（首次登入）
+                    const mustChangePassword = sessionStorage.getItem('mustChangePassword') === 'true';
+                    if (mustChangePassword) {
+                        // 顯示密碼更新模態框
+                        const modal = document.getElementById('changePasswordModal');
+                        if (modal) {
+                            modal.style.display = 'flex';
+                            // 清除 sessionStorage 中的標記
+                            sessionStorage.removeItem('mustChangePassword');
+                            // 阻止其他操作，直到密碼更新完成
+                            return;
+                        }
+                    }
+                    
                     // 確保 body 可見（再次確認）
                     document.body.style.display = 'flex';
                     
@@ -5287,6 +5301,80 @@ if (dashboard) {
             } catch (e) { 
                 showToast('更新失敗', 'error'); 
             } 
+        }
+
+        // 首次登入密碼更新函數
+        async function submitChangePassword() {
+            const newPwd = document.getElementById('changePwdNew').value;
+            const confirmPwd = document.getElementById('changePwdConfirm').value;
+            const errorEl = document.getElementById('changePwdError');
+            
+            // 清除之前的錯誤訊息
+            if (errorEl) {
+                errorEl.style.display = 'none';
+                errorEl.innerText = '';
+            }
+            
+            // 驗證輸入
+            if (!newPwd || !confirmPwd) {
+                if (errorEl) {
+                    errorEl.innerText = '請輸入新密碼和確認密碼';
+                    errorEl.style.display = 'block';
+                }
+                return;
+            }
+            
+            if (newPwd !== confirmPwd) {
+                if (errorEl) {
+                    errorEl.innerText = '兩次輸入的密碼不一致';
+                    errorEl.style.display = 'block';
+                }
+                return;
+            }
+            
+            // 驗證密碼複雜度
+            const validation = validatePasswordFrontend(newPwd);
+            if (!validation.valid) {
+                if (errorEl) {
+                    errorEl.innerText = validation.message;
+                    errorEl.style.display = 'block';
+                }
+                return;
+            }
+            
+            try {
+                const res = await apiFetch('/api/auth/change-password', {
+                    method: 'POST',
+                    body: JSON.stringify({ password: newPwd })
+                });
+                
+                if (res.ok) {
+                    showToast('密碼更新成功，請重新登入', 'success');
+                    // 關閉模態框
+                    const modal = document.getElementById('changePasswordModal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                    }
+                    // 清除表單
+                    document.getElementById('changePwdNew').value = '';
+                    document.getElementById('changePwdConfirm').value = '';
+                    // 登出並重新導向到登入頁
+                    setTimeout(() => {
+                        logout();
+                    }, 1000);
+                } else {
+                    const data = await res.json();
+                    if (errorEl) {
+                        errorEl.innerText = data.error || '密碼更新失敗';
+                        errorEl.style.display = 'block';
+                    }
+                }
+            } catch (e) {
+                if (errorEl) {
+                    errorEl.innerText = '連線錯誤，請稍後再試';
+                    errorEl.style.display = 'block';
+                }
+            }
         }
 
         function toggleEditMode(edit) { 

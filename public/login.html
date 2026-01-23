@@ -293,14 +293,25 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    // 清除視圖狀態，讓登入後顯示預設頁面
-                    sessionStorage.removeItem('currentView');
-                    sessionStorage.removeItem('currentDataTab');
-                    sessionStorage.removeItem('currentUsersTab');
-                    btn.innerText = '登入成功';
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 100);
+                    // 檢查是否需要更新密碼
+                    if (data.mustChangePassword) {
+                        // 首次登入，需要更新密碼
+                        sessionStorage.setItem('mustChangePassword', 'true');
+                        btn.innerText = '登入成功';
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 100);
+                    } else {
+                        // 清除視圖狀態，讓登入後顯示預設頁面
+                        sessionStorage.removeItem('currentView');
+                        sessionStorage.removeItem('currentDataTab');
+                        sessionStorage.removeItem('currentUsersTab');
+                        sessionStorage.removeItem('mustChangePassword');
+                        btn.innerText = '登入成功';
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 100);
+                    }
                 } else {
                     errorMsg.innerText = data.error || '登入失敗，請檢查帳號密碼';
                     errorMsg.classList.add('show');

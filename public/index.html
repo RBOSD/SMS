@@ -527,6 +527,42 @@
         </div>
     </div>
 
+    <!-- 首次登入密碼更新 Modal -->
+    <div class="modal-overlay" id="changePasswordModal" style="display:none; z-index:10000;">
+        <div class="modal-box" style="max-width:500px; width:90%;">
+            <h3 style="margin-top:0; color:#dc2626;">⚠️ 首次登入，請更新密碼</h3>
+            <div style="background:#fef2f2; padding:12px; border-radius:8px; margin-bottom:20px; border:1px solid #fecaca;">
+                <div style="font-size:14px; color:#991b1b;">
+                    為了您的帳號安全，請設定一個新的密碼。密碼必須符合以下要求：
+                </div>
+                <ul style="margin:8px 0 0 20px; font-size:13px; color:#7f1d1d;">
+                    <li>至少 8 個字元</li>
+                    <li>包含至少一個大寫字母</li>
+                    <li>包含至少一個小寫字母</li>
+                    <li>包含至少一個數字</li>
+                </ul>
+            </div>
+            <div class="form-group">
+                <label>新密碼</label>
+                <div class="pwd-wrapper">
+                    <input type="password" id="changePwdNew" class="filter-input" autocomplete="new-password">
+                    <button class="pwd-toggle" onclick="togglePwdVisibility('changePwdNew', this)" aria-label="顯示/隱藏密碼">👁️</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>確認新密碼</label>
+                <div class="pwd-wrapper">
+                    <input type="password" id="changePwdConfirm" class="filter-input" autocomplete="new-password">
+                    <button class="pwd-toggle" onclick="togglePwdVisibility('changePwdConfirm', this)" aria-label="顯示/隱藏確認密碼">👁️</button>
+                </div>
+            </div>
+            <div id="changePwdError" style="color:#dc2626; font-size:13px; margin-bottom:12px; display:none;"></div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button class="btn btn-primary" style="width:100%" onclick="submitChangePassword()">更新密碼</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 自訂確認對話框 Modal -->
     <div class="modal-overlay" id="confirmModal" style="display:none;">
         <div class="modal-box" style="max-width:500px; width:90%;">
