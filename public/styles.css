@@ -315,13 +315,12 @@
         /* Dashboard */
         .dashboard-section {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: visible; /* 改為 visible，避免圖表被裁切 */
+            overflow: hidden; /* 保持 hidden，避免內容溢出 */
             max-height: 1000px;
             opacity: 1;
             margin-bottom: 24px;
             flex-shrink: 0;
             position: relative;
-            z-index: 1; /* 確保圖表區域在正確的層級 */
         }
 
         .dashboard-section.collapsed {
@@ -1397,7 +1396,6 @@
                 padding: 12px;
                 width: 100%;
                 position: relative;
-                z-index: 1; /* 確保內容在正確的層級，不被側邊欄遮蔽 */
             }
 
             .stats-bar {
@@ -1438,17 +1436,16 @@
             .chart-card {
                 height: 320px;
                 padding: 12px;
-                overflow: visible; /* 改為 visible，避免圖表被裁切 */
+                overflow: hidden; /* 保持 hidden，避免內容溢出遮住其他元素 */
                 box-sizing: border-box;
                 position: relative;
-                z-index: 1; /* 確保圖表卡片在正確的層級 */
             }
             
             .chart-card > div {
                 width: 100%;
                 height: 296px;
                 max-width: 100%;
-                overflow: visible; /* 改為 visible，避免圖表被裁切 */
+                overflow: hidden; /* 保持 hidden，但確保圖表內容在容器內 */
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -1460,7 +1457,6 @@
                 max-width: 100% !important;
                 max-height: 100% !important;
                 position: relative;
-                z-index: 1;
             }
             
             /* 特別針對圓餅圖，確保有足夠空間顯示圖例 */
@@ -1469,14 +1465,15 @@
                 min-height: 296px;
             }
             
-            /* 特別針對趨勢圖表，確保有足夠空間顯示 */
+            /* 特別針對趨勢圖表，確保有足夠空間顯示且不被裁切 */
             .chart-card:has(#trendChart) {
-                height: 340px; /* 增加高度以容納趨勢圖表 */
+                height: 360px; /* 增加高度以容納趨勢圖表，避免被裁切 */
             }
             
             .chart-card:has(#trendChart) > div {
-                height: 316px; /* 對應增加內部高度 */
-                min-height: 316px;
+                height: 336px; /* 對應增加內部高度 (360px - 24px padding) */
+                min-height: 336px;
+                overflow: hidden; /* 保持 hidden，但容器更大所以不會裁切 */
             }
 
             /* Optimized Filters for Mobile */
@@ -1527,7 +1524,9 @@
             }
 
             .data-container {
-                overflow: visible;
+                overflow-x: auto; /* 保持橫向滾動 */
+                overflow-y: visible; /* 允許垂直方向可見，但避免遮住其他元素 */
+                position: relative;
             }
 
             table,
