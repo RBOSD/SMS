@@ -154,7 +154,7 @@
         // Current import mode: 'word' (uses param) or 'backup' (ignores param)
         let currentImportMode = 'word';
 
-        function resetAutoLogout() { clearTimeout(autoLogoutTimer); autoLogoutTimer = setTimeout(() => { alert("您已閒置過久，系統將自動登出。"); logout(); }, 1800000); }
+        function resetAutoLogout() { clearTimeout(autoLogoutTimer); autoLogoutTimer = setTimeout(() => { showToast("您已閒置過久，系統將自動登出。", 'warning'); setTimeout(() => logout(), 2000); }, 1800000); }
         window.onload = resetAutoLogout; document.onmousemove = resetAutoLogout; document.onkeypress = resetAutoLogout;
 
         function toggleDashboard(btn) { const d = document.getElementById('dashboardSection'); const c = d.classList.contains('collapsed'); d.classList.toggle('collapsed', !c); btn.innerHTML = c ? '<span>收合統計圖表</span> <span>▲</span>' : '<span>展開統計圖表</span> <span>▼</span>'; }
@@ -1435,7 +1435,8 @@ if (dashboard) {
             }
             
             const ids = Array.from(checkboxes).map(cb => cb.value);
-            if (!confirm(`確定要刪除 ${ids.length} 筆資料嗎？此操作無法復原！`)) {
+            const confirmed = await showConfirmModal(`確定要刪除 ${ids.length} 筆資料嗎？\n\n此操作無法復原！`, '確定刪除', '取消');
+            if (!confirmed) {
                 return;
             }
             
@@ -1733,7 +1734,8 @@ if (dashboard) {
             
             // 如果選擇"刪除全部"
             if (daysSelect.value === 'all') {
-                if (!confirm(`確定要刪除資料庫中所有「${logTypeName}」紀錄嗎？此動作無法復原！`)) {
+                const confirmed = await showConfirmModal(`確定要刪除資料庫中所有「${logTypeName}」紀錄嗎？\n\n此動作無法復原！`, '確定刪除', '取消');
+                if (!confirmed) {
                     return;
                 }
                 
@@ -1764,7 +1766,8 @@ if (dashboard) {
                 }
             }
             
-            if (!confirm(`確定要刪除資料庫中 ${days} 天前的「${logTypeName}」紀錄嗎？此動作無法復原！\n\n將保留最近 ${days} 天的記錄，刪除更早的記錄。`)) {
+            const confirmed = await showConfirmModal(`確定要刪除資料庫中 ${days} 天前的「${logTypeName}」紀錄嗎？\n\n將保留最近 ${days} 天的記錄，刪除更早的記錄。\n\n此動作無法復原！`, '確定刪除', '取消');
+            if (!confirmed) {
                 return;
             }
             
@@ -1946,7 +1949,7 @@ if (dashboard) {
                 });
             } catch (e) {
                 console.error("Parse error:", e);
-                alert("解析 Word 表格時發生錯誤，請確認表格格式是否包含「編號」與「內容」欄位。");
+                showToast("解析 Word 表格時發生錯誤，請確認表格格式是否包含「編號」與「內容」欄位。", 'error');
             }
             return items;
         }
@@ -2033,7 +2036,7 @@ if (dashboard) {
             const msg = document.getElementById('importStatusBackup');
 
             if (!f) return showToast('請先選擇備份檔案', 'error');
-            if (!msg) { alert("系統錯誤：找不到狀態顯示區域"); return; }
+            if (!msg) { showToast("系統錯誤：找不到狀態顯示區域", 'error'); return; }
 
             msg.innerText = '備份檔解析中...';
             currentImportMode = 'backup';
@@ -2171,7 +2174,8 @@ if (dashboard) {
             const count = stagedImportData.length;
             const isBackup = currentImportMode === 'backup';
             const msg = isBackup ? `⚠️ 警告：即將進行「災難復原」，這將覆蓋或新增 ${count} 筆資料。\n確定要執行嗎？` : `確定要匯入 ${count} 筆資料嗎？`;
-            if (!confirm(msg)) return;
+            const confirmed = await showConfirmModal(msg, '確認', '取消');
+            if (!confirmed) return;
 
             let round = 1;
             let issueDate = '';
@@ -2545,7 +2549,8 @@ if (dashboard) {
             if (hasError) return;
             if (items.length === 0) return showToast('請至少輸入一筆有效資料', 'error');
 
-            if (!confirm(`確定要批次新增 ${items.length} 筆資料嗎？\n計畫：${planName}`)) return;
+            const confirmed = await showConfirmModal(`確定要批次新增 ${items.length} 筆資料嗎？\n\n計畫：${planName}`, '確定新增', '取消');
+            if (!confirmed) return;
 
             try {
                 const res = await apiFetch('/api/issues/import', {
@@ -2987,7 +2992,8 @@ if (dashboard) {
                 });
                 
                 if (hasExistingData) {
-                    if (!confirm(`表格中已有資料，載入現有事項將會清空現有資料。\n確定要載入 ${issueList.length} 筆事項嗎？`)) {
+                    const confirmed = await showConfirmModal(`表格中已有資料，載入現有事項將會清空現有資料。\n\n確定要載入 ${issueList.length} 筆事項嗎？`, '確定載入', '取消');
+                    if (!confirmed) {
                         return;
                     }
                 }
@@ -4069,7 +4075,8 @@ if (dashboard) {
                 return;
             }
 
-            if (!confirm(`確定要批次新增 ${items.length} 筆資料嗎？\n計畫：${planName}`)) return;
+            const confirmed = await showConfirmModal(`確定要批次新增 ${items.length} 筆資料嗎？\n\n計畫：${planName}`, '確定新增', '取消');
+            if (!confirmed) return;
 
             try {
                 // 先新增所有事項（第一次辦理情形）
@@ -4548,7 +4555,8 @@ if (dashboard) {
             } 
         }
         async function deleteUser(id) { 
-            if (!confirm('確定?')) return; 
+            const confirmed = await showConfirmModal('確定要刪除此帳號嗎？\n\n此操作無法復原！', '確定刪除', '取消');
+            if (!confirmed) return; 
             try {
                 const res = await apiFetch(`/api/users/${id}`, { method: 'DELETE' }); 
                 const data = await res.json();
@@ -4936,7 +4944,8 @@ if (dashboard) {
                 return plan ? `${plan.name}${plan.year ? ` (${plan.year})` : ''}` : '';
             }).filter(Boolean);
             
-            if (!confirm(`確定要刪除以下 ${ids.length} 筆檢查計畫嗎？\n\n${planNames.slice(0, 5).join('\n')}${planNames.length > 5 ? '\n...' : ''}\n\n此操作無法復原！`)) {
+            const confirmed = await showConfirmModal(`確定要刪除以下 ${ids.length} 筆檢查計畫嗎？\n\n${planNames.slice(0, 5).join('\n')}${planNames.length > 5 ? '\n...' : ''}\n\n此操作無法復原！`, '確定刪除', '取消');
+            if (!confirmed) {
                 return;
             }
             
@@ -5255,7 +5264,8 @@ if (dashboard) {
             }
         }
         async function deletePlan(id) {
-            if (!confirm('確定要刪除這個計畫嗎？')) return;
+            const confirmed = await showConfirmModal('確定要刪除這個計畫嗎？\n\n此操作無法復原！', '確定刪除', '取消');
+            if (!confirmed) return;
             try {
                 const res = await apiFetch(`/api/plans/${id}`, { method: 'DELETE' });
                 const j = await res.json();
@@ -5275,15 +5285,25 @@ if (dashboard) {
         function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
         async function submitProfile() { 
             const name = document.getElementById('myProfileName').value, 
-                pwd = document.getElementById('myProfilePwd').value; 
+                pwd = document.getElementById('myProfilePwd').value,
+                pwdConfirm = document.getElementById('myProfilePwdConfirm').value; 
             
             try { 
-                // 如果有提供密碼，驗證複雜度
+                // 如果有提供密碼，驗證複雜度和確認密碼
                 if (pwd) {
+                    if (!pwdConfirm) {
+                        return showToast('請輸入確認密碼', 'error');
+                    }
+                    if (pwd !== pwdConfirm) {
+                        return showToast('密碼與確認密碼不符', 'error');
+                    }
                     const validation = validatePasswordFrontend(pwd);
                     if (!validation.valid) {
                         return showToast(validation.message, 'error');
                     }
+                } else if (pwdConfirm) {
+                    // 如果只填了確認密碼但沒填密碼
+                    return showToast('請輸入新密碼', 'error');
                 }
                 
                 const res = await apiFetch('/api/auth/profile', { 
@@ -5293,6 +5313,9 @@ if (dashboard) {
                 if (res.ok) { 
                     showToast('更新成功，請重新登入'); 
                     document.getElementById('profileModal').classList.remove('open'); 
+                    // 清空密碼欄位
+                    document.getElementById('myProfilePwd').value = '';
+                    document.getElementById('myProfilePwdConfirm').value = '';
                     logout(); 
                 } else { 
                     const j = await res.json(); 
@@ -5878,7 +5901,8 @@ if (dashboard) {
             const issueId = currentEditItem.id;
             const issueNumber = currentEditItem.number || `ID:${issueId}`;
             
-            if (!confirm(`確定要刪除事項「${issueNumber}」嗎？此操作無法復原。`)) {
+            const confirmed = await showConfirmModal(`確定要刪除事項「${issueNumber}」嗎？\n\n此操作無法復原。`, '確定刪除', '取消');
+            if (!confirmed) {
                 return;
             }
             
@@ -6008,8 +6032,10 @@ if (dashboard) {
             const txt = document.getElementById('aiPreviewText').innerText; 
             if (txt) { 
                 document.getElementById('editReview').value = txt; 
-                showToast('已帶入 AI 建議'); 
-            } 
+                // 移除成功提示，只保留錯誤提示
+            } else {
+                showToast('沒有可帶入的 AI 建議', 'error');
+            }
         }
         
         // --- 事項修正功能 ---
@@ -6522,7 +6548,8 @@ if (dashboard) {
                 return;
             }
             
-            if (!confirm(`確定要批次設定第 ${round} 次審查的函復日期為 ${responseDate} 嗎？\n將更新 ${yearEditIssueList.length} 筆事項。`)) {
+            const confirmed = await showConfirmModal(`確定要批次設定第 ${round} 次審查的函復日期為 ${responseDate} 嗎？\n\n將更新 ${yearEditIssueList.length} 筆事項。`, '確定設定', '取消');
+            if (!confirmed) {
                 return;
             }
             
@@ -6887,7 +6914,8 @@ if (dashboard) {
                 return;
             }
             
-            if (!confirm('確定要儲存所有變更嗎？')) {
+            const confirmed = await showConfirmModal('確定要儲存所有變更嗎？', '確定儲存', '取消');
+            if (!confirmed) {
                 return;
             }
             

@@ -349,9 +349,6 @@
                             <div style="font-size:13px;color:#475569;margin-bottom:8px;font-weight:600;">第 <span id="currentHandlingRoundNum">1</span> 次機構辦理情形</div>
                             <div id="currentHandlingDisplay" style="background:#ffffff;padding:12px;border-radius:8px;font-size:14px;color:#334155;border:1px solid #cbd5e1;line-height:1.6;min-height:80px;max-height:200px;overflow-y:auto;white-space:pre-wrap;"
                                 >（尚未有機構辦理情形）</div>
-                            <div style="margin-top:12px; padding:10px; background:#fff3cd; border-radius:6px; border:1px solid #ffc107; font-size:12px; color:#856404;">
-                                💡 提示：如需新增或編輯辦理情形，請至「資料管理」頁面的「年度編輯」功能中操作
-                            </div>
                         </div>
                         
                         <!-- 隱藏的處理欄位（用於儲存） -->
@@ -461,6 +458,13 @@
                 <div class="pwd-wrapper">
                     <input type="password" id="myProfilePwd" class="filter-input">
                     <button class="pwd-toggle" onclick="togglePwdVisibility('myProfilePwd', this)" aria-label="顯示/隱藏密碼">👁️</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>確認新密碼</label>
+                <div class="pwd-wrapper">
+                    <input type="password" id="myProfilePwdConfirm" class="filter-input">
+                    <button class="pwd-toggle" onclick="togglePwdVisibility('myProfilePwdConfirm', this)" aria-label="顯示/隱藏確認密碼">👁️</button>
                 </div>
             </div>
             <div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%"
