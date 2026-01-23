@@ -5,6 +5,9 @@
         let cachedGlobalStats = null;
         let csrfToken = null; // CSRF token 快取
         
+        // 開發模式檢測（用於條件輸出 console.warn）
+        const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('dev');
+        
         // 取得 CSRF token
         async function getCsrfToken() {
             if (csrfToken) return csrfToken;
@@ -115,7 +118,7 @@
                             }
                         }
                     }
-                    console.warn('認證失敗，重定向到登入頁');
+                    if (isDevelopment) console.warn('認證失敗，重定向到登入頁');
                     // 清除 sessionStorage
                     sessionStorage.clear();
                     // 重定向到登入頁
@@ -597,7 +600,7 @@
                 
                 const json = await res.json();
                 if (!json.data || json.data.length === 0) {
-                    console.warn('沒有找到任何檢查計畫');
+                    if (isDevelopment) console.warn('沒有找到任何檢查計畫');
                     // 即使沒有計畫，也要嘗試載入查詢看板的計畫選項
                     await loadFilterPlanOptions();
                     return;
@@ -723,7 +726,7 @@
                 const json = await res.json();
                 const select = document.getElementById('filterPlan');
                 if (!select) {
-                    console.warn('找不到 filterPlan 元素');
+                    if (isDevelopment) console.warn('找不到 filterPlan 元素');
                     return;
                 }
                 
@@ -1138,7 +1141,7 @@ if (dashboard) {
                 } else {
                     // 如果沒有 currentUser，應該是重定向到登入頁
                     // 但如果重定向失敗，至少顯示 body
-                    console.warn('未檢測到登入狀態，嘗試重定向到登入頁');
+                    if (isDevelopment) console.warn('未檢測到登入狀態，嘗試重定向到登入頁');
                 }
             } catch (error) {
                 console.error('初始化錯誤:', error);
@@ -1207,7 +1210,7 @@ if (dashboard) {
                     }
                 } else {
                     // 未登入或資料不完整，重定向到登入頁
-                    console.warn('認證資料不完整，重定向到登入頁');
+                    if (isDevelopment) console.warn('認證資料不完整，重定向到登入頁');
                     sessionStorage.clear();
                     window.location.href = '/login.html';
                 }
@@ -1589,7 +1592,7 @@ if (dashboard) {
         function renderUsers() { 
             const tbody = document.getElementById('usersTableBody');
             if (!tbody) {
-                console.warn('usersTableBody element not found');
+                if (isDevelopment) console.warn('usersTableBody element not found');
                 return;
             }
             tbody.innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name || '-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id !== currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); 
@@ -1633,7 +1636,7 @@ if (dashboard) {
         async function loadLogsPage(page = 1) {
             const loginSearchEl = document.getElementById('loginSearch');
             if (!loginSearchEl) {
-                console.warn('loginSearch element not found');
+                if (isDevelopment) console.warn('loginSearch element not found');
                 return;
             }
             logsPage = page;
@@ -1693,7 +1696,7 @@ if (dashboard) {
         async function loadActionsPage(page = 1) {
             const actionSearchEl = document.getElementById('actionSearch');
             if (!actionSearchEl) {
-                console.warn('actionSearch element not found');
+                if (isDevelopment) console.warn('actionSearch element not found');
                 return;
             }
             actionsPage = page;
@@ -2214,7 +2217,7 @@ if (dashboard) {
                         writeLog(`選擇的計畫：${selectedPlan.name} (${selectedPlan.year || '無年度'})`);
                     }
                 } catch (e) {
-                    console.warn('無法載入計畫選項，將使用選擇的計畫名稱', e);
+                    if (isDevelopment) console.warn('無法載入計畫選項，將使用選擇的計畫名稱', e);
                     writeLog(`無法載入計畫選項：${e.message}`, 'WARN');
                 }
             }
@@ -2252,7 +2255,7 @@ if (dashboard) {
                                 // 使用選擇的計畫名稱（這會導致不同年度的事項被歸類到同一計畫）
                                 item.planName = selectedPlan.name;
                                 const warnMsg = `找不到匹配的計畫：選擇的計畫名稱="${selectedPlan.name}"，選擇的計畫年度="${selectedPlan.year}"，事項年度="${itemYear}"。使用選擇的計畫名稱。`;
-                                console.warn(`⚠️ ${warnMsg}`);
+                                if (isDevelopment) console.warn(`⚠️ ${warnMsg}`);
                                 writeLog(warnMsg, 'WARN');
                             }
                         } else {
@@ -4981,7 +4984,7 @@ if (dashboard) {
                     if (failCount > 0) {
                         msg += `，失敗 ${failCount} 筆`;
                         if (errors.length > 0) {
-                            console.warn('刪除錯誤詳情：', errors);
+                            if (isDevelopment) console.warn('刪除錯誤詳情：', errors);
                         }
                     }
                     showToast(msg, failCount > 0 ? 'warning' : 'success');
