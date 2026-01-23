@@ -1048,11 +1048,13 @@
         /* 自訂確認對話框顯示 */
         .modal-overlay[id="confirmModal"] {
             display: none;
+            z-index: 10000 !important; /* 確保確認視窗顯示在 drawer 之上 */
         }
         
         .modal-overlay[id="confirmModal"][style*="flex"],
         .modal-overlay[id="confirmModal"][style*="display: flex"] {
             display: flex !important;
+            z-index: 10000 !important;
         }
 
         .drawer {

@@ -5974,18 +5974,10 @@ if (dashboard) {
                     const json = await res.json();
                     if (json.success) {
                         showToast('儲存成功！');
+                        // 關閉 drawer 並返回查詢看板
+                        closeDrawer();
                         // 重新載入資料
                         await loadIssuesPage(issuesPage);
-                        // 更新 currentEditItem
-                        const updatedItem = currentData.find(d => String(d.id) === String(id));
-                        if (updatedItem) {
-                            currentEditItem = updatedItem;
-                            // 重新載入回合資料以反映最新的儲存結果
-                            // 確保使用正確的 round 值（不應該改變）
-                            const currentRound = parseInt(document.getElementById('editRound').value) || 1;
-                            document.getElementById('editRound').value = currentRound;
-                            loadRoundData();
-                        }
                     } else {
                         showToast('儲存失敗', 'error');
                     }
