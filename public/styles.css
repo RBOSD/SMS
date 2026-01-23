@@ -1400,7 +1400,16 @@
             
             /* 確保 dashboard-section 和 main-card 之間有足夠間距 */
             #dashboardSection {
-                margin-bottom: 24px !important;
+                margin-bottom: 40px !important; /* 大幅增加間距，確保圖表底部完全顯示 */
+            }
+            
+            .dashboard-section {
+                margin-bottom: 40px !important; /* 確保所有 dashboard-section 都有足夠間距 */
+            }
+            
+            /* 確保 charts-grid 不會溢出 */
+            .charts-grid {
+                position: relative;
             }
 
             .stats-bar {
@@ -1435,7 +1444,7 @@
             .charts-grid {
                 grid-template-columns: 1fr;
                 gap: 12px;
-                margin-bottom: 24px; /* 增加底部間距，確保與下方內容分開 */
+                margin-bottom: 0; /* 移除 margin-bottom，由 dashboard-section 統一控制間距 */
             }
 
             .chart-card {
@@ -1472,13 +1481,13 @@
             
             /* 特別針對趨勢圖表，確保有足夠空間顯示且不被裁切 */
             .chart-card:has(#trendChart) {
-                height: 380px; /* 進一步增加高度以容納趨勢圖表 */
+                height: 400px; /* 進一步增加高度以容納趨勢圖表，確保 X 軸標籤完整顯示 */
                 margin-bottom: 0; /* 確保沒有負 margin */
             }
             
             .chart-card:has(#trendChart) > div {
-                height: 356px; /* 對應增加內部高度 (380px - 24px padding) */
-                min-height: 356px;
+                height: 376px; /* 對應增加內部高度 (400px - 24px padding) */
+                min-height: 376px;
                 overflow: hidden;
             }
 
@@ -1491,10 +1500,20 @@
                 z-index: auto; /* 確保不會覆蓋圖表 */
             }
             
-            /* 確保第一個 main-card（在 dashboard-section 之後）有足夠的上邊距 */
+            /* 確保第一個 main-card（在 dashboard-section 之後）有足夠的上邊距，不會覆蓋圖表 */
             #dashboardSection + .main-card,
             .dashboard-section + .main-card {
                 margin-top: 0 !important;
+                clear: both; /* 確保不會浮動到圖表上方 */
+            }
+            
+            /* 確保 view-section 內的內容不會重疊 */
+            .view-section {
+                position: relative;
+            }
+            
+            .view-section > .dashboard-section {
+                margin-bottom: 32px !important;
             }
 
             .integrated-controls {
