@@ -1456,6 +1456,7 @@ if (dashboard) {
             document.getElementById('emptyMsg').style.display = 'none';
             const canManage = currentUser && ['admin', 'manager'].includes(currentUser.role);
             const canEdit = currentUser && ['admin', 'manager', 'editor'].includes(currentUser.role);
+            const isViewer = currentUser && currentUser.role === 'viewer';
             document.getElementById('batchActionContainer').style.display = 'none'; document.getElementById('selectedCountBadge').innerText = ''; document.getElementById('selectAll').checked = false;
             document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
 
@@ -1475,8 +1476,10 @@ if (dashboard) {
                         const prefix = latest.type === 'review' ? '[審]' : '[回]';
                         updateTxt = `${prefix} ${stripHtml(latest.content).slice(0, 80)}`;
                     }
-                    let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if (item.aiResult && item.aiResult.status === 'done') { const f = String(item.aiResult.fulfill || ''); const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes ? 'yes' : 'no'}">${isYes ? '✅' : '⚠️'} ${f}</div>`; }
-                    const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',false)">✏️ 審查/查看詳情</button>` : '';
+                    let aiContent = ''; if (item.aiResult && item.aiResult.status === 'done') { const f = String(item.aiResult.fulfill || ''); const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes ? 'yes' : 'no'}">${isYes ? '✅' : '⚠️'} ${f}</div>`; }
+                    // 檢視人員顯示「查看詳情」按鈕（不顯示「審查」字樣），其他權限顯示「審查/查看詳情」
+                    const btnText = isViewer ? '✏️ 查看詳情' : '✏️ 審查/查看詳情';
+                    const editBtn = (canEdit || isViewer) ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',false)">${btnText}</button>` : '';
                     const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
 
                     let k = item.itemKindCode;
