@@ -1414,12 +1414,12 @@
 
             .stats-bar {
                 grid-template-columns: 1fr 1fr;
-                gap: 10px;
-                margin-bottom: 12px;
+                gap: 8px; /* 縮小間距 */
+                margin-bottom: 8px; /* 縮小底部間距 */
             }
 
             .stat-item {
-                padding: 14px 12px;
+                padding: 10px 8px; /* 縮小內邊距，從 14px 12px 改為 10px 8px */
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -1427,11 +1427,11 @@
             }
 
             .stat-val {
-                font-size: 32px;
+                font-size: 24px; /* 縮小字體，從 32px 改為 24px */
             }
 
             .stat-label {
-                font-size: 15px;
+                font-size: 12px; /* 縮小字體，從 15px 改為 12px */
             }
 
             .stat-item:last-child {
@@ -1473,15 +1473,25 @@
                 position: relative;
             }
             
-            /* 特別針對圓餅圖，確保有足夠空間顯示圖例 */
+            /* 圓餅圖保持原始大小 */
             .chart-card:has(#statusChart) > div {
+                height: 296px;
+                min-height: 296px;
+            }
+            
+            /* 保持長條圖（機構圖表）的原始大小 */
+            .chart-card:has(#unitChart) {
+                height: 320px;
+            }
+            
+            .chart-card:has(#unitChart) > div {
                 height: 296px;
                 min-height: 296px;
             }
             
             /* 特別針對趨勢圖表，確保有足夠空間顯示且不被裁切 */
             .chart-card:has(#trendChart) {
-                height: 400px; /* 進一步增加高度以容納趨勢圖表，確保 X 軸標籤完整顯示 */
+                height: 400px; /* 保持較大高度以容納趨勢圖表，確保 X 軸標籤完整顯示 */
                 margin-bottom: 0; /* 確保沒有負 margin */
             }
             
