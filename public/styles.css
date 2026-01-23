@@ -1400,16 +1400,22 @@
             
             /* 確保 dashboard-section 和 main-card 之間有足夠間距 */
             #dashboardSection {
-                margin-bottom: 40px !important; /* 大幅增加間距，確保圖表底部完全顯示 */
+                margin-bottom: 60px !important; /* 大幅增加間距，確保趨勢圖表底部完全顯示 */
             }
             
             .dashboard-section {
-                margin-bottom: 40px !important; /* 確保所有 dashboard-section 都有足夠間距 */
+                margin-bottom: 60px !important; /* 確保所有 dashboard-section 都有足夠間距 */
             }
             
             /* 確保 charts-grid 不會溢出 */
             .charts-grid {
                 position: relative;
+                margin-bottom: 0;
+            }
+            
+            /* 特別為趨勢圖表增加額外的底部間距 */
+            .chart-card:has(#trendChart) {
+                margin-bottom: 0;
             }
 
             .stats-bar {
@@ -1491,13 +1497,13 @@
             
             /* 特別針對趨勢圖表，確保有足夠空間顯示且不被裁切 */
             .chart-card:has(#trendChart) {
-                height: 400px; /* 保持較大高度以容納趨勢圖表，確保 X 軸標籤完整顯示 */
+                height: 420px; /* 進一步增加高度以容納趨勢圖表，確保 X 軸標籤完整顯示 */
                 margin-bottom: 0; /* 確保沒有負 margin */
             }
             
             .chart-card:has(#trendChart) > div {
-                height: 376px; /* 對應增加內部高度 (400px - 24px padding) */
-                min-height: 376px;
+                height: 396px; /* 對應增加內部高度 (420px - 24px padding) */
+                min-height: 396px;
                 overflow: hidden;
             }
 
@@ -1523,7 +1529,12 @@
             }
             
             .view-section > .dashboard-section {
-                margin-bottom: 32px !important;
+                margin-bottom: 60px !important; /* 與上面的設定一致 */
+            }
+            
+            /* 特別針對 searchView 中的 dashboard-section，確保有足夠間距 */
+            #searchView .dashboard-section {
+                margin-bottom: 60px !important;
             }
 
             .integrated-controls {
