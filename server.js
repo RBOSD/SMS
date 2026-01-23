@@ -132,6 +132,34 @@ app.use(protectHtmlPages);
 // 靜態檔案服務
 app.use(express.static(path.join(__dirname, 'public')));
 
+// 權限檢查中間件
+const requireAdmin = (req, res, next) => {
+    if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Denied' });
+    }
+    next();
+};
+
+const requireAdminOrManager = (req, res, next) => {
+    if (!req.session || !req.session.user || !['admin', 'manager'].includes(req.session.user.role)) {
+        return res.status(403).json({ error: 'Denied' });
+    }
+    next();
+};
+
+// 統一的 API 錯誤處理函數
+function handleApiError(e, req, res, context) {
+    // 記錄錯誤日誌
+    logError(e, context, req).catch(() => {});
+    
+    // 根據環境決定錯誤訊息
+    const errorMessage = process.env.NODE_ENV === 'production' 
+        ? '伺服器錯誤，請稍後再試' 
+        : e.message;
+    
+    res.status(500).json({ error: errorMessage });
+}
+
 // CSRF 保護設定
 const csrfProtection = new csrf();
 const getCsrfToken = (req, res, next) => {
@@ -717,7 +745,9 @@ app.get('/api/issues', requireAuth, async (req, res) => {
             latestCreatedAt: latestTime,
             globalStats: { status: sRes.rows, unit: uRes.rows, year: yRes.rows }
         });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get issues error');
+    }
 });
 
 app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
@@ -838,11 +868,12 @@ app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
         const actionDetails = `更新開立事項：編號 ${issueNumber}，第 ${r} 次審查，狀態：${status}${content !== undefined ? '，內容已更新' : ''}${issueDate !== undefined ? '，開立日期已更新' : ''}${number !== undefined ? '，編號已更新' : ''}${year !== undefined ? '，年度已更新' : ''}${unit !== undefined ? '，機構已更新' : ''}${divisionName !== undefined ? '，分組已更新' : ''}${inspectionCategoryName !== undefined ? '，檢查種類已更新' : ''}${itemKindCode !== undefined ? '，類型已更新' : ''}${planName !== undefined ? '，檢查計畫已更新' : ''}`;
         logAction(req.session.user.username, 'UPDATE_ISSUE', actionDetails, req);
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Update issue error');
+    }
 });
 
-app.delete('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
-    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
+app.delete('/api/issues/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     try {
         // 先查詢 issue number 再刪除
         const issueRes = await pool.query("SELECT number FROM issues WHERE id=$1", [req.params.id]);
@@ -870,13 +901,11 @@ app.post('/api/issues/batch-delete', requireAuth, verifyCsrf, async (req, res) =
         logAction(req.session.user.username, 'BATCH_DELETE_ISSUES', `批次刪除開立事項：${numberList} (共 ${ids.length} 筆)`, req);
         res.json({success:true});
     } catch (e) { 
-        logError(e, 'Batch delete issues error', req).catch(() => {});
-        res.status(500).json({ error: e.message }); 
+        handleApiError(e, req, res, 'Batch delete issues error');
     }
 });
 
-app.post('/api/issues/import', requireAuth, verifyCsrf, async (req, res) => {
-    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
+app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { data, round, reviewDate, replyDate, allowUpdate } = req.body;
     const r = parseInt(round) || 1;
     const client = await pool.connect();
@@ -1004,7 +1033,7 @@ app.post('/api/issues/import', requireAuth, verifyCsrf, async (req, res) => {
         });
     } catch (e) {
         await client.query('ROLLBACK');
-        res.status(500).json({ error: e.message });
+        handleApiError(e, req, res, 'Import issues error');
     } finally {
         client.release();
     }
@@ -1012,8 +1041,7 @@ app.post('/api/issues/import', requireAuth, verifyCsrf, async (req, res) => {
 
 // --- User Management API ---
 
-app.get('/api/users', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
     const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
     const limit = parseInt(pageSize);
     const offset = (page-1)*limit;
@@ -1027,11 +1055,12 @@ app.get('/api/users', requireAuth, async (req, res) => {
         const total = parseInt(cRes.rows[0].count);
         const dRes = await pool.query(`SELECT id, username, name, role, created_at FROM users WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
         res.json({data:dRes.rows, total, page: parseInt(page), pages: Math.ceil(total/limit)});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get users error');
+    }
 });
 
-app.post('/api/users', requireAuth, verifyCsrf, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.post('/api/users', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     const { username, password, name, role } = req.body;
     try {
         // Basic Validation
@@ -1048,13 +1077,11 @@ app.post('/api/users', requireAuth, verifyCsrf, async (req, res) => {
         logAction(req.session.user.username, 'CREATE_USER', `新增使用者：${name} (${username})，權限：${role}`, req);
         res.json({success:true});
     } catch (e) { 
-        logError(e, 'Create user error', req).catch(() => {});
-        res.status(500).json({ error: e.message }); 
+        handleApiError(e, req, res, 'Create user error');
     }
 });
 
-app.put('/api/users/:id', requireAuth, verifyCsrf, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.put('/api/users/:id', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     const { name, password, role } = req.body;
     const id = req.params.id;
     try {
@@ -1079,13 +1106,11 @@ app.put('/api/users/:id', requireAuth, verifyCsrf, async (req, res) => {
         }
         res.json({success:true});
     } catch (e) { 
-        logError(e, 'Update user error', req).catch(() => {});
-        res.status(500).json({ error: e.message }); 
+        handleApiError(e, req, res, 'Update user error');
     }
 });
 
-app.delete('/api/users/:id', requireAuth, verifyCsrf, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.delete('/api/users/:id', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     if(parseInt(req.params.id) === req.session.user.id) return res.status(400).json({error:'Cannot self delete'});
     try {
         // 先查詢使用者資訊以便記錄
@@ -1098,14 +1123,12 @@ app.delete('/api/users/:id', requireAuth, verifyCsrf, async (req, res) => {
         logAction(req.session.user.username, 'DELETE_USER', `刪除使用者：${targetName} (${targetUsername})`, req);
         res.json({success:true});
     } catch (e) { 
-        logError(e, 'Delete user error', req).catch(() => {});
-        res.status(500).json({ error: e.message }); 
+        handleApiError(e, req, res, 'Delete user error');
     }
 });
 
 // 帳號匯入 API
-app.post('/api/users/import', requireAuth, verifyCsrf, async (req, res) => {
-    if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.post('/api/users/import', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     const { data } = req.body;
     if (!data || !Array.isArray(data)) return res.status(400).json({error: '無效的資料格式'});
     
@@ -1238,11 +1261,12 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
         const { rows } = await pool.query(dataQuery, params);
         
         res.json({data:rows, total, page:parseInt(page), pages});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get admin logs error');
+    }
 });
 
-app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.get('/api/admin/action_logs', requireAuth, requireAdmin, async (req, res) => {
     try {
         const { page = 1, pageSize = 50, q } = req.query;
         const limit = parseInt(pageSize);
@@ -1276,24 +1300,23 @@ app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
         const { rows } = await pool.query(dataQuery, params);
         
         res.json({data:rows, total, page:parseInt(page), pages});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get admin logs error');
+    }
 });
 
-app.delete('/api/admin/logs', requireAuth, verifyCsrf, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.delete('/api/admin/logs', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     await pool.query("DELETE FROM logs WHERE action='LOGIN'");
     res.json({success:true});
 });
 
-app.delete('/api/admin/action_logs', requireAuth, verifyCsrf, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.delete('/api/admin/action_logs', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     await pool.query("DELETE FROM logs WHERE action!='LOGIN'");
     res.json({success:true});
 });
 
 // 根據時間範圍清除舊記錄
-app.post('/api/admin/logs/cleanup', requireAuth, verifyCsrf, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.post('/api/admin/logs/cleanup', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     try {
         const { days } = req.body;
         if (!days || days < 1) {
@@ -1310,12 +1333,11 @@ app.post('/api/admin/logs/cleanup', requireAuth, verifyCsrf, async (req, res) =>
         logAction(req.session.user.username, 'CLEANUP_LOGS', `清除 ${days} 天前的登入紀錄，刪除 ${result.rowCount} 筆`, req);
         res.json({success:true, deleted: result.rowCount});
     } catch (e) {
-        res.status(500).json({error: e.message});
+        handleApiError(e, req, res, 'Cleanup logs error');
     }
 });
 
-app.post('/api/admin/action_logs/cleanup', requireAuth, verifyCsrf, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.post('/api/admin/action_logs/cleanup', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     try {
         const { days } = req.body;
         if (!days || days < 1) {
@@ -1332,7 +1354,7 @@ app.post('/api/admin/action_logs/cleanup', requireAuth, verifyCsrf, async (req, 
         logAction(req.session.user.username, 'CLEANUP_ACTION_LOGS', `清除 ${days} 天前的操作紀錄，刪除 ${result.rowCount} 筆`, req);
         res.json({success:true, deleted: result.rowCount});
     } catch (e) {
-        res.status(500).json({error: e.message});
+        handleApiError(e, req, res, 'Cleanup logs error');
     }
 });
 
@@ -1381,15 +1403,13 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
             }));
         res.json({ data: plans });
     } catch (e) { 
-        // 錯誤已在伺服器 log 中記錄（移除 console.error 以減少主控台輸出）
-        res.status(500).json({ error: e.message }); 
+        handleApiError(e, req, res, 'Get plan options error');
     }
 });
 
 // --- Inspection Plans Management API ---
 
-app.get('/api/plans', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.get('/api/plans', requireAuth, requireAdminOrManager, async (req, res) => {
     const { page=1, pageSize=20, q, year, sortField='id', sortDir='desc' } = req.query;
     const limit = parseInt(pageSize);
     const offset = (page-1)*limit;
@@ -1443,22 +1463,21 @@ app.get('/api/plans', requireAuth, async (req, res) => {
         
         res.json({data: plansWithCounts, total, page: parseInt(page), pages: Math.ceil(total/limit)});
     } catch (e) { 
-        // 錯誤已在伺服器 log 中記錄（移除 console.error 以減少主控台輸出）
-        res.status(500).json({ error: e.message }); 
+        handleApiError(e, req, res, 'Get plans error');
     }
 });
 
-app.get('/api/plans/:id', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) => {
     try {
         const result = await pool.query("SELECT id, name, year, created_at, updated_at FROM inspection_plans WHERE id = $1", [req.params.id]);
         if (result.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
         res.json(result.rows[0]);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get plan by id error');
+    }
 });
 
-app.get('/api/plans/:id/issues', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.get('/api/plans/:id/issues', requireAuth, requireAdminOrManager, async (req, res) => {
     try {
         const planResult = await pool.query("SELECT name FROM inspection_plans WHERE id = $1", [req.params.id]);
         if (planResult.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
@@ -1475,11 +1494,12 @@ app.get('/api/plans/:id/issues', requireAuth, async (req, res) => {
         const dataRes = await pool.query("SELECT * FROM issues WHERE plan_name = $1 AND year = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4", [planName, planYear, limit, offset]);
         
         res.json({data: dataRes.rows, total, page: parseInt(page), pages: Math.ceil(total/limit)});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get plan issues error');
+    }
 });
 
-app.post('/api/plans', requireAuth, verifyCsrf, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { name, year } = req.body;
     try {
         if (!name || !year) return res.status(400).json({error: '計畫名稱和年度為必填'});
@@ -1491,13 +1511,12 @@ app.post('/api/plans', requireAuth, verifyCsrf, async (req, res) => {
         if (e.code === '23505') { // Unique violation (name, year)
             res.status(400).json({ error: `計畫名稱「${name}」在年度「${year}」已存在` });
         } else {
-            res.status(500).json({ error: e.message });
+            handleApiError(e, req, res, 'Create plan error');
         }
     }
 });
 
-app.put('/api/plans/:id', requireAuth, verifyCsrf, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.put('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { name, year } = req.body;
     const id = req.params.id;
     try {
@@ -1521,13 +1540,12 @@ app.put('/api/plans/:id', requireAuth, verifyCsrf, async (req, res) => {
         if (e.code === '23505') { // Unique violation
             res.status(400).json({ error: '計畫名稱已存在' });
         } else {
-            res.status(500).json({ error: e.message });
+            handleApiError(e, req, res, 'Update plan error');
         }
     }
 });
 
-app.delete('/api/plans/:id', requireAuth, verifyCsrf, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.delete('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     try {
         // 先查詢計畫資訊以便記錄
         const planRes = await pool.query("SELECT name, year FROM inspection_plans WHERE id=$1", [req.params.id]);
@@ -1547,14 +1565,12 @@ app.delete('/api/plans/:id', requireAuth, verifyCsrf, async (req, res) => {
         logAction(req.session.user.username, 'DELETE_PLAN', `刪除檢查計畫：${planName}${planYear ? ` (年度：${planYear})` : ''}`, req);
         res.json({success:true});
     } catch (e) { 
-        // 錯誤已在伺服器 log 中記錄
-        res.status(500).json({ error: e.message }); 
+        handleApiError(e, req, res, 'Delete plan error');
     }
 });
 
 // 檢查計畫 CSV 匯入 API
-app.post('/api/plans/import', requireAuth, verifyCsrf, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.post('/api/plans/import', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { data } = req.body; // 接收解析後的 CSV 資料
     if (!data || !Array.isArray(data)) return res.status(400).json({error: '無效的資料格式'});
     

@@ -41,6 +41,24 @@
         }
         
         // 統一的 API 請求包裝函數，自動處理認證錯誤和 CSRF token
+        // 生成類別標籤 HTML
+        function getKindLabel(kindCode) {
+            if (!kindCode) return '';
+            const labels = {
+                'N': '<span class="kind-tag N">缺失</span>',
+                'O': '<span class="kind-tag O">觀察</span>',
+                'R': '<span class="kind-tag R">建議</span>'
+            };
+            return labels[kindCode] || '';
+        }
+
+        // 生成狀態標籤 HTML
+        function getStatusBadge(status) {
+            if (!status || status === 'Open') return '';
+            const statusClass = status === '持續列管' ? 'active' : (status === '解除列管' ? 'resolved' : 'self');
+            return `<span class="badge ${statusClass}">${status}</span>`;
+        }
+
         async function apiFetch(url, options = {}) {
             try {
                 // 對於需要 CSRF 保護的請求（POST, PUT, DELETE），自動加入 token
@@ -1457,10 +1475,7 @@ if (dashboard) {
                         k = extractKindCodeFromNumber(item.number);
                     }
 
-                    let kindLabel = '';
-                    if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
-                    else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
-                    else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
+                    let kindLabel = getKindLabel(k);
 
                     const statusHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${badge}</div>`;
                     const snippet = stripHtml(item.content || '').slice(0, 180);
@@ -5300,17 +5315,8 @@ if (dashboard) {
                     k = extractKindCodeFromNumber(currentEditItem.number);
                 }
                 
-                let kindLabel = '';
-                if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
-                else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
-                else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
-                
-                // 顯示狀態標籤（包括持續列管）
-                let statusBadge = '';
-                if (st && st !== 'Open') {
-                    const stClass = st === '持續列管' ? 'active' : (st === '解除列管' ? 'resolved' : 'self');
-                    statusBadge = `<span class="badge ${stClass}">${st}</span>`;
-                }
+                let kindLabel = getKindLabel(k);
+                let statusBadge = getStatusBadge(st);
                 
                 // 確保即使只有類型或只有狀態也能顯示
                 const statusKindHtml = kindLabel || statusBadge ? `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${statusBadge}</div>` : '';
@@ -5415,16 +5421,8 @@ if (dashboard) {
                 k = extractKindCodeFromNumber(currentEditItem.number);
             }
             
-            let kindLabel = '';
-            if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
-            else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
-            else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
-            
-            const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self');
-            let statusBadge = '';
-            if (currentEditItem.status && currentEditItem.status !== 'Open') {
-                statusBadge = `<span class="badge ${st}">${currentEditItem.status}</span>`;
-            }
+            let kindLabel = getKindLabel(k);
+            let statusBadge = getStatusBadge(currentEditItem.status);
             
             // 確保即使只有類型或只有狀態也能顯示
             const statusKindHtml = kindLabel || statusBadge ? `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${statusBadge}</div>` : '';
@@ -6125,10 +6123,7 @@ if (dashboard) {
                     k = extractKindCodeFromNumber(issue.number);
                 }
                 
-                let kindLabel = '';
-                if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
-                else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
-                else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
+                let kindLabel = getKindLabel(k);
                 
                 // 顯示狀態徽章
                 let badge = '';
