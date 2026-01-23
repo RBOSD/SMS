@@ -336,22 +336,38 @@
                 background: white;
                 border: 1px solid var(--border);
                 border-radius: 6px;
-                padding: 8px 16px;
-                font-size: 15px;
+                padding: 6px 10px;
+                font-size: 14px;
                 cursor: pointer;
                 color: var(--text-sub);
                 display: flex;
                 align-items: center;
-                gap: 6px;
+                justify-content: center;
+                gap: 0;
                 transition: all 0.2s;
                 box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
                 margin-left: auto;
+                min-width: 32px;
+                height: 32px;
+            }
+            
+            .dashboard-toggle-btn .toggle-icon {
+                font-size: 12px;
+                line-height: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
 
         .dashboard-toggle-btn:hover {
             background: #f8fafc;
             color: var(--primary);
             border-color: var(--primary);
+            transform: scale(1.05);
+        }
+        
+        .dashboard-toggle-btn:active {
+            transform: scale(0.95);
         }
 
         .stats-bar {

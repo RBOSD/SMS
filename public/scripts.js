@@ -160,7 +160,16 @@
         function resetAutoLogout() { clearTimeout(autoLogoutTimer); autoLogoutTimer = setTimeout(() => { showToast("您已閒置過久，系統將自動登出。", 'warning'); setTimeout(() => logout(), 2000); }, 1800000); }
         window.onload = resetAutoLogout; document.onmousemove = resetAutoLogout; document.onkeypress = resetAutoLogout;
 
-        function toggleDashboard(btn) { const d = document.getElementById('dashboardSection'); const c = d.classList.contains('collapsed'); d.classList.toggle('collapsed', !c); btn.innerHTML = c ? '<span>收合統計圖表</span> <span>▲</span>' : '<span>展開統計圖表</span> <span>▼</span>'; }
+        function toggleDashboard(btn) { 
+            const d = document.getElementById('dashboardSection'); 
+            const c = d.classList.contains('collapsed'); 
+            d.classList.toggle('collapsed', !c); 
+            const icon = btn.querySelector('.toggle-icon');
+            if (icon) {
+                icon.textContent = c ? '▲' : '▼';
+            }
+            btn.title = c ? '收合統計圖表' : '展開統計圖表';
+        }
         function toggleUserMenu() { document.getElementById('userDropdown').classList.toggle('show'); }
         window.addEventListener('click', function (e) { if (!e.target.closest('.user-menu-container')) { document.getElementById('userDropdown').classList.remove('show'); } });
 
