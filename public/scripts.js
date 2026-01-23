@@ -1032,7 +1032,6 @@ if (dashboard) {
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // App 初始化（已移除 debug 日誌）
             // 首先確保 body 可見，避免空白頁面
             document.body.style.display = 'flex';
             
@@ -5055,7 +5054,6 @@ if (dashboard) {
                             }
                             
                             // 顯示解析結果統計
-                            // CSV 解析完成（已移除 debug 日誌）
                             
                             // 過濾掉空行，支援多種欄位名稱
                             const validData = [];
