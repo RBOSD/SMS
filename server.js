@@ -12,6 +12,7 @@ const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcrypt');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const rateLimit = require('express-rate-limit');
+const csrf = require('csrf');
 require('dotenv').config(); 
 
 const app = express();
@@ -21,12 +22,18 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // [Modified] Initialize PostgreSQL Connection Pool
-// SSL 設定：生產環境應使用有效憑證，開發環境可接受自簽憑證
-const sslConfig = process.env.NODE_ENV === 'production' 
-    ? (process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false' 
-        ? { rejectUnauthorized: false } 
-        : { rejectUnauthorized: true })
-    : { rejectUnauthorized: false }; // 開發環境允許自簽憑證
+// SSL 設定：
+// - 預設允許自簽憑證（適用於 Render、Heroku 等雲端平台）
+// - 可透過 DB_SSL_REJECT_UNAUTHORIZED=true 強制要求有效憑證
+// - 可透過 DB_SSL_REJECT_UNAUTHORIZED=false 明確允許自簽憑證
+const sslConfig = (() => {
+    // 如果明確指定了環境變數，使用該值
+    if (process.env.DB_SSL_REJECT_UNAUTHORIZED !== undefined) {
+        return { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true' };
+    }
+    // 預設允許自簽憑證（適用於大多數雲端平台）
+    return { rejectUnauthorized: false };
+})();
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -34,6 +41,12 @@ const pool = new Pool({
     max: 20, 
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
+});
+
+// 資料庫連線錯誤處理
+pool.on('error', async (err) => {
+    console.error('Unexpected error on idle client', err);
+    await logError(err, 'Database connection error', null).catch(() => {});
 });
 
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -119,6 +132,73 @@ app.use(protectHtmlPages);
 // 靜態檔案服務
 app.use(express.static(path.join(__dirname, 'public')));
 
+// 權限檢查中間件
+const requireAdmin = (req, res, next) => {
+    if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Denied' });
+    }
+    next();
+};
+
+const requireAdminOrManager = (req, res, next) => {
+    if (!req.session || !req.session.user || !['admin', 'manager'].includes(req.session.user.role)) {
+        return res.status(403).json({ error: 'Denied' });
+    }
+    next();
+};
+
+// 統一的 API 錯誤處理函數
+function handleApiError(e, req, res, context) {
+    // 記錄錯誤日誌
+    logError(e, context, req).catch(() => {});
+    
+    // 根據環境決定錯誤訊息
+    const errorMessage = process.env.NODE_ENV === 'production' 
+        ? '伺服器錯誤，請稍後再試' 
+        : e.message;
+    
+    res.status(500).json({ error: errorMessage });
+}
+
+// CSRF 保護設定
+const csrfProtection = new csrf();
+const getCsrfToken = (req, res, next) => {
+    if (!req.session.csrfSecret) {
+        req.session.csrfSecret = csrfProtection.secretSync();
+    }
+    req.csrfToken = csrfProtection.create(req.session.csrfSecret);
+    next();
+};
+
+// CSRF 驗證中間件（僅用於需要保護的路由）
+const verifyCsrf = (req, res, next) => {
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+        return next();
+    }
+    
+    try {
+        const token = req.headers['x-csrf-token'] || req.body._csrf;
+        const secret = req.session.csrfSecret;
+        
+        if (!secret || !token) {
+            return res.status(403).json({ error: 'CSRF token missing' });
+        }
+        
+        if (!csrfProtection.verify(secret, token)) {
+            return res.status(403).json({ error: 'Invalid CSRF token' });
+        }
+        
+        next();
+    } catch (e) {
+        console.error('CSRF verification error:', e);
+        logError(e, 'CSRF verification error', req).catch(() => {});
+        return res.status(500).json({ error: 'CSRF verification failed' });
+    }
+};
+
+// 為所有需要認證的路由提供 CSRF token
+app.use('/api/', getCsrfToken);
+
 const requireAuth = (req, res, next) => {
     if (req.session && req.session.user) {
         next();
@@ -193,8 +273,14 @@ async function initDB() {
                     password TEXT,
                     name TEXT,
                     role TEXT DEFAULT 'viewer',
+                    must_change_password BOOLEAN DEFAULT true,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
+                
+                // 新增 must_change_password 欄位（如果不存在）
+                try {
+                    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT true`);
+                } catch (e) {}
 
                 // Inspection Plans Table (簡化版：只保留計畫名稱和年度)
                 await client.query(`CREATE TABLE IF NOT EXISTS inspection_plans (
@@ -262,8 +348,8 @@ async function initDB() {
                     const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || 
                         require('crypto').randomBytes(16).toString('hex');
                     const hash = bcrypt.hashSync(defaultPassword, 10);
-                    await client.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", 
-                        ['admin', hash, '系統管理員', 'admin']);
+                    await client.query("INSERT INTO users (username, password, name, role, must_change_password) VALUES ($1, $2, $3, $4, $5)", 
+                        ['admin', hash, '系統管理員', 'admin', true]);
                     console.log("===========================================");
                     console.log("警告: 已建立預設管理員帳號");
                     console.log("帳號: admin");
@@ -330,7 +416,40 @@ async function logAction(username, action, details, req) {
             await pool.query("INSERT INTO logs (username, action, details, ip_address, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)", 
                 [username, action, details, ip]);
         }
-    } catch (e) { console.error("Log error:", e); }
+    } catch (e) { 
+        console.error("Log error:", e);
+        // 記錄錯誤到檔案
+        writeToLogFile(`Error logging action: ${e.message}`, 'ERROR');
+    }
+}
+
+// 錯誤日誌記錄函數（記錄到資料庫）
+async function logError(error, context, req) {
+    try {
+        const ip = req ? (req.headers['x-forwarded-for'] || req.socket.remoteAddress) : 'system';
+        const username = req?.session?.user?.username || 'system';
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : '';
+        const details = `${context}: ${errorMessage}${errorStack ? `\nStack: ${errorStack.substring(0, 500)}` : ''}`;
+        
+        // 嘗試記錄到資料庫，如果失敗則只記錄到檔案
+        try {
+            await pool.query(
+                "INSERT INTO logs (username, action, details, ip_address, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)",
+                [username, 'ERROR', details, ip]
+            );
+        } catch (dbError) {
+            // 資料庫記錄失敗，只記錄到檔案
+            console.error("Failed to log error to database:", dbError);
+        }
+        
+        // 同時寫入檔案日誌
+        writeToLogFile(`[ERROR] ${context}: ${errorMessage}`, 'ERROR');
+    } catch (e) {
+        // 如果整個錯誤記錄過程失敗，至少輸出到 console
+        console.error("Failed to log error:", e);
+        console.error("Original error:", error);
+    }
 }
 
 // 寫入日誌檔案
@@ -350,8 +469,92 @@ function writeToLogFile(message, level = 'INFO') {
     }
 }
 
+// 密碼複雜度驗證函數
+function validatePassword(password) {
+    if (!password || typeof password !== 'string') {
+        return { valid: false, message: '密碼不能為空' };
+    }
+    
+    if (password.length < 8) {
+        return { valid: false, message: '密碼至少需要 8 個字元' };
+    }
+    
+    if (!/[A-Z]/.test(password)) {
+        return { valid: false, message: '密碼必須包含至少一個大寫字母' };
+    }
+    
+    if (!/[a-z]/.test(password)) {
+        return { valid: false, message: '密碼必須包含至少一個小寫字母' };
+    }
+    
+    if (!/[0-9]/.test(password)) {
+        return { valid: false, message: '密碼必須包含至少一個數字' };
+    }
+    
+    return { valid: true };
+}
+
+// 日誌輪轉機制：清理舊日誌檔案
+function cleanupOldLogs() {
+    try {
+        const logDir = path.join(__dirname, 'logs');
+        if (!fs.existsSync(logDir)) {
+            return;
+        }
+        
+        const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 天
+        const now = Date.now();
+        
+        fs.readdir(logDir, (err, files) => {
+            if (err) {
+                console.error('Error reading log directory:', err);
+                return;
+            }
+            
+            files.forEach(file => {
+                if (!file.startsWith('app-') || !file.endsWith('.log')) {
+                    return;
+                }
+                
+                const filePath = path.join(logDir, file);
+                fs.stat(filePath, (err, stats) => {
+                    if (err) {
+                        return;
+                    }
+                    
+                    const fileAge = now - stats.mtime.getTime();
+                    if (fileAge > maxAge) {
+                        fs.unlink(filePath, (err) => {
+                            if (err) {
+                                console.error(`Error deleting old log file ${file}:`, err);
+                            } else {
+                                console.log(`Deleted old log file: ${file}`);
+                            }
+                        });
+                    }
+                });
+            });
+        });
+    } catch (e) {
+        console.error('Error in cleanupOldLogs:', e);
+    }
+}
+
+// 啟動時執行一次日誌清理，然後每天執行一次
+cleanupOldLogs();
+setInterval(cleanupOldLogs, 24 * 60 * 60 * 1000); // 每 24 小時執行一次
+
+// API: 取得 CSRF token
+app.get('/api/csrf-token', (req, res) => {
+    if (!req.session.csrfSecret) {
+        req.session.csrfSecret = csrfProtection.secretSync();
+    }
+    const token = csrfProtection.create(req.session.csrfSecret);
+    res.json({ csrfToken: token });
+});
+
 // API: 接收前端日誌
-app.post('/api/log', requireAuth, (req, res) => {
+app.post('/api/log', requireAuth, verifyCsrf, (req, res) => {
     try {
         const { message, level = 'INFO' } = req.body;
         if (message) {
@@ -362,6 +565,7 @@ app.post('/api/log', requireAuth, (req, res) => {
         }
     } catch (e) {
         console.error("Log API error:", e);
+        logError(e, 'Log API error', req).catch(() => {});
         res.status(500).json({ error: 'Failed to write log' });
     }
 });
@@ -386,13 +590,20 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
                     return res.status(500).json({error: 'Session error'});
                 }
                 logAction(user.username, 'LOGIN', 'User logged in', req).catch(()=>{});
-                res.json({ success: true, user: req.session.user });
+                // 檢查是否需要更新密碼
+                const mustChangePassword = user.must_change_password === true || user.must_change_password === null;
+                res.json({ 
+                    success: true, 
+                    user: req.session.user,
+                    mustChangePassword: mustChangePassword
+                });
             });
         } else {
             res.status(401).json({ error: 'Invalid credentials' });
         }
     } catch (e) {
         console.error("Login Error:", e);
+        logError(e, 'Login error', req).catch(() => {});
         res.status(500).json({ error: 'System error' });
     }
 });
@@ -427,20 +638,54 @@ app.get('/api/auth/me', async (req, res) => {
     }
 });
 
-app.put('/api/auth/profile', requireAuth, async (req, res) => {
+app.put('/api/auth/profile', requireAuth, verifyCsrf, async (req, res) => {
     const { name, password } = req.body;
     const id = req.session.user.id;
     try {
         if (password) {
+            // 驗證密碼複雜度
+            const passwordValidation = validatePassword(password);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ error: passwordValidation.message });
+            }
             const hash = bcrypt.hashSync(password, 10);
-            await pool.query("UPDATE users SET name = $1, password = $2 WHERE id = $3", [name, hash, id]);
+            await pool.query("UPDATE users SET name = $1, password = $2, must_change_password = $3 WHERE id = $4", [name, hash, false, id]);
             logAction(req.session.user.username, 'UPDATE_PROFILE', `更新個人資料：已更新姓名為「${name}」並變更密碼`, req);
         } else {
             await pool.query("UPDATE users SET name = $1 WHERE id = $2", [name, id]);
             logAction(req.session.user.username, 'UPDATE_PROFILE', `更新個人資料：已更新姓名為「${name}」`, req);
         }
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        logError(e, 'Update profile error', req).catch(() => {});
+        res.status(500).json({ error: e.message }); 
+    }
+});
+
+// 首次登入強制更新密碼 API
+app.post('/api/auth/change-password', requireAuth, verifyCsrf, async (req, res) => {
+    const { password } = req.body;
+    const id = req.session.user.id;
+    try {
+        if (!password) {
+            return res.status(400).json({ error: '密碼為必填項目' });
+        }
+        
+        // 驗證密碼複雜度
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ error: passwordValidation.message });
+        }
+        
+        // 更新密碼並清除 must_change_password 標記
+        const hash = bcrypt.hashSync(password, 10);
+        await pool.query("UPDATE users SET password = $1, must_change_password = $2 WHERE id = $3", [hash, false, id]);
+        
+        logAction(req.session.user.username, 'CHANGE_PASSWORD', 'User changed password (first login)', req).catch(()=>{});
+        res.json({ success: true });
+    } catch (e) {
+        handleApiError(e, req, res, 'Change password error');
+    }
 });
 
 app.post('/api/gemini', geminiLimiter, async (req, res) => {
@@ -538,10 +783,12 @@ app.get('/api/issues', requireAuth, async (req, res) => {
             latestCreatedAt: latestTime,
             globalStats: { status: sRes.rows, unit: uRes.rows, year: yRes.rows }
         });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get issues error');
+    }
 });
 
-app.put('/api/issues/:id', requireAuth, async (req, res) => {
+app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
     const { status, round, handling, review, replyDate, responseDate, content, issueDate, 
             number, year, unit, divisionName, inspectionCategoryName, itemKindCode, category, planName } = req.body;
     const id = req.params.id;
@@ -590,8 +837,6 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
             params.push(responseDate || '');
             paramIdx++;
         }
-        
-        // 注意：replyDate 的處理已經在上面完成（第 529-534 行），這裡不需要重複處理
         
         if (content !== undefined) {
             updateFields.push(`content=$${paramIdx}`);
@@ -659,11 +904,12 @@ app.put('/api/issues/:id', requireAuth, async (req, res) => {
         const actionDetails = `更新開立事項：編號 ${issueNumber}，第 ${r} 次審查，狀態：${status}${content !== undefined ? '，內容已更新' : ''}${issueDate !== undefined ? '，開立日期已更新' : ''}${number !== undefined ? '，編號已更新' : ''}${year !== undefined ? '，年度已更新' : ''}${unit !== undefined ? '，機構已更新' : ''}${divisionName !== undefined ? '，分組已更新' : ''}${inspectionCategoryName !== undefined ? '，檢查種類已更新' : ''}${itemKindCode !== undefined ? '，類型已更新' : ''}${planName !== undefined ? '，檢查計畫已更新' : ''}`;
         logAction(req.session.user.username, 'UPDATE_ISSUE', actionDetails, req);
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Update issue error');
+    }
 });
 
-app.delete('/api/issues/:id', requireAuth, async (req, res) => {
-    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
+app.delete('/api/issues/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     try {
         // 先查詢 issue number 再刪除
         const issueRes = await pool.query("SELECT number FROM issues WHERE id=$1", [req.params.id]);
@@ -672,10 +918,13 @@ app.delete('/api/issues/:id', requireAuth, async (req, res) => {
         await pool.query("DELETE FROM issues WHERE id=$1", [req.params.id]);
         logAction(req.session.user.username, 'DELETE_ISSUE', `刪除開立事項：編號 ${issueNumber}`, req);
         res.json({success:true});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        logError(e, 'Delete issue error', req).catch(() => {});
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
-app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
+app.post('/api/issues/batch-delete', requireAuth, verifyCsrf, async (req, res) => {
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
     const { ids } = req.body;
     try {
@@ -687,11 +936,12 @@ app.post('/api/issues/batch-delete', requireAuth, async (req, res) => {
         await pool.query("DELETE FROM issues WHERE id = ANY($1)", [ids]);
         logAction(req.session.user.username, 'BATCH_DELETE_ISSUES', `批次刪除開立事項：${numberList} (共 ${ids.length} 筆)`, req);
         res.json({success:true});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Batch delete issues error');
+    }
 });
 
-app.post('/api/issues/import', requireAuth, async (req, res) => {
-    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
+app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { data, round, reviewDate, replyDate, allowUpdate } = req.body;
     const r = parseInt(round) || 1;
     const client = await pool.connect();
@@ -819,7 +1069,7 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
         });
     } catch (e) {
         await client.query('ROLLBACK');
-        res.status(500).json({ error: e.message });
+        handleApiError(e, req, res, 'Import issues error');
     } finally {
         client.release();
     }
@@ -827,8 +1077,7 @@ app.post('/api/issues/import', requireAuth, async (req, res) => {
 
 // --- User Management API ---
 
-app.get('/api/users', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
     const { page=1, pageSize=20, q, sortField='id', sortDir='asc' } = req.query;
     const limit = parseInt(pageSize);
     const offset = (page-1)*limit;
@@ -842,25 +1091,33 @@ app.get('/api/users', requireAuth, async (req, res) => {
         const total = parseInt(cRes.rows[0].count);
         const dRes = await pool.query(`SELECT id, username, name, role, created_at FROM users WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
         res.json({data:dRes.rows, total, page: parseInt(page), pages: Math.ceil(total/limit)});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get users error');
+    }
 });
 
-app.post('/api/users', requireAuth, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.post('/api/users', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     const { username, password, name, role } = req.body;
     try {
         // Basic Validation
         if (!username || !password) return res.status(400).json({error: 'Username and password required'});
         
+        // 驗證密碼複雜度
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({ error: passwordValidation.message });
+        }
+        
         const hash = bcrypt.hashSync(password, 10);
-        await pool.query("INSERT INTO users (username, password, name, role) VALUES ($1, $2, $3, $4)", [username, hash, name, role]);
+        await pool.query("INSERT INTO users (username, password, name, role, must_change_password) VALUES ($1, $2, $3, $4, $5)", [username, hash, name, role, true]);
         logAction(req.session.user.username, 'CREATE_USER', `新增使用者：${name} (${username})，權限：${role}`, req);
         res.json({success:true});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Create user error');
+    }
 });
 
-app.put('/api/users/:id', requireAuth, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.put('/api/users/:id', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     const { name, password, role } = req.body;
     const id = req.params.id;
     try {
@@ -871,19 +1128,25 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
         const targetName = targetUser ? targetUser.name : '未知';
         
         if (password) {
+            // 驗證密碼複雜度
+            const passwordValidation = validatePassword(password);
+            if (!passwordValidation.valid) {
+                return res.status(400).json({ error: passwordValidation.message });
+            }
             const hash = bcrypt.hashSync(password, 10);
-            await pool.query("UPDATE users SET name=$1, role=$2, password=$3 WHERE id=$4", [name, role, hash, id]);
+            await pool.query("UPDATE users SET name=$1, role=$2, password=$3, must_change_password=$4 WHERE id=$5", [name, role, hash, true, id]);
             logAction(req.session.user.username, 'UPDATE_USER', `修改使用者：${targetName} (${targetUsername})，已更新姓名、權限和密碼`, req);
         } else {
             await pool.query("UPDATE users SET name=$1, role=$2 WHERE id=$3", [name, role, id]);
             logAction(req.session.user.username, 'UPDATE_USER', `修改使用者：${targetName} (${targetUsername})，已更新姓名和權限`, req);
         }
         res.json({success:true});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Update user error');
+    }
 });
 
-app.delete('/api/users/:id', requireAuth, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.delete('/api/users/:id', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     if(parseInt(req.params.id) === req.session.user.id) return res.status(400).json({error:'Cannot self delete'});
     try {
         // 先查詢使用者資訊以便記錄
@@ -895,12 +1158,13 @@ app.delete('/api/users/:id', requireAuth, async (req, res) => {
         await pool.query("DELETE FROM users WHERE id=$1", [req.params.id]);
         logAction(req.session.user.username, 'DELETE_USER', `刪除使用者：${targetName} (${targetUsername})`, req);
         res.json({success:true});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Delete user error');
+    }
 });
 
 // 帳號匯入 API
-app.post('/api/users/import', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.post('/api/users/import', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     const { data } = req.body;
     if (!data || !Array.isArray(data)) return res.status(400).json({error: '無效的資料格式'});
     
@@ -932,11 +1196,18 @@ app.post('/api/users/import', requireAuth, async (req, res) => {
             
             if (exists) {
                 // 如果已存在，更新資料（但不更新密碼，除非有提供）
-                if (password && password.length >= 8) {
+                if (password) {
+                    // 驗證密碼複雜度
+                    const passwordValidation = validatePassword(password);
+                    if (!passwordValidation.valid) {
+                        results.failed++;
+                        results.errors.push(`第 ${i + 2} 行（${name}）：${passwordValidation.message}`);
+                        continue;
+                    }
                     const hash = bcrypt.hashSync(password, 10);
                     await pool.query(
-                        "UPDATE users SET name=$1, role=$2, password=$3 WHERE username=$4",
-                        [name, role.toLowerCase(), hash, username]
+                        "UPDATE users SET name=$1, role=$2, password=$3, must_change_password=$4 WHERE username=$5",
+                        [name, role.toLowerCase(), hash, true, username]
                     );
                 } else {
                     await pool.query(
@@ -949,7 +1220,14 @@ app.post('/api/users/import', requireAuth, async (req, res) => {
                 // 如果不存在，新增帳號
                 // 如果沒有提供密碼，使用預設密碼（建議在匯入時提供）
                 let hash;
-                if (password && password.length >= 8) {
+                if (password) {
+                    // 驗證密碼複雜度
+                    const passwordValidation = validatePassword(password);
+                    if (!passwordValidation.valid) {
+                        results.failed++;
+                        results.errors.push(`第 ${i + 2} 行（${name}）：${passwordValidation.message}`);
+                        continue;
+                    }
                     hash = bcrypt.hashSync(password, 10);
                 } else {
                     // 預設密碼為 username@123456（建議匯入時提供密碼）
@@ -957,8 +1235,8 @@ app.post('/api/users/import', requireAuth, async (req, res) => {
                 }
                 
                 await pool.query(
-                    "INSERT INTO users (name, username, role, password) VALUES ($1, $2, $3, $4) RETURNING id",
-                    [name, username, role.toLowerCase(), hash]
+                    "INSERT INTO users (name, username, role, password, must_change_password) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+                    [name, username, role.toLowerCase(), hash, true]
                 );
                 results.success++;
             }
@@ -966,6 +1244,7 @@ app.post('/api/users/import', requireAuth, async (req, res) => {
             results.failed++;
             const errorMsg = `第 ${i + 2} 行（${name}）：${e.message}`;
             results.errors.push(errorMsg);
+            logError(e, `Import user error - row ${i + 2}`, req).catch(() => {});
         }
     }
     
@@ -1018,11 +1297,12 @@ app.get('/api/admin/logs', requireAuth, async (req, res) => {
         const { rows } = await pool.query(dataQuery, params);
         
         res.json({data:rows, total, page:parseInt(page), pages});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get admin logs error');
+    }
 });
 
-app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.get('/api/admin/action_logs', requireAuth, requireAdmin, async (req, res) => {
     try {
         const { page = 1, pageSize = 50, q } = req.query;
         const limit = parseInt(pageSize);
@@ -1056,24 +1336,23 @@ app.get('/api/admin/action_logs', requireAuth, async (req, res) => {
         const { rows } = await pool.query(dataQuery, params);
         
         res.json({data:rows, total, page:parseInt(page), pages});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get admin logs error');
+    }
 });
 
-app.delete('/api/admin/logs', requireAuth, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.delete('/api/admin/logs', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     await pool.query("DELETE FROM logs WHERE action='LOGIN'");
     res.json({success:true});
 });
 
-app.delete('/api/admin/action_logs', requireAuth, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.delete('/api/admin/action_logs', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     await pool.query("DELETE FROM logs WHERE action!='LOGIN'");
     res.json({success:true});
 });
 
 // 根據時間範圍清除舊記錄
-app.post('/api/admin/logs/cleanup', requireAuth, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.post('/api/admin/logs/cleanup', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     try {
         const { days } = req.body;
         if (!days || days < 1) {
@@ -1090,12 +1369,11 @@ app.post('/api/admin/logs/cleanup', requireAuth, async (req, res) => {
         logAction(req.session.user.username, 'CLEANUP_LOGS', `清除 ${days} 天前的登入紀錄，刪除 ${result.rowCount} 筆`, req);
         res.json({success:true, deleted: result.rowCount});
     } catch (e) {
-        res.status(500).json({error: e.message});
+        handleApiError(e, req, res, 'Cleanup logs error');
     }
 });
 
-app.post('/api/admin/action_logs/cleanup', requireAuth, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+app.post('/api/admin/action_logs/cleanup', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     try {
         const { days } = req.body;
         if (!days || days < 1) {
@@ -1112,7 +1390,7 @@ app.post('/api/admin/action_logs/cleanup', requireAuth, async (req, res) => {
         logAction(req.session.user.username, 'CLEANUP_ACTION_LOGS', `清除 ${days} 天前的操作紀錄，刪除 ${result.rowCount} 筆`, req);
         res.json({success:true, deleted: result.rowCount});
     } catch (e) {
-        res.status(500).json({error: e.message});
+        handleApiError(e, req, res, 'Cleanup logs error');
     }
 });
 
@@ -1161,15 +1439,13 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
             }));
         res.json({ data: plans });
     } catch (e) { 
-        // 錯誤已在伺服器 log 中記錄（移除 console.error 以減少主控台輸出）
-        res.status(500).json({ error: e.message }); 
+        handleApiError(e, req, res, 'Get plan options error');
     }
 });
 
 // --- Inspection Plans Management API ---
 
-app.get('/api/plans', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.get('/api/plans', requireAuth, requireAdminOrManager, async (req, res) => {
     const { page=1, pageSize=20, q, year, sortField='id', sortDir='desc' } = req.query;
     const limit = parseInt(pageSize);
     const offset = (page-1)*limit;
@@ -1223,22 +1499,21 @@ app.get('/api/plans', requireAuth, async (req, res) => {
         
         res.json({data: plansWithCounts, total, page: parseInt(page), pages: Math.ceil(total/limit)});
     } catch (e) { 
-        // 錯誤已在伺服器 log 中記錄（移除 console.error 以減少主控台輸出）
-        res.status(500).json({ error: e.message }); 
+        handleApiError(e, req, res, 'Get plans error');
     }
 });
 
-app.get('/api/plans/:id', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) => {
     try {
         const result = await pool.query("SELECT id, name, year, created_at, updated_at FROM inspection_plans WHERE id = $1", [req.params.id]);
         if (result.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
         res.json(result.rows[0]);
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get plan by id error');
+    }
 });
 
-app.get('/api/plans/:id/issues', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.get('/api/plans/:id/issues', requireAuth, requireAdminOrManager, async (req, res) => {
     try {
         const planResult = await pool.query("SELECT name FROM inspection_plans WHERE id = $1", [req.params.id]);
         if (planResult.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
@@ -1255,11 +1530,12 @@ app.get('/api/plans/:id/issues', requireAuth, async (req, res) => {
         const dataRes = await pool.query("SELECT * FROM issues WHERE plan_name = $1 AND year = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4", [planName, planYear, limit, offset]);
         
         res.json({data: dataRes.rows, total, page: parseInt(page), pages: Math.ceil(total/limit)});
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get plan issues error');
+    }
 });
 
-app.post('/api/plans', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { name, year } = req.body;
     try {
         if (!name || !year) return res.status(400).json({error: '計畫名稱和年度為必填'});
@@ -1271,13 +1547,12 @@ app.post('/api/plans', requireAuth, async (req, res) => {
         if (e.code === '23505') { // Unique violation (name, year)
             res.status(400).json({ error: `計畫名稱「${name}」在年度「${year}」已存在` });
         } else {
-            res.status(500).json({ error: e.message });
+            handleApiError(e, req, res, 'Create plan error');
         }
     }
 });
 
-app.put('/api/plans/:id', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.put('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { name, year } = req.body;
     const id = req.params.id;
     try {
@@ -1301,13 +1576,12 @@ app.put('/api/plans/:id', requireAuth, async (req, res) => {
         if (e.code === '23505') { // Unique violation
             res.status(400).json({ error: '計畫名稱已存在' });
         } else {
-            res.status(500).json({ error: e.message });
+            handleApiError(e, req, res, 'Update plan error');
         }
     }
 });
 
-app.delete('/api/plans/:id', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.delete('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     try {
         // 先查詢計畫資訊以便記錄
         const planRes = await pool.query("SELECT name, year FROM inspection_plans WHERE id=$1", [req.params.id]);
@@ -1327,14 +1601,12 @@ app.delete('/api/plans/:id', requireAuth, async (req, res) => {
         logAction(req.session.user.username, 'DELETE_PLAN', `刪除檢查計畫：${planName}${planYear ? ` (年度：${planYear})` : ''}`, req);
         res.json({success:true});
     } catch (e) { 
-        // 錯誤已在伺服器 log 中記錄
-        res.status(500).json({ error: e.message }); 
+        handleApiError(e, req, res, 'Delete plan error');
     }
 });
 
 // 檢查計畫 CSV 匯入 API
-app.post('/api/plans/import', requireAuth, async (req, res) => {
-    if (req.session.user.role !== 'admin' && req.session.user.role !== 'manager') return res.status(403).json({error:'Denied'});
+app.post('/api/plans/import', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { data } = req.body; // 接收解析後的 CSV 資料
     if (!data || !Array.isArray(data)) return res.status(400).json({error: '無效的資料格式'});
     

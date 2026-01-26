@@ -315,39 +315,59 @@
         /* Dashboard */
         .dashboard-section {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
+            overflow: visible; /* 改為 visible，確保圖表內容不被裁切 */
             max-height: 1000px;
             opacity: 1;
             margin-bottom: 24px;
             flex-shrink: 0;
+            position: relative;
+            z-index: 1; /* 確保圖表區域在正確層級 */
         }
 
         .dashboard-section.collapsed {
             max-height: 0;
             opacity: 0;
             margin-bottom: 0 !important;
+            overflow: hidden; /* 收合時使用 hidden */
+            padding-bottom: 0 !important;
         }
 
             .dashboard-toggle-btn {
                 background: white;
                 border: 1px solid var(--border);
                 border-radius: 6px;
-                padding: 8px 16px;
-                font-size: 15px;
+                padding: 6px 10px;
+                font-size: 14px;
                 cursor: pointer;
                 color: var(--text-sub);
                 display: flex;
                 align-items: center;
-                gap: 6px;
+                justify-content: center;
+                gap: 0;
                 transition: all 0.2s;
                 box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
                 margin-left: auto;
+                min-width: 32px;
+                height: 32px;
+            }
+            
+            .dashboard-toggle-btn .toggle-icon {
+                font-size: 12px;
+                line-height: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
 
         .dashboard-toggle-btn:hover {
             background: #f8fafc;
             color: var(--primary);
             border-color: var(--primary);
+            transform: scale(1.05);
+        }
+        
+        .dashboard-toggle-btn:active {
+            transform: scale(0.95);
         }
 
         .stats-bar {
@@ -672,6 +692,10 @@
             width: 100%;
         }
 
+        .pwd-wrapper .filter-input {
+            padding-right: 45px; /* 為顯示/隱藏按鈕留出空間 */
+        }
+
         .pwd-toggle {
             position: absolute;
             right: 12px;
@@ -681,7 +705,13 @@
             color: #94a3b8;
             border: none;
             background: none;
-            font-size: 16px;
+            font-size: 18px;
+            padding: 4px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: color 0.2s;
         }
 
         .pwd-toggle:hover {
@@ -1038,11 +1068,13 @@
         /* 自訂確認對話框顯示 */
         .modal-overlay[id="confirmModal"] {
             display: none;
+            z-index: 10000 !important; /* 確保確認視窗顯示在 drawer 之上 */
         }
         
         .modal-overlay[id="confirmModal"][style*="flex"],
         .modal-overlay[id="confirmModal"][style*="display: flex"] {
             display: flex !important;
+            z-index: 10000 !important;
         }
 
         .drawer {
@@ -1381,16 +1413,44 @@
                 overflow: visible;
                 padding: 12px;
                 width: 100%;
+                position: relative;
+            }
+            
+            /* 確保 dashboard-section 和 main-card 之間有足夠間距 */
+            #dashboardSection {
+                margin-bottom: 80px !important; /* 大幅增加間距，確保趨勢圖表底部完全顯示 */
+                padding-bottom: 20px !important; /* 額外增加內部 padding */
+            }
+            
+            .dashboard-section {
+                margin-bottom: 80px !important; /* 確保所有 dashboard-section 都有足夠間距 */
+                padding-bottom: 20px !important; /* 額外增加內部 padding */
+                overflow: visible !important; /* 確保內容不被裁切 */
+                z-index: 1; /* 確保圖表區域在正確層級 */
+            }
+            
+            /* 確保 charts-grid 不會溢出 */
+            .charts-grid {
+                position: relative;
+                margin-bottom: 0;
+                z-index: 1;
+            }
+            
+            /* 特別為趨勢圖表增加額外的底部間距 */
+            .chart-card:has(#trendChart) {
+                margin-bottom: 0;
+                position: relative;
+                z-index: 1;
             }
 
             .stats-bar {
                 grid-template-columns: 1fr 1fr;
-                gap: 10px;
-                margin-bottom: 12px;
+                gap: 8px; /* 縮小間距 */
+                margin-bottom: 8px; /* 縮小底部間距 */
             }
 
             .stat-item {
-                padding: 14px 12px;
+                padding: 10px 8px; /* 縮小內邊距，從 14px 12px 改為 10px 8px */
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -1398,11 +1458,11 @@
             }
 
             .stat-val {
-                font-size: 32px;
+                font-size: 24px; /* 縮小字體，從 32px 改為 24px */
             }
 
             .stat-label {
-                font-size: 15px;
+                font-size: 12px; /* 縮小字體，從 15px 改為 12px */
             }
 
             .stat-item:last-child {
@@ -1415,7 +1475,7 @@
             .charts-grid {
                 grid-template-columns: 1fr;
                 gap: 12px;
-                margin-bottom: 12px;
+                margin-bottom: 0; /* 移除 margin-bottom，由 dashboard-section 統一控制間距 */
             }
 
             .chart-card {
@@ -1423,6 +1483,7 @@
                 padding: 12px;
                 overflow: hidden;
                 box-sizing: border-box;
+                position: relative;
             }
             
             .chart-card > div {
@@ -1440,18 +1501,78 @@
             .chart-card canvas {
                 max-width: 100% !important;
                 max-height: 100% !important;
+                position: relative;
+                display: block; /* 確保 canvas 正確顯示 */
+                image-rendering: -webkit-optimize-contrast; /* 優化渲染品質 */
+                image-rendering: crisp-edges;
             }
             
-            /* 特別針對圓餅圖，確保有足夠空間顯示圖例 */
+            /* 圓餅圖保持原始大小 */
             .chart-card:has(#statusChart) > div {
                 height: 296px;
                 min-height: 296px;
+            }
+            
+            /* 保持長條圖（機構圖表）的原始大小 */
+            .chart-card:has(#unitChart) {
+                height: 320px;
+            }
+            
+            .chart-card:has(#unitChart) > div {
+                height: 296px;
+                min-height: 296px;
+            }
+            
+            /* 特別針對趨勢圖表，確保有足夠空間顯示且不被裁切 */
+            .chart-card:has(#trendChart) {
+                height: 450px; /* 進一步增加高度以容納趨勢圖表，確保 X 軸標籤完整顯示 */
+                margin-bottom: 0; /* 確保沒有負 margin */
+                position: relative;
+                z-index: 2; /* 確保趨勢圖表在較高層級 */
+            }
+            
+            .chart-card:has(#trendChart) > div {
+                height: 426px; /* 對應增加內部高度 (450px - 24px padding) */
+                min-height: 426px;
+                overflow: visible; /* 改為 visible，確保圖表內容不被裁切 */
+                position: relative;
+                z-index: 2;
+            }
+            
+            .chart-card:has(#trendChart) canvas {
+                position: relative;
+                z-index: 2;
             }
 
             /* Optimized Filters for Mobile */
             .main-card {
                 padding: 16px;
                 margin-bottom: 16px;
+                margin-top: 0 !important; /* 確保沒有負 margin 導致覆蓋 */
+                position: relative; /* 確保在正常文檔流中 */
+                z-index: 0; /* 設置較低的 z-index，確保不會覆蓋圖表 */
+            }
+            
+            /* 確保第一個 main-card（在 dashboard-section 之後）有足夠的上邊距，不會覆蓋圖表 */
+            #dashboardSection + .main-card,
+            .dashboard-section + .main-card {
+                margin-top: 0 !important;
+                clear: both; /* 確保不會浮動到圖表上方 */
+                z-index: 0; /* 確保在圖表下方 */
+            }
+            
+            /* 確保 view-section 內的內容不會重疊 */
+            .view-section {
+                position: relative;
+            }
+            
+            .view-section > .dashboard-section {
+                margin-bottom: 60px !important; /* 與上面的設定一致 */
+            }
+            
+            /* 特別針對 searchView 中的 dashboard-section，確保有足夠間距 */
+            #searchView .dashboard-section {
+                margin-bottom: 60px !important;
             }
 
             .integrated-controls {
@@ -1496,7 +1617,9 @@
             }
 
             .data-container {
-                overflow: visible;
+                overflow-x: auto; /* 保持橫向滾動 */
+                overflow-y: visible; /* 允許垂直方向可見，但避免遮住其他元素 */
+                position: relative;
             }
 
             table,

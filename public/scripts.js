@@ -3,10 +3,88 @@
         let autoLogoutTimer;
         let currentLogs = { login: [], action: [] };
         let cachedGlobalStats = null;
+        let csrfToken = null; // CSRF token 快取
         
-        // 統一的 API 請求包裝函數，自動處理認證錯誤
+        // 開發模式檢測（用於條件輸出 console.warn）
+        const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('dev');
+        
+        // 取得 CSRF token
+        async function getCsrfToken() {
+            if (csrfToken) return csrfToken;
+            try {
+                const res = await fetch('/api/csrf-token', {
+                    credentials: 'include'
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    csrfToken = data.csrfToken;
+                    return csrfToken;
+                }
+            } catch (e) {
+                console.error('Failed to get CSRF token:', e);
+            }
+            return null;
+        }
+        
+        // 密碼複雜度驗證函數（前端）
+        function validatePasswordFrontend(password) {
+            if (!password || password.length < 8) {
+                return { valid: false, message: '密碼至少需要 8 個字元' };
+            }
+            if (!/[A-Z]/.test(password)) {
+                return { valid: false, message: '密碼必須包含至少一個大寫字母' };
+            }
+            if (!/[a-z]/.test(password)) {
+                return { valid: false, message: '密碼必須包含至少一個小寫字母' };
+            }
+            if (!/[0-9]/.test(password)) {
+                return { valid: false, message: '密碼必須包含至少一個數字' };
+            }
+            return { valid: true };
+        }
+        
+        // 統一的 API 請求包裝函數，自動處理認證錯誤和 CSRF token
+        // 生成類別標籤 HTML
+        function getKindLabel(kindCode) {
+            if (!kindCode) return '';
+            const labels = {
+                'N': '<span class="kind-tag N">缺失</span>',
+                'O': '<span class="kind-tag O">觀察</span>',
+                'R': '<span class="kind-tag R">建議</span>'
+            };
+            return labels[kindCode] || '';
+        }
+
+        // 生成狀態標籤 HTML
+        function getStatusBadge(status) {
+            if (!status || status === 'Open') return '';
+            const statusClass = status === '持續列管' ? 'active' : (status === '解除列管' ? 'resolved' : 'self');
+            return `<span class="badge ${statusClass}">${status}</span>`;
+        }
+
+        // 驗證日期格式（6或7位數字，例如：1130601 或 1141001）
+        function validateDateFormat(dateStr, fieldName = '日期') {
+            if (!dateStr || !/^\d{6,7}$/.test(dateStr)) {
+                showToast(`${fieldName}格式錯誤，應為6或7位數字（例如：1130601 或 1141001）`, 'error');
+                return false;
+            }
+            return true;
+        }
+
         async function apiFetch(url, options = {}) {
             try {
+                // 對於需要 CSRF 保護的請求（POST, PUT, DELETE），自動加入 token
+                const needsCsrf = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method);
+                if (needsCsrf) {
+                    const token = await getCsrfToken();
+                    if (!token) {
+                        console.error('Failed to get CSRF token');
+                        throw new Error('無法取得 CSRF token，請重新整理頁面');
+                    }
+                    options.headers = options.headers || {};
+                    options.headers['X-CSRF-Token'] = token;
+                }
+                
                 const response = await fetch(url, {
                     ...options,
                     credentials: 'include', // 確保包含 cookies
@@ -18,7 +96,29 @@
                 
                 // 處理認證錯誤
                 if (response.status === 401 || response.status === 403) {
-                    console.warn('認證失敗，重定向到登入頁');
+                    // 如果是 CSRF token 錯誤，清除快取並重試一次
+                    if (response.status === 403 && needsCsrf) {
+                        const errorData = await response.json().catch(() => ({}));
+                        if (errorData.error && errorData.error.includes('CSRF')) {
+                            csrfToken = null; // 清除快取的 token
+                            const newToken = await getCsrfToken();
+                            if (newToken) {
+                                options.headers['X-CSRF-Token'] = newToken;
+                                const retryResponse = await fetch(url, {
+                                    ...options,
+                                    credentials: 'include',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        ...options.headers
+                                    }
+                                });
+                                if (retryResponse.ok || retryResponse.status !== 403) {
+                                    return retryResponse;
+                                }
+                            }
+                        }
+                    }
+                    if (isDevelopment) console.warn('認證失敗，重定向到登入頁');
                     // 清除 sessionStorage
                     sessionStorage.clear();
                     // 重定向到登入頁
@@ -57,10 +157,19 @@
         // Current import mode: 'word' (uses param) or 'backup' (ignores param)
         let currentImportMode = 'word';
 
-        function resetAutoLogout() { clearTimeout(autoLogoutTimer); autoLogoutTimer = setTimeout(() => { alert("您已閒置過久，系統將自動登出。"); logout(); }, 1800000); }
+        function resetAutoLogout() { clearTimeout(autoLogoutTimer); autoLogoutTimer = setTimeout(() => { showToast("您已閒置過久，系統將自動登出。", 'warning'); setTimeout(() => logout(), 2000); }, 1800000); }
         window.onload = resetAutoLogout; document.onmousemove = resetAutoLogout; document.onkeypress = resetAutoLogout;
 
-        function toggleDashboard(btn) { const d = document.getElementById('dashboardSection'); const c = d.classList.contains('collapsed'); d.classList.toggle('collapsed', !c); btn.innerHTML = c ? '<span>收合統計圖表</span> <span>▲</span>' : '<span>展開統計圖表</span> <span>▼</span>'; }
+        function toggleDashboard(btn) { 
+            const d = document.getElementById('dashboardSection'); 
+            const c = d.classList.contains('collapsed'); 
+            d.classList.toggle('collapsed', !c); 
+            const icon = btn.querySelector('.toggle-icon');
+            if (icon) {
+                icon.textContent = c ? '▲' : '▼';
+            }
+            btn.title = c ? '收合統計圖表' : '展開統計圖表';
+        }
         function toggleUserMenu() { document.getElementById('userDropdown').classList.toggle('show'); }
         window.addEventListener('click', function (e) { if (!e.target.closest('.user-menu-container')) { document.getElementById('userDropdown').classList.remove('show'); } });
 
@@ -500,7 +609,7 @@
                 
                 const json = await res.json();
                 if (!json.data || json.data.length === 0) {
-                    console.warn('沒有找到任何檢查計畫');
+                    if (isDevelopment) console.warn('沒有找到任何檢查計畫');
                     // 即使沒有計畫，也要嘗試載入查詢看板的計畫選項
                     await loadFilterPlanOptions();
                     return;
@@ -626,7 +735,7 @@
                 const json = await res.json();
                 const select = document.getElementById('filterPlan');
                 if (!select) {
-                    console.warn('找不到 filterPlan 元素');
+                    if (isDevelopment) console.warn('找不到 filterPlan 元素');
                     return;
                 }
                 
@@ -736,6 +845,43 @@
             }
             // 舊格式：直接是計畫名稱
             return { name: value, year: '' };
+        }
+        
+        // 共用函數：載入計畫下的所有事項
+        async function loadIssuesByPlan(planValue, options = {}) {
+            const { showError = true, returnEmpty = false } = options;
+            try {
+                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
+                if (!res.ok) {
+                    if (showError) throw new Error('載入事項列表失敗');
+                    return null;
+                }
+                
+                const json = await res.json();
+                const issueList = json.data || [];
+                
+                if (issueList.length === 0) {
+                    if (showError) {
+                        showToast('該檢查計畫下尚無開立事項', 'error');
+                    }
+                    return returnEmpty ? [] : null;
+                }
+                
+                return issueList;
+            } catch (e) {
+                if (showError) {
+                    console.error('載入計畫事項失敗:', e);
+                    showToast('載入事項列表失敗', 'error');
+                }
+                return null;
+            }
+        }
+        
+        // 共用函數：從編號提取類別代碼
+        function extractKindCodeFromNumber(numberStr) {
+            if (!numberStr) return null;
+            const m = numberStr.match(/-([NOR])\d+$/i);
+            return m ? m[1].toUpperCase() : null;
         }
         
         // 批次建檔：當選擇計畫時，自動帶入年度
@@ -898,13 +1044,26 @@ if (dashboard) {
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // App 初始化（已移除 debug 日誌）
             // 首先確保 body 可見，避免空白頁面
             document.body.style.display = 'flex';
             
             try {
                 await checkAuth();
                 if (currentUser) {
+                    // 檢查是否需要更新密碼（首次登入）
+                    const mustChangePassword = sessionStorage.getItem('mustChangePassword') === 'true';
+                    if (mustChangePassword) {
+                        // 顯示密碼更新模態框
+                        const modal = document.getElementById('changePasswordModal');
+                        if (modal) {
+                            modal.style.display = 'flex';
+                            // 清除 sessionStorage 中的標記
+                            sessionStorage.removeItem('mustChangePassword');
+                            // 阻止其他操作，直到密碼更新完成
+                            return;
+                        }
+                    }
+                    
                     // 確保 body 可見（再次確認）
                     document.body.style.display = 'flex';
                     
@@ -991,7 +1150,7 @@ if (dashboard) {
                 } else {
                     // 如果沒有 currentUser，應該是重定向到登入頁
                     // 但如果重定向失敗，至少顯示 body
-                    console.warn('未檢測到登入狀態，嘗試重定向到登入頁');
+                    if (isDevelopment) console.warn('未檢測到登入狀態，嘗試重定向到登入頁');
                 }
             } catch (error) {
                 console.error('初始化錯誤:', error);
@@ -1060,7 +1219,7 @@ if (dashboard) {
                     }
                 } else {
                     // 未登入或資料不完整，重定向到登入頁
-                    console.warn('認證資料不完整，重定向到登入頁');
+                    if (isDevelopment) console.warn('認證資料不完整，重定向到登入頁');
                     sessionStorage.clear();
                     window.location.href = '/login.html';
                 }
@@ -1288,7 +1447,8 @@ if (dashboard) {
             }
             
             const ids = Array.from(checkboxes).map(cb => cb.value);
-            if (!confirm(`確定要刪除 ${ids.length} 筆資料嗎？此操作無法復原！`)) {
+            const confirmed = await showConfirmModal(`確定要刪除 ${ids.length} 筆資料嗎？\n\n此操作無法復原！`, '確定刪除', '取消');
+            if (!confirmed) {
                 return;
             }
             
@@ -1322,6 +1482,7 @@ if (dashboard) {
             document.getElementById('emptyMsg').style.display = 'none';
             const canManage = currentUser && ['admin', 'manager'].includes(currentUser.role);
             const canEdit = currentUser && ['admin', 'manager', 'editor'].includes(currentUser.role);
+            const isViewer = currentUser && currentUser.role === 'viewer';
             document.getElementById('batchActionContainer').style.display = 'none'; document.getElementById('selectedCountBadge').innerText = ''; document.getElementById('selectAll').checked = false;
             document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
 
@@ -1341,18 +1502,18 @@ if (dashboard) {
                         const prefix = latest.type === 'review' ? '[審]' : '[回]';
                         updateTxt = `${prefix} ${stripHtml(latest.content).slice(0, 80)}`;
                     }
-                    let aiContent = `<div style="color:#ccc;font-size:11px;">未分析</div>`; if (item.aiResult && item.aiResult.status === 'done') { const f = String(item.aiResult.fulfill || ''); const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes ? 'yes' : 'no'}">${isYes ? '✅' : '⚠️'} ${f}</div>`; }
-                    const editBtn = canEdit ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',false)">✏️ 審查/查看詳情</button>` : '';
+                    let aiContent = ''; if (item.aiResult && item.aiResult.status === 'done') { const f = String(item.aiResult.fulfill || ''); const isYes = f.includes('是') || f.includes('Yes'); aiContent = `<div class="ai-tag ${isYes ? 'yes' : 'no'}">${isYes ? '✅' : '⚠️'} ${f}</div>`; }
+                    // 檢視人員顯示「查看詳情」按鈕（不顯示「審查」字樣），其他權限顯示「審查/查看詳情」
+                    const btnText = isViewer ? '✏️ 查看詳情' : '✏️ 審查/查看詳情';
+                    const editBtn = (canEdit || isViewer) ? `<button class="badge" style="background:#fff;border:1px solid #ddd;cursor:pointer;margin-top:4px;" onclick="event.stopPropagation();openDetail('${item.id}',false)">${btnText}</button>` : '';
                     const checkbox = canManage ? `<td class="manager-col"><input type="checkbox" class="issue-check" value="${item.id}" onclick="event.stopPropagation(); updateBatchUI()"></td>` : `<td class="manager-col" style="display:none"></td>`;
 
                     let k = item.itemKindCode;
-                    const numStr = String(item.number || '');
-                    if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
+                    if (!k) {
+                        k = extractKindCodeFromNumber(item.number);
+                    }
 
-                    let kindLabel = '';
-                    if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
-                    else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
-                    else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
+                    let kindLabel = getKindLabel(k);
 
                     const statusHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${badge}</div>`;
                     const snippet = stripHtml(item.content || '').slice(0, 180);
@@ -1440,7 +1601,7 @@ if (dashboard) {
         function renderUsers() { 
             const tbody = document.getElementById('usersTableBody');
             if (!tbody) {
-                console.warn('usersTableBody element not found');
+                if (isDevelopment) console.warn('usersTableBody element not found');
                 return;
             }
             tbody.innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name || '-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id !== currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); 
@@ -1484,7 +1645,7 @@ if (dashboard) {
         async function loadLogsPage(page = 1) {
             const loginSearchEl = document.getElementById('loginSearch');
             if (!loginSearchEl) {
-                console.warn('loginSearch element not found');
+                if (isDevelopment) console.warn('loginSearch element not found');
                 return;
             }
             logsPage = page;
@@ -1544,7 +1705,7 @@ if (dashboard) {
         async function loadActionsPage(page = 1) {
             const actionSearchEl = document.getElementById('actionSearch');
             if (!actionSearchEl) {
-                console.warn('actionSearch element not found');
+                if (isDevelopment) console.warn('actionSearch element not found');
                 return;
             }
             actionsPage = page;
@@ -1585,13 +1746,14 @@ if (dashboard) {
             
             // 如果選擇"刪除全部"
             if (daysSelect.value === 'all') {
-                if (!confirm(`確定要刪除資料庫中所有「${logTypeName}」紀錄嗎？此動作無法復原！`)) {
+                const confirmed = await showConfirmModal(`確定要刪除資料庫中所有「${logTypeName}」紀錄嗎？\n\n此動作無法復原！`, '確定刪除', '取消');
+                if (!confirmed) {
                     return;
                 }
                 
                 const endpoint = type === 'login' ? '/api/admin/logs' : '/api/admin/action_logs';
                 try {
-                    const res = await fetch(endpoint, { method: 'DELETE' });
+                    const res = await apiFetch(endpoint, { method: 'DELETE' });
                     if (res.ok) {
                         showToast('資料庫記錄已全部刪除');
                         if (type === 'login') loadLogsPage(1);
@@ -1616,15 +1778,15 @@ if (dashboard) {
                 }
             }
             
-            if (!confirm(`確定要刪除資料庫中 ${days} 天前的「${logTypeName}」紀錄嗎？此動作無法復原！\n\n將保留最近 ${days} 天的記錄，刪除更早的記錄。`)) {
+            const confirmed = await showConfirmModal(`確定要刪除資料庫中 ${days} 天前的「${logTypeName}」紀錄嗎？\n\n將保留最近 ${days} 天的記錄，刪除更早的記錄。\n\n此動作無法復原！`, '確定刪除', '取消');
+            if (!confirmed) {
                 return;
             }
             
             const endpoint = type === 'login' ? '/api/admin/logs/cleanup' : '/api/admin/action_logs/cleanup';
             try {
-                const res = await fetch(endpoint, {
+                const res = await apiFetch(endpoint, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ days })
                 });
                 const data = await res.json();
@@ -1799,7 +1961,7 @@ if (dashboard) {
                 });
             } catch (e) {
                 console.error("Parse error:", e);
-                alert("解析 Word 表格時發生錯誤，請確認表格格式是否包含「編號」與「內容」欄位。");
+                showToast("解析 Word 表格時發生錯誤，請確認表格格式是否包含「編號」與「內容」欄位。", 'error');
             }
             return items;
         }
@@ -1886,7 +2048,7 @@ if (dashboard) {
             const msg = document.getElementById('importStatusBackup');
 
             if (!f) return showToast('請先選擇備份檔案', 'error');
-            if (!msg) { alert("系統錯誤：找不到狀態顯示區域"); return; }
+            if (!msg) { showToast("系統錯誤：找不到狀態顯示區域", 'error'); return; }
 
             msg.innerText = '備份檔解析中...';
             currentImportMode = 'backup';
@@ -2024,7 +2186,8 @@ if (dashboard) {
             const count = stagedImportData.length;
             const isBackup = currentImportMode === 'backup';
             const msg = isBackup ? `⚠️ 警告：即將進行「災難復原」，這將覆蓋或新增 ${count} 筆資料。\n確定要執行嗎？` : `確定要匯入 ${count} 筆資料嗎？`;
-            if (!confirm(msg)) return;
+            const confirmed = await showConfirmModal(msg, '確認', '取消');
+            if (!confirmed) return;
 
             let round = 1;
             let issueDate = '';
@@ -2063,7 +2226,7 @@ if (dashboard) {
                         writeLog(`選擇的計畫：${selectedPlan.name} (${selectedPlan.year || '無年度'})`);
                     }
                 } catch (e) {
-                    console.warn('無法載入計畫選項，將使用選擇的計畫名稱', e);
+                    if (isDevelopment) console.warn('無法載入計畫選項，將使用選擇的計畫名稱', e);
                     writeLog(`無法載入計畫選項：${e.message}`, 'WARN');
                 }
             }
@@ -2101,7 +2264,7 @@ if (dashboard) {
                                 // 使用選擇的計畫名稱（這會導致不同年度的事項被歸類到同一計畫）
                                 item.planName = selectedPlan.name;
                                 const warnMsg = `找不到匹配的計畫：選擇的計畫名稱="${selectedPlan.name}"，選擇的計畫年度="${selectedPlan.year}"，事項年度="${itemYear}"。使用選擇的計畫名稱。`;
-                                console.warn(`⚠️ ${warnMsg}`);
+                                if (isDevelopment) console.warn(`⚠️ ${warnMsg}`);
                                 writeLog(warnMsg, 'WARN');
                             }
                         } else {
@@ -2116,9 +2279,8 @@ if (dashboard) {
             });
 
             try {
-                const res = await fetch('/api/issues/import', {
+                const res = await apiFetch('/api/issues/import', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         data: cleanData,
                         round: round,
@@ -2399,12 +2561,12 @@ if (dashboard) {
             if (hasError) return;
             if (items.length === 0) return showToast('請至少輸入一筆有效資料', 'error');
 
-            if (!confirm(`確定要批次新增 ${items.length} 筆資料嗎？\n計畫：${planName}`)) return;
+            const confirmed = await showConfirmModal(`確定要批次新增 ${items.length} 筆資料嗎？\n\n計畫：${planName}`, '確定新增', '取消');
+            if (!confirmed) return;
 
             try {
-                const res = await fetch('/api/issues/import', {
+                const res = await apiFetch('/api/issues/import', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         data: items,
                         round: 1,
@@ -2525,9 +2687,8 @@ if (dashboard) {
                 return;
             }
             
-            // 驗證日期格式（應該是6或7位數字，例如：1130601 或 1141001）
-            if (!/^\d{6,7}$/.test(replyDate)) {
-                showToast('日期格式錯誤，應為6或7位數字（例如：1130601 或 1141001）', 'error');
+            // 驗證日期格式
+            if (!validateDateFormat(replyDate, '日期')) {
                 return;
             }
             
@@ -2535,17 +2696,8 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項
-                // 移除載入中的提示訊息，只保留錯誤訊息
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) throw new Error('載入事項列表失敗');
-                
-                const json = await res.json();
-                const issueList = json.data || [];
-                
-                if (issueList.length === 0) {
-                    showToast('該檢查計畫下尚無開立事項', 'error');
-                    return;
-                }
+                const issueList = await loadIssuesByPlan(planValue);
+                if (!issueList) return;
                 
                 const confirmed = await showConfirmModal(
                     `確定要批次設定第 ${round} 次辦理情形的回復日期為 ${replyDate} 嗎？\n\n將更新 ${issueList.length} 筆事項。`,
@@ -2590,9 +2742,8 @@ if (dashboard) {
                         
                         // 更新該輪次的回復日期
                         // 注意：只更新 replyDate（辦理情形回復日期），不更新 responseDate（審查函復日期）
-                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                        const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 status: issue.status || '持續列管',
                                 round: round,
@@ -2707,13 +2858,8 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) return;
-                
-                const json = await res.json();
-                const issueList = json.data || [];
-                
-                if (issueList.length === 0) {
+                const issueList = await loadIssuesByPlan(planValue, { showError: false, returnEmpty: true });
+                if (!issueList || issueList.length === 0) {
                     // 沒有事項，預設為第1次
                     roundSelect.value = '1';
                     roundManualInput.value = '';
@@ -2839,17 +2985,9 @@ if (dashboard) {
             }
             
             try {
-                // 移除載入中的提示訊息，只保留錯誤訊息
-                
                 // 載入該計畫下的所有事項
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) throw new Error('載入事項列表失敗');
-                
-                const json = await res.json();
-                const issueList = json.data || [];
-                
-                if (issueList.length === 0) {
-                    // 移除無事項的提示訊息，只保留錯誤訊息
+                const issueList = await loadIssuesByPlan(planValue, { showError: false, returnEmpty: true });
+                if (!issueList || issueList.length === 0) {
                     return;
                 }
                 
@@ -2866,7 +3004,8 @@ if (dashboard) {
                 });
                 
                 if (hasExistingData) {
-                    if (!confirm(`表格中已有資料，載入現有事項將會清空現有資料。\n確定要載入 ${issueList.length} 筆事項嗎？`)) {
+                    const confirmed = await showConfirmModal(`表格中已有資料，載入現有事項將會清空現有資料。\n\n確定要載入 ${issueList.length} 筆事項嗎？`, '確定載入', '取消');
+                    if (!confirmed) {
                         return;
                     }
                 }
@@ -2983,13 +3122,8 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) return;
-                
-                const json = await res.json();
-                const issueList = json.data || [];
-                
-                if (issueList.length === 0) {
+                const issueList = await loadIssuesByPlan(planValue, { showError: false, returnEmpty: true });
+                if (!issueList || issueList.length === 0) {
                     // 沒有事項，預設為第1次
                     roundSelect.value = '1';
                     roundManualInput.value = '';
@@ -3279,9 +3413,8 @@ if (dashboard) {
             };
 
             try {
-                const res = await fetch('/api/issues/import', { 
+                const res = await apiFetch('/api/issues/import', { 
                     method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
                     body: JSON.stringify(payload) 
                 });
                 
@@ -3320,9 +3453,8 @@ if (dashboard) {
                                     if (roundData.handling && roundData.handling.trim()) {
                                         const round = i + 1;
                                         try {
-                                            const updateRes = await fetch(`/api/issues/${issueId}`, {
+                                            const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                                                 method: 'PUT',
-                                                headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({
                                                     status: status,
                                                     round: round,
@@ -3775,9 +3907,8 @@ if (dashboard) {
                     // 先更新第一次辦理情形（如果有的話）
                     if (handlingRounds.length > 0 && handlingRounds[0].handling && handlingRounds[0].handling.trim()) {
                         const firstRound = handlingRounds[0];
-                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                        const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 handling: firstRound.handling.trim(),
                                 replyDate: firstRound.replyDate ? firstRound.replyDate.trim() : null,
@@ -3796,9 +3927,8 @@ if (dashboard) {
                         if (roundData.handling && roundData.handling.trim()) {
                             const round = i + 1;
                             try {
-                                const updateRes = await fetch(`/api/issues/${issueId}`, {
+                                const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                                     method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                         round: round,
                                         handling: roundData.handling.trim(),
@@ -3957,7 +4087,8 @@ if (dashboard) {
                 return;
             }
 
-            if (!confirm(`確定要批次新增 ${items.length} 筆資料嗎？\n計畫：${planName}`)) return;
+            const confirmed = await showConfirmModal(`確定要批次新增 ${items.length} 筆資料嗎？\n\n計畫：${planName}`, '確定新增', '取消');
+            if (!confirmed) return;
 
             try {
                 // 先新增所有事項（第一次辦理情形）
@@ -3967,9 +4098,8 @@ if (dashboard) {
                     return itemData;
                 });
                 
-                const res = await fetch('/api/issues/import', {
+                const res = await apiFetch('/api/issues/import', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         data: itemsForImport,
                         round: 1,
@@ -4008,9 +4138,8 @@ if (dashboard) {
                                             if (roundData.handling && roundData.handling.trim()) {
                                                 const round = j + 1;
                                                 try {
-                                            const updateRes = await fetch(`/api/issues/${issueId}`, {
+                                            const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                                                 method: 'PUT',
-                                                headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({
                                                     status: item.status,
                                                     round: round,
@@ -4365,12 +4494,94 @@ if (dashboard) {
 
         // --- User modal submit & password strength ---
         document.getElementById('uPwd')?.addEventListener('input', updatePwdStrength); document.getElementById('uPwdConfirm')?.addEventListener('input', updatePwdStrength);
-        function updatePwdStrength() { const p = document.getElementById('uPwd').value || ''; const conf = document.getElementById('uPwdConfirm').value || ''; let score = 0; if (p.length >= 8) score++; if (/[A-Z]/.test(p)) score++; if (/[0-9]/.test(p)) score++; if (/[^A-Za-z0-9]/.test(p)) score++; const texts = ['弱', '偏弱', '一般', '良好', '強']; document.getElementById('pwdStrength').innerText = `密碼強度: ${texts[Math.min(score, 4)]} ${conf && p !== conf ? '(密碼不相符)' : ''}`; }
+        function updatePwdStrength() { 
+            const p = document.getElementById('uPwd').value || ''; 
+            const conf = document.getElementById('uPwdConfirm').value || ''; 
+            let score = 0; 
+            let issues = [];
+            
+            if (p.length >= 8) score++; else issues.push('至少8字元');
+            if (/[A-Z]/.test(p)) score++; else issues.push('大寫字母');
+            if (/[a-z]/.test(p)) score++; else issues.push('小寫字母');
+            if (/[0-9]/.test(p)) score++; else issues.push('數字');
+            if (/[^A-Za-z0-9]/.test(p)) score++;
+            
+            const texts = ['弱', '偏弱', '一般', '良好', '強']; 
+            const strengthText = texts[Math.min(score, 4)];
+            const mismatchText = conf && p !== conf ? ' (密碼不相符)' : '';
+            const issuesText = issues.length > 0 && p.length > 0 ? ` - 缺少: ${issues.join(', ')}` : '';
+            
+            document.getElementById('pwdStrength').innerText = `密碼強度: ${strengthText}${mismatchText}${issuesText}`; 
+        }
 
         // User CRUD
         async function openUserModal(mode, id) { const m = document.getElementById('userModal'), t = document.getElementById('userModalTitle'), e = document.getElementById('uEmail'); if (mode === 'create') { t.innerText = '新增'; document.getElementById('targetUserId').value = ''; document.getElementById('uName').value = ''; e.value = ''; e.disabled = false; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('pwdHint').innerText = ''; document.getElementById('uRole').value = 'viewer'; } else { const u = userList.find(x => x.id === id) || {}; t.innerText = '編輯'; document.getElementById('targetUserId').value = u.id || ''; document.getElementById('uName').value = u.name || ''; e.value = u.username || ''; e.disabled = true; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdHint').innerText = '(留空不改)'; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('uRole').value = u.role || 'viewer'; } m.classList.add('open'); }
-        async function submitUser() { const id = document.getElementById('targetUserId').value, name = document.getElementById('uName').value, email = document.getElementById('uEmail').value, pwd = document.getElementById('uPwd').value, pwdConfirm = document.getElementById('uPwdConfirm').value, role = document.getElementById('uRole').value; if (!id) { if (!email) return showToast('請輸入帳號', 'error'); if (!pwd) return showToast('請輸入密碼', 'error'); if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); const res = await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: email, name, password: pwd, role }) }); const j = await res.json(); if (res.ok) { showToast('新增成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(1); } else showToast(j.error || '新增失敗', 'error'); } else { const payload = { name, role }; if (pwd) { if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); if (pwd.length < 8) return showToast('密碼需至少 8 碼', 'error'); payload.password = pwd; } const res = await fetch(`/api/users/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const j = await res.json(); if (res.ok) { showToast('更新成功'); document.getElementById('userModal').classList.remove('open'); loadUsersPage(usersPage); } else showToast(j.error || '更新失敗', 'error'); } }
-        async function deleteUser(id) { if (!confirm('確定?')) return; const res = await fetch(`/api/users/${id}`, { method: 'DELETE' }); if (res.ok) { showToast('刪除成功'); loadUsersPage(1); } else showToast('刪除失敗', 'error'); }
+        async function submitUser() { 
+            const id = document.getElementById('targetUserId').value, 
+                name = document.getElementById('uName').value, 
+                email = document.getElementById('uEmail').value, 
+                pwd = document.getElementById('uPwd').value, 
+                pwdConfirm = document.getElementById('uPwdConfirm').value, 
+                role = document.getElementById('uRole').value; 
+            
+            if (!id) { 
+                if (!email) return showToast('請輸入帳號', 'error'); 
+                if (!pwd) return showToast('請輸入密碼', 'error'); 
+                if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); 
+                
+                // 使用前端驗證函數
+                const validation = validatePasswordFrontend(pwd);
+                if (!validation.valid) return showToast(validation.message, 'error');
+                
+                const res = await apiFetch('/api/users', { 
+                    method: 'POST', 
+                    body: JSON.stringify({ username: email, name, password: pwd, role }) 
+                }); 
+                const j = await res.json(); 
+                if (res.ok) { 
+                    showToast('新增成功'); 
+                    document.getElementById('userModal').classList.remove('open'); 
+                    loadUsersPage(1); 
+                } else showToast(j.error || '新增失敗', 'error'); 
+            } else { 
+                const payload = { name, role }; 
+                if (pwd) { 
+                    if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); 
+                    
+                    // 使用前端驗證函數
+                    const validation = validatePasswordFrontend(pwd);
+                    if (!validation.valid) return showToast(validation.message, 'error');
+                    
+                    payload.password = pwd; 
+                } 
+                const res = await apiFetch(`/api/users/${id}`, { 
+                    method: 'PUT', 
+                    body: JSON.stringify(payload) 
+                }); 
+                const j = await res.json(); 
+                if (res.ok) { 
+                    showToast('更新成功'); 
+                    document.getElementById('userModal').classList.remove('open'); 
+                    loadUsersPage(usersPage); 
+                } else showToast(j.error || '更新失敗', 'error'); 
+            } 
+        }
+        async function deleteUser(id) { 
+            const confirmed = await showConfirmModal('確定要刪除此帳號嗎？\n\n此操作無法復原！', '確定刪除', '取消');
+            if (!confirmed) return; 
+            try {
+                const res = await apiFetch(`/api/users/${id}`, { method: 'DELETE' }); 
+                const data = await res.json();
+                if (res.ok) { 
+                    showToast('刪除成功'); 
+                    loadUsersPage(1); 
+                } else {
+                    showToast(data.error || '刪除失敗', 'error'); 
+                }
+            } catch (e) {
+                showToast('刪除失敗: ' + e.message, 'error');
+            }
+        }
         
         // 帳號匯出功能
         async function exportUsers() {
@@ -4547,10 +4758,8 @@ if (dashboard) {
                             }
                             
                             try {
-                                const res = await fetch('/api/users/import', {
+                                const res = await apiFetch('/api/users/import', {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    credentials: 'include',
                                     body: JSON.stringify({ data: validData })
                                 });
                                 
@@ -4747,7 +4956,8 @@ if (dashboard) {
                 return plan ? `${plan.name}${plan.year ? ` (${plan.year})` : ''}` : '';
             }).filter(Boolean);
             
-            if (!confirm(`確定要刪除以下 ${ids.length} 筆檢查計畫嗎？\n\n${planNames.slice(0, 5).join('\n')}${planNames.length > 5 ? '\n...' : ''}\n\n此操作無法復原！`)) {
+            const confirmed = await showConfirmModal(`確定要刪除以下 ${ids.length} 筆檢查計畫嗎？\n\n${planNames.slice(0, 5).join('\n')}${planNames.length > 5 ? '\n...' : ''}\n\n此操作無法復原！`, '確定刪除', '取消');
+            if (!confirmed) {
                 return;
             }
             
@@ -4759,7 +4969,7 @@ if (dashboard) {
                 
                 for (const id of ids) {
                     try {
-                        const res = await fetch(`/api/plans/${id}`, { method: 'DELETE' });
+                        const res = await apiFetch(`/api/plans/${id}`, { method: 'DELETE' });
                         const j = await res.json().catch(() => ({}));
                         
                         if (res.ok) {
@@ -4783,7 +4993,7 @@ if (dashboard) {
                     if (failCount > 0) {
                         msg += `，失敗 ${failCount} 筆`;
                         if (errors.length > 0) {
-                            console.warn('刪除錯誤詳情：', errors);
+                            if (isDevelopment) console.warn('刪除錯誤詳情：', errors);
                         }
                     }
                     showToast(msg, failCount > 0 ? 'warning' : 'success');
@@ -4879,7 +5089,6 @@ if (dashboard) {
                             }
                             
                             // 顯示解析結果統計
-                            // CSV 解析完成（已移除 debug 日誌）
                             
                             // 過濾掉空行，支援多種欄位名稱
                             const validData = [];
@@ -4931,10 +5140,8 @@ if (dashboard) {
                             }
                             
                             try {
-                                const res = await fetch('/api/plans/import', {
+                                const res = await apiFetch('/api/plans/import', {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    credentials: 'include', // 確保包含 session cookie
                                     body: JSON.stringify({ data: validData })
                                 });
                                 
@@ -5054,7 +5261,7 @@ if (dashboard) {
             try {
                 const url = id ? `/api/plans/${id}` : '/api/plans';
                 const method = id ? 'PUT' : 'POST';
-                const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const res = await apiFetch(url, { method, body: JSON.stringify(payload) });
                 const j = await res.json();
                 if (res.ok) {
                     showToast(id ? '更新成功' : '新增成功');
@@ -5069,9 +5276,10 @@ if (dashboard) {
             }
         }
         async function deletePlan(id) {
-            if (!confirm('確定要刪除這個計畫嗎？')) return;
+            const confirmed = await showConfirmModal('確定要刪除這個計畫嗎？\n\n此操作無法復原！', '確定刪除', '取消');
+            if (!confirmed) return;
             try {
-                const res = await fetch(`/api/plans/${id}`, { method: 'DELETE' });
+                const res = await apiFetch(`/api/plans/${id}`, { method: 'DELETE' });
                 const j = await res.json();
                 if (res.ok) {
                     showToast('刪除成功');
@@ -5087,7 +5295,122 @@ if (dashboard) {
 
         // Profile
         function openProfileModal() { document.getElementById('myProfileName').value = currentUser.name || ''; document.getElementById('myProfilePwd').value = ''; document.getElementById('profileModal').classList.add('open'); }
-        async function submitProfile() { const name = document.getElementById('myProfileName').value, pwd = document.getElementById('myProfilePwd').value; try { const res = await fetch('/api/auth/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, password: pwd }) }); if (res.ok) { showToast('更新成功，請重新登入'); document.getElementById('profileModal').classList.remove('open'); logout(); } else { const j = await res.json(); showToast(j.error || '更新失敗', 'error'); } } catch (e) { showToast('更新失敗', 'error'); } }
+        async function submitProfile() { 
+            const name = document.getElementById('myProfileName').value, 
+                pwd = document.getElementById('myProfilePwd').value,
+                pwdConfirm = document.getElementById('myProfilePwdConfirm').value; 
+            
+            try { 
+                // 如果有提供密碼，驗證複雜度和確認密碼
+                if (pwd) {
+                    if (!pwdConfirm) {
+                        return showToast('請輸入確認密碼', 'error');
+                    }
+                    if (pwd !== pwdConfirm) {
+                        return showToast('密碼與確認密碼不符', 'error');
+                    }
+                    const validation = validatePasswordFrontend(pwd);
+                    if (!validation.valid) {
+                        return showToast(validation.message, 'error');
+                    }
+                } else if (pwdConfirm) {
+                    // 如果只填了確認密碼但沒填密碼
+                    return showToast('請輸入新密碼', 'error');
+                }
+                
+                const res = await apiFetch('/api/auth/profile', { 
+                    method: 'PUT', 
+                    body: JSON.stringify({ name, password: pwd }) 
+                }); 
+                if (res.ok) { 
+                    showToast('更新成功，請重新登入'); 
+                    document.getElementById('profileModal').classList.remove('open'); 
+                    // 清空密碼欄位
+                    document.getElementById('myProfilePwd').value = '';
+                    document.getElementById('myProfilePwdConfirm').value = '';
+                    logout(); 
+                } else { 
+                    const j = await res.json(); 
+                    showToast(j.error || '更新失敗', 'error'); 
+                } 
+            } catch (e) { 
+                showToast('更新失敗', 'error'); 
+            } 
+        }
+
+        // 首次登入密碼更新函數
+        async function submitChangePassword() {
+            const newPwd = document.getElementById('changePwdNew').value;
+            const confirmPwd = document.getElementById('changePwdConfirm').value;
+            const errorEl = document.getElementById('changePwdError');
+            
+            // 清除之前的錯誤訊息
+            if (errorEl) {
+                errorEl.style.display = 'none';
+                errorEl.innerText = '';
+            }
+            
+            // 驗證輸入
+            if (!newPwd || !confirmPwd) {
+                if (errorEl) {
+                    errorEl.innerText = '請輸入新密碼和確認密碼';
+                    errorEl.style.display = 'block';
+                }
+                return;
+            }
+            
+            if (newPwd !== confirmPwd) {
+                if (errorEl) {
+                    errorEl.innerText = '兩次輸入的密碼不一致';
+                    errorEl.style.display = 'block';
+                }
+                return;
+            }
+            
+            // 驗證密碼複雜度
+            const validation = validatePasswordFrontend(newPwd);
+            if (!validation.valid) {
+                if (errorEl) {
+                    errorEl.innerText = validation.message;
+                    errorEl.style.display = 'block';
+                }
+                return;
+            }
+            
+            try {
+                const res = await apiFetch('/api/auth/change-password', {
+                    method: 'POST',
+                    body: JSON.stringify({ password: newPwd })
+                });
+                
+                if (res.ok) {
+                    showToast('密碼更新成功，請重新登入', 'success');
+                    // 關閉模態框
+                    const modal = document.getElementById('changePasswordModal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                    }
+                    // 清除表單
+                    document.getElementById('changePwdNew').value = '';
+                    document.getElementById('changePwdConfirm').value = '';
+                    // 登出並重新導向到登入頁
+                    setTimeout(() => {
+                        logout();
+                    }, 1000);
+                } else {
+                    const data = await res.json();
+                    if (errorEl) {
+                        errorEl.innerText = data.error || '密碼更新失敗';
+                        errorEl.style.display = 'block';
+                    }
+                }
+            } catch (e) {
+                if (errorEl) {
+                    errorEl.innerText = '連線錯誤，請稍後再試';
+                    errorEl.style.display = 'block';
+                }
+            }
+        }
 
         function toggleEditMode(edit) { 
             document.getElementById('viewModeContent').classList.toggle('hidden', edit); 
@@ -5120,20 +5443,12 @@ if (dashboard) {
                 
                 // 顯示狀態與類型（缺失、觀察、建議）- 使用統一的字段獲取邏輯
                 let k = currentEditItem.item_kind_code || currentEditItem.itemKindCode;
-                const numStr = String(currentEditItem.number || '');
-                if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
-                
-                let kindLabel = '';
-                if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
-                else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
-                else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
-                
-                // 顯示狀態標籤（包括持續列管）
-                let statusBadge = '';
-                if (st && st !== 'Open') {
-                    const stClass = st === '持續列管' ? 'active' : (st === '解除列管' ? 'resolved' : 'self');
-                    statusBadge = `<span class="badge ${stClass}">${st}</span>`;
+                if (!k) {
+                    k = extractKindCodeFromNumber(currentEditItem.number);
                 }
+                
+                let kindLabel = getKindLabel(k);
+                let statusBadge = getStatusBadge(st);
                 
                 // 確保即使只有類型或只有狀態也能顯示
                 const statusKindHtml = kindLabel || statusBadge ? `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${statusBadge}</div>` : '';
@@ -5229,24 +5544,17 @@ if (dashboard) {
             // 開立日期（發函）
             document.getElementById('dIssueDate').textContent = currentEditItem.issue_date || currentEditItem.issueDate || '(未設定)';
             
-            // 事項內容
-            document.getElementById('dContent').innerHTML = currentEditItem.content;
+            // 事項內容（使用 escapeHtml 防止 XSS）
+            document.getElementById('dContent').innerHTML = escapeHtml(currentEditItem.content || '');
 
             // Status and Kind (狀態與類型) - 使用與dCategoryInfo相同的邏輯
             let k = currentEditItem.item_kind_code || currentEditItem.itemKindCode;
-            const numStr = String(currentEditItem.number || '');
-            if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
-            
-            let kindLabel = '';
-            if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
-            else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
-            else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
-            
-            const st = currentEditItem.status === '持續列管' ? 'active' : (currentEditItem.status === '解除列管' ? 'resolved' : 'self');
-            let statusBadge = '';
-            if (currentEditItem.status && currentEditItem.status !== 'Open') {
-                statusBadge = `<span class="badge ${st}">${currentEditItem.status}</span>`;
+            if (!k) {
+                k = extractKindCodeFromNumber(currentEditItem.number);
             }
+            
+            let kindLabel = getKindLabel(k);
+            let statusBadge = getStatusBadge(currentEditItem.status);
             
             // 確保即使只有類型或只有狀態也能顯示
             const statusKindHtml = kindLabel || statusBadge ? `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${kindLabel}${statusBadge}</div>` : '';
@@ -5342,6 +5650,11 @@ if (dashboard) {
             
             // 趨勢圖表：使用主色調的變體
             const tSorted = stats.year.sort((a, b) => a.year.localeCompare(b.year)); 
+            // 清除舊的資料集，避免破圖
+            if (charts.trend && charts.trend.data) {
+                charts.trend.data.labels = [];
+                charts.trend.data.datasets = [];
+            }
             charts.trend.data = { 
                 labels: tSorted.map(x => x.year), 
                 datasets: [{ 
@@ -5350,7 +5663,10 @@ if (dashboard) {
                     borderColor: '#667eea',  // 使用與標題漸變一致的顏色（直接使用顏色值）
                     backgroundColor: 'rgba(102, 126, 234, 0.1)', 
                     tension: 0.3, 
-                    fill: true 
+                    fill: true,
+                    pointRadius: 0, // 不顯示點，避免破圖
+                    pointHoverRadius: 4,
+                    borderWidth: 2
                 }] 
             }; 
             // 確保更新時保留顏色設定
@@ -5363,7 +5679,22 @@ if (dashboard) {
             if (charts.trend.options && charts.trend.options.plugins && charts.trend.options.plugins.title) {
                 charts.trend.options.plugins.title.color = '#64748b';
             }
-            charts.trend.update();
+            // 先清除 canvas，避免破圖
+            if (charts.trend && charts.trend.canvas) {
+                const ctx = charts.trend.canvas.getContext('2d');
+                if (ctx) {
+                    ctx.clearRect(0, 0, charts.trend.canvas.width, charts.trend.canvas.height);
+                }
+            }
+            // 使用 updateMode: 'none' 避免動畫導致的破圖，並強制重新渲染
+            charts.trend.update('none');
+            // 強制重新繪製 canvas 以避免破圖
+            if (charts.trend && charts.trend.canvas) {
+                setTimeout(() => {
+                    charts.trend.resize();
+                    charts.trend.draw();
+                }, 50);
+            }
         }
 
         function initCharts() {
@@ -5371,7 +5702,7 @@ if (dashboard) {
                 const c1 = document.getElementById('statusChart'), c2 = document.getElementById('unitChart'), c3 = document.getElementById('trendChart');
                 if (c1) { charts.status = new Chart(c1, { type: 'doughnut', plugins: [ChartDataLabels], data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#64748b', font: { size: 12 } } }, datalabels: { formatter: (v, ctx) => { const dataArr = ctx.chart.data.datasets[0].data; if (!dataArr || dataArr.length === 0) return ''; const t = dataArr.reduce((a, b) => a + b, 0); return t > 0 ? ((v / t) * 100).toFixed(1) + '%' : '0%'; }, color: '#64748b', font: { weight: '600', size: 12 } } } } }); }
                 if (c2) { charts.unit = new Chart(c2, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } }, y: { ticks: { color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } } } } }); }
-                if (c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢', color: '#64748b', font: { size: 14, weight: '600' } } }, scales: { x: { ticks: { color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } }, y: { beginAtZero: true, ticks: { stepSize: 1, color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } } } } }); }
+                if (c3) { charts.trend = new Chart(c3, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, plugins: { legend: { display: false }, title: { display: true, text: '年度開立事項趨勢', color: '#64748b', font: { size: 14, weight: '600' } } }, scales: { x: { ticks: { color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } }, y: { beginAtZero: true, ticks: { stepSize: 1, color: '#64748b', font: { size: 12 } }, grid: { color: '#e2e8f0' } } }, elements: { point: { radius: 0 }, line: { borderWidth: 2 } } } }); }
                 if (cachedGlobalStats) updateChartsData(cachedGlobalStats);
             } catch (e) { console.error("Chart Init Error:", e); }
         }
@@ -5595,6 +5926,40 @@ if (dashboard) {
             }
         }
 
+        // 從 Drawer 刪除事項
+        async function deleteIssueFromDrawer() {
+            if (!currentEditItem) {
+                showToast('找不到要刪除的事項', 'error');
+                return;
+            }
+            
+            const issueId = currentEditItem.id;
+            const issueNumber = currentEditItem.number || `ID:${issueId}`;
+            
+            const confirmed = await showConfirmModal(`確定要刪除事項「${issueNumber}」嗎？\n\n此操作無法復原。`, '確定刪除', '取消');
+            if (!confirmed) {
+                return;
+            }
+            
+            try {
+                const res = await apiFetch(`/api/issues/${issueId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('刪除成功');
+                    closeDrawer();
+                    // 重新載入事項列表
+                    loadIssuesPage(issuesPage);
+                } else {
+                    showToast(data.error || '刪除失敗', 'error');
+                }
+            } catch (e) {
+                showToast('刪除失敗: ' + e.message, 'error');
+            }
+        }
+        
         async function saveEdit() {
             if (!currentEditItem) {
                 showToast('找不到目前編輯的事項', 'error');
@@ -5628,9 +5993,8 @@ if (dashboard) {
             // 不應該把審查意見存到辦理情形欄位
             
             try {
-                const res = await fetch(`/api/issues/${id}`, {
+                const res = await apiFetch(`/api/issues/${id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         status,
                         round,
@@ -5645,18 +6009,10 @@ if (dashboard) {
                     const json = await res.json();
                     if (json.success) {
                         showToast('儲存成功！');
+                        // 關閉 drawer 並返回查詢看板
+                        closeDrawer();
                         // 重新載入資料
                         await loadIssuesPage(issuesPage);
-                        // 更新 currentEditItem
-                        const updatedItem = currentData.find(d => String(d.id) === String(id));
-                        if (updatedItem) {
-                            currentEditItem = updatedItem;
-                            // 重新載入回合資料以反映最新的儲存結果
-                            // 確保使用正確的 round 值（不應該改變）
-                            const currentRound = parseInt(document.getElementById('editRound').value) || 1;
-                            document.getElementById('editRound').value = currentRound;
-                            loadRoundData();
-                        }
                     } else {
                         showToast('儲存失敗', 'error');
                     }
@@ -5703,8 +6059,10 @@ if (dashboard) {
             const txt = document.getElementById('aiPreviewText').innerText; 
             if (txt) { 
                 document.getElementById('editReview').value = txt; 
-                showToast('已帶入 AI 建議'); 
-            } 
+                // 移除成功提示，只保留錯誤提示
+            } else {
+                showToast('沒有可帶入的 AI 建議', 'error');
+            }
         }
         
         // --- 事項修正功能 ---
@@ -5842,11 +6200,7 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項（不顯示提示，因為已經確認有開立事項）
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) throw new Error('載入事項列表失敗');
-                
-                const json = await res.json();
-                yearEditIssueList = json.data || [];
+                yearEditIssueList = await loadIssuesByPlan(planValue, { showError: true, returnEmpty: true }) || [];
                 
                 // 對事項列表進行排序：先按類型（缺失N、觀察O、建議R），再按編號（數字小的在前）
                 if (yearEditIssueList.length > 0) {
@@ -5915,13 +6269,11 @@ if (dashboard) {
                 
                 // 顯示類型（缺失、觀察、建議）
                 let k = issue.itemKindCode;
-                const numStr = String(issue.number || '');
-                if (!k && numStr) { const m = numStr.match(/-([NOR])\d+$/i); if (m) k = m[1].toUpperCase(); }
+                if (!k) {
+                    k = extractKindCodeFromNumber(issue.number);
+                }
                 
-                let kindLabel = '';
-                if (k === 'N') kindLabel = `<span class="kind-tag N">缺失</span>`;
-                else if (k === 'O') kindLabel = `<span class="kind-tag O">觀察</span>`;
-                else if (k === 'R') kindLabel = `<span class="kind-tag R">建議</span>`;
+                let kindLabel = getKindLabel(k);
                 
                 // 顯示狀態徽章
                 let badge = '';
@@ -6060,9 +6412,8 @@ if (dashboard) {
                 return;
             }
             
-            // 驗證日期格式（應該是6或7位數字，例如：1130615 或 1141001）
-            if (!/^\d{6,7}$/.test(userInputResponseDate)) {
-                showToast('日期格式錯誤，應為6或7位數字（例如：1130615 或 1141001）', 'error');
+            // 驗證日期格式
+            if (!validateDateFormat(userInputResponseDate, '日期')) {
                 return;
             }
             
@@ -6070,14 +6421,8 @@ if (dashboard) {
             
             try {
                 // 載入該計畫下的所有事項
-                // 移除載入中的提示訊息，只保留錯誤訊息
-                const res = await fetch(`/api/issues?page=1&pageSize=1000&planName=${encodeURIComponent(planValue)}&_t=${Date.now()}`);
-                if (!res.ok) throw new Error('載入事項列表失敗');
-                
-                const json = await res.json();
-                const issueList = json.data || [];
-                
-                if (issueList.length === 0) {
+                const issueList = await loadIssuesByPlan(planValue);
+                if (!issueList || issueList.length === 0) {
                     showToast('該檢查計畫下尚無開立事項', 'error');
                     return;
                 }
@@ -6130,9 +6475,8 @@ if (dashboard) {
                         
                         // 更新該輪次的函復日期
                         // 注意：只更新 responseDate（審查函復日期），不更新 replyDate（回復日期）
-                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                        const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 status: issue.status || '持續列管',
                                 round: round,
@@ -6164,35 +6508,36 @@ if (dashboard) {
                 }
                 
                 // 顯示資料庫操作結果（成功或警告）
-                if (errorCount > 0) {
-                    showToast(`批次設定完成，但有 ${errorCount} 筆失敗${successCount > 0 ? `，成功 ${successCount} 筆` : ''}`, 'warning');
-                    
-                    // 如果有錯誤，顯示詳細資訊
-                    if (errors.length > 0) {
-                        console.error('批次設定函復日期錯誤:', errors);
-                    }
-                } else if (successCount > 0) {
-                    // 完全成功時顯示成功訊息（資料庫操作結果）
+                if (successCount > 0 && errorCount === 0) {
+                    // 完全成功時顯示成功訊息
                     showToast(`批次設定完成！成功 ${successCount} 筆`, 'success');
-                }
-                
-                // 清空輸入欄位並重置為預設模式
-                if (successCount > 0 || errorCount === 0) {
+                    // 清空輸入欄位並重置為預設模式
                     roundSelect.value = '';
                     roundManualInput.value = '';
                     dateInput.value = '';
-                    
                     // 取消勾選並隱藏設定區塊
                     const toggleCheckbox = document.getElementById('createBatchResponseDateToggle');
                     if (toggleCheckbox) {
                         toggleCheckbox.checked = false;
                         toggleBatchResponseDateSetting();
                     }
-                } else {
-                    showToast('批次設定失敗，所有事項都無法更新', 'error');
+                } else if (successCount > 0 && errorCount > 0) {
+                    // 部分成功
+                    showToast(`批次設定完成，但有 ${errorCount} 筆失敗，成功 ${successCount} 筆`, 'warning');
                     if (errors.length > 0) {
                         console.error('批次設定函復日期錯誤:', errors);
                     }
+                } else if (errorCount > 0) {
+                    // 全部失敗
+                    showToast(`批次設定失敗，所有 ${errorCount} 筆事項都無法更新`, 'error');
+                    if (errors.length > 0) {
+                        console.error('批次設定函復日期錯誤:', errors);
+                        // 顯示第一個錯誤的詳細資訊
+                        showToast(`錯誤詳情：${errors[0]}`, 'error');
+                    }
+                } else {
+                    // 沒有處理任何事項（理論上不應該發生）
+                    showToast('沒有事項需要更新', 'warning');
                 }
             } catch (e) {
                 showToast('批次設定失敗: ' + e.message, 'error');
@@ -6220,9 +6565,8 @@ if (dashboard) {
                 return;
             }
             
-            // 驗證日期格式（應該是6或7位數字，例如：1130615 或 1141001）
-            if (!/^\d{6,7}$/.test(userInputResponseDate)) {
-                showToast('日期格式錯誤，應為6或7位數字（例如：1130615 或 1141001）', 'error');
+            // 驗證日期格式
+            if (!validateDateFormat(userInputResponseDate, '日期')) {
                 return;
             }
             
@@ -6231,7 +6575,8 @@ if (dashboard) {
                 return;
             }
             
-            if (!confirm(`確定要批次設定第 ${round} 次審查的函復日期為 ${responseDate} 嗎？\n將更新 ${yearEditIssueList.length} 筆事項。`)) {
+            const confirmed = await showConfirmModal(`確定要批次設定第 ${round} 次審查的函復日期為 ${responseDate} 嗎？\n\n將更新 ${yearEditIssueList.length} 筆事項。`, '確定設定', '取消');
+            if (!confirmed) {
                 return;
             }
             
@@ -6271,9 +6616,8 @@ if (dashboard) {
                         
                         // 更新該輪次的函復日期
                         // 注意：只更新 responseDate（審查函復日期），不更新 replyDate（回復日期）
-                        const res = await fetch(`/api/issues/${issueId}`, {
+                        const res = await apiFetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 status: issue.status || '持續列管',
                                 round: round,
@@ -6597,7 +6941,8 @@ if (dashboard) {
                 return;
             }
             
-            if (!confirm('確定要儲存所有變更嗎？')) {
+            const confirmed = await showConfirmModal('確定要儲存所有變更嗎？', '確定儲存', '取消');
+            if (!confirmed) {
                 return;
             }
             
@@ -6649,9 +6994,8 @@ if (dashboard) {
                 
                 // 先更新基本資訊（包括所有可編輯欄位）
                 // 即使內容為空也要更新（允許清空）
-                const updateRes = await fetch(`/api/issues/${issueId}`, {
+                const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         status: status,
                         round: 1,
@@ -6696,9 +7040,8 @@ if (dashboard) {
                     
                     // 所有顯示的輪次都要更新，即使內容為空（允許清空欄位）
                     try {
-                        const updateRes = await fetch(`/api/issues/${issueId}`, {
+                        const updateRes = await apiFetch(`/api/issues/${issueId}`, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 status: status, // 保持當前狀態
                                 round: roundNum,
