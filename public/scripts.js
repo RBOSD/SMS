@@ -303,7 +303,11 @@
         const ORG_CROSSWALK = { "T": "TRC", "H": "HSR", "A": "AFR", "S": "TSC", "TRC": "TRC", "HSR": "HSR", "AFR": "AFR", "TSC": "TSC" };
         const INSPECTION_MAP = { "1": "定期檢查", "2": "例行性檢查", "3": "特別檢查", "4": "臨時檢查", "5": "調查" };
         // [Verified] Division Map includes all requested codes
-        const DIVISION_MAP = { "A": "運務", "B": "工務", "C": "機務", "D": "電務", "E": "安全", "F": "審核", "G": "災防", "OP": "運轉", "CP": "土木", "EM": "機電" };
+        const DIVISION_MAP = { 
+            "A": "運務", "B": "工務", "C": "機務", "D": "電務", "E": "安全", "F": "審核", "G": "災防", 
+            "OP": "運轉", "CV": "土建", "ME": "機務", "EL": "電務", "SM": "安全管理", "AD": "營運", "OT": "其他",
+            "CP": "土木", "EM": "機電" 
+        };
         const KIND_MAP = { "N": "缺失事項", "O": "觀察事項", "R": "建議事項" };
         const FILLED_MARKS = ["■", "☑", "☒", "✔", "✅", "●", "◉", "✓"]; var EMPTY_MARKS = ["□", "☐", "◻", "○", "◯", "◇", "△"];
 
@@ -403,6 +407,53 @@
                     kindCode: m[6].toUpperCase(),
                     itemSeq: itemSeq3b,
                     period: period3b
+                };
+            }
+            
+            // 3c. THAS-v2 寬鬆格式（支援缺少檢查發現分類的情況）：115T2-01-OP-001
+            // 這種格式最後是數字而不是 N/O/R+數字，我們嘗試解析但 kindCode 會是空
+            m = raw.match(/^(\d{3})([THAS])([1-5])\-(\d{2})\-([A-Z]{2,3})\-(\d{2,3})$/i);
+            if (m) {
+                var rocYear3c = parseInt(m[1], 10);
+                var orgCode3c = m[2].toUpperCase();
+                var period3c = m[4];
+                var itemSeq3c = m[6];
+                return {
+                    scheme: "THAS-v2",
+                    raw: raw,
+                    yearRoc: rocYear3c,
+                    orgCode: orgCode3c,
+                    orgCodeRaw: orgCode3c,
+                    inspectCode: m[3],
+                    divCode: m[5].toUpperCase(),
+                    divisionCode: m[5].toUpperCase(),
+                    divisionSeq: "",
+                    kindCode: "", // 無法確定檢查發現分類
+                    itemSeq: itemSeq3c,
+                    period: period3c
+                };
+            }
+            
+            // 3d. THAS-v2 寬鬆格式無分隔符：115T201OP001
+            m = raw.match(/^(\d{3})([THAS])([1-5])(\d{2})([A-Z]{2,3})(\d{2,3})$/i);
+            if (m) {
+                var rocYear3d = parseInt(m[1], 10);
+                var orgCode3d = m[2].toUpperCase();
+                var period3d = m[4];
+                var itemSeq3d = m[6];
+                return {
+                    scheme: "THAS-v2",
+                    raw: raw,
+                    yearRoc: rocYear3d,
+                    orgCode: orgCode3d,
+                    orgCodeRaw: orgCode3d,
+                    inspectCode: m[3],
+                    divCode: m[5].toUpperCase(),
+                    divisionCode: m[5].toUpperCase(),
+                    divisionSeq: "",
+                    kindCode: "", // 無法確定檢查發現分類
+                    itemSeq: itemSeq3d,
+                    period: period3d
                 };
             }
             
@@ -3114,7 +3165,7 @@ if (dashboard) {
                         <td><input type="text" class="filter-input create-batch-year" value="${escapeHtml(issue.year || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
                         <td><input type="text" class="filter-input create-batch-unit" value="${escapeHtml(issue.unit || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
                         <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務" ${divisionName === '運務' ? 'selected' : ''}>運務</option><option value="工務" ${divisionName === '工務' ? 'selected' : ''}>工務</option><option value="機務" ${divisionName === '機務' ? 'selected' : ''}>機務</option><option value="電務" ${divisionName === '電務' ? 'selected' : ''}>電務</option><option value="安全" ${divisionName === '安全' ? 'selected' : ''}>安全</option><option value="審核" ${divisionName === '審核' ? 'selected' : ''}>審核</option><option value="災防" ${divisionName === '災防' ? 'selected' : ''}>災防</option><option value="運轉" ${divisionName === '運轉' ? 'selected' : ''}>運轉</option><option value="土木" ${divisionName === '土木' ? 'selected' : ''}>土木</option><option value="機電" ${divisionName === '機電' ? 'selected' : ''}>機電</option></select></td>
-                        <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查" ${inspectionName === '定期檢查' ? 'selected' : ''}>定期檢查</option><option value="例行性檢查" ${inspectionName === '例行性檢查' ? 'selected' : ''}>例行性檢查</option><option value="特別檢查" ${inspectionName === '特別檢查' ? 'selected' : ''}>特別檢查</option><option value="臨時檢查" ${inspectionName === '臨時檢查' ? 'selected' : ''}>臨時檢查</option></select></td>
+                        <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查" ${inspectionName === '定期檢查' ? 'selected' : ''}>定期檢查</option><option value="例行性檢查" ${inspectionName === '例行性檢查' ? 'selected' : ''}>例行性檢查</option><option value="特別檢查" ${inspectionName === '特別檢查' ? 'selected' : ''}>特別檢查</option><option value="臨時檢查" ${inspectionName === '臨時檢查' ? 'selected' : ''}>臨時檢查</option><option value="調查" ${inspectionName === '調查' ? 'selected' : ''}>調查</option></select></td>
                         <td><select class="filter-select create-batch-kind"><option value="">-</option><option value="N" ${kindCode === 'N' ? 'selected' : ''}>缺失</option><option value="O" ${kindCode === 'O' ? 'selected' : ''}>觀察</option><option value="R" ${kindCode === 'R' ? 'selected' : ''}>建議</option></select></td>
                         <td><select class="filter-select create-batch-status"><option value="持續列管" ${status === '持續列管' ? 'selected' : ''}>持續列管</option><option value="解除列管" ${status === '解除列管' ? 'selected' : ''}>解除列管</option><option value="自行列管" ${status === '自行列管' ? 'selected' : ''}>自行列管</option></select></td>
                         <td style="text-align:center;">
@@ -3671,7 +3722,7 @@ if (dashboard) {
                 <td><input type="text" class="filter-input create-batch-year" style="background:#f1f5f9;color:#64748b;" readonly></td>
                 <td><input type="text" class="filter-input create-batch-unit" style="background:#f1f5f9;color:#64748b;" readonly></td>
                 <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="安全">安全</option><option value="審核">審核</option><option value="災防">災防</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option></select></td>
-                <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option></select></td>
+                <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option><option value="調查">調查</option></select></td>
                 <td><select class="filter-select create-batch-kind"><option value="">-</option><option value="N">缺失</option><option value="O">觀察</option><option value="R">建議</option></select></td>
                 <td><select class="filter-select create-batch-status"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></td>
                 <td style="text-align:center;">
@@ -3820,20 +3871,30 @@ if (dashboard) {
                     tr.querySelector('.create-batch-year').value = info.yearRoc;
                 }
                 
-                if (info.orgCode) {
+                if (info.orgCode && info.orgCode !== '?') {
                     const name = ORG_MAP[info.orgCode] || info.orgCode;
-                    if (name && name !== '?') tr.querySelector('.create-batch-unit').value = name;
+                    if (name && name !== '?') {
+                        const unitInput = tr.querySelector('.create-batch-unit');
+                        if (unitInput) unitInput.value = name;
+                    }
                 }
-                if (info.divCode) {
+                if (info.divCode && info.divCode !== '?') {
                     const divName = DIVISION_MAP[info.divCode];
-                    if (divName) tr.querySelector('.create-batch-division').value = divName;
+                    if (divName) {
+                        const divisionSelect = tr.querySelector('.create-batch-division');
+                        if (divisionSelect) divisionSelect.value = divName;
+                    }
                 }
-                if (info.inspectCode) {
+                if (info.inspectCode && info.inspectCode !== '?') {
                     const inspectName = INSPECTION_MAP[info.inspectCode];
-                    if (inspectName) tr.querySelector('.create-batch-inspection').value = inspectName;
+                    if (inspectName) {
+                        const inspectionSelect = tr.querySelector('.create-batch-inspection');
+                        if (inspectionSelect) inspectionSelect.value = inspectName;
+                    }
                 }
-                if (info.kindCode) {
-                    tr.querySelector('.create-batch-kind').value = info.kindCode;
+                if (info.kindCode && info.kindCode !== '?') {
+                    const kindSelect = tr.querySelector('.create-batch-kind');
+                    if (kindSelect) kindSelect.value = info.kindCode;
                 }
             }
         }
