@@ -266,11 +266,19 @@
             var mB = whole.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/);
             if (mB) return (mB[1] || "").toUpperCase();
             
-            // 2. 嘗試 THAS-v1 格式 (13T1-A01-N01)
+            // 2. 嘗試 THAS-v2 格式（新提案）有分隔符 (113T1-01-OP-N01)
+            var mC = whole.match(/(\d{3}[THASthas][1-5]-\d{2}-[A-Za-z]{2,3}-[NORnor]\d{2})/);
+            if (mC) return (mC[1] || "").toUpperCase();
+            
+            // 3. 嘗試 THAS-v2 格式（新提案）無分隔符 (113T101OPN01)
+            var mC2 = whole.match(/(\d{3}[THASthas][1-5]\d{2}[A-Za-z]{2,3}[NORnor]\d{2})/);
+            if (mC2) return (mC2[1] || "").toUpperCase();
+            
+            // 4. 嘗試 THAS-v1 格式 (13T1-A01-N01)
             var mA = whole.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/);
             if (mA) return (mA[1] || "").toUpperCase();
             
-            // 3. 處理帶 <br> 的情況，分行匹配
+            // 5. 處理帶 <br> 的情況，分行匹配
             var rawHtml = cell.innerHTML || "";
             var lines = normalizeCodeString(rawHtml.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<[^>]*>/g, "")).split("\n");
             for (var i = 0; i < lines.length; i++) {
@@ -278,8 +286,12 @@
                 if (!line) continue;
                 var m1 = line.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/);
                 if (m1) return (m1[1] || "").toUpperCase();
-                var m2 = line.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/);
+                var m2 = line.match(/(\d{3}[THASthas][1-5]-\d{2}-[A-Za-z]{2,3}-[NORnor]\d{2})/);
                 if (m2) return (m2[1] || "").toUpperCase();
+                var m3 = line.match(/(\d{3}[THASthas][1-5]\d{2}[A-Za-z]{2,3}[NORnor]\d{2})/);
+                if (m3) return (m3[1] || "").toUpperCase();
+                var m4 = line.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/);
+                if (m4) return (m4[1] || "").toUpperCase();
             }
             
             return whole.trim();
@@ -289,7 +301,7 @@
         const ORG_MAP = { "T": "臺鐵", "H": "高鐵", "A": "林鐵", "S": "糖鐵", "TRC": "臺鐵", "HSR": "高鐵", "AFR": "林鐵", "TSC": "糖鐵" };
         // [Added] 機構交叉映射表（THAS-v1 ↔ TRC-v2）
         const ORG_CROSSWALK = { "T": "TRC", "H": "HSR", "A": "AFR", "S": "TSC", "TRC": "TRC", "HSR": "HSR", "AFR": "AFR", "TSC": "TSC" };
-        const INSPECTION_MAP = { "1": "定期檢查", "2": "例行性檢查", "3": "特別檢查", "4": "臨時檢查" };
+        const INSPECTION_MAP = { "1": "定期檢查", "2": "例行性檢查", "3": "特別檢查", "4": "臨時檢查", "5": "調查" };
         // [Verified] Division Map includes all requested codes
         const DIVISION_MAP = { "A": "運務", "B": "工務", "C": "機務", "D": "電務", "E": "安全", "F": "審核", "G": "災防", "OP": "運轉", "CP": "土木", "EM": "機電" };
         const KIND_MAP = { "N": "缺失事項", "O": "觀察事項", "R": "建議事項" };
@@ -347,7 +359,54 @@
                 };
             }
             
-            // 3. 長格式（兼容舊格式）：123-TRC-1-7-OP-N12 (支持 3-4 位機構代碼)
+            // 3. THAS-v2 格式（新提案）：113T1-01-OP-N01 (3位年+机构+类别-检查次数-业务类别-类型+流水号)
+            // 支援有分隔符和無分隔符兩種格式
+            m = raw.match(/^(\d{3})([THAS])([1-5])\-(\d{2})\-([A-Z]{2,3})\-([NOR])(\d{2})$/i);
+            if (m) {
+                var rocYear3 = parseInt(m[1], 10);
+                var orgCode3 = m[2].toUpperCase();
+                var period3 = m[4];
+                var itemSeq3 = m[7];
+                return {
+                    scheme: "THAS-v2",
+                    raw: raw,
+                    yearRoc: rocYear3,
+                    orgCode: orgCode3,
+                    orgCodeRaw: orgCode3,
+                    inspectCode: m[3],
+                    divCode: m[5].toUpperCase(),
+                    divisionCode: m[5].toUpperCase(),
+                    divisionSeq: "",
+                    kindCode: m[6].toUpperCase(),
+                    itemSeq: itemSeq3,
+                    period: period3
+                };
+            }
+            
+            // 3b. THAS-v2 無分隔符格式：113T101OPN01
+            m = raw.match(/^(\d{3})([THAS])([1-5])(\d{2})([A-Z]{2,3})([NOR])(\d{2})$/i);
+            if (m) {
+                var rocYear3b = parseInt(m[1], 10);
+                var orgCode3b = m[2].toUpperCase();
+                var period3b = m[4];
+                var itemSeq3b = m[7];
+                return {
+                    scheme: "THAS-v2",
+                    raw: raw,
+                    yearRoc: rocYear3b,
+                    orgCode: orgCode3b,
+                    orgCodeRaw: orgCode3b,
+                    inspectCode: m[3],
+                    divCode: m[5].toUpperCase(),
+                    divisionCode: m[5].toUpperCase(),
+                    divisionSeq: "",
+                    kindCode: m[6].toUpperCase(),
+                    itemSeq: itemSeq3b,
+                    period: period3b
+                };
+            }
+            
+            // 4. 長格式（兼容舊格式）：123-TRC-1-7-OP-N12 (支持 3-4 位機構代碼)
             var cleanRaw = raw.replace(/[^a-zA-Z0-9\-]/g, "");
             var mLong = cleanRaw.match(/^(\d{3})-([A-Z]{3,4})-([0-9])-(\d+)-([A-Z]{2,4})-([NOR])(\d+)$/i);
             if (mLong) {
@@ -367,7 +426,7 @@
                 };
             }
             
-            // 4. 短格式（兼容舊格式）：13T1-A01-N01 (支持 2-3 位年份)
+            // 5. 短格式（兼容舊格式）：13T1-A01-N01 (支持 2-3 位年份)
             var mShort = cleanRaw.match(/^(\d{2,3})([A-Z])([0-9])-([A-Z])(\d{2})-([NOR])(\d{2})$/i);
             if (mShort) {
                 var yy = parseInt(mShort[1], 10);
@@ -388,7 +447,7 @@
                 };
             }
             
-            // 5. 寬鬆匹配（fallback）
+            // 6. 寬鬆匹配（fallback）
             var mLoose = cleanRaw.match(/(\d{2,3}).*([NOR])\d+/i);
             if (mLoose) {
                 return {
@@ -434,6 +493,16 @@
                 return (info.yearRoc + "-" + info.orgCodeRaw + "-" + 
                         info.inspectCode + "-" + (info.period || "") + "-" + 
                         info.divisionCode + "-" + info.kindCode + seq).toUpperCase();
+            }
+            if (info.scheme === "THAS-v2") {
+                // THAS-v2 格式：113T1-01-OP-N01 (3位年+机构+类别-检查次数-业务类别-类型+流水号)
+                var period = String(info.period || "0");
+                period = ("0" + period).slice(-2); // 確保2碼
+                var seq = String(info.itemSeq || "0");
+                seq = ("0" + seq).slice(-2); // 確保2碼
+                return (info.yearRoc + info.orgCodeRaw + info.inspectCode + "-" + 
+                        period + "-" + info.divisionCode + "-" + 
+                        info.kindCode + seq).toUpperCase();
             }
             if (info.scheme === "THAS-v1") {
                 var yy = String(info.yearRoc - 100);
