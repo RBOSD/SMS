@@ -5642,15 +5642,32 @@ if (dashboard) {
                         return;
                     }
                     const [planName, planYear] = val.split('|||');
+                    if (!planName || !planYear) {
+                        showToast('計畫資訊不完整，請重新選擇', 'error');
+                        schedulePlanDetails = {};
+                        return;
+                    }
                     try {
-                        const planRes = await fetch(`/api/plans/by-name?name=${encodeURIComponent(planName)}&year=${encodeURIComponent(planYear)}&t=${Date.now()}`, { credentials: 'include' });
+                        const url = `/api/plans/by-name?name=${encodeURIComponent(planName)}&year=${encodeURIComponent(planYear)}&t=${Date.now()}`;
+                        const planRes = await fetch(url, { 
+                            credentials: 'include',
+                            cache: 'no-store'
+                        });
                         if (!planRes.ok) {
+                            let errorMsg = '無法取得計畫資訊，請重新選擇計畫';
+                            try {
+                                const errorData = await planRes.json();
+                                if (errorData.error) errorMsg = errorData.error;
+                            } catch (e) {}
                             if (planRes.status === 404) {
                                 showToast('找不到該計畫，請重新選擇', 'error');
+                            } else if (planRes.status === 400) {
+                                showToast(errorMsg, 'error');
                             } else {
-                                showToast('無法取得計畫資訊，請重新選擇計畫', 'error');
+                                showToast(errorMsg, 'error');
                             }
                             schedulePlanDetails = {};
+                            select.value = '';
                             return;
                         }
                         const planData = await planRes.json();
@@ -5665,15 +5682,19 @@ if (dashboard) {
                             };
                             if (!schedulePlanDetails.railway || !schedulePlanDetails.inspection_type || !schedulePlanDetails.business) {
                                 showToast('該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯', 'warning');
+                                schedulePlanDetails = {};
+                                select.value = '';
                             }
                         } else {
                             showToast('無法取得計畫資訊，請重新選擇計畫', 'error');
                             schedulePlanDetails = {};
+                            select.value = '';
                         }
                     } catch (e) {
                         console.error('載入計畫詳情失敗:', e);
                         showToast('無法取得計畫資訊，請重新選擇計畫', 'error');
                         schedulePlanDetails = {};
+                        select.value = '';
                     }
                 };
             } catch (e) {
@@ -5689,6 +5710,10 @@ if (dashboard) {
                 return;
             }
             const [planName, planYear] = planValue.split('|||');
+            if (!planName || !planYear) {
+                showToast('計畫資訊不完整，請重新選擇', 'error');
+                return;
+            }
             const startDateVal = (document.getElementById('scheduleStartDate') || {}).value;
             const endDateVal = (document.getElementById('scheduleEndDate') || {}).value;
             const location = (document.getElementById('scheduleLocation') || {}).value?.trim();
@@ -5710,8 +5735,35 @@ if (dashboard) {
                 showToast('結束日期不能早於開始日期', 'error');
                 return;
             }
+            
+            // 如果沒有計畫詳情，嘗試重新載入
             if (!schedulePlanDetails.railway || !schedulePlanDetails.inspection_type || !schedulePlanDetails.business) {
-                showToast('無法取得計畫資訊，請重新選擇計畫', 'error');
+                try {
+                    const url = `/api/plans/by-name?name=${encodeURIComponent(planName)}&year=${encodeURIComponent(planYear)}&t=${Date.now()}`;
+                    const planRes = await fetch(url, { 
+                        credentials: 'include',
+                        cache: 'no-store'
+                    });
+                    if (planRes.ok) {
+                        const planData = await planRes.json();
+                        if (planData.data && planData.data.length > 0) {
+                            const plan = planData.data[0];
+                            schedulePlanDetails = {
+                                plan_name: planName,
+                                year: planYear,
+                                railway: plan.railway || '',
+                                inspection_type: plan.inspection_type || '',
+                                business: plan.business || ''
+                            };
+                        }
+                    }
+                } catch (e) {
+                    console.error('重新載入計畫詳情失敗:', e);
+                }
+            }
+            
+            if (!schedulePlanDetails.railway || !schedulePlanDetails.inspection_type || !schedulePlanDetails.business) {
+                showToast('無法取得計畫資訊，請重新選擇計畫後再試', 'error');
                 return;
             }
             const adYear = parseInt(startDateVal.slice(0, 4), 10);

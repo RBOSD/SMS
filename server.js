@@ -1594,21 +1594,29 @@ app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) =
 app.get('/api/plans/by-name', requireAuth, async (req, res) => {
     const { name, year } = req.query;
     try {
-        if (name && year) {
-            const result = await pool.query(
-                `SELECT id, plan_name AS name, year, railway, inspection_type, business 
-                 FROM inspection_plan_schedule 
-                 WHERE plan_name = $1 AND year = $2 
-                 ORDER BY id ASC 
-                 LIMIT 1`,
-                [name, year]
-            );
-            if (result.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
-            res.json({data: result.rows});
-        } else {
+        if (!name || !year) {
             return res.status(400).json({error: '請提供 name 和 year 參數'});
         }
-    } catch (e) { 
+        const decodedName = decodeURIComponent(name);
+        const decodedYear = decodeURIComponent(year);
+        const result = await pool.query(
+            `SELECT id, plan_name AS name, year, railway, inspection_type, business 
+             FROM inspection_plan_schedule 
+             WHERE plan_name = $1 AND year = $2 
+             ORDER BY id ASC 
+             LIMIT 1`,
+            [decodedName, decodedYear]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({error: '找不到該計畫'});
+        }
+        const plan = result.rows[0];
+        if (!plan.railway || !plan.inspection_type || !plan.business) {
+            return res.status(400).json({error: '該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別）'});
+        }
+        res.json({data: [plan]});
+    } catch (e) {
+        console.error('Get plan by name and year error:', e);
         handleApiError(e, req, res, 'Get plan by name and year error');
     }
 });
