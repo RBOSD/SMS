@@ -5661,14 +5661,26 @@ if (dashboard) {
                         });
                         if (!planRes.ok) {
                             let errorMsg = '無法取得計畫資訊，請重新選擇計畫';
+                            let errorDetails = '';
                             try {
                                 const errorData = await planRes.json();
                                 if (errorData.error) errorMsg = errorData.error;
-                            } catch (e) {}
+                                if (errorData.details) errorDetails = errorData.details;
+                            } catch (e) {
+                                // 如果無法解析 JSON，使用狀態碼訊息
+                                if (planRes.status === 500) {
+                                    errorMsg = '伺服器錯誤，請稍後再試';
+                                } else if (planRes.status === 503) {
+                                    errorMsg = '服務暫時不可用，請稍後再試';
+                                }
+                            }
+                            
                             if (planRes.status === 404) {
                                 showToast('找不到該計畫，請重新選擇', 'error');
                             } else if (planRes.status === 400) {
                                 showToast(errorMsg, 'error');
+                            } else if (planRes.status === 500 || planRes.status === 503) {
+                                showToast(errorMsg + (errorDetails ? ` (${errorDetails})` : ''), 'error');
                             } else {
                                 showToast(errorMsg, 'error');
                             }

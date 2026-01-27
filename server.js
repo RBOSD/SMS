@@ -1600,20 +1600,11 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         
         let decodedName, decodedYear;
         try {
-            // 處理 URL 編碼，可能需要多次解碼
-            let tempName = String(name);
-            let tempYear = String(year);
-            try {
-                tempName = decodeURIComponent(tempName);
-                tempYear = decodeURIComponent(tempYear);
-            } catch (e1) {
-                // 如果解碼失敗，嘗試直接使用
-                console.warn('First decode attempt failed, using raw value');
-            }
-            decodedName = tempName;
-            decodedYear = tempYear;
+            // 處理 URL 編碼
+            decodedName = decodeURIComponent(String(name));
+            decodedYear = decodeURIComponent(String(year));
         } catch (decodeError) {
-            console.error('URL decode error:', decodeError);
+            console.warn('URL decode error, using raw value:', decodeError?.message);
             decodedName = String(name).replace(/\+/g, ' ');
             decodedYear = String(year);
         }
@@ -1629,6 +1620,12 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             return res.status(400).json({error: '計畫名稱或年度不能為空'});
         }
         
+        // 檢查資料庫連線
+        if (!pool) {
+            console.error('Database pool is not available');
+            return res.status(500).json({error: '資料庫連線不可用'});
+        }
+        
         let result;
         try {
             result = await pool.query(
@@ -1642,7 +1639,23 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         } catch (queryError) {
             console.error('Database query error in /api/plans/by-name:', queryError);
             console.error('Query params - name:', decodedName, 'year:', decodedYear);
-            return res.status(500).json({error: '查詢資料庫時發生錯誤', details: queryError.message});
+            console.error('Error code:', queryError.code);
+            console.error('Error detail:', queryError.detail);
+            
+            // 如果是連線錯誤，返回特定訊息
+            if (queryError.code === 'ECONNREFUSED' || queryError.code === 'ETIMEDOUT' || queryError.message?.includes('Connection')) {
+                return res.status(503).json({error: '資料庫連線失敗，請稍後再試'});
+            }
+            
+            return res.status(500).json({
+                error: '查詢資料庫時發生錯誤',
+                details: process.env.NODE_ENV === 'production' ? undefined : queryError.message
+            });
+        }
+        
+        if (!result || !result.rows) {
+            console.error('Invalid query result:', result);
+            return res.status(500).json({error: '資料庫查詢結果格式錯誤'});
         }
         
         if (result.rows.length === 0) {
@@ -1650,9 +1663,11 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         }
         
         const plan = result.rows[0];
+        if (!plan) {
+            return res.status(500).json({error: '無法讀取計畫資料'});
+        }
         
         // 檢查是否有有效的 railway, inspection_type, business
-        // 如果都是 '-' 或空值，表示這是剛新增的計畫，還沒有完整資訊
         const hasValidInfo = plan.railway && plan.railway !== '-' && 
                             plan.inspection_type && plan.inspection_type !== '-' && 
                             plan.business && plan.business !== '-';
@@ -1669,8 +1684,14 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
     } catch (e) {
         console.error('Get plan by name and year error:', e);
         console.error('Request params - name:', name, 'year:', year);
-        console.error('Error stack:', e.stack);
-        handleApiError(e, req, res, 'Get plan by name and year error');
+        console.error('Error type:', e?.constructor?.name);
+        console.error('Error message:', e?.message);
+        console.error('Error stack:', e?.stack);
+        
+        // 確保總是返回響應
+        if (!res.headersSent) {
+            handleApiError(e, req, res, 'Get plan by name and year error');
+        }
     }
 });
 
