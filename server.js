@@ -1928,6 +1928,8 @@ app.get('/api/plan-schedule/all', requireAuth, requireAdminOrManager, async (req
     }
 });
 
+// 假日資料來源：GitHub ruyut/TaiwanCalendar（中華民國政府行政機關辦公日曆）
+// https://github.com/ruyut/TaiwanCalendar | CDN: cdn.jsdelivr.net/gh/ruyut/TaiwanCalendar/data/{year}.json
 app.get('/api/holidays/:year', requireAuth, async (req, res) => {
     try {
         const year = parseInt(req.params.year);
@@ -1935,14 +1937,13 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
             return res.status(400).json({ error: '無效的年份' });
         }
         
-        // 使用 https 模組直接請求，避免 fetch 相容性問題
         const https = require('https');
-        const url = `https://data.ntpc.gov.tw/api/datasets/308DCD75-6434-45BC-A95F-584DA4FED251/json?page=0&size=5000`;
+        const url = `https://cdn.jsdelivr.net/gh/ruyut/TaiwanCalendar/data/${year}.json`;
         
         return new Promise((resolve) => {
-            const request = https.get(url, { timeout: 5000 }, (response) => {
+            const request = https.get(url, { timeout: 8000 }, (response) => {
                 if (response.statusCode !== 200) {
-                    console.warn(`假日 API 回應狀態碼: ${response.statusCode}`);
+                    console.warn(`假日 API (TaiwanCalendar) 回應狀態碼: ${response.statusCode}`);
                     res.json({ data: [] });
                     return resolve();
                 }
@@ -1952,70 +1953,25 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
                 response.on('data', (chunk) => { data += chunk; });
                 response.on('end', () => {
                     try {
-                        const jsonData = JSON.parse(data);
-                        const rawData = Array.isArray(jsonData) ? jsonData : [];
-                        console.log(`假日 API 返回 ${rawData.length} 筆原始資料`);
-                        
-                        // 一律從 date 解析西元年（格式 20170101），不依賴 year 欄位（可能為民國年）
-                        const holidays = rawData.filter(h => {
-                            if (!h || !h.date) return false;
-                            const dateStr = String(h.date).trim();
-                            let hYear;
-                            if (dateStr.match(/^\d{8}$/)) {
-                                hYear = parseInt(dateStr.slice(0, 4), 10);
-                            } else if (dateStr.match(/^\d{4}[-/]\d/)) {
-                                hYear = parseInt(dateStr.slice(0, 4), 10);
-                            } else if (dateStr.match(/^\d{4}/)) {
-                                hYear = parseInt(dateStr.slice(0, 4), 10);
-                            } else {
-                                return false;
-                            }
-                            return hYear === year;
-                        }).map(h => {
-                            // 處理日期格式：20170101 -> 2017-01-01
-                            let dateStr = String(h.date || '');
-                            if (dateStr.match(/^\d{8}$/)) {
-                                // 格式：20170101 -> 2017-01-01
-                                dateStr = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
-                            } else {
-                                // 其他格式標準化
-                                dateStr = dateStr.replace(/\//g, '-').replace(/\s+/g, '');
-                            }
-                            
-                            // 使用 isholiday 欄位（小寫），支援多種格式
-                            const isHolidayValue = h.isholiday !== undefined ? h.isholiday : h.isHoliday;
-                            // 如果 isholiday 欄位不存在或為 undefined，預設視為假日（因為在假日資料集中）
-                            const isHoliday = isHolidayValue === undefined ? true :
-                                             (isHolidayValue !== false && 
-                                              String(isHolidayValue || '').trim() !== '否' && 
-                                              String(isHolidayValue || '').trim() !== 'N' &&
-                                              String(isHolidayValue || '').trim() !== 'false' &&
-                                              (isHolidayValue === true || 
-                                               String(isHolidayValue || '').trim() === 'true' ||
-                                               String(isHolidayValue || '').trim() === 'Y' ||
-                                               String(isHolidayValue || '').trim() === '是' ||
-                                               String(isHolidayValue || '').trim() === '1'));
-                            
+                        const rawData = JSON.parse(data);
+                        const arr = Array.isArray(rawData) ? rawData : [];
+                        const holidays = arr.map(h => {
+                            const d = String(h.date || '').trim();
+                            const dateStr = d.match(/^\d{8}$/) 
+                                ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` 
+                                : d;
                             return {
                                 date: dateStr,
-                                name: h.name || h.holidaycategory || h.holidayCategory || h.holidayName || '假日',
-                                isHoliday: isHoliday
+                                name: (h.description || '').trim() || '假日',
+                                isHoliday: h.isHoliday === true
                             };
                         });
-                        
-                        console.log(`過濾後 ${year} 年有 ${holidays.length} 個假日`);
-                        if (holidays.length === 0 && rawData.length > 0) {
-                            const years = [...new Set(rawData.map(h => {
-                                const d = String(h.date || '');
-                                return d.match(/^\d{4}/) ? d.slice(0, 4) : null;
-                            }).filter(Boolean))].sort();
-                            console.log(`資料集涵蓋年份: ${years.slice(0, 10).join(', ')}${years.length > 10 ? '...' : ''}`);
-                        }
+                        const holidayCount = holidays.filter(h => h.isHoliday).length;
+                        console.log(`假日 API (TaiwanCalendar) ${year} 年: ${arr.length} 筆，其中 ${holidayCount} 個休假日`);
                         res.json({ data: holidays });
                         resolve();
-                    } catch (parseError) {
-                        console.warn('解析假日資料失敗:', parseError?.message || parseError);
-                        console.warn('原始資料前 200 字元:', data.substring(0, 200));
+                    } catch (e) {
+                        console.warn('解析假日資料失敗:', e?.message || e);
                         res.json({ data: [] });
                         resolve();
                     }
