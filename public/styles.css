@@ -2939,6 +2939,13 @@
             color: #dc2626;
             font-weight: 700;
         }
+        .schedule-cal-holiday-tag {
+            font-size: 10px;
+            color: #dc2626;
+            font-weight: 600;
+            margin-bottom: 2px;
+            display: block;
+        }
         @media print {
             .schedule-cal-plan-names { font-size: 14px; }
             .schedule-cal-plan-name { font-size: 14px; }

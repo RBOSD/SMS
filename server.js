@@ -1943,11 +1943,9 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
         return new Promise((resolve) => {
             const request = https.get(url, { timeout: 8000 }, (response) => {
                 if (response.statusCode !== 200) {
-                    console.warn(`假日 API (TaiwanCalendar) 回應狀態碼: ${response.statusCode}`);
                     res.json({ data: [] });
                     return resolve();
                 }
-                
                 let data = '';
                 response.setEncoding('utf8');
                 response.on('data', (chunk) => { data += chunk; });
@@ -1957,8 +1955,8 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
                         const arr = Array.isArray(rawData) ? rawData : [];
                         const holidays = arr.map(h => {
                             const d = String(h.date || '').trim();
-                            const dateStr = d.match(/^\d{8}$/) 
-                                ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` 
+                            const dateStr = d.match(/^\d{8}$/)
+                                ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`
                                 : d;
                             return {
                                 date: dateStr,
@@ -1966,33 +1964,25 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
                                 isHoliday: h.isHoliday === true
                             };
                         });
-                        const holidayCount = holidays.filter(h => h.isHoliday).length;
-                        console.log(`假日 API (TaiwanCalendar) ${year} 年: ${arr.length} 筆，其中 ${holidayCount} 個休假日`);
                         res.json({ data: holidays });
                         resolve();
                     } catch (e) {
-                        console.warn('解析假日資料失敗:', e?.message || e);
                         res.json({ data: [] });
                         resolve();
                     }
                 });
             });
-            
-            request.on('error', (err) => {
-                console.warn('取得假日資料失敗:', err?.message || err);
+            request.on('error', () => {
                 res.json({ data: [] });
                 resolve();
             });
-            
             request.on('timeout', () => {
                 request.destroy();
-                console.warn('取得假日資料超時');
                 res.json({ data: [] });
                 resolve();
             });
         });
     } catch (e) {
-        console.warn('取得假日資料失敗:', e?.message || e);
         res.json({ data: [] });
     }
 });
