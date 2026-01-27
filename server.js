@@ -1644,6 +1644,7 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
                 return res.status(400).json({error: '計畫名稱或年度不能為空'});
             }
             
+            console.log('[API] Executing query with params:', { queryName, queryYear });
             result = await pool.query(
                 `SELECT id, plan_name AS name, year, railway, inspection_type, business 
                  FROM inspection_plan_schedule 
@@ -1652,6 +1653,7 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
                  LIMIT 1`,
                 [queryName, queryYear]
             );
+            console.log('[API] Query executed successfully, rows found:', result?.rows?.length || 0);
         } catch (queryError) {
             console.error('Database query error in /api/plans/by-name:', queryError);
             console.error('Query params - name:', decodedName, 'year:', decodedYear);
@@ -1688,15 +1690,27 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         
         const plan = result.rows[0];
         if (!plan) {
-            console.error('Plan row is null or undefined');
+            console.error('[API] Plan row is null or undefined');
+            console.error('[API] Result rows:', result.rows);
             return res.status(500).json({error: '無法讀取計畫資料'});
         }
+        
+        console.log('[API] Plan found:', { 
+            id: plan.id, 
+            name: plan.name, 
+            year: plan.year,
+            railway: plan.railway,
+            inspection_type: plan.inspection_type,
+            business: plan.business
+        });
         
         try {
             // 檢查是否有有效的 railway, inspection_type, business
             const railway = plan.railway ? String(plan.railway).trim() : '';
             const inspection_type = plan.inspection_type ? String(plan.inspection_type).trim() : '';
             const business = plan.business ? String(plan.business).trim() : '';
+            
+            console.log('[API] Processed values:', { railway, inspection_type, business });
             
             const hasValidInfo = railway && railway !== '-' && 
                                 inspection_type && inspection_type !== '-' && 
@@ -1737,17 +1751,31 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             }
         }
     } catch (e) {
-        console.error('[API] Get plan by name and year error:', e);
-        console.error('[API] Request params - name:', name, 'year:', year);
+        console.error('========================================');
+        console.error('[API] /api/plans/by-name ERROR');
         console.error('[API] Error type:', e?.constructor?.name);
         console.error('[API] Error message:', e?.message);
+        console.error('[API] Error code:', e?.code);
+        console.error('[API] Error detail:', e?.detail);
         console.error('[API] Error stack:', e?.stack);
+        console.error('[API] Request params - name:', name, 'year:', year);
         console.error('[API] Request URL:', req.url);
         console.error('[API] Request query:', req.query);
+        console.error('[API] Has session:', !!req.session);
+        console.error('[API] Session user:', req.session?.user?.username);
+        console.error('========================================');
         
         // 確保總是返回響應
         if (!res.headersSent) {
-            handleApiError(e, req, res, 'Get plan by name and year error');
+            // 暫時返回更詳細的錯誤訊息以便除錯
+            const errorDetails = {
+                error: '伺服器錯誤，請稍後再試',
+                type: e?.constructor?.name || 'Unknown',
+                message: e?.message || 'Unknown error',
+                code: e?.code || undefined
+            };
+            console.error('[API] Sending error response:', errorDetails);
+            res.status(500).json(errorDetails);
         } else {
             console.error('[API] Response already sent, cannot send error response');
         }
