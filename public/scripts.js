@@ -5019,7 +5019,7 @@ if (dashboard) {
                 planList = j.data || [];
                 plansTotal = j.total || 0;
                 plansPages = j.pages || 1;
-                renderPlans();
+                await renderPlans();
                 renderPagination('plansPagination', plansPage, plansPages, 'loadPlansPage');
                 // 更新年度選項
                 updatePlanYearOptions();
@@ -5028,24 +5028,43 @@ if (dashboard) {
                 showToast('載入計畫錯誤: ' + e.message, 'error');
             }
         }
-        function renderPlans() {
+        async function renderPlans() {
             const tbody = document.getElementById('plansTableBody');
             if (!tbody) return;
-            tbody.innerHTML = planList.map(p => {
-                return `<tr>
+            const rows = [];
+            for (const p of planList) {
+                let scheduleHtml = '';
+                try {
+                    const scheduleRes = await fetch(`/api/plans/${p.id}/schedules?t=${Date.now()}`, { credentials: 'include' });
+                    if (scheduleRes.ok) {
+                        const scheduleData = await scheduleRes.json();
+                        const schedules = scheduleData.data || [];
+                        if (schedules.length > 0) {
+                            scheduleHtml = schedules.map(s => {
+                                const dateRange = s.end_date && s.end_date !== s.start_date ? `${s.start_date} ~ ${s.end_date}` : s.start_date;
+                                return `<div style="margin:4px 0; padding:6px; background:#eff6ff; border-radius:4px; font-size:12px;"><span style="font-weight:600;">${s.plan_number || '-'}</span> | ${dateRange}</div>`;
+                            }).join('');
+                        }
+                    }
+                } catch (e) {
+                    // 忽略錯誤
+                }
+                rows.push(`<tr>
                     <td data-label="選擇" style="padding:12px;text-align:center;">
                         <input type="checkbox" class="plan-check" value="${p.id}" onchange="updatePlansBatchDeleteBtn()">
                     </td>
                     <td data-label="年度" style="padding:12px;font-weight:600;">${p.year || '-'}</td>
                     <td data-label="計畫名稱" style="padding:12px;font-weight:600;">${p.name || '-'}</td>
                     <td data-label="事項數量">${p.issue_count || 0}</td>
+                    <td data-label="排程項目" style="padding:12px; max-width:300px;">${scheduleHtml || '<span style="color:#94a3b8; font-size:12px;">無</span>'}</td>
                     <td data-label="建立時間">${new Date(p.created_at).toLocaleDateString('zh-TW')}</td>
                     <td data-label="操作">
                         <button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openPlanModal('edit', ${p.id})">✏️</button>
                         <button class="btn btn-danger" style="padding:2px 6px;" onclick="deletePlan(${p.id})">🗑️</button>
                     </td>
-                </tr>`;
-            }).join('');
+                </tr>`);
+            }
+            tbody.innerHTML = rows.join('');
             // 重置批次刪除按鈕狀態
             updatePlansBatchDeleteBtn();
         }
@@ -5176,7 +5195,8 @@ if (dashboard) {
             scheduleCalendarMonth = now.getMonth() + 1;
             renderScheduleCalendar();
             loadScheduleForMonth();
-            const dateInput = document.getElementById('scheduleDate');
+            const startDateInput = document.getElementById('scheduleStartDate');
+            const endDateInput = document.getElementById('scheduleEndDate');
             const yearInput = document.getElementById('scheduleYear');
             const railwaySelect = document.getElementById('scheduleRailway');
             const inspectionSelect = document.getElementById('scheduleInspectionType');
@@ -5189,18 +5209,20 @@ if (dashboard) {
                 el.addEventListener('change', onFormChange);
                 el.addEventListener('input', onFormChange);
             });
-            if (dateInput) {
-                dateInput.removeEventListener('change', scheduleOnDateChange);
-                dateInput.removeEventListener('input', scheduleOnDateChange);
-                dateInput.addEventListener('change', scheduleOnDateChange);
-                dateInput.addEventListener('input', scheduleOnDateChange);
+            if (startDateInput) {
+                startDateInput.removeEventListener('change', scheduleOnDateChange);
+                startDateInput.addEventListener('change', scheduleOnDateChange);
+            }
+            if (endDateInput) {
+                endDateInput.removeEventListener('change', scheduleOnDateChange);
+                endDateInput.addEventListener('change', scheduleOnDateChange);
             }
             scheduleClearForm();
         }
 
         async function scheduleOnDateChange() {
-            const dateInput = document.getElementById('scheduleDate');
-            const v = dateInput?.value || '';
+            const startDateInput = document.getElementById('scheduleStartDate');
+            const v = startDateInput?.value || '';
             const sel = document.getElementById('scheduleSelectedDate');
             if (sel) sel.value = v;
             if (!v) {
@@ -5255,10 +5277,16 @@ if (dashboard) {
             const dayCells = [];
             for (let d = 1; d <= days; d++) {
                 const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                const hasPlan = scheduleMonthData.some(s => (s.scheduled_date || '').slice(0, 10) === dateStr);
-                const count = scheduleMonthData.filter(s => (s.scheduled_date || '').slice(0, 10) === dateStr).length;
-                const dot = hasPlan ? `<span class="schedule-cal-dot" title="${count} 筆">${count > 1 ? count : ''}</span>` : '';
-                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan' : ''}" data-date="${dateStr}" onclick="scheduleSelectDay('${dateStr}')">${d}${dot}</div>`);
+                const dateObj = new Date(y, m - 1, d);
+                const plansForDay = scheduleMonthData.filter(s => {
+                    const start = new Date(s.start_date);
+                    const end = s.end_date ? new Date(s.end_date) : start;
+                    return dateObj >= start && dateObj <= end;
+                });
+                const hasPlan = plansForDay.length > 0;
+                const planNames = plansForDay.map(s => s.plan_name || '').filter(Boolean);
+                const planText = planNames.length > 0 ? `<div class="schedule-cal-plan-names">${planNames.join('、')}</div>` : '';
+                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan' : ''}" data-date="${dateStr}" onclick="scheduleSelectDay('${dateStr}')"><div class="schedule-cal-day-num">${d}</div>${planText}</div>`);
             }
             cal.innerHTML = `<div class="schedule-cal-head">一</div><div class="schedule-cal-head">二</div><div class="schedule-cal-head">三</div><div class="schedule-cal-head">四</div><div class="schedule-cal-head">五</div><div class="schedule-cal-head">六</div><div class="schedule-cal-head">日</div>${pad}${dayCells.join('')}`;
         }
@@ -5276,8 +5304,8 @@ if (dashboard) {
         }
 
         function scheduleSelectDay(dateStr) {
-            const dateInput = document.getElementById('scheduleDate');
-            if (dateInput) dateInput.value = dateStr;
+            const startDateInput = document.getElementById('scheduleStartDate');
+            if (startDateInput) startDateInput.value = dateStr;
             document.getElementById('scheduleSelectedDate').value = dateStr;
             scheduleRenderDayList(dateStr);
         }
@@ -5285,14 +5313,23 @@ if (dashboard) {
         function scheduleRenderDayList(dateStr) {
             const box = document.getElementById('scheduleDayListBody');
             if (!box) return;
-            const list = scheduleMonthData.filter(s => (s.scheduled_date || '').slice(0, 10) === dateStr);
-            if (!dateStr || list.length === 0) {
-                box.innerHTML = dateStr ? '當日尚無排程' : '點選月曆日期或輸入日期後顯示';
+            if (!dateStr) {
+                box.innerHTML = '點選月曆日期或輸入日期後顯示';
+                return;
+            }
+            const dateObj = new Date(dateStr);
+            const list = scheduleMonthData.filter(s => {
+                const start = new Date(s.start_date);
+                const end = s.end_date ? new Date(s.end_date) : start;
+                return dateObj >= start && dateObj <= end;
+            });
+            if (list.length === 0) {
+                box.innerHTML = '當日尚無排程';
                 return;
             }
             box.innerHTML = list.map(s => {
-                const d = (s.scheduled_date || '').slice(0, 10);
-                return `<div style="margin-bottom:8px; padding:8px; background:#f1f5f9; border-radius:6px;"><span style="font-weight:600;">${s.plan_name || '-'}</span><br><span style="color:#64748b; font-size:12px;">${s.plan_number || '-'}</span></div>`;
+                const dateRange = s.end_date && s.end_date !== s.start_date ? `${s.start_date} ~ ${s.end_date}` : s.start_date;
+                return `<div style="margin-bottom:8px; padding:8px; background:#f1f5f9; border-radius:6px;"><span style="font-weight:600;">${s.plan_name || '-'}</span><br><span style="color:#64748b; font-size:12px;">${s.plan_number || '-'} | ${dateRange}</span></div>`;
             }).join('');
         }
 
@@ -5320,9 +5357,11 @@ if (dashboard) {
         }
 
         function scheduleClearForm() {
-            const dateInput = document.getElementById('scheduleDate');
+            const startDateInput = document.getElementById('scheduleStartDate');
+            const endDateInput = document.getElementById('scheduleEndDate');
             const sel = document.getElementById('scheduleSelectedDate');
-            if (dateInput) dateInput.value = '';
+            if (startDateInput) startDateInput.value = '';
+            if (endDateInput) endDateInput.value = '';
             if (sel) sel.value = '';
             const name = document.getElementById('schedulePlanName');
             const year = document.getElementById('scheduleYear');
@@ -5342,13 +5381,18 @@ if (dashboard) {
 
         async function scheduleSubmitPlan() {
             const planName = (document.getElementById('schedulePlanName') || {}).value?.trim();
-            const dateVal = (document.getElementById('scheduleDate') || {}).value;
+            const startDateVal = (document.getElementById('scheduleStartDate') || {}).value;
+            const endDateVal = (document.getElementById('scheduleEndDate') || {}).value;
             const year = (document.getElementById('scheduleYear') || {}).value?.trim();
             const railway = (document.getElementById('scheduleRailway') || {}).value;
             const inspection = (document.getElementById('scheduleInspectionType') || {}).value;
             const business = (document.getElementById('scheduleBusiness') || {}).value;
-            if (!planName || !dateVal || !year || !railway || !inspection || !business) {
-                showToast('請填寫計畫名稱、排程日期、年度、鐵路機構、檢查類別、業務類別', 'error');
+            if (!planName || !startDateVal || !year || !railway || !inspection || !business) {
+                showToast('請填寫計畫名稱、開始日期、年度、鐵路機構、檢查類別、業務類別', 'error');
+                return;
+            }
+            if (endDateVal && endDateVal < startDateVal) {
+                showToast('結束日期不能早於開始日期', 'error');
                 return;
             }
             if (!/^\d{2,3}$/.test(year)) {
@@ -5362,7 +5406,8 @@ if (dashboard) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         plan_name: planName,
-                        scheduled_date: dateVal,
+                        start_date: startDateVal,
+                        end_date: endDateVal || null,
                         year: yr,
                         railway,
                         inspection_type: inspection,
@@ -5376,10 +5421,11 @@ if (dashboard) {
                 }
                 showToast(`已儲存，取號：${j.planNumber || ''}`, 'success');
                 loadScheduleForMonth();
-                scheduleRenderDayList(dateVal);
+                scheduleRenderDayList(startDateVal);
                 scheduleClearForm();
-                document.getElementById('scheduleDate').value = dateVal;
-                document.getElementById('scheduleSelectedDate').value = dateVal;
+                document.getElementById('scheduleStartDate').value = startDateVal;
+                if (endDateVal) document.getElementById('scheduleEndDate').value = endDateVal;
+                document.getElementById('scheduleSelectedDate').value = startDateVal;
                 loadPlanOptions();
             } catch (e) {
                 showToast('儲存失敗：' + e.message, 'error');

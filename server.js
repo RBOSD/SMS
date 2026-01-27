@@ -310,10 +310,11 @@ async function initDB() {
                     // 忽略錯誤（欄位可能不存在）
                 }
 
-                // 檢查計畫規劃（月曆排程）表：年度-鐵路機構-檢查類別-檢查次數-業務類別 取號
+                // 檢查計畫規劃（月曆排程）表：年度+鐵路機構+檢查類別-檢查次數-業務類別 取號
                 await client.query(`CREATE TABLE IF NOT EXISTS inspection_plan_schedule (
                     id SERIAL PRIMARY KEY,
-                    scheduled_date DATE NOT NULL,
+                    start_date DATE NOT NULL,
+                    end_date DATE,
                     plan_name TEXT NOT NULL,
                     year TEXT NOT NULL,
                     railway TEXT NOT NULL,
@@ -324,6 +325,15 @@ async function initDB() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
+                // 向後兼容：如果存在 scheduled_date 欄位，遷移到 start_date
+                try {
+                    await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS start_date DATE`);
+                    await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS end_date DATE`);
+                    await client.query(`UPDATE inspection_plan_schedule SET start_date = scheduled_date WHERE start_date IS NULL AND scheduled_date IS NOT NULL`);
+                } catch (e) {}
+                try {
+                    await client.query(`ALTER TABLE inspection_plan_schedule DROP COLUMN IF EXISTS scheduled_date`);
+                } catch (e) {}
                 try {
                     await client.query(`CREATE INDEX IF NOT EXISTS idx_schedule_date ON inspection_plan_schedule(scheduled_date)`);
                     await client.query(`CREATE INDEX IF NOT EXISTS idx_schedule_year ON inspection_plan_schedule(year)`);
@@ -1534,15 +1544,15 @@ app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) =
 
 app.get('/api/plans/:id/issues', requireAuth, requireAdminOrManager, async (req, res) => {
     try {
-        const planResult = await pool.query("SELECT name FROM inspection_plans WHERE id = $1", [req.params.id]);
+        const planResult = await pool.query("SELECT name, year FROM inspection_plans WHERE id = $1", [req.params.id]);
         if (planResult.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
         const planName = planResult.rows[0].name;
+        const planYear = planResult.rows[0].year || '';
         
         const { page=1, pageSize=20 } = req.query;
         const limit = parseInt(pageSize);
         const offset = (page-1)*limit;
         
-        const planYear = planResult.rows[0].year || '';
         // 修正：加入年度條件，確保只查詢相同名稱且年度匹配的事項
         const countRes = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1 AND year = $2", [planName, planYear]);
         const total = parseInt(countRes.rows[0].count);
@@ -1551,6 +1561,27 @@ app.get('/api/plans/:id/issues', requireAuth, requireAdminOrManager, async (req,
         res.json({data: dataRes.rows, total, page: parseInt(page), pages: Math.ceil(total/limit)});
     } catch (e) { 
         handleApiError(e, req, res, 'Get plan issues error');
+    }
+});
+
+app.get('/api/plans/:id/schedules', requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+        const planResult = await pool.query("SELECT name, year FROM inspection_plans WHERE id = $1", [req.params.id]);
+        if (planResult.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
+        const planName = planResult.rows[0].name;
+        const planYear = planResult.rows[0].year || '';
+        
+        const scheduleRes = await pool.query(
+            `SELECT id, start_date, end_date, plan_number, inspection_seq, railway, inspection_type, business 
+             FROM inspection_plan_schedule 
+             WHERE plan_name = $1 AND year = $2 
+             ORDER BY start_date ASC, id ASC`,
+            [planName, planYear]
+        );
+        
+        res.json({data: scheduleRes.rows || []});
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get plan schedules error');
     }
 });
 
@@ -1736,10 +1767,10 @@ app.get('/api/plan-schedule', requireAuth, async (req, res) => {
         const lastDay = new Date(y, m, 0).getDate();
         const end = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
         const rows = await pool.query(
-            `SELECT id, scheduled_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, created_at 
+            `SELECT id, start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, created_at 
              FROM inspection_plan_schedule 
-             WHERE scheduled_date >= $1::date AND scheduled_date <= $2::date 
-             ORDER BY scheduled_date ASC, id ASC`,
+             WHERE (start_date <= $2::date AND (end_date IS NULL OR end_date >= $1::date))
+             ORDER BY start_date ASC, id ASC`,
             [start, end]
         );
         res.json({ data: rows.rows || [] });
@@ -1766,7 +1797,7 @@ app.get('/api/plan-schedule/next-number', requireAuth, async (req, res) => {
         );
         const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
         const seq = String(next).padStart(2, '0');
-        const planNumber = `${y}-${r}-${it}-${seq}-${b}`;
+        const planNumber = `${y}${r}${it}-${seq}-${b}`;
         res.json({ nextSeq: seq, planNumber });
     } catch (e) {
         handleApiError(e, req, res, 'Get next plan number error');
@@ -1774,10 +1805,10 @@ app.get('/api/plan-schedule/next-number', requireAuth, async (req, res) => {
 });
 
 app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
-    const { plan_name, scheduled_date, year, railway, inspection_type, business } = req.body;
+    const { plan_name, start_date, end_date, year, railway, inspection_type, business } = req.body;
     try {
-        if (!plan_name || !scheduled_date || !year || !railway || !inspection_type || !business) {
-            return res.status(400).json({ error: '計畫名稱、排程日期、年度、鐵路機構、檢查類別、業務類別為必填' });
+        if (!plan_name || !start_date || !year || !railway || !inspection_type || !business) {
+            return res.status(400).json({ error: '計畫名稱、開始日期、年度、鐵路機構、檢查類別、業務類別為必填' });
         }
         const y = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
         const r = String(railway).toUpperCase();
@@ -1791,19 +1822,20 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
         );
         const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
         const seq = String(next).padStart(2, '0');
-        const planNumber = `${y}-${r}-${it}-${seq}-${b}`;
+        const planNumber = `${y}${r}${it}-${seq}-${b}`;
         const name = String(plan_name).trim();
         await pool.query(
-            `INSERT INTO inspection_plan_schedule (scheduled_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [scheduled_date, name, y, r, it, b, seq, planNumber]
+            `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [start_date, end_date || null, name, y, r, it, b, seq, planNumber]
         );
         await pool.query(
             `INSERT INTO inspection_plans (name, year) VALUES ($1, $2) 
              ON CONFLICT (name, year) DO NOTHING`,
             [name, y]
         );
-        logAction(req.session.user.username, 'CREATE_PLAN_SCHEDULE', `新增檢查計畫規劃：${name}，取號 ${planNumber}，日期 ${scheduled_date}`, req);
+        const dateRange = end_date ? `${start_date} ~ ${end_date}` : start_date;
+        logAction(req.session.user.username, 'CREATE_PLAN_SCHEDULE', `新增檢查計畫規劃：${name}，取號 ${planNumber}，日期 ${dateRange}`, req);
         res.json({ success: true, planNumber, inspectionSeq: seq });
     } catch (e) {
         handleApiError(e, req, res, 'Create plan schedule error');

@@ -2865,23 +2865,23 @@
         }
         .schedule-cal-day {
             background: #fff;
-            min-height: 36px;
-            padding: 6px 4px;
+            min-height: 60px;
+            padding: 4px;
             font-size: 13px;
             color: #334155;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            align-items: flex-start;
+            justify-content: flex-start;
             cursor: pointer;
             transition: background 0.15s;
+            position: relative;
         }
         .schedule-cal-day:hover {
             background: #f1f5f9;
         }
         .schedule-cal-day.has-plan {
             background: #eff6ff;
-            font-weight: 600;
         }
         .schedule-cal-day.has-plan:hover {
             background: #dbeafe;
@@ -2893,8 +2893,20 @@
         .schedule-cal-pad:hover {
             background: #f8fafc;
         }
-        .schedule-cal-dot {
+        .schedule-cal-day-num {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+        .schedule-cal-plan-names {
             font-size: 10px;
             color: #2563eb;
-            margin-top: 2px;
+            line-height: 1.3;
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            word-break: break-word;
         }

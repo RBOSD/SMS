@@ -391,7 +391,7 @@
         <div style="margin-bottom:20px;">
             <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">📅 檢查計畫規劃</h3>
             <p style="margin:0; color:#64748b; font-size:13px;">
-                以月曆排程規劃檢查日期，填寫計畫名稱與取號條件後系統自動取號（格式：年度-鐵路機構-檢查類別-檢查次數-業務類別，檢查次數由 01 起自動加 1）。已寫入的計畫名稱可供「檢查計畫管理」與「開立事項」使用。
+                以月曆排程規劃檢查日期，填寫計畫名稱與取號條件後系統自動取號（格式：年度+鐵路機構+檢查類別-檢查次數-業務類別，例如：115T1-01-OP，檢查次數由 01 起自動加 1）。已寫入的計畫名稱可供「檢查計畫管理」與「開立事項」使用。
             </p>
         </div>
         <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;">
@@ -410,8 +410,12 @@
                     <div style="font-weight:700; font-size:15px; color:#334155; margin-bottom:16px;">新增檢查計畫</div>
                     <input type="hidden" id="scheduleSelectedDate">
                     <div class="form-group">
-                        <label>排程日期 <span style="color:#ef4444;">*</span></label>
-                        <input type="date" id="scheduleDate" class="filter-input" required>
+                        <label>開始日期 <span style="color:#ef4444;">*</span></label>
+                        <input type="date" id="scheduleStartDate" class="filter-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>結束日期 <span style="color:#64748b; font-size:12px;">（選填，不填則為單日）</span></label>
+                        <input type="date" id="scheduleEndDate" class="filter-input">
                     </div>
                     <div class="form-group">
                         <label>計畫名稱 <span style="color:#ef4444;">*</span></label>
@@ -525,6 +529,7 @@
                         <th onclick="plansSortBy('year')">年度</th>
                         <th style="padding:16px;" onclick="plansSortBy('name')">計畫名稱</th>
                         <th>事項數量</th>
+                        <th style="min-width:300px;">排程項目</th>
                         <th onclick="plansSortBy('created_at')">建立時間</th>
                         <th>操作</th>
                     </tr>
