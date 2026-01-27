@@ -5673,15 +5673,24 @@ if (dashboard) {
                         const planData = await planRes.json();
                         if (planData.data && planData.data.length > 0) {
                             const plan = planData.data[0];
+                            const railway = plan.railway && plan.railway !== '-' ? plan.railway : '';
+                            const inspection_type = plan.inspection_type && plan.inspection_type !== '-' ? plan.inspection_type : '';
+                            const business = plan.business && plan.business !== '-' ? plan.business : '';
+                            
                             schedulePlanDetails = {
                                 plan_name: planName,
                                 year: planYear,
-                                railway: plan.railway || '',
-                                inspection_type: plan.inspection_type || '',
-                                business: plan.business || ''
+                                railway: railway,
+                                inspection_type: inspection_type,
+                                business: business
                             };
-                            if (!schedulePlanDetails.railway || !schedulePlanDetails.inspection_type || !schedulePlanDetails.business) {
-                                showToast('該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯', 'warning');
+                            
+                            if (!railway || !inspection_type || !business) {
+                                if (planData.warning) {
+                                    showToast(planData.warning, 'warning');
+                                } else {
+                                    showToast('該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯', 'warning');
+                                }
                                 schedulePlanDetails = {};
                                 select.value = '';
                             }

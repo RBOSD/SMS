@@ -1597,26 +1597,54 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         if (!name || !year) {
             return res.status(400).json({error: '請提供 name 和 year 參數'});
         }
-        const decodedName = decodeURIComponent(name);
-        const decodedYear = decodeURIComponent(year);
+        
+        let decodedName, decodedYear;
+        try {
+            decodedName = decodeURIComponent(String(name));
+            decodedYear = decodeURIComponent(String(year));
+        } catch (decodeError) {
+            console.error('URL decode error:', decodeError);
+            decodedName = String(name);
+            decodedYear = String(year);
+        }
+        
+        if (!decodedName || !decodedYear) {
+            return res.status(400).json({error: '計畫名稱或年度格式錯誤'});
+        }
+        
         const result = await pool.query(
             `SELECT id, plan_name AS name, year, railway, inspection_type, business 
              FROM inspection_plan_schedule 
              WHERE plan_name = $1 AND year = $2 
              ORDER BY id ASC 
              LIMIT 1`,
-            [decodedName, decodedYear]
+            [decodedName.trim(), decodedYear.trim()]
         );
+        
         if (result.rows.length === 0) {
             return res.status(404).json({error: '找不到該計畫'});
         }
+        
         const plan = result.rows[0];
-        if (!plan.railway || !plan.inspection_type || !plan.business) {
-            return res.status(400).json({error: '該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別）'});
+        
+        // 檢查是否有有效的 railway, inspection_type, business
+        // 如果都是 '-' 或空值，表示這是剛新增的計畫，還沒有完整資訊
+        const hasValidInfo = plan.railway && plan.railway !== '-' && 
+                            plan.inspection_type && plan.inspection_type !== '-' && 
+                            plan.business && plan.business !== '-';
+        
+        if (!hasValidInfo) {
+            // 返回計畫資訊，但標記為不完整
+            return res.json({
+                data: [plan],
+                warning: '該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯'
+            });
         }
+        
         res.json({data: [plan]});
     } catch (e) {
         console.error('Get plan by name and year error:', e);
+        console.error('Request params - name:', name, 'year:', year);
         handleApiError(e, req, res, 'Get plan by name and year error');
     }
 });
