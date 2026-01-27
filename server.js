@@ -1953,7 +1953,17 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
                             return hYear === year;
                         }).map(h => {
                             const dateStr = String(h.date || '');
-                            const isHoliday = String(h.isHoliday || '').trim() !== '否' && String(h.isHoliday || '').trim() !== 'N';
+                            // 更寬鬆的假日判斷：只要不是明確的 '否' 或 'N'，就視為假日
+                            const isHolidayValue = h.isHoliday;
+                            const isHoliday = isHolidayValue !== false && 
+                                             String(isHolidayValue || '').trim() !== '否' && 
+                                             String(isHolidayValue || '').trim() !== 'N' &&
+                                             String(isHolidayValue || '').trim() !== 'false' &&
+                                             (isHolidayValue === true || 
+                                              String(isHolidayValue || '').trim() === 'true' ||
+                                              String(isHolidayValue || '').trim() === 'Y' ||
+                                              String(isHolidayValue || '').trim() === '是' ||
+                                              String(isHolidayValue || '').trim() === '1');
                             return {
                                 date: dateStr,
                                 name: h.name || h.holidayCategory || '假日',
