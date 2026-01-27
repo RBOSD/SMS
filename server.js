@@ -1970,47 +1970,52 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
                         }
                         
                         const holidays = rawData.filter(h => {
-                            if (!h || !h.date) return false;
-                            let dateStr = String(h.date || '');
-                            // 處理多種日期格式：2026/01/01, 2026-01-01, 20260101 等
-                            dateStr = dateStr.replace(/\//g, '-').replace(/\s+/g, '');
-                            // 提取年份（可能在前 4 位，或需要解析）
+                            if (!h) return false;
+                            // 使用 year 欄位（如果存在），否則從 date 解析
                             let hYear;
-                            if (dateStr.match(/^\d{4}/)) {
-                                hYear = parseInt(dateStr.slice(0, 4), 10);
-                            } else if (dateStr.match(/\d{4}/)) {
-                                const match = dateStr.match(/(\d{4})/);
-                                hYear = match ? parseInt(match[1], 10) : 0;
+                            if (h.year) {
+                                hYear = parseInt(String(h.year), 10);
+                            } else if (h.date) {
+                                const dateStr = String(h.date || '');
+                                if (dateStr.match(/^\d{4}/)) {
+                                    hYear = parseInt(dateStr.slice(0, 4), 10);
+                                } else if (dateStr.match(/^\d{8}$/)) {
+                                    hYear = parseInt(dateStr.slice(0, 4), 10);
+                                } else {
+                                    return false;
+                                }
                             } else {
                                 return false;
                             }
                             return hYear === year;
                         }).map(h => {
+                            // 處理日期格式：20170101 -> 2017-01-01
                             let dateStr = String(h.date || '');
-                            // 標準化日期格式為 YYYY-MM-DD
-                            dateStr = dateStr.replace(/\//g, '-').replace(/\s+/g, '');
                             if (dateStr.match(/^\d{8}$/)) {
-                                // 格式：20260101 -> 2026-01-01
+                                // 格式：20170101 -> 2017-01-01
                                 dateStr = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
-                            } else if (dateStr.match(/^\d{4}\d{2}\d{2}/)) {
-                                // 其他格式處理
-                                dateStr = dateStr.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
+                            } else {
+                                // 其他格式標準化
+                                dateStr = dateStr.replace(/\//g, '-').replace(/\s+/g, '');
                             }
                             
-                            // 更寬鬆的假日判斷
-                            const isHolidayValue = h.isHoliday;
-                            const isHoliday = isHolidayValue !== false && 
-                                             String(isHolidayValue || '').trim() !== '否' && 
-                                             String(isHolidayValue || '').trim() !== 'N' &&
-                                             String(isHolidayValue || '').trim() !== 'false' &&
-                                             (isHolidayValue === true || 
-                                              String(isHolidayValue || '').trim() === 'true' ||
-                                              String(isHolidayValue || '').trim() === 'Y' ||
-                                              String(isHolidayValue || '').trim() === '是' ||
-                                              String(isHolidayValue || '').trim() === '1');
+                            // 使用 isholiday 欄位（小寫），支援多種格式
+                            const isHolidayValue = h.isholiday !== undefined ? h.isholiday : h.isHoliday;
+                            // 如果 isholiday 欄位不存在或為 undefined，預設視為假日（因為在假日資料集中）
+                            const isHoliday = isHolidayValue === undefined ? true :
+                                             (isHolidayValue !== false && 
+                                              String(isHolidayValue || '').trim() !== '否' && 
+                                              String(isHolidayValue || '').trim() !== 'N' &&
+                                              String(isHolidayValue || '').trim() !== 'false' &&
+                                              (isHolidayValue === true || 
+                                               String(isHolidayValue || '').trim() === 'true' ||
+                                               String(isHolidayValue || '').trim() === 'Y' ||
+                                               String(isHolidayValue || '').trim() === '是' ||
+                                               String(isHolidayValue || '').trim() === '1'));
+                            
                             return {
                                 date: dateStr,
-                                name: h.name || h.holidayCategory || h.holidayName || '假日',
+                                name: h.name || h.holidaycategory || h.holidayCategory || h.holidayName || '假日',
                                 isHoliday: isHoliday
                             };
                         });
