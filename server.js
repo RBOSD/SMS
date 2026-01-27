@@ -46,19 +46,50 @@ const pool = new Pool({
 // 資料庫連線錯誤處理
 pool.on('error', async (err) => {
     console.error('Unexpected error on idle client', err);
-    await logError(err, 'Database connection error', null).catch(() => {});
+    // 避免在初始化階段記錄錯誤（可能是暫時的連線問題）
+    if (err.message && err.message.includes('Connection terminated')) {
+        console.warn('Database connection terminated (may be temporary):', err.message);
+    } else {
+        await logError(err, 'Database connection error', null).catch(() => {});
+    }
+});
+
+// 監聽連線池事件，幫助診斷連線問題
+pool.on('connect', (client) => {
+    // 連線成功（可選的日誌）
+});
+
+pool.on('acquire', (client) => {
+    // 取得連線（可選的日誌）
+});
+
+pool.on('remove', (client) => {
+    // 移除連線（可選的日誌）
 });
 
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // [Modified] Session Configuration（必須在路由保護之前，才能使用 req.session）
-app.use(session({
-    store: new pgSession({
+let sessionStore;
+try {
+    sessionStore = new pgSession({
         pool: pool,
         tableName: 'session',
-        createTableIfMissing: true 
-    }),
+        createTableIfMissing: true,
+        pruneSessionInterval: false // 手動控制清理，避免初始化問題
+    });
+} catch (storeError) {
+    console.warn('Session store initialization warning:', storeError?.message || storeError);
+    // 如果 session store 初始化失敗，使用記憶體 store（僅開發環境）
+    if (process.env.NODE_ENV !== 'production') {
+        console.warn('Falling back to memory store for development');
+        sessionStore = undefined;
+    }
+}
+
+app.use(session({
+    store: sessionStore,
     secret: (() => {
         const secret = process.env.SESSION_SECRET;
         const defaultSecret = 'sms-secret-key-pg-final-v3';
