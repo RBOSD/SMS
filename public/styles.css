@@ -2844,3 +2844,57 @@
         #createHandlingRoundsContainer textarea:focus {
             z-index: 6;
         }
+
+        /* 檢查計畫規劃月曆 */
+        .schedule-calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .schedule-cal-head {
+            background: #e2e8f0;
+            padding: 8px 4px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            text-align: center;
+        }
+        .schedule-cal-day {
+            background: #fff;
+            min-height: 36px;
+            padding: 6px 4px;
+            font-size: 13px;
+            color: #334155;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .schedule-cal-day:hover {
+            background: #f1f5f9;
+        }
+        .schedule-cal-day.has-plan {
+            background: #eff6ff;
+            font-weight: 600;
+        }
+        .schedule-cal-day.has-plan:hover {
+            background: #dbeafe;
+        }
+        .schedule-cal-pad {
+            background: #f8fafc;
+            cursor: default;
+        }
+        .schedule-cal-pad:hover {
+            background: #f8fafc;
+        }
+        .schedule-cal-dot {
+            font-size: 10px;
+            color: #2563eb;
+            margin-top: 2px;
+        }

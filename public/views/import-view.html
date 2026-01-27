@@ -5,6 +5,7 @@
 <div class="admin-tabs">
     <button class="admin-tab-btn active" onclick="switchDataTab('issues')">開立事項管理</button>
     <button class="admin-tab-btn" onclick="switchDataTab('plans')">檢查計畫管理</button>
+    <button class="admin-tab-btn" onclick="switchDataTab('schedule')">檢查計畫規劃</button>
     <button class="admin-tab-btn" onclick="switchDataTab('export')">資料匯出</button>
 </div>
 
@@ -379,6 +380,94 @@
                 <div style="font-size:48px; margin-bottom:16px;">📭</div>
                 <div style="font-size:16px; font-weight:500; margin-bottom:8px;">該檢查計畫下尚無開立事項</div>
                 <div style="font-size:13px;">請選擇其他檢查計畫</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tab: 檢查計畫規劃（月曆型） -->
+<div id="tab-data-schedule" class="hidden">
+    <div class="main-card">
+        <div style="margin-bottom:20px;">
+            <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">📅 檢查計畫規劃</h3>
+            <p style="margin:0; color:#64748b; font-size:13px;">
+                以月曆排程規劃檢查日期，填寫計畫名稱與取號條件後系統自動取號（格式：年度-鐵路機構-檢查類別-檢查次數-業務類別，檢查次數由 01 起自動加 1）。已寫入的計畫名稱可供「檢查計畫管理」與「開立事項」使用。
+            </p>
+        </div>
+        <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;">
+            <div style="flex:1; min-width:280px;">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-outline" id="schedulePrevMonth" onclick="schedulePrevMonth()">◀ 上月</button>
+                    <span id="scheduleMonthTitle" style="font-weight:700; font-size:16px; color:#334155; min-width:140px;">— 年 — 月</span>
+                    <button type="button" class="btn btn-outline" id="scheduleNextMonth" onclick="scheduleNextMonth()">下月 ▶</button>
+                </div>
+                <div id="scheduleCalendar" class="schedule-calendar">
+                    <!-- 月曆由 JS 產生 -->
+                </div>
+            </div>
+            <div style="width:360px; flex-shrink:0;">
+                <div style="background:#f8fafc; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
+                    <div style="font-weight:700; font-size:15px; color:#334155; margin-bottom:16px;">新增檢查計畫</div>
+                    <input type="hidden" id="scheduleSelectedDate">
+                    <div class="form-group">
+                        <label>排程日期 <span style="color:#ef4444;">*</span></label>
+                        <input type="date" id="scheduleDate" class="filter-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>計畫名稱 <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="schedulePlanName" class="filter-input" placeholder="例：115年度臺鐵上半年定期檢查" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>年度（民國 3 碼）<span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="scheduleYear" class="filter-input" placeholder="例：115" maxlength="3" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>鐵路機構 <span style="color:#ef4444;">*</span></label>
+                        <select id="scheduleRailway" class="filter-select">
+                            <option value="">請選擇</option>
+                            <option value="T">臺鐵 (T)</option>
+                            <option value="H">高鐵 (H)</option>
+                            <option value="A">林鐵 (A)</option>
+                            <option value="S">糖鐵 (S)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>檢查類別 <span style="color:#ef4444;">*</span></label>
+                        <select id="scheduleInspectionType" class="filter-select">
+                            <option value="">請選擇</option>
+                            <option value="1">年度定期檢查 (1)</option>
+                            <option value="2">特別檢查 (2)</option>
+                            <option value="3">例行性檢查 (3)</option>
+                            <option value="4">臨時檢查 (4)</option>
+                            <option value="5">調查 (5)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>業務類別 <span style="color:#ef4444;">*</span></label>
+                        <select id="scheduleBusiness" class="filter-select">
+                            <option value="">請選擇</option>
+                            <option value="OP">運轉 (OP)</option>
+                            <option value="CV">土建 (CV)</option>
+                            <option value="ME">機務 (ME)</option>
+                            <option value="EL">電務 (EL)</option>
+                            <option value="SM">安全管理 (SM)</option>
+                            <option value="AD">營運 (AD)</option>
+                            <option value="OT">其他 (OT)</option>
+                        </select>
+                    </div>
+                    <div id="scheduleNextNumberBox" style="display:none; margin-bottom:12px; padding:12px; background:#eff6ff; border-radius:8px; border:1px solid #bfdbfe;">
+                        <div style="font-size:12px; color:#1e40af; font-weight:600;">預覽取號</div>
+                        <div id="scheduleNextNumberVal" style="font-size:14px; font-weight:700; color:#1e3a8a; margin-top:4px;">—</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-primary" style="flex:1;" onclick="scheduleSubmitPlan()">儲存並取號</button>
+                        <button type="button" class="btn btn-outline" onclick="scheduleClearForm()">清空</button>
+                    </div>
+                </div>
+                <div id="scheduleDayList" style="margin-top:16px;">
+                    <div style="font-weight:600; font-size:14px; color:#334155; margin-bottom:8px;">當日排程</div>
+                    <div id="scheduleDayListBody" style="font-size:13px; color:#64748b;">點選月曆日期或輸入日期後顯示</div>
+                </div>
             </div>
         </div>
     </div>

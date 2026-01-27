@@ -2453,7 +2453,9 @@ if (dashboard) {
             
             // 主要 tab 切換
             document.getElementById('tab-data-issues').classList.toggle('hidden', tab !== 'issues'); 
-            document.getElementById('tab-data-plans').classList.toggle('hidden', tab !== 'plans'); 
+            document.getElementById('tab-data-plans').classList.toggle('hidden', tab !== 'plans');
+            const scheduleEl = document.getElementById('tab-data-schedule');
+            if (scheduleEl) scheduleEl.classList.toggle('hidden', tab !== 'schedule');
             document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export');
             
             // 處理各 tab 的初始化
@@ -2471,6 +2473,10 @@ if (dashboard) {
                 setTimeout(() => {
                     loadPlansPage(plansPage || 1);
                 }, 200);
+            }
+            if (tab === 'schedule') {
+                loadPlanOptions();
+                initScheduleCalendar();
             }
             if (tab === 'export') {
                 // 設置匯出選項的顯示/隱藏
@@ -5158,6 +5164,228 @@ if (dashboard) {
                 if (currentValue) select.value = currentValue;
             }
         }
+
+        // --- 檢查計畫規劃（月曆）---
+        let scheduleCalendarYear = new Date().getFullYear();
+        let scheduleCalendarMonth = new Date().getMonth() + 1;
+        let scheduleMonthData = [];
+
+        function initScheduleCalendar() {
+            const now = new Date();
+            scheduleCalendarYear = now.getFullYear();
+            scheduleCalendarMonth = now.getMonth() + 1;
+            renderScheduleCalendar();
+            loadScheduleForMonth();
+            const dateInput = document.getElementById('scheduleDate');
+            const yearInput = document.getElementById('scheduleYear');
+            const railwaySelect = document.getElementById('scheduleRailway');
+            const inspectionSelect = document.getElementById('scheduleInspectionType');
+            const businessSelect = document.getElementById('scheduleBusiness');
+            const onFormChange = () => { scheduleRefreshNextNumber(); };
+            [yearInput, railwaySelect, inspectionSelect, businessSelect].forEach(el => {
+                if (!el) return;
+                el.removeEventListener('change', onFormChange);
+                el.removeEventListener('input', onFormChange);
+                el.addEventListener('change', onFormChange);
+                el.addEventListener('input', onFormChange);
+            });
+            if (dateInput) {
+                dateInput.removeEventListener('change', scheduleOnDateChange);
+                dateInput.removeEventListener('input', scheduleOnDateChange);
+                dateInput.addEventListener('change', scheduleOnDateChange);
+                dateInput.addEventListener('input', scheduleOnDateChange);
+            }
+            scheduleClearForm();
+        }
+
+        async function scheduleOnDateChange() {
+            const dateInput = document.getElementById('scheduleDate');
+            const v = dateInput?.value || '';
+            const sel = document.getElementById('scheduleSelectedDate');
+            if (sel) sel.value = v;
+            if (!v) {
+                scheduleRenderDayList('');
+                return;
+            }
+            const parts = v.split('-').map(Number);
+            const y = parts[0], m = parts[1];
+            if (y && m && (y !== scheduleCalendarYear || m !== scheduleCalendarMonth)) {
+                scheduleCalendarYear = y;
+                scheduleCalendarMonth = m;
+                await loadScheduleForMonth();
+                renderScheduleCalendar();
+            }
+            scheduleRenderDayList(v);
+        }
+
+        function schedulePrevMonth() {
+            if (scheduleCalendarMonth === 1) {
+                scheduleCalendarYear--;
+                scheduleCalendarMonth = 12;
+            } else {
+                scheduleCalendarMonth--;
+            }
+            renderScheduleCalendar();
+            loadScheduleForMonth();
+        }
+
+        function scheduleNextMonth() {
+            if (scheduleCalendarMonth === 12) {
+                scheduleCalendarYear++;
+                scheduleCalendarMonth = 1;
+            } else {
+                scheduleCalendarMonth++;
+            }
+            renderScheduleCalendar();
+            loadScheduleForMonth();
+        }
+
+        function renderScheduleCalendar() {
+            const title = document.getElementById('scheduleMonthTitle');
+            const cal = document.getElementById('scheduleCalendar');
+            if (!title || !cal) return;
+            title.textContent = `${scheduleCalendarYear} 年 ${scheduleCalendarMonth} 月`;
+            const y = scheduleCalendarYear;
+            const m = scheduleCalendarMonth;
+            const first = new Date(y, m - 1, 1);
+            const last = new Date(y, m, 0);
+            const startPad = (first.getDay() + 6) % 7;
+            const days = last.getDate();
+            const pad = Array(startPad).fill(0).map((_, i) => `<div class="schedule-cal-day schedule-cal-pad"></div>`).join('');
+            const dayCells = [];
+            for (let d = 1; d <= days; d++) {
+                const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const hasPlan = scheduleMonthData.some(s => (s.scheduled_date || '').slice(0, 10) === dateStr);
+                const count = scheduleMonthData.filter(s => (s.scheduled_date || '').slice(0, 10) === dateStr).length;
+                const dot = hasPlan ? `<span class="schedule-cal-dot" title="${count} 筆">${count > 1 ? count : ''}</span>` : '';
+                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan' : ''}" data-date="${dateStr}" onclick="scheduleSelectDay('${dateStr}')">${d}${dot}</div>`);
+            }
+            cal.innerHTML = `<div class="schedule-cal-head">一</div><div class="schedule-cal-head">二</div><div class="schedule-cal-head">三</div><div class="schedule-cal-head">四</div><div class="schedule-cal-head">五</div><div class="schedule-cal-head">六</div><div class="schedule-cal-head">日</div>${pad}${dayCells.join('')}`;
+        }
+
+        async function loadScheduleForMonth() {
+            try {
+                const res = await fetch(`/api/plan-schedule?year=${scheduleCalendarYear}&month=${scheduleCalendarMonth}&t=${Date.now()}`, { credentials: 'include' });
+                if (!res.ok) { scheduleMonthData = []; return; }
+                const j = await res.json();
+                scheduleMonthData = j.data || [];
+            } catch (e) {
+                scheduleMonthData = [];
+            }
+            renderScheduleCalendar();
+        }
+
+        function scheduleSelectDay(dateStr) {
+            const dateInput = document.getElementById('scheduleDate');
+            if (dateInput) dateInput.value = dateStr;
+            document.getElementById('scheduleSelectedDate').value = dateStr;
+            scheduleRenderDayList(dateStr);
+        }
+
+        function scheduleRenderDayList(dateStr) {
+            const box = document.getElementById('scheduleDayListBody');
+            if (!box) return;
+            const list = scheduleMonthData.filter(s => (s.scheduled_date || '').slice(0, 10) === dateStr);
+            if (!dateStr || list.length === 0) {
+                box.innerHTML = dateStr ? '當日尚無排程' : '點選月曆日期或輸入日期後顯示';
+                return;
+            }
+            box.innerHTML = list.map(s => {
+                const d = (s.scheduled_date || '').slice(0, 10);
+                return `<div style="margin-bottom:8px; padding:8px; background:#f1f5f9; border-radius:6px;"><span style="font-weight:600;">${s.plan_name || '-'}</span><br><span style="color:#64748b; font-size:12px;">${s.plan_number || '-'}</span></div>`;
+            }).join('');
+        }
+
+        async function scheduleRefreshNextNumber() {
+            const year = (document.getElementById('scheduleYear') || {}).value;
+            const railway = (document.getElementById('scheduleRailway') || {}).value;
+            const inspection = (document.getElementById('scheduleInspectionType') || {}).value;
+            const business = (document.getElementById('scheduleBusiness') || {}).value;
+            const box = document.getElementById('scheduleNextNumberBox');
+            const val = document.getElementById('scheduleNextNumberVal');
+            if (!box || !val) return;
+            if (!year || !railway || !inspection || !business) {
+                box.style.display = 'none';
+                return;
+            }
+            try {
+                const res = await fetch(`/api/plan-schedule/next-number?year=${encodeURIComponent(year)}&railway=${encodeURIComponent(railway)}&inspectionType=${encodeURIComponent(inspection)}&business=${encodeURIComponent(business)}&t=${Date.now()}`, { credentials: 'include' });
+                if (!res.ok) { box.style.display = 'none'; return; }
+                const j = await res.json();
+                val.textContent = j.planNumber || '—';
+                box.style.display = 'block';
+            } catch (e) {
+                box.style.display = 'none';
+            }
+        }
+
+        function scheduleClearForm() {
+            const dateInput = document.getElementById('scheduleDate');
+            const sel = document.getElementById('scheduleSelectedDate');
+            if (dateInput) dateInput.value = '';
+            if (sel) sel.value = '';
+            const name = document.getElementById('schedulePlanName');
+            const year = document.getElementById('scheduleYear');
+            const railway = document.getElementById('scheduleRailway');
+            const inspection = document.getElementById('scheduleInspectionType');
+            const business = document.getElementById('scheduleBusiness');
+            if (name) name.value = '';
+            if (year) year.value = '';
+            if (railway) railway.value = '';
+            if (inspection) inspection.value = '';
+            if (business) business.value = '';
+            const box = document.getElementById('scheduleNextNumberBox');
+            if (box) box.style.display = 'none';
+            const dayList = document.getElementById('scheduleDayListBody');
+            if (dayList) dayList.textContent = '點選月曆日期或輸入日期後顯示';
+        }
+
+        async function scheduleSubmitPlan() {
+            const planName = (document.getElementById('schedulePlanName') || {}).value?.trim();
+            const dateVal = (document.getElementById('scheduleDate') || {}).value;
+            const year = (document.getElementById('scheduleYear') || {}).value?.trim();
+            const railway = (document.getElementById('scheduleRailway') || {}).value;
+            const inspection = (document.getElementById('scheduleInspectionType') || {}).value;
+            const business = (document.getElementById('scheduleBusiness') || {}).value;
+            if (!planName || !dateVal || !year || !railway || !inspection || !business) {
+                showToast('請填寫計畫名稱、排程日期、年度、鐵路機構、檢查類別、業務類別', 'error');
+                return;
+            }
+            if (!/^\d{2,3}$/.test(year)) {
+                showToast('年度請填民國 2～3 碼數字（例：115）', 'error');
+                return;
+            }
+            try {
+                const yr = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
+                const res = await apiFetch('/api/plan-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        plan_name: planName,
+                        scheduled_date: dateVal,
+                        year: yr,
+                        railway,
+                        inspection_type: inspection,
+                        business
+                    })
+                });
+                const j = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    showToast(j.error || '儲存失敗', 'error');
+                    return;
+                }
+                showToast(`已儲存，取號：${j.planNumber || ''}`, 'success');
+                loadScheduleForMonth();
+                scheduleRenderDayList(dateVal);
+                scheduleClearForm();
+                document.getElementById('scheduleDate').value = dateVal;
+                document.getElementById('scheduleSelectedDate').value = dateVal;
+                loadPlanOptions();
+            } catch (e) {
+                showToast('儲存失敗：' + e.message, 'error');
+            }
+        }
+
         function openPlanModal(mode, id) {
             const m = document.getElementById('planModal');
             const t = document.getElementById('planModalTitle');
