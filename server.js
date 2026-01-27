@@ -1597,14 +1597,39 @@ app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) =
     }
 });
 
-app.get('/api/plans/by-name', requireAuth, async (req, res) => {
+app.get('/api/plans/by-name', async (req, res, next) => {
+    // 先記錄請求到達
+    process.stdout.write(`[API] /api/plans/by-name REQUEST RECEIVED\n`);
     console.log('========================================');
     console.log('[API] /api/plans/by-name START');
     console.log('[API] Request received at:', new Date().toISOString());
-    const { name, year } = req.query;
-    console.log('[API] Query params:', { name, year, hasSession: !!req.session?.user });
     console.log('[API] Request URL:', req.url);
     console.log('[API] Request method:', req.method);
+    console.log('[API] Request headers:', JSON.stringify(req.headers));
+    
+    // 手動檢查認證
+    try {
+        if (!req.session || !req.session.user) {
+            console.error('[API] Authentication failed: No session or user');
+            process.stderr.write(`[ERROR] /api/plans/by-name: Authentication failed\n`);
+            return res.status(401).json({ error: '未授權，請先登入' });
+        }
+        console.log('[API] Authentication passed:', req.session.user.username);
+    } catch (authErr) {
+        console.error('[API] Authentication check error:', authErr);
+        process.stderr.write(`[ERROR] /api/plans/by-name auth check: ${authErr.message}\n`);
+        return res.status(500).json({ error: '認證檢查失敗', detail: authErr.message });
+    }
+    
+    const { name, year } = req.query;
+    console.log('[API] Query params:', { name, year, hasSession: !!req.session?.user });
+    
+    // 檢查 pool 是否存在
+    if (!pool) {
+        console.error('[API] Database pool is not initialized');
+        process.stderr.write(`[ERROR] /api/plans/by-name: Pool not initialized\n`);
+        return res.status(503).json({ error: '資料庫連線未初始化' });
+    }
     
     try {
         if (!name || !year) {
@@ -1702,28 +1727,53 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
                 throw queryErr; // 重新拋出以便外層 catch 處理
             }
         } catch (queryError) {
-            console.error('Database query error in /api/plans/by-name:', queryError);
-            console.error('Query params - name:', decodedName, 'year:', decodedYear);
-            console.error('Error code:', queryError.code);
-            console.error('Error detail:', queryError.detail);
-            console.error('Error message:', queryError.message);
-            console.error('Error stack:', queryError.stack);
+            console.error('========================================');
+            console.error('[API] Database query error in /api/plans/by-name');
+            console.error('[API] Error type:', queryError?.constructor?.name);
+            console.error('[API] Error code:', queryError.code);
+            console.error('[API] Error message:', queryError.message);
+            console.error('[API] Error detail:', queryError.detail);
+            console.error('[API] Error hint:', queryError.hint);
+            console.error('[API] Error stack:', queryError.stack);
+            console.error('[API] Query params - name:', decodedName, 'year:', decodedYear);
+            process.stderr.write(`[ERROR] Query error: ${queryError.message}\n`);
+            process.stderr.write(`[ERROR] Query code: ${queryError.code}\n`);
+            console.error('========================================');
             
             // 如果是連線錯誤，返回特定訊息
             if (queryError.code === 'ECONNREFUSED' || queryError.code === 'ETIMEDOUT' || 
                 queryError.message?.includes('Connection') || queryError.message?.includes('timeout')) {
-                return res.status(503).json({error: '資料庫連線失敗，請稍後再試'});
+                if (!res.headersSent) {
+                    return res.status(503).json({
+                        error: '資料庫連線失敗，請稍後再試',
+                        type: queryError?.constructor?.name,
+                        message: queryError.message,
+                        code: queryError.code
+                    });
+                }
             }
             
             // 如果是 MaxClients 錯誤
             if (queryError.code === 'XX000' || queryError.message?.includes('MaxClients')) {
-                return res.status(503).json({error: '資料庫連線數已達上限，請稍後再試'});
+                if (!res.headersSent) {
+                    return res.status(503).json({
+                        error: '資料庫連線數已達上限，請稍後再試',
+                        type: queryError?.constructor?.name,
+                        message: queryError.message,
+                        code: queryError.code
+                    });
+                }
             }
             
-            return res.status(500).json({
-                error: '查詢資料庫時發生錯誤',
-                details: process.env.NODE_ENV === 'production' ? undefined : queryError.message
-            });
+            if (!res.headersSent) {
+                return res.status(500).json({
+                    error: '查詢資料庫時發生錯誤',
+                    type: queryError?.constructor?.name,
+                    message: queryError.message,
+                    code: queryError.code,
+                    detail: queryError.detail
+                });
+            }
         }
         
         if (!result || !result.rows) {
