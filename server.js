@@ -1953,15 +1953,50 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
                 response.on('end', () => {
                     try {
                         const jsonData = JSON.parse(data);
-                        console.log(`假日 API 返回 ${Array.isArray(jsonData) ? jsonData.length : 0} 筆原始資料`);
+                        const rawData = Array.isArray(jsonData) ? jsonData : [];
+                        console.log(`假日 API 返回 ${rawData.length} 筆原始資料`);
                         
-                        const holidays = (Array.isArray(jsonData) ? jsonData : []).filter(h => {
+                        // 檢查前幾筆資料的格式
+                        if (rawData.length > 0) {
+                            const sample = rawData[0];
+                            console.log('範例資料結構:', {
+                                date: sample.date,
+                                dateType: typeof sample.date,
+                                isHoliday: sample.isHoliday,
+                                isHolidayType: typeof sample.isHoliday,
+                                name: sample.name,
+                                keys: Object.keys(sample)
+                            });
+                        }
+                        
+                        const holidays = rawData.filter(h => {
                             if (!h || !h.date) return false;
-                            const dateStr = String(h.date);
-                            const hYear = parseInt(dateStr.slice(0, 4), 10);
+                            let dateStr = String(h.date || '');
+                            // 處理多種日期格式：2026/01/01, 2026-01-01, 20260101 等
+                            dateStr = dateStr.replace(/\//g, '-').replace(/\s+/g, '');
+                            // 提取年份（可能在前 4 位，或需要解析）
+                            let hYear;
+                            if (dateStr.match(/^\d{4}/)) {
+                                hYear = parseInt(dateStr.slice(0, 4), 10);
+                            } else if (dateStr.match(/\d{4}/)) {
+                                const match = dateStr.match(/(\d{4})/);
+                                hYear = match ? parseInt(match[1], 10) : 0;
+                            } else {
+                                return false;
+                            }
                             return hYear === year;
                         }).map(h => {
-                            const dateStr = String(h.date || '');
+                            let dateStr = String(h.date || '');
+                            // 標準化日期格式為 YYYY-MM-DD
+                            dateStr = dateStr.replace(/\//g, '-').replace(/\s+/g, '');
+                            if (dateStr.match(/^\d{8}$/)) {
+                                // 格式：20260101 -> 2026-01-01
+                                dateStr = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+                            } else if (dateStr.match(/^\d{4}\d{2}\d{2}/)) {
+                                // 其他格式處理
+                                dateStr = dateStr.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
+                            }
+                            
                             // 更寬鬆的假日判斷
                             const isHolidayValue = h.isHoliday;
                             const isHoliday = isHolidayValue !== false && 
@@ -1975,12 +2010,15 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
                                               String(isHolidayValue || '').trim() === '1');
                             return {
                                 date: dateStr,
-                                name: h.name || h.holidayCategory || '假日',
+                                name: h.name || h.holidayCategory || h.holidayName || '假日',
                                 isHoliday: isHoliday
                             };
                         });
                         
                         console.log(`過濾後 ${year} 年有 ${holidays.length} 個假日`);
+                        if (holidays.length > 0) {
+                            console.log('前 5 個假日:', holidays.slice(0, 5).map(h => `${h.date} (${h.name}, 假日:${h.isHoliday})`));
+                        }
                         res.json({ data: holidays });
                         resolve();
                     } catch (parseError) {
