@@ -406,6 +406,7 @@
                     <button type="button" class="btn btn-outline" id="schedulePrevMonth" onclick="schedulePrevMonth()">◀ 上月</button>
                     <span id="scheduleMonthTitle" style="font-weight:700; font-size:16px; color:#334155; min-width:140px;">— 年 — 月</span>
                     <button type="button" class="btn btn-outline" id="scheduleNextMonth" onclick="scheduleNextMonth()">下月 ▶</button>
+                    <button type="button" class="btn btn-primary" onclick="printScheduleCalendar()" style="margin-left:auto;">🖨️ 列印月曆</button>
                 </div>
                 <div id="scheduleCalendar" class="schedule-calendar"></div>
                 <div id="scheduleDayList" style="margin-top:16px; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0;">
@@ -486,7 +487,6 @@
                 <p style="margin:0; color:#64748b; font-size:13px;">管理檢查計畫資料，可新增、編輯、刪除檢查計畫，並支援 CSV 匯入功能。</p>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
-                <button class="btn btn-primary" onclick="openPlanModal('create')">新增計畫</button>
                 <button class="btn btn-outline" onclick="openPlanImportModal()">📥 CSV 匯入</button>
             </div>
         </div>
@@ -537,19 +537,62 @@
 
     <!-- Plan Modal（共用） -->
     <div class="modal-overlay" id="planModal">
-        <div class="modal-box" style="max-width:600px;">
-            <h3 style="margin-top:0;" id="planModalTitle">檢查計畫</h3>
+        <div class="modal-box" style="max-width:700px; max-height:90vh; overflow-y:auto;">
+            <h3 style="margin-top:0;" id="planModalTitle">編輯檢查計畫</h3>
             <input type="hidden" id="targetPlanId">
-            <div class="form-group">
-                <label>年度 <span style="color:#ef4444;">*</span></label>
-                <input type="text" id="planYear" class="filter-input" placeholder="例如: 113" autocomplete="off">
-            </div>
+            <input type="hidden" id="targetScheduleId">
             <div class="form-group">
                 <label>計畫名稱 <span style="color:#ef4444;">*</span></label>
                 <input type="text" id="planName" class="filter-input" placeholder="例如: 113年度上半年定期檢查" autocomplete="off">
             </div>
+            <div class="form-group">
+                <label>開始日期 <span style="color:#ef4444;">*</span></label>
+                <input type="date" id="planStartDate" class="filter-input">
+            </div>
+            <div class="form-group">
+                <label>結束日期 <span style="color:#64748b; font-size:12px;">（選填）</span></label>
+                <input type="date" id="planEndDate" class="filter-input">
+            </div>
+            <div class="form-group">
+                <label>年度（民國）</label>
+                <input type="text" id="planYear" class="filter-input" placeholder="由開始日期自動換算" readonly style="background:#f1f5f9;">
+            </div>
+            <div class="form-group">
+                <label>鐵路機構 <span style="color:#ef4444;">*</span></label>
+                <select id="planRailway" class="filter-select">
+                    <option value="">請選擇</option>
+                    <option value="T">臺鐵 (T)</option>
+                    <option value="H">高鐵 (H)</option>
+                    <option value="A">林鐵 (A)</option>
+                    <option value="S">糖鐵 (S)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>檢查類別 <span style="color:#ef4444;">*</span></label>
+                <select id="planInspectionType" class="filter-select">
+                    <option value="">請選擇</option>
+                    <option value="1">年度定期檢查 (1)</option>
+                    <option value="2">特別檢查 (2)</option>
+                    <option value="3">例行性檢查 (3)</option>
+                    <option value="4">臨時檢查 (4)</option>
+                    <option value="5">調查 (5)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>業務類別 <span style="color:#ef4444;">*</span></label>
+                <select id="planBusiness" class="filter-select">
+                    <option value="">請選擇</option>
+                    <option value="OP">運轉 (OP)</option>
+                    <option value="CV">土建 (CV)</option>
+                    <option value="ME">機務 (ME)</option>
+                    <option value="EL">電務 (EL)</option>
+                    <option value="SM">安全管理 (SM)</option>
+                    <option value="AD">營運 (AD)</option>
+                    <option value="OT">其他 (OT)</option>
+                </select>
+            </div>
             <div style="display:flex;gap:12px;margin-top:24px;">
-                <button class="btn btn-primary" style="flex:1;" onclick="submitPlan()">上傳至資料庫</button>
+                <button class="btn btn-primary" style="flex:1;" onclick="submitPlan()">儲存</button>
                 <button class="btn btn-outline" style="flex:1;" onclick="closePlanModal()">取消</button>
             </div>
         </div>
