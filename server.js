@@ -35,18 +35,29 @@ const sslConfig = (() => {
     return { rejectUnauthorized: false };
 })();
 
+// 主應用程式連線池
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL ? sslConfig : false, // 如果沒有 DATABASE_URL，不設定 SSL
-    max: 20, 
-    idleTimeoutMillis: 30000,
+    ssl: process.env.DATABASE_URL ? sslConfig : false,
+    max: 12, // 主應用程式連線池
+    idleTimeoutMillis: 20000, // 減少空閒時間，更快釋放連線
     connectionTimeoutMillis: 5000,
+    allowExitOnIdle: false, // 保持連線池活躍
+});
+
+// Session store 專用連線池（較小，避免耗盡總連線數）
+const sessionPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL ? sslConfig : false,
+    max: 3, // Session store 只需要少量連線（通常 1-2 個就夠）
+    idleTimeoutMillis: 20000,
+    connectionTimeoutMillis: 5000,
+    allowExitOnIdle: false,
 });
 
 // 資料庫連線錯誤處理
 pool.on('error', async (err) => {
-    console.error('Unexpected error on idle client', err);
-    // 避免在初始化階段記錄錯誤（可能是暫時的連線問題）
+    console.error('Unexpected error on idle client (main pool)', err);
     if (err.message && err.message.includes('Connection terminated')) {
         console.warn('Database connection terminated (may be temporary):', err.message);
     } else {
@@ -54,17 +65,9 @@ pool.on('error', async (err) => {
     }
 });
 
-// 監聽連線池事件，幫助診斷連線問題
-pool.on('connect', (client) => {
-    // 連線成功（可選的日誌）
-});
-
-pool.on('acquire', (client) => {
-    // 取得連線（可選的日誌）
-});
-
-pool.on('remove', (client) => {
-    // 移除連線（可選的日誌）
+sessionPool.on('error', (err) => {
+    console.warn('Session pool error:', err?.message || err);
+    // Session pool 錯誤不記錄到資料庫，避免循環
 });
 
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -74,7 +77,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 let sessionStore;
 try {
     sessionStore = new pgSession({
-        pool: pool,
+        pool: sessionPool, // 使用獨立的 session 連線池
         tableName: 'session',
         createTableIfMissing: true,
         pruneSessionInterval: false // 手動控制清理，避免初始化問題
