@@ -2906,6 +2906,19 @@
             font-size: 13px;
             margin-bottom: 2px;
         }
+        .schedule-cal-dots {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+            margin-bottom: 2px;
+        }
+        .schedule-cal-color-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
         .schedule-cal-plan-names {
             font-size: 10px;
             color: #1e3a8a;

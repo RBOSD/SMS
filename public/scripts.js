@@ -2454,8 +2454,6 @@ if (dashboard) {
             // 主要 tab 切換
             document.getElementById('tab-data-issues').classList.toggle('hidden', tab !== 'issues'); 
             document.getElementById('tab-data-plans').classList.toggle('hidden', tab !== 'plans');
-            const scheduleEl = document.getElementById('tab-data-schedule');
-            if (scheduleEl) scheduleEl.classList.toggle('hidden', tab !== 'schedule');
             document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export');
             
             // 處理各 tab 的初始化
@@ -2467,20 +2465,47 @@ if (dashboard) {
                 loadPlanOptions();
             }
             if (tab === 'plans') {
-                // 恢復檢查計畫管理頁面的狀態
-                restorePlansViewState();
+                // 恢復檢查計畫子 tab
+                const savedSubTab = sessionStorage.getItem('currentPlansSubTab') || 'manage';
+                setTimeout(() => switchPlansSubTab(savedSubTab), 100);
                 loadPlanOptions();
-                setTimeout(() => {
-                    loadPlansPage(plansPage || 1);
-                }, 200);
-            }
-            if (tab === 'schedule') {
-                loadPlanOptions();
-                initScheduleCalendar();
             }
             if (tab === 'export') {
                 // 設置匯出選項的顯示/隱藏
                 setTimeout(() => setupExportOptions(), 100);
+            }
+        }
+        
+        // 檢查計畫的子 tab 切換
+        function switchPlansSubTab(subTab) {
+            sessionStorage.setItem('currentPlansSubTab', subTab);
+            
+            // 更新子 tab 按鈕狀態
+            document.querySelectorAll('#tab-data-plans .admin-tab-btn').forEach(b => b.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                const buttons = document.querySelectorAll('#tab-data-plans .admin-tab-btn');
+                buttons.forEach(btn => {
+                    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`'${subTab}'`)) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
+            
+            // 切換子 tab 內容
+            document.getElementById('subtab-plans-manage').classList.toggle('hidden', subTab !== 'manage');
+            document.getElementById('subtab-plans-schedule').classList.toggle('hidden', subTab !== 'schedule');
+            
+            if (subTab === 'manage') {
+                // 恢復檢查計畫管理頁面的狀態
+                restorePlansViewState();
+                setTimeout(() => {
+                    loadPlansPage(plansPage || 1);
+                }, 200);
+            }
+            if (subTab === 'schedule') {
+                initScheduleCalendar();
             }
         }
         
@@ -5043,7 +5068,9 @@ if (dashboard) {
                         if (schedules.length > 0) {
                             codesHtml = schedules.map(s => `<div style="margin:2px 0; font-size:12px;">${s.plan_number || '-'}</div>`).join('');
                             datesHtml = schedules.map(s => {
-                                const range = s.end_date && s.end_date !== s.start_date ? `${s.start_date} ~ ${s.end_date}` : (s.start_date || '-');
+                                const startDate = s.start_date ? s.start_date.slice(0, 10) : '-';
+                                const endDate = s.end_date ? s.end_date.slice(0, 10) : null;
+                                const range = endDate && endDate !== startDate ? `${startDate} ~ ${endDate}` : startDate;
                                 return `<div style="margin:2px 0; font-size:12px;">${range}</div>`;
                             }).join('');
                         }
@@ -5051,16 +5078,17 @@ if (dashboard) {
                 } catch (e) {
                     // 忽略錯誤
                 }
+                const createdDate = p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : '-';
                 rows.push(`<tr>
                     <td data-label="選擇" style="padding:12px;text-align:center;">
                         <input type="checkbox" class="plan-check" value="${p.id}" onchange="updatePlansBatchDeleteBtn()">
                     </td>
                     <td data-label="年度" style="padding:12px;font-weight:600;">${p.year || '-'}</td>
-                    <td data-label="計畫名稱" style="padding:12px;font-weight:600;">${p.name || '-'}</td>
-                    <td data-label="事項數量">${p.issue_count || 0}</td>
-                    <td data-label="取號編碼" style="padding:12px;">${codesHtml || '<span style="color:#94a3b8; font-size:12px;">無</span>'}</td>
+                    <td data-label="檢查計畫名稱" style="padding:12px;font-weight:600;">${p.name || '-'}</td>
                     <td data-label="檢查起訖日期" style="padding:12px;">${datesHtml || '<span style="color:#94a3b8; font-size:12px;">—</span>'}</td>
-                    <td data-label="建立時間">${new Date(p.created_at).toLocaleDateString('zh-TW')}</td>
+                    <td data-label="取號編碼" style="padding:12px;">${codesHtml || '<span style="color:#94a3b8; font-size:12px;">無</span>'}</td>
+                    <td data-label="事項數量">${p.issue_count || 0}</td>
+                    <td data-label="建立日期">${createdDate}</td>
                     <td data-label="操作">
                         <button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openPlanModal('edit', ${p.id})">✏️</button>
                         <button class="btn btn-danger" style="padding:2px 6px;" onclick="deletePlan(${p.id})">🗑️</button>
@@ -5302,9 +5330,12 @@ if (dashboard) {
                 const hasPlan = plansForDay.length > 0;
                 const planNames = plansForDay.map(s => s.plan_name || '').filter(Boolean);
                 const planText = planNames.length > 0 ? `<div class="schedule-cal-plan-names">${planNames.join('、')}</div>` : '';
-                const colorIdx = hasPlan ? schedulePlanColorIndex(plansForDay[0].plan_name || plansForDay[0].id) : 0;
-                const colorClass = hasPlan ? `schedule-cal-plan-${colorIdx}` : '';
-                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan ' + colorClass : ''}" data-date="${dateStr}" onclick="scheduleSelectDay('${dateStr}')"><div class="schedule-cal-day-num">${d}</div>${planText}</div>`);
+                const colorIndices = plansForDay.map(s => schedulePlanColorIndex(s.plan_name || s.id));
+                const colorDots = colorIndices.map((idx, i) => `<span class="schedule-cal-color-dot" style="background:${SCHEDULE_PLAN_COLORS[idx]};" title="${planNames[i] || ''}"></span>`).join('');
+                const colorDotsHtml = colorDots ? `<div class="schedule-cal-dots">${colorDots}</div>` : '';
+                const primaryColorIdx = hasPlan ? colorIndices[0] : 0;
+                const colorClass = hasPlan ? `schedule-cal-plan-${primaryColorIdx}` : '';
+                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan ' + colorClass : ''}" data-date="${dateStr}" onclick="scheduleSelectDay('${dateStr}')"><div class="schedule-cal-day-num">${d}</div>${colorDotsHtml}${planText}</div>`);
             }
             cal.innerHTML = `<div class="schedule-cal-head">一</div><div class="schedule-cal-head">二</div><div class="schedule-cal-head">三</div><div class="schedule-cal-head">四</div><div class="schedule-cal-head">五</div><div class="schedule-cal-head">六</div><div class="schedule-cal-head">日</div>${pad}${dayCells.join('')}`;
         }

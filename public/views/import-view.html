@@ -4,8 +4,7 @@
 
 <div class="admin-tabs">
     <button class="admin-tab-btn active" onclick="switchDataTab('issues')">開立事項管理</button>
-    <button class="admin-tab-btn" onclick="switchDataTab('plans')">檢查計畫管理</button>
-    <button class="admin-tab-btn" onclick="switchDataTab('schedule')">檢查計畫規劃</button>
+    <button class="admin-tab-btn" onclick="switchDataTab('plans')">檢查計畫</button>
     <button class="admin-tab-btn" onclick="switchDataTab('export')">資料匯出</button>
 </div>
 
@@ -385,8 +384,15 @@
     </div>
 </div>
 
-<!-- Tab: 檢查計畫規劃（月曆型） -->
-<div id="tab-data-schedule" class="hidden">
+<!-- Tab: 檢查計畫（合併管理與規劃） -->
+<div id="tab-data-plans" class="hidden">
+    <div class="admin-tabs" style="margin-bottom:20px; border-bottom:2px solid #e2e8f0;">
+        <button class="admin-tab-btn active" onclick="switchPlansSubTab('manage')">計畫管理</button>
+        <button class="admin-tab-btn" onclick="switchPlansSubTab('schedule')">計畫規劃</button>
+    </div>
+
+    <!-- Sub-tab 1: 檢查計畫管理 -->
+    <div id="subtab-plans-manage">
     <div class="main-card">
         <div style="margin-bottom:20px;">
             <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">📅 檢查計畫規劃</h3>
@@ -473,16 +479,13 @@
     </div>
 </div>
 
-<!-- Tab 2: 檢查計畫管理 -->
-<div id="tab-data-plans" class="hidden">
-    <div class="main-card">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
-            <div style="flex:1; min-width:200px;">
-                <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">檢查計畫管理</h3>
-                <p style="margin:0; color:#64748b; font-size:13px;">
-                    管理檢查計畫資料，可新增、編輯、刪除檢查計畫，並支援 CSV 匯入功能。
-                </p>
-            </div>
+        <div class="main-card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+                <div style="flex:1; min-width:200px;">
+                    <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">檢查計畫管理</h3>
+                    <p style="margin:0; color:#64748b; font-size:13px;">
+                        管理檢查計畫資料，可新增、編輯、刪除檢查計畫，並支援 CSV 匯入功能。
+                    </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
                 <button class="btn btn-primary" onclick="openPlanModal('create')">新增計畫</button>
                 <button class="btn btn-outline" onclick="openPlanImportModal()">📥 CSV 匯入</button>
@@ -523,11 +526,11 @@
                     <tr>
                         <th style="width:50px;"><input type="checkbox" id="selectAllPlans" onchange="toggleSelectAllPlans()"></th>
                         <th onclick="plansSortBy('year')">年度</th>
-                        <th style="padding:16px;" onclick="plansSortBy('name')">計畫名稱</th>
-                        <th>事項數量</th>
-                        <th style="min-width:180px;">取號編碼</th>
+                        <th style="padding:16px;" onclick="plansSortBy('name')">檢查計畫名稱</th>
                         <th style="min-width:200px;">檢查起訖日期</th>
-                        <th onclick="plansSortBy('created_at')">建立時間</th>
+                        <th style="min-width:180px;">取號編碼</th>
+                        <th>事項數量</th>
+                        <th onclick="plansSortBy('created_at')">建立日期</th>
                         <th>操作</th>
                     </tr>
                 </thead>
@@ -536,8 +539,10 @@
         </div>
         <div id="plansPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
     </div>
+    </div>
 
-    <!-- Plan Modal -->
+    <!-- Sub-tab 2: 檢查計畫規劃（月曆型） -->
+    <div id="subtab-plans-schedule" class="hidden">
     <div class="modal-overlay" id="planModal">
         <div class="modal-box" style="max-width:600px;">
             <h3 style="margin-top:0;" id="planModalTitle">檢查計畫</h3>
@@ -571,6 +576,7 @@
                 <button class="btn btn-outline" style="flex:1;" onclick="downloadPlanCSVTemplate()">📥 下載範例檔</button>
             </div>
         </div>
+    </div>
     </div>
 </div>
 
