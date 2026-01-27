@@ -421,9 +421,9 @@
                         <label>計畫名稱 <span style="color:#ef4444;">*</span></label>
                         <input type="text" id="schedulePlanName" class="filter-input" placeholder="例：115年度臺鐵上半年定期檢查" autocomplete="off">
                     </div>
-                    <div class="form-group">
-                        <label>年度（民國 3 碼）<span style="color:#ef4444;">*</span></label>
-                        <input type="text" id="scheduleYear" class="filter-input" placeholder="例：115" maxlength="3" autocomplete="off">
+                    <div class="form-group" id="scheduleYearDisplayWrap" style="display:none;">
+                        <label>年度（民國）</label>
+                        <div id="scheduleYearDisplay" style="padding:10px 12px; background:#f1f5f9; color:#475569; border-radius:8px; font-size:14px; border:1px solid #e2e8f0;">由開始日期自動換算</div>
                     </div>
                     <div class="form-group">
                         <label>鐵路機構 <span style="color:#ef4444;">*</span></label>
@@ -459,12 +459,8 @@
                             <option value="OT">其他 (OT)</option>
                         </select>
                     </div>
-                    <div id="scheduleNextNumberBox" style="display:none; margin-bottom:12px; padding:12px; background:#eff6ff; border-radius:8px; border:1px solid #bfdbfe;">
-                        <div style="font-size:12px; color:#1e40af; font-weight:600;">預覽取號</div>
-                        <div id="scheduleNextNumberVal" style="font-size:14px; font-weight:700; color:#1e3a8a; margin-top:4px;">—</div>
-                    </div>
                     <div style="display:flex; gap:8px;">
-                        <button type="button" class="btn btn-primary" style="flex:1;" onclick="scheduleSubmitPlan()">儲存並取號</button>
+                        <button type="button" class="btn btn-primary" style="flex:1;" onclick="scheduleSubmitPlan()">上傳至資料庫</button>
                         <button type="button" class="btn btn-outline" onclick="scheduleClearForm()">清空</button>
                     </div>
                 </div>
@@ -529,7 +525,8 @@
                         <th onclick="plansSortBy('year')">年度</th>
                         <th style="padding:16px;" onclick="plansSortBy('name')">計畫名稱</th>
                         <th>事項數量</th>
-                        <th style="min-width:300px;">排程項目</th>
+                        <th style="min-width:180px;">取號編碼</th>
+                        <th style="min-width:200px;">檢查起訖日期</th>
                         <th onclick="plansSortBy('created_at')">建立時間</th>
                         <th>操作</th>
                     </tr>

@@ -5033,16 +5033,18 @@ if (dashboard) {
             if (!tbody) return;
             const rows = [];
             for (const p of planList) {
-                let scheduleHtml = '';
+                let codesHtml = '';
+                let datesHtml = '';
                 try {
                     const scheduleRes = await fetch(`/api/plans/${p.id}/schedules?t=${Date.now()}`, { credentials: 'include' });
                     if (scheduleRes.ok) {
                         const scheduleData = await scheduleRes.json();
                         const schedules = scheduleData.data || [];
                         if (schedules.length > 0) {
-                            scheduleHtml = schedules.map(s => {
-                                const dateRange = s.end_date && s.end_date !== s.start_date ? `${s.start_date} ~ ${s.end_date}` : s.start_date;
-                                return `<div style="margin:4px 0; padding:6px; background:#eff6ff; border-radius:4px; font-size:12px;"><span style="font-weight:600;">${s.plan_number || '-'}</span> | ${dateRange}</div>`;
+                            codesHtml = schedules.map(s => `<div style="margin:2px 0; font-size:12px;">${s.plan_number || '-'}</div>`).join('');
+                            datesHtml = schedules.map(s => {
+                                const range = s.end_date && s.end_date !== s.start_date ? `${s.start_date} ~ ${s.end_date}` : (s.start_date || '-');
+                                return `<div style="margin:2px 0; font-size:12px;">${range}</div>`;
                             }).join('');
                         }
                     }
@@ -5056,7 +5058,8 @@ if (dashboard) {
                     <td data-label="年度" style="padding:12px;font-weight:600;">${p.year || '-'}</td>
                     <td data-label="計畫名稱" style="padding:12px;font-weight:600;">${p.name || '-'}</td>
                     <td data-label="事項數量">${p.issue_count || 0}</td>
-                    <td data-label="排程項目" style="padding:12px; max-width:300px;">${scheduleHtml || '<span style="color:#94a3b8; font-size:12px;">無</span>'}</td>
+                    <td data-label="取號編碼" style="padding:12px;">${codesHtml || '<span style="color:#94a3b8; font-size:12px;">無</span>'}</td>
+                    <td data-label="檢查起訖日期" style="padding:12px;">${datesHtml || '<span style="color:#94a3b8; font-size:12px;">—</span>'}</td>
                     <td data-label="建立時間">${new Date(p.created_at).toLocaleDateString('zh-TW')}</td>
                     <td data-label="操作">
                         <button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openPlanModal('edit', ${p.id})">✏️</button>
@@ -5065,7 +5068,6 @@ if (dashboard) {
                 </tr>`);
             }
             tbody.innerHTML = rows.join('');
-            // 重置批次刪除按鈕狀態
             updatePlansBatchDeleteBtn();
         }
         
@@ -5197,18 +5199,6 @@ if (dashboard) {
             loadScheduleForMonth();
             const startDateInput = document.getElementById('scheduleStartDate');
             const endDateInput = document.getElementById('scheduleEndDate');
-            const yearInput = document.getElementById('scheduleYear');
-            const railwaySelect = document.getElementById('scheduleRailway');
-            const inspectionSelect = document.getElementById('scheduleInspectionType');
-            const businessSelect = document.getElementById('scheduleBusiness');
-            const onFormChange = () => { scheduleRefreshNextNumber(); };
-            [yearInput, railwaySelect, inspectionSelect, businessSelect].forEach(el => {
-                if (!el) return;
-                el.removeEventListener('change', onFormChange);
-                el.removeEventListener('input', onFormChange);
-                el.addEventListener('change', onFormChange);
-                el.addEventListener('input', onFormChange);
-            });
             if (startDateInput) {
                 startDateInput.removeEventListener('change', scheduleOnDateChange);
                 startDateInput.addEventListener('change', scheduleOnDateChange);
@@ -5220,11 +5210,28 @@ if (dashboard) {
             scheduleClearForm();
         }
 
+        function scheduleUpdateYearFromStartDate() {
+            const v = (document.getElementById('scheduleStartDate') || {}).value || '';
+            const wrap = document.getElementById('scheduleYearDisplayWrap');
+            const display = document.getElementById('scheduleYearDisplay');
+            if (!wrap || !display) return;
+            if (!v) {
+                wrap.style.display = 'none';
+                display.textContent = '由開始日期自動換算';
+                return;
+            }
+            const y = parseInt(v.slice(0, 4), 10);
+            const roc = y - 1911;
+            display.textContent = `民國 ${roc} 年`;
+            wrap.style.display = 'block';
+        }
+
         async function scheduleOnDateChange() {
             const startDateInput = document.getElementById('scheduleStartDate');
             const v = startDateInput?.value || '';
             const sel = document.getElementById('scheduleSelectedDate');
             if (sel) sel.value = v;
+            scheduleUpdateYearFromStartDate();
             if (!v) {
                 scheduleRenderDayList('');
                 return;
@@ -5262,6 +5269,16 @@ if (dashboard) {
             loadScheduleForMonth();
         }
 
+        const SCHEDULE_PLAN_COLORS = ['#dbeafe', '#dcfce7', '#fef3c7', '#fce7f3', '#e0e7ff', '#d1fae5', '#fed7aa', '#e9d5ff'];
+
+        function schedulePlanColorIndex(planNameOrId) {
+            if (planNameOrId == null) return 0;
+            let h = 0;
+            const str = String(planNameOrId);
+            for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+            return h % SCHEDULE_PLAN_COLORS.length;
+        }
+
         function renderScheduleCalendar() {
             const title = document.getElementById('scheduleMonthTitle');
             const cal = document.getElementById('scheduleCalendar');
@@ -5277,16 +5294,17 @@ if (dashboard) {
             const dayCells = [];
             for (let d = 1; d <= days; d++) {
                 const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                const dateObj = new Date(y, m - 1, d);
                 const plansForDay = scheduleMonthData.filter(s => {
-                    const start = new Date(s.start_date);
-                    const end = s.end_date ? new Date(s.end_date) : start;
-                    return dateObj >= start && dateObj <= end;
+                    const startStr = (s.start_date || '').slice(0, 10);
+                    const endStr = (s.end_date || '').slice(0, 10) || startStr;
+                    return dateStr >= startStr && dateStr <= endStr;
                 });
                 const hasPlan = plansForDay.length > 0;
                 const planNames = plansForDay.map(s => s.plan_name || '').filter(Boolean);
                 const planText = planNames.length > 0 ? `<div class="schedule-cal-plan-names">${planNames.join('、')}</div>` : '';
-                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan' : ''}" data-date="${dateStr}" onclick="scheduleSelectDay('${dateStr}')"><div class="schedule-cal-day-num">${d}</div>${planText}</div>`);
+                const colorIdx = hasPlan ? schedulePlanColorIndex(plansForDay[0].plan_name || plansForDay[0].id) : 0;
+                const colorClass = hasPlan ? `schedule-cal-plan-${colorIdx}` : '';
+                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan ' + colorClass : ''}" data-date="${dateStr}" onclick="scheduleSelectDay('${dateStr}')"><div class="schedule-cal-day-num">${d}</div>${planText}</div>`);
             }
             cal.innerHTML = `<div class="schedule-cal-head">一</div><div class="schedule-cal-head">二</div><div class="schedule-cal-head">三</div><div class="schedule-cal-head">四</div><div class="schedule-cal-head">五</div><div class="schedule-cal-head">六</div><div class="schedule-cal-head">日</div>${pad}${dayCells.join('')}`;
         }
@@ -5305,8 +5323,12 @@ if (dashboard) {
 
         function scheduleSelectDay(dateStr) {
             const startDateInput = document.getElementById('scheduleStartDate');
-            if (startDateInput) startDateInput.value = dateStr;
-            document.getElementById('scheduleSelectedDate').value = dateStr;
+            if (startDateInput) {
+                startDateInput.value = dateStr;
+                scheduleUpdateYearFromStartDate();
+            }
+            const sel = document.getElementById('scheduleSelectedDate');
+            if (sel) sel.value = dateStr;
             scheduleRenderDayList(dateStr);
         }
 
@@ -5317,11 +5339,10 @@ if (dashboard) {
                 box.innerHTML = '點選月曆日期或輸入日期後顯示';
                 return;
             }
-            const dateObj = new Date(dateStr);
             const list = scheduleMonthData.filter(s => {
-                const start = new Date(s.start_date);
-                const end = s.end_date ? new Date(s.end_date) : start;
-                return dateObj >= start && dateObj <= end;
+                const startStr = (s.start_date || '').slice(0, 10);
+                const endStr = (s.end_date || '').slice(0, 10) || startStr;
+                return dateStr >= startStr && dateStr <= endStr;
             });
             if (list.length === 0) {
                 box.innerHTML = '當日尚無排程';
@@ -5333,29 +5354,6 @@ if (dashboard) {
             }).join('');
         }
 
-        async function scheduleRefreshNextNumber() {
-            const year = (document.getElementById('scheduleYear') || {}).value;
-            const railway = (document.getElementById('scheduleRailway') || {}).value;
-            const inspection = (document.getElementById('scheduleInspectionType') || {}).value;
-            const business = (document.getElementById('scheduleBusiness') || {}).value;
-            const box = document.getElementById('scheduleNextNumberBox');
-            const val = document.getElementById('scheduleNextNumberVal');
-            if (!box || !val) return;
-            if (!year || !railway || !inspection || !business) {
-                box.style.display = 'none';
-                return;
-            }
-            try {
-                const res = await fetch(`/api/plan-schedule/next-number?year=${encodeURIComponent(year)}&railway=${encodeURIComponent(railway)}&inspectionType=${encodeURIComponent(inspection)}&business=${encodeURIComponent(business)}&t=${Date.now()}`, { credentials: 'include' });
-                if (!res.ok) { box.style.display = 'none'; return; }
-                const j = await res.json();
-                val.textContent = j.planNumber || '—';
-                box.style.display = 'block';
-            } catch (e) {
-                box.style.display = 'none';
-            }
-        }
-
         function scheduleClearForm() {
             const startDateInput = document.getElementById('scheduleStartDate');
             const endDateInput = document.getElementById('scheduleEndDate');
@@ -5364,17 +5362,14 @@ if (dashboard) {
             if (endDateInput) endDateInput.value = '';
             if (sel) sel.value = '';
             const name = document.getElementById('schedulePlanName');
-            const year = document.getElementById('scheduleYear');
             const railway = document.getElementById('scheduleRailway');
             const inspection = document.getElementById('scheduleInspectionType');
             const business = document.getElementById('scheduleBusiness');
             if (name) name.value = '';
-            if (year) year.value = '';
             if (railway) railway.value = '';
             if (inspection) inspection.value = '';
             if (business) business.value = '';
-            const box = document.getElementById('scheduleNextNumberBox');
-            if (box) box.style.display = 'none';
+            scheduleUpdateYearFromStartDate();
             const dayList = document.getElementById('scheduleDayListBody');
             if (dayList) dayList.textContent = '點選月曆日期或輸入日期後顯示';
         }
@@ -5383,24 +5378,21 @@ if (dashboard) {
             const planName = (document.getElementById('schedulePlanName') || {}).value?.trim();
             const startDateVal = (document.getElementById('scheduleStartDate') || {}).value;
             const endDateVal = (document.getElementById('scheduleEndDate') || {}).value;
-            const year = (document.getElementById('scheduleYear') || {}).value?.trim();
             const railway = (document.getElementById('scheduleRailway') || {}).value;
             const inspection = (document.getElementById('scheduleInspectionType') || {}).value;
             const business = (document.getElementById('scheduleBusiness') || {}).value;
-            if (!planName || !startDateVal || !year || !railway || !inspection || !business) {
-                showToast('請填寫計畫名稱、開始日期、年度、鐵路機構、檢查類別、業務類別', 'error');
+            if (!planName || !startDateVal || !railway || !inspection || !business) {
+                showToast('請填寫計畫名稱、開始日期、鐵路機構、檢查類別、業務類別', 'error');
                 return;
             }
             if (endDateVal && endDateVal < startDateVal) {
                 showToast('結束日期不能早於開始日期', 'error');
                 return;
             }
-            if (!/^\d{2,3}$/.test(year)) {
-                showToast('年度請填民國 2～3 碼數字（例：115）', 'error');
-                return;
-            }
+            const adYear = parseInt(startDateVal.slice(0, 4), 10);
+            const rocYear = adYear - 1911;
+            const yr = String(rocYear).replace(/\D/g, '').slice(-3).padStart(3, '0');
             try {
-                const yr = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
                 const res = await apiFetch('/api/plan-schedule', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -5419,7 +5411,7 @@ if (dashboard) {
                     showToast(j.error || '儲存失敗', 'error');
                     return;
                 }
-                showToast(`已儲存，取號：${j.planNumber || ''}`, 'success');
+                showToast(`已上傳，取號：${j.planNumber || ''}`, 'success');
                 loadScheduleForMonth();
                 scheduleRenderDayList(startDateVal);
                 scheduleClearForm();
