@@ -5430,16 +5430,16 @@ if (dashboard) {
                     <meta charset="UTF-8">
                     <title>${monthTitle} - 檢查計畫月曆</title>
                     <style>
-                        @page { size: A4 landscape; margin: 10mm; }
+                        @page { size: A4 landscape; margin: 20mm 15mm; }
                         * { box-sizing: border-box; margin: 0; padding: 0; }
                         html, body { height: 100%; width: 100%; overflow: hidden; }
                         body { 
                             font-family: "Microsoft JhengHei", "微軟正黑體", Arial, sans-serif; 
-                            margin: 0; padding: 10mm; 
+                            margin: 0; padding: 0; 
                             background: white; page-break-inside: avoid;
                         }
                         h1 { 
-                            text-align: center; margin: 0 0 6px 0; 
+                            text-align: center; margin: 0 0 8px 0; 
                             font-size: 18px; font-weight: 700; color: #334155;
                             page-break-after: avoid;
                         }
@@ -5448,13 +5448,14 @@ if (dashboard) {
                             background: #e2e8f0; border: 1px solid #e2e8f0; border-radius: 4px;
                             overflow: hidden; page-break-inside: avoid;
                             width: 100%; height: calc(100vh - 50px);
-                            max-height: calc(277mm - 10mm);
+                            max-height: calc(257mm - 20mm);
                         }
                         .schedule-cal-head { 
                             background: #334155; color: white; 
-                            padding: 4px 2px; text-align: center; 
-                            font-weight: 600; font-size: 10px; 
+                            padding: 3px 2px; text-align: center; 
+                            font-weight: 600; font-size: 8px; 
                             page-break-inside: avoid;
+                            line-height: 1.2;
                         }
                         .schedule-cal-day { 
                             border: 1px solid #e2e8f0; padding: 5px 3px; 
@@ -5484,16 +5485,16 @@ if (dashboard) {
                         .schedule-cal-day.schedule-cal-plan-6 { background: #fed7aa; }
                         .schedule-cal-day.schedule-cal-plan-7 { background: #e9d5ff; }
                         @media print {
-                            @page { size: A4 landscape; margin: 10mm; }
+                            @page { size: A4 landscape; margin: 20mm 15mm; }
                             body { padding: 0; margin: 0; height: 100%; overflow: hidden; }
-                            h1 { margin-bottom: 4px; font-size: 16px; page-break-after: avoid; }
-                            .schedule-calendar { max-height: calc(277mm - 10mm); page-break-inside: avoid; }
+                            h1 { margin-bottom: 6px; font-size: 16px; page-break-after: avoid; }
+                            .schedule-calendar { max-height: calc(257mm - 20mm); page-break-inside: avoid; }
                             .schedule-cal-day { padding: 4px 3px; page-break-inside: avoid; height: auto; min-height: 0; }
                             .schedule-cal-day-num { font-size: 13px; }
                             .schedule-cal-holiday-tag { font-size: 8px; }
                             .schedule-cal-plan-names { font-size: 10px; }
                             .schedule-cal-plan-name { font-size: 10px; }
-                            .schedule-cal-head { font-size: 9px; padding: 3px 2px; }
+                            .schedule-cal-head { font-size: 7px; padding: 2px 1px; line-height: 1.1; }
                         }
                     </style>
                 </head>
@@ -5663,12 +5664,40 @@ if (dashboard) {
         async function openPlanModal(mode, id) {
             const m = document.getElementById('planModal');
             const t = document.getElementById('planModalTitle');
+            const planTypeGroup = document.getElementById('planTypeGroup');
+            const planDetailsGroup = document.getElementById('planDetailsGroup');
+            const planStartDateGroup = document.getElementById('planStartDateGroup');
+            const planEndDateGroup = document.getElementById('planEndDateGroup');
+            
             if (mode === 'create') {
-                return showToast('請使用月曆頁面的「新增檢查計畫」功能', 'info');
+                t.innerText = '新增檢查計畫';
+                document.getElementById('targetPlanId').value = '';
+                document.getElementById('targetScheduleId').value = '';
+                document.getElementById('planName').value = '';
+                document.getElementById('planYear').value = '';
+                document.getElementById('planType').value = '';
+                document.getElementById('planStartDate').value = '';
+                document.getElementById('planEndDate').value = '';
+                document.getElementById('planRailway').value = '';
+                document.getElementById('planInspectionType').value = '';
+                document.getElementById('planBusiness').value = '';
+                
+                if (planTypeGroup) planTypeGroup.style.display = 'block';
+                if (planDetailsGroup) planDetailsGroup.style.display = 'none';
+                if (planStartDateGroup) planStartDateGroup.style.display = 'none';
+                if (planEndDateGroup) planEndDateGroup.style.display = 'none';
+                
+                if (m) m.classList.add('open');
             } else {
                 const p = planList.find(x => x.id === id) || {};
                 t.innerText = '編輯檢查計畫';
                 document.getElementById('targetPlanId').value = p.id || '';
+                
+                if (planTypeGroup) planTypeGroup.style.display = 'none';
+                if (planDetailsGroup) planDetailsGroup.style.display = 'block';
+                if (planStartDateGroup) planStartDateGroup.style.display = 'block';
+                if (planEndDateGroup) planEndDateGroup.style.display = 'block';
+                
                 try {
                     const scheduleRes = await fetch(`/api/plans/${p.id}/schedules?t=${Date.now()}`, { credentials: 'include' });
                     if (scheduleRes.ok) {
@@ -5682,6 +5711,7 @@ if (dashboard) {
                             document.getElementById('planEndDate').value = s.end_date ? s.end_date.slice(0, 10) : '';
                             const adYear = s.start_date ? parseInt(s.start_date.slice(0, 4), 10) : new Date().getFullYear();
                             document.getElementById('planYear').value = String(adYear - 1911).padStart(3, '0');
+                            document.getElementById('planType').value = s.plan_type || '';
                             document.getElementById('planRailway').value = s.railway || '';
                             document.getElementById('planInspectionType').value = s.inspection_type || '';
                             document.getElementById('planBusiness').value = s.business || '';
@@ -5693,8 +5723,8 @@ if (dashboard) {
                 } catch (e) {
                     console.error('載入計畫詳情失敗:', e);
                 }
+                if (m) m.classList.add('open');
             }
-            if (m) m.classList.add('open');
         }
         function closePlanModal() {
             const m = document.getElementById('planModal');
@@ -5912,11 +5942,42 @@ if (dashboard) {
             const planId = document.getElementById('targetPlanId').value;
             const scheduleId = document.getElementById('targetScheduleId').value;
             const name = document.getElementById('planName').value.trim();
+            const year = document.getElementById('planYear').value.trim();
+            const planType = document.getElementById('planType').value;
             const startDate = document.getElementById('planStartDate').value;
             const endDate = document.getElementById('planEndDate').value;
             const railway = document.getElementById('planRailway').value;
             const inspectionType = document.getElementById('planInspectionType').value;
             const business = document.getElementById('planBusiness').value;
+            
+            if (!planId) {
+                if (!name) return showToast('請輸入計畫名稱', 'error');
+                if (!year) return showToast('請輸入年度', 'error');
+                if (!planType) return showToast('請選擇檢查類型', 'error');
+                
+                try {
+                    const res = await apiFetch('/api/plans', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            name,
+                            year: year.padStart(3, '0'),
+                            plan_type: planType
+                        })
+                    });
+                    const j = await res.json();
+                    if (res.ok) {
+                        showToast('新增成功');
+                        closePlanModal();
+                        loadPlansPage(plansPage || 1);
+                        loadPlanOptions();
+                    } else {
+                        showToast(j.error || '新增失敗', 'error');
+                    }
+                } catch (e) {
+                    showToast('操作失敗：' + e.message, 'error');
+                }
+                return;
+            }
             
             if (!name) return showToast('請輸入計畫名稱', 'error');
             if (!startDate) return showToast('請選擇開始日期', 'error');
@@ -5924,7 +5985,7 @@ if (dashboard) {
             
             const adYear = parseInt(startDate.slice(0, 4), 10);
             const rocYear = adYear - 1911;
-            const year = String(rocYear).padStart(3, '0');
+            const yearStr = String(rocYear).padStart(3, '0');
             
             try {
                 if (scheduleId) {
@@ -5934,7 +5995,7 @@ if (dashboard) {
                             plan_name: name,
                             start_date: startDate,
                             end_date: endDate || null,
-                            year,
+                            year: yearStr,
                             railway,
                             inspection_type: inspectionType,
                             business
