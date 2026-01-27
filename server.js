@@ -1598,8 +1598,14 @@ app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) =
 });
 
 app.get('/api/plans/by-name', requireAuth, async (req, res) => {
+    console.log('========================================');
+    console.log('[API] /api/plans/by-name START');
+    console.log('[API] Request received at:', new Date().toISOString());
     const { name, year } = req.query;
-    console.log('[API] /api/plans/by-name called with:', { name, year, hasSession: !!req.session?.user });
+    console.log('[API] Query params:', { name, year, hasSession: !!req.session?.user });
+    console.log('[API] Request URL:', req.url);
+    console.log('[API] Request method:', req.method);
+    
     try {
         if (!name || !year) {
             console.warn('[API] Missing params:', { name, year });
@@ -1645,15 +1651,56 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             }
             
             console.log('[API] Executing query with params:', { queryName, queryYear });
-            result = await pool.query(
-                `SELECT id, plan_name AS name, year, railway, inspection_type, business 
-                 FROM inspection_plan_schedule 
-                 WHERE plan_name = $1 AND year = $2 
-                 ORDER BY id ASC 
-                 LIMIT 1`,
-                [queryName, queryYear]
-            );
-            console.log('[API] Query executed successfully, rows found:', result?.rows?.length || 0);
+            console.log('[API] Query params types:', { 
+                nameType: typeof queryName, 
+                yearType: typeof queryYear,
+                nameLength: queryName?.length,
+                yearLength: queryYear?.length
+            });
+            
+            // 先測試簡單查詢
+            try {
+                // 先檢查表是否存在
+                const tableCheck = await pool.query(
+                    `SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_schema = 'public' 
+                        AND table_name = 'inspection_plan_schedule'
+                    )`
+                );
+                console.log('[API] Table exists:', tableCheck.rows[0]?.exists);
+                
+                // 檢查欄位是否存在
+                const columnCheck = await pool.query(
+                    `SELECT column_name 
+                     FROM information_schema.columns 
+                     WHERE table_name = 'inspection_plan_schedule' 
+                     AND column_name IN ('plan_name', 'year', 'railway', 'inspection_type', 'business')`
+                );
+                console.log('[API] Required columns found:', columnCheck.rows.map(r => r.column_name));
+                
+                result = await pool.query(
+                    `SELECT id, plan_name AS name, year, railway, inspection_type, business 
+                     FROM inspection_plan_schedule 
+                     WHERE plan_name = $1 AND year = $2 
+                     ORDER BY id ASC 
+                     LIMIT 1`,
+                    [queryName, queryYear]
+                );
+                console.log('[API] Query executed successfully, rows found:', result?.rows?.length || 0);
+                if (result.rows.length > 0) {
+                    console.log('[API] First row:', result.rows[0]);
+                }
+            } catch (queryErr) {
+                console.error('[API] Query execution failed:', queryErr);
+                console.error('[API] Query error code:', queryErr.code);
+                console.error('[API] Query error message:', queryErr.message);
+                console.error('[API] Query error detail:', queryErr.detail);
+                console.error('[API] Query error hint:', queryErr.hint);
+                console.error('[API] Query error position:', queryErr.position);
+                process.stderr.write(`[ERROR] Query failed: ${queryErr.message}\n`);
+                throw queryErr; // 重新拋出以便外層 catch 處理
+            }
         } catch (queryError) {
             console.error('Database query error in /api/plans/by-name:', queryError);
             console.error('Query params - name:', decodedName, 'year:', decodedYear);
@@ -1731,8 +1778,8 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
                 });
             }
             
-                console.log('[API] Returning plan data:', { id: plan.id, name: plan.name, year: plan.year });
-            res.json({
+            console.log('[API] Returning plan data:', { id: plan.id, name: plan.name, year: plan.year });
+            const responseData = {
                 data: [{
                     id: plan.id,
                     name: plan.name,
@@ -1741,7 +1788,11 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
                     inspection_type: inspection_type,
                     business: business
                 }]
-            });
+            };
+            console.log('[API] Sending response:', JSON.stringify(responseData));
+            res.json(responseData);
+            console.log('[API] /api/plans/by-name SUCCESS');
+            console.log('========================================');
         } catch (processError) {
             console.error('[API] Error processing plan data:', processError);
             console.error('[API] Plan object:', plan);
@@ -1757,13 +1808,19 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         console.error('[API] Error message:', e?.message);
         console.error('[API] Error code:', e?.code);
         console.error('[API] Error detail:', e?.detail);
+        console.error('[API] Error hint:', e?.hint);
         console.error('[API] Error stack:', e?.stack);
         console.error('[API] Request params - name:', name, 'year:', year);
         console.error('[API] Request URL:', req.url);
         console.error('[API] Request query:', req.query);
         console.error('[API] Has session:', !!req.session);
         console.error('[API] Session user:', req.session?.user?.username);
+        console.error('[API] Response headers sent:', res.headersSent);
         console.error('========================================');
+        
+        // 強制輸出錯誤到 stderr（確保 Render 能看到）
+        process.stderr.write(`[ERROR] /api/plans/by-name: ${e?.message || 'Unknown error'}\n`);
+        process.stderr.write(`[ERROR] Stack: ${e?.stack || 'No stack'}\n`);
         
         // 確保總是返回響應
         if (!res.headersSent) {
@@ -1772,10 +1829,15 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
                 error: '伺服器錯誤，請稍後再試',
                 type: e?.constructor?.name || 'Unknown',
                 message: e?.message || 'Unknown error',
-                code: e?.code || undefined
+                code: e?.code || undefined,
+                detail: e?.detail || undefined
             };
-            console.error('[API] Sending error response:', errorDetails);
-            res.status(500).json(errorDetails);
+            console.error('[API] Sending error response:', JSON.stringify(errorDetails));
+            try {
+                res.status(500).json(errorDetails);
+            } catch (sendError) {
+                console.error('[API] Failed to send error response:', sendError);
+            }
         } else {
             console.error('[API] Response already sent, cannot send error response');
         }
