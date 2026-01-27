@@ -266,11 +266,19 @@
             var mB = whole.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/);
             if (mB) return (mB[1] || "").toUpperCase();
             
-            // 2. 嘗試 THAS-v1 格式 (13T1-A01-N01)
+            // 2. 嘗試 THAS-v2 格式（新提案）有分隔符 (113T1-01-OP-N01)
+            var mC = whole.match(/(\d{3}[THASthas][1-5]-\d{2}-[A-Za-z]{2,3}-[NORnor]\d{2})/);
+            if (mC) return (mC[1] || "").toUpperCase();
+            
+            // 3. 嘗試 THAS-v2 格式（新提案）無分隔符 (113T101OPN01)
+            var mC2 = whole.match(/(\d{3}[THASthas][1-5]\d{2}[A-Za-z]{2,3}[NORnor]\d{2})/);
+            if (mC2) return (mC2[1] || "").toUpperCase();
+            
+            // 4. 嘗試 THAS-v1 格式 (13T1-A01-N01)
             var mA = whole.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/);
             if (mA) return (mA[1] || "").toUpperCase();
             
-            // 3. 處理帶 <br> 的情況，分行匹配
+            // 5. 處理帶 <br> 的情況，分行匹配
             var rawHtml = cell.innerHTML || "";
             var lines = normalizeCodeString(rawHtml.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n").replace(/<[^>]*>/g, "")).split("\n");
             for (var i = 0; i < lines.length; i++) {
@@ -278,8 +286,12 @@
                 if (!line) continue;
                 var m1 = line.match(/(\d{3}-[A-Za-z]{3}-[1-4]-\d+-[A-Za-z]{2,3}-[NORnor]\d{1,3})/);
                 if (m1) return (m1[1] || "").toUpperCase();
-                var m2 = line.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/);
+                var m2 = line.match(/(\d{3}[THASthas][1-5]-\d{2}-[A-Za-z]{2,3}-[NORnor]\d{2})/);
                 if (m2) return (m2[1] || "").toUpperCase();
+                var m3 = line.match(/(\d{3}[THASthas][1-5]\d{2}[A-Za-z]{2,3}[NORnor]\d{2})/);
+                if (m3) return (m3[1] || "").toUpperCase();
+                var m4 = line.match(/(\d{2}[THASthas][1-4]-[A-Ga-g]\d{2}-[NORnor]\d{2})/);
+                if (m4) return (m4[1] || "").toUpperCase();
             }
             
             return whole.trim();
@@ -289,9 +301,13 @@
         const ORG_MAP = { "T": "臺鐵", "H": "高鐵", "A": "林鐵", "S": "糖鐵", "TRC": "臺鐵", "HSR": "高鐵", "AFR": "林鐵", "TSC": "糖鐵" };
         // [Added] 機構交叉映射表（THAS-v1 ↔ TRC-v2）
         const ORG_CROSSWALK = { "T": "TRC", "H": "HSR", "A": "AFR", "S": "TSC", "TRC": "TRC", "HSR": "HSR", "AFR": "AFR", "TSC": "TSC" };
-        const INSPECTION_MAP = { "1": "定期檢查", "2": "例行性檢查", "3": "特別檢查", "4": "臨時檢查" };
+        const INSPECTION_MAP = { "1": "定期檢查", "2": "例行性檢查", "3": "特別檢查", "4": "臨時檢查", "5": "調查" };
         // [Verified] Division Map includes all requested codes
-        const DIVISION_MAP = { "A": "運務", "B": "工務", "C": "機務", "D": "電務", "E": "安全", "F": "審核", "G": "災防", "OP": "運轉", "CP": "土木", "EM": "機電" };
+        const DIVISION_MAP = { 
+            "A": "運務", "B": "工務", "C": "機務", "D": "電務", "E": "安全", "F": "審核", "G": "災防", 
+            "OP": "運轉", "CV": "土建", "ME": "機務", "EL": "電務", "SM": "安全管理", "AD": "營運", "OT": "其他",
+            "CP": "土木", "EM": "機電" 
+        };
         const KIND_MAP = { "N": "缺失事項", "O": "觀察事項", "R": "建議事項" };
         const FILLED_MARKS = ["■", "☑", "☒", "✔", "✅", "●", "◉", "✓"]; var EMPTY_MARKS = ["□", "☐", "◻", "○", "◯", "◇", "△"];
 
@@ -347,7 +363,101 @@
                 };
             }
             
-            // 3. 長格式（兼容舊格式）：123-TRC-1-7-OP-N12 (支持 3-4 位機構代碼)
+            // 3. THAS-v2 格式（新提案）：113T1-01-OP-N01 (3位年+机构+类别-检查次数-业务类别-类型+流水号)
+            // 支援有分隔符和無分隔符兩種格式
+            m = raw.match(/^(\d{3})([THAS])([1-5])\-(\d{2})\-([A-Z]{2,3})\-([NOR])(\d{2})$/i);
+            if (m) {
+                var rocYear3 = parseInt(m[1], 10);
+                var orgCode3 = m[2].toUpperCase();
+                var period3 = m[4];
+                var itemSeq3 = m[7];
+                return {
+                    scheme: "THAS-v2",
+                    raw: raw,
+                    yearRoc: rocYear3,
+                    orgCode: orgCode3,
+                    orgCodeRaw: orgCode3,
+                    inspectCode: m[3],
+                    divCode: m[5].toUpperCase(),
+                    divisionCode: m[5].toUpperCase(),
+                    divisionSeq: "",
+                    kindCode: m[6].toUpperCase(),
+                    itemSeq: itemSeq3,
+                    period: period3
+                };
+            }
+            
+            // 3b. THAS-v2 無分隔符格式：113T101OPN01
+            m = raw.match(/^(\d{3})([THAS])([1-5])(\d{2})([A-Z]{2,3})([NOR])(\d{2})$/i);
+            if (m) {
+                var rocYear3b = parseInt(m[1], 10);
+                var orgCode3b = m[2].toUpperCase();
+                var period3b = m[4];
+                var itemSeq3b = m[7];
+                return {
+                    scheme: "THAS-v2",
+                    raw: raw,
+                    yearRoc: rocYear3b,
+                    orgCode: orgCode3b,
+                    orgCodeRaw: orgCode3b,
+                    inspectCode: m[3],
+                    divCode: m[5].toUpperCase(),
+                    divisionCode: m[5].toUpperCase(),
+                    divisionSeq: "",
+                    kindCode: m[6].toUpperCase(),
+                    itemSeq: itemSeq3b,
+                    period: period3b
+                };
+            }
+            
+            // 3c. THAS-v2 寬鬆格式（支援缺少檢查發現分類的情況）：115T2-01-OP-001
+            // 這種格式最後是數字而不是 N/O/R+數字，我們嘗試解析但 kindCode 會是空
+            m = raw.match(/^(\d{3})([THAS])([1-5])\-(\d{2})\-([A-Z]{2,3})\-(\d{2,3})$/i);
+            if (m) {
+                var rocYear3c = parseInt(m[1], 10);
+                var orgCode3c = m[2].toUpperCase();
+                var period3c = m[4];
+                var itemSeq3c = m[6];
+                return {
+                    scheme: "THAS-v2",
+                    raw: raw,
+                    yearRoc: rocYear3c,
+                    orgCode: orgCode3c,
+                    orgCodeRaw: orgCode3c,
+                    inspectCode: m[3],
+                    divCode: m[5].toUpperCase(),
+                    divisionCode: m[5].toUpperCase(),
+                    divisionSeq: "",
+                    kindCode: "", // 無法確定檢查發現分類
+                    itemSeq: itemSeq3c,
+                    period: period3c
+                };
+            }
+            
+            // 3d. THAS-v2 寬鬆格式無分隔符：115T201OP001
+            m = raw.match(/^(\d{3})([THAS])([1-5])(\d{2})([A-Z]{2,3})(\d{2,3})$/i);
+            if (m) {
+                var rocYear3d = parseInt(m[1], 10);
+                var orgCode3d = m[2].toUpperCase();
+                var period3d = m[4];
+                var itemSeq3d = m[6];
+                return {
+                    scheme: "THAS-v2",
+                    raw: raw,
+                    yearRoc: rocYear3d,
+                    orgCode: orgCode3d,
+                    orgCodeRaw: orgCode3d,
+                    inspectCode: m[3],
+                    divCode: m[5].toUpperCase(),
+                    divisionCode: m[5].toUpperCase(),
+                    divisionSeq: "",
+                    kindCode: "", // 無法確定檢查發現分類
+                    itemSeq: itemSeq3d,
+                    period: period3d
+                };
+            }
+            
+            // 4. 長格式（兼容舊格式）：123-TRC-1-7-OP-N12 (支持 3-4 位機構代碼)
             var cleanRaw = raw.replace(/[^a-zA-Z0-9\-]/g, "");
             var mLong = cleanRaw.match(/^(\d{3})-([A-Z]{3,4})-([0-9])-(\d+)-([A-Z]{2,4})-([NOR])(\d+)$/i);
             if (mLong) {
@@ -367,7 +477,7 @@
                 };
             }
             
-            // 4. 短格式（兼容舊格式）：13T1-A01-N01 (支持 2-3 位年份)
+            // 5. 短格式（兼容舊格式）：13T1-A01-N01 (支持 2-3 位年份)
             var mShort = cleanRaw.match(/^(\d{2,3})([A-Z])([0-9])-([A-Z])(\d{2})-([NOR])(\d{2})$/i);
             if (mShort) {
                 var yy = parseInt(mShort[1], 10);
@@ -388,7 +498,7 @@
                 };
             }
             
-            // 5. 寬鬆匹配（fallback）
+            // 6. 寬鬆匹配（fallback）
             var mLoose = cleanRaw.match(/(\d{2,3}).*([NOR])\d+/i);
             if (mLoose) {
                 return {
@@ -434,6 +544,16 @@
                 return (info.yearRoc + "-" + info.orgCodeRaw + "-" + 
                         info.inspectCode + "-" + (info.period || "") + "-" + 
                         info.divisionCode + "-" + info.kindCode + seq).toUpperCase();
+            }
+            if (info.scheme === "THAS-v2") {
+                // THAS-v2 格式：113T1-01-OP-N01 (3位年+机构+类别-检查次数-业务类别-类型+流水号)
+                var period = String(info.period || "0");
+                period = ("0" + period).slice(-2); // 確保2碼
+                var seq = String(info.itemSeq || "0");
+                seq = ("0" + seq).slice(-2); // 確保2碼
+                return (info.yearRoc + info.orgCodeRaw + info.inspectCode + "-" + 
+                        period + "-" + info.divisionCode + "-" + 
+                        info.kindCode + seq).toUpperCase();
             }
             if (info.scheme === "THAS-v1") {
                 var yy = String(info.yearRoc - 100);
@@ -2459,7 +2579,7 @@ if (dashboard) {
                 <td><textarea class="filter-input batch-content" rows="1" placeholder="內容..." style="resize:vertical;"></textarea></td>
                 <td><input type="text" class="filter-input batch-year" style="background:#f1f5f9;color:#64748b;" readonly></td>
                 <td><input type="text" class="filter-input batch-unit" style="background:#f1f5f9;color:#64748b;" readonly></td>
-                <td><select class="filter-select batch-division"><option value="">-</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="安全">安全</option><option value="審核">審核</option><option value="災防">災防</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option></select></td>
+                <td><select class="filter-select batch-division"><option value="">-</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="安全">安全</option><option value="審核">審核</option><option value="災防">災防</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option><option value="土建">土建</option><option value="安全管理">安全管理</option><option value="營運">營運</option><option value="其他">其他</option></select></td>
                 <td><select class="filter-select batch-inspection"><option value="">-</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option></select></td>
                 <td><select class="filter-select batch-kind"><option value="">-</option><option value="N">缺失</option><option value="O">觀察</option><option value="R">建議</option></select></td>
                 <td><select class="filter-select batch-status"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></td>
@@ -3044,8 +3164,8 @@ if (dashboard) {
                         </td>
                         <td><input type="text" class="filter-input create-batch-year" value="${escapeHtml(issue.year || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
                         <td><input type="text" class="filter-input create-batch-unit" value="${escapeHtml(issue.unit || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
-                        <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務" ${divisionName === '運務' ? 'selected' : ''}>運務</option><option value="工務" ${divisionName === '工務' ? 'selected' : ''}>工務</option><option value="機務" ${divisionName === '機務' ? 'selected' : ''}>機務</option><option value="電務" ${divisionName === '電務' ? 'selected' : ''}>電務</option><option value="安全" ${divisionName === '安全' ? 'selected' : ''}>安全</option><option value="審核" ${divisionName === '審核' ? 'selected' : ''}>審核</option><option value="災防" ${divisionName === '災防' ? 'selected' : ''}>災防</option><option value="運轉" ${divisionName === '運轉' ? 'selected' : ''}>運轉</option><option value="土木" ${divisionName === '土木' ? 'selected' : ''}>土木</option><option value="機電" ${divisionName === '機電' ? 'selected' : ''}>機電</option></select></td>
-                        <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查" ${inspectionName === '定期檢查' ? 'selected' : ''}>定期檢查</option><option value="例行性檢查" ${inspectionName === '例行性檢查' ? 'selected' : ''}>例行性檢查</option><option value="特別檢查" ${inspectionName === '特別檢查' ? 'selected' : ''}>特別檢查</option><option value="臨時檢查" ${inspectionName === '臨時檢查' ? 'selected' : ''}>臨時檢查</option></select></td>
+                        <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務" ${divisionName === '運務' ? 'selected' : ''}>運務</option><option value="工務" ${divisionName === '工務' ? 'selected' : ''}>工務</option><option value="機務" ${divisionName === '機務' ? 'selected' : ''}>機務</option><option value="電務" ${divisionName === '電務' ? 'selected' : ''}>電務</option><option value="安全" ${divisionName === '安全' ? 'selected' : ''}>安全</option><option value="審核" ${divisionName === '審核' ? 'selected' : ''}>審核</option><option value="災防" ${divisionName === '災防' ? 'selected' : ''}>災防</option><option value="運轉" ${divisionName === '運轉' ? 'selected' : ''}>運轉</option><option value="土木" ${divisionName === '土木' ? 'selected' : ''}>土木</option><option value="機電" ${divisionName === '機電' ? 'selected' : ''}>機電</option><option value="土建" ${divisionName === '土建' ? 'selected' : ''}>土建</option><option value="安全管理" ${divisionName === '安全管理' ? 'selected' : ''}>安全管理</option><option value="營運" ${divisionName === '營運' ? 'selected' : ''}>營運</option><option value="其他" ${divisionName === '其他' ? 'selected' : ''}>其他</option></select></td>
+                        <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查" ${inspectionName === '定期檢查' ? 'selected' : ''}>定期檢查</option><option value="例行性檢查" ${inspectionName === '例行性檢查' ? 'selected' : ''}>例行性檢查</option><option value="特別檢查" ${inspectionName === '特別檢查' ? 'selected' : ''}>特別檢查</option><option value="臨時檢查" ${inspectionName === '臨時檢查' ? 'selected' : ''}>臨時檢查</option><option value="調查" ${inspectionName === '調查' ? 'selected' : ''}>調查</option></select></td>
                         <td><select class="filter-select create-batch-kind"><option value="">-</option><option value="N" ${kindCode === 'N' ? 'selected' : ''}>缺失</option><option value="O" ${kindCode === 'O' ? 'selected' : ''}>觀察</option><option value="R" ${kindCode === 'R' ? 'selected' : ''}>建議</option></select></td>
                         <td><select class="filter-select create-batch-status"><option value="持續列管" ${status === '持續列管' ? 'selected' : ''}>持續列管</option><option value="解除列管" ${status === '解除列管' ? 'selected' : ''}>解除列管</option><option value="自行列管" ${status === '自行列管' ? 'selected' : ''}>自行列管</option></select></td>
                         <td style="text-align:center;">
@@ -3601,8 +3721,8 @@ if (dashboard) {
                 </td>
                 <td><input type="text" class="filter-input create-batch-year" style="background:#f1f5f9;color:#64748b;" readonly></td>
                 <td><input type="text" class="filter-input create-batch-unit" style="background:#f1f5f9;color:#64748b;" readonly></td>
-                <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="安全">安全</option><option value="審核">審核</option><option value="災防">災防</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option></select></td>
-                <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option></select></td>
+                <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="安全">安全</option><option value="審核">審核</option><option value="災防">災防</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option><option value="土建">土建</option><option value="安全管理">安全管理</option><option value="營運">營運</option><option value="其他">其他</option></select></td>
+                <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option><option value="調查">調查</option></select></td>
                 <td><select class="filter-select create-batch-kind"><option value="">-</option><option value="N">缺失</option><option value="O">觀察</option><option value="R">建議</option></select></td>
                 <td><select class="filter-select create-batch-status"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></td>
                 <td style="text-align:center;">
@@ -3751,20 +3871,30 @@ if (dashboard) {
                     tr.querySelector('.create-batch-year').value = info.yearRoc;
                 }
                 
-                if (info.orgCode) {
+                if (info.orgCode && info.orgCode !== '?') {
                     const name = ORG_MAP[info.orgCode] || info.orgCode;
-                    if (name && name !== '?') tr.querySelector('.create-batch-unit').value = name;
+                    if (name && name !== '?') {
+                        const unitInput = tr.querySelector('.create-batch-unit');
+                        if (unitInput) unitInput.value = name;
+                    }
                 }
-                if (info.divCode) {
+                if (info.divCode && info.divCode !== '?') {
                     const divName = DIVISION_MAP[info.divCode];
-                    if (divName) tr.querySelector('.create-batch-division').value = divName;
+                    if (divName) {
+                        const divisionSelect = tr.querySelector('.create-batch-division');
+                        if (divisionSelect) divisionSelect.value = divName;
+                    }
                 }
-                if (info.inspectCode) {
+                if (info.inspectCode && info.inspectCode !== '?') {
                     const inspectName = INSPECTION_MAP[info.inspectCode];
-                    if (inspectName) tr.querySelector('.create-batch-inspection').value = inspectName;
+                    if (inspectName) {
+                        const inspectionSelect = tr.querySelector('.create-batch-inspection');
+                        if (inspectionSelect) inspectionSelect.value = inspectName;
+                    }
                 }
-                if (info.kindCode) {
-                    tr.querySelector('.create-batch-kind').value = info.kindCode;
+                if (info.kindCode && info.kindCode !== '?') {
+                    const kindSelect = tr.querySelector('.create-batch-kind');
+                    if (kindSelect) kindSelect.value = info.kindCode;
                 }
             }
         }
