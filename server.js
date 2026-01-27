@@ -35,39 +35,36 @@ const sslConfig = (() => {
     return { rejectUnauthorized: false };
 })();
 
-// 主應用程式連線池
+// 主應用程式連線池（Supabase 使用 Supavisor/PgBouncer，Session Mode 連線數受限）
+// Supabase 免費方案：直接連線 60，Pooler 200，但 Session Mode 的 pool_size 通常較小
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.DATABASE_URL ? sslConfig : false,
-    max: 12, // 主應用程式連線池
-    idleTimeoutMillis: 20000, // 減少空閒時間，更快釋放連線
-    connectionTimeoutMillis: 5000,
-    allowExitOnIdle: false, // 保持連線池活躍
-});
-
-// Session store 專用連線池（較小，避免耗盡總連線數）
-const sessionPool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL ? sslConfig : false,
-    max: 3, // Session store 只需要少量連線（通常 1-2 個就夠）
-    idleTimeoutMillis: 20000,
-    connectionTimeoutMillis: 5000,
+    max: 2, // Supabase Session Mode 建議使用較小的連線池（2-3 個）
+    idleTimeoutMillis: 5000, // 快速釋放未使用的連線（5 秒）
+    connectionTimeoutMillis: 2000, // 快速超時，避免等待
     allowExitOnIdle: false,
 });
 
+// Session store 使用同一個連線池（避免建立過多連線）
+// Supabase Session Mode：每個連線獨佔一個底層連線，pool_size 限制了可用連線數
+// 因此共用同一個連線池，總連線數限制在 2 個以內
+const sessionPool = pool;
+
 // 資料庫連線錯誤處理
 pool.on('error', async (err) => {
-    console.error('Unexpected error on idle client (main pool)', err);
-    if (err.message && err.message.includes('Connection terminated')) {
-        console.warn('Database connection terminated (may be temporary):', err.message);
+    // Supabase 連線錯誤處理
+    if (err.message && err.message.includes('MaxClientsInSessionMode')) {
+        console.warn('Supabase 連線池已滿，請等待連線釋放或考慮使用 Transaction Mode (port 6543)');
+    } else if (err.message && err.message.includes('Connection terminated')) {
+        console.warn('資料庫連線終止（可能是暫時的）:', err.message);
     } else {
-        await logError(err, 'Database connection error', null).catch(() => {});
+        console.error('資料庫連線錯誤:', err?.message || err);
+        // 避免在連線錯誤時記錄到資料庫（可能造成循環）
+        if (!err.message || !err.message.includes('MaxClients')) {
+            await logError(err, 'Database connection error', null).catch(() => {});
+        }
     }
-});
-
-sessionPool.on('error', (err) => {
-    console.warn('Session pool error:', err?.message || err);
-    // Session pool 錯誤不記錄到資料庫，避免循環
 });
 
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -1943,20 +1940,29 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
         const url = `https://data.ntpc.gov.tw/api/datasets/308DCD75-6434-45BC-A95F-584DA4FED251/json?page=0&size=1000`;
         
         return new Promise((resolve) => {
-            https.get(url, (response) => {
+            const request = https.get(url, { timeout: 5000 }, (response) => {
+                if (response.statusCode !== 200) {
+                    console.warn(`假日 API 回應狀態碼: ${response.statusCode}`);
+                    res.json({ data: [] });
+                    return resolve();
+                }
+                
                 let data = '';
+                response.setEncoding('utf8');
                 response.on('data', (chunk) => { data += chunk; });
                 response.on('end', () => {
                     try {
                         const jsonData = JSON.parse(data);
-                        const holidays = (jsonData || []).filter(h => {
-                            if (!h.date) return false;
+                        console.log(`假日 API 返回 ${Array.isArray(jsonData) ? jsonData.length : 0} 筆原始資料`);
+                        
+                        const holidays = (Array.isArray(jsonData) ? jsonData : []).filter(h => {
+                            if (!h || !h.date) return false;
                             const dateStr = String(h.date);
                             const hYear = parseInt(dateStr.slice(0, 4), 10);
                             return hYear === year;
                         }).map(h => {
                             const dateStr = String(h.date || '');
-                            // 更寬鬆的假日判斷：只要不是明確的 '否' 或 'N'，就視為假日
+                            // 更寬鬆的假日判斷
                             const isHolidayValue = h.isHoliday;
                             const isHoliday = isHolidayValue !== false && 
                                              String(isHolidayValue || '').trim() !== '否' && 
@@ -1973,16 +1979,28 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
                                 isHoliday: isHoliday
                             };
                         });
+                        
+                        console.log(`過濾後 ${year} 年有 ${holidays.length} 個假日`);
                         res.json({ data: holidays });
                         resolve();
                     } catch (parseError) {
                         console.warn('解析假日資料失敗:', parseError?.message || parseError);
+                        console.warn('原始資料前 200 字元:', data.substring(0, 200));
                         res.json({ data: [] });
                         resolve();
                     }
                 });
-            }).on('error', (err) => {
+            });
+            
+            request.on('error', (err) => {
                 console.warn('取得假日資料失敗:', err?.message || err);
+                res.json({ data: [] });
+                resolve();
+            });
+            
+            request.on('timeout', () => {
+                request.destroy();
+                console.warn('取得假日資料超時');
                 res.json({ data: [] });
                 resolve();
             });
