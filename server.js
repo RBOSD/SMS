@@ -1647,8 +1647,13 @@ app.delete('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, asy
             return res.status(400).json({error: `無法刪除計畫，因為尚有 ${count} 筆相關開立事項。請先刪除或轉移相關事項。`});
         }
         
-        // 刪除相關的檢查計畫規劃（排程項目）
-        await pool.query("DELETE FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2", [planName, planYear]);
+        // 刪除相關的檢查計畫規劃（排程項目）- 使用 plan_name 和 year 匹配
+        if (planYear) {
+            await pool.query("DELETE FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2", [planName, planYear]);
+        } else {
+            // 如果年度為空，只根據 plan_name 刪除
+            await pool.query("DELETE FROM inspection_plan_schedule WHERE plan_name = $1", [planName]);
+        }
         
         // 刪除計畫
         await pool.query("DELETE FROM inspection_plans WHERE id=$1", [req.params.id]);
