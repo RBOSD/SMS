@@ -326,10 +326,14 @@ async function initDB() {
                     business TEXT NOT NULL,
                     inspection_seq TEXT NOT NULL,
                     plan_number TEXT NOT NULL,
+                    location TEXT,
+                    inspector TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
                 await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS plan_type TEXT`);
+                await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS location TEXT`);
+                await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS inspector TEXT`);
                 // 向後兼容：如果存在 scheduled_date 欄位，遷移到 start_date
                 try {
                     await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS start_date DATE`);
@@ -1581,6 +1585,24 @@ app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) =
     }
 });
 
+app.get('/api/plans/by-name', requireAuth, async (req, res) => {
+    const { name, year } = req.query;
+    try {
+        if (name && year) {
+            const result = await pool.query(
+                "SELECT id, plan_name AS name, year FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 LIMIT 1",
+                [name, year]
+            );
+            if (result.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
+            res.json({data: result.rows});
+        } else {
+            return res.status(400).json({error: '請提供 name 和 year 參數'});
+        }
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get plan by name and year error');
+    }
+});
+
 app.get('/api/plans/:id/issues', requireAuth, requireAdminOrManager, async (req, res) => {
     try {
         const planResult = await pool.query(
@@ -1631,13 +1653,15 @@ app.get('/api/plans/:id/schedules', requireAuth, requireAdminOrManager, async (r
 });
 
 app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
-    const { name, year, plan_type } = req.body;
+    const { name, year, railway, inspection_type, business } = req.body;
     try {
         if (!name || !year) return res.status(400).json({error: '計畫名稱和年度為必填'});
-        if (!plan_type) return res.status(400).json({error: '檢查類型為必填'});
+        if (!railway || !inspection_type || !business) return res.status(400).json({error: '鐵路機構、檢查類別、業務類別為必填'});
         const n = name.trim();
         const y = year.trim();
-        const pt = plan_type.trim();
+        const rCode = String(railway).toUpperCase();
+        const it = String(inspection_type);
+        const b = String(business).toUpperCase();
         const today = new Date().toISOString().slice(0, 10);
         const exists = await pool.query(
             "SELECT 1 FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 LIMIT 1",
@@ -1647,11 +1671,11 @@ app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (re
             return res.status(400).json({ error: `計畫名稱「${n}」在年度「${y}」已存在` });
         }
         await pool.query(
-            `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, plan_type, railway, inspection_type, business, inspection_seq, plan_number)
-             VALUES ($1, NULL, $2, $3, $4, '-', '-', '-', '00', '(手動)')`,
-            [today, n, y, pt]
+            `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number)
+             VALUES ($1, NULL, $2, $3, $4, $5, $6, '00', '(手動)')`,
+            [today, n, y, rCode, it, b]
         );
-        logAction(req.session.user.username, 'CREATE_PLAN', `新增檢查計畫：${n} (年度：${y}, 類型：${pt})`, req);
+        logAction(req.session.user.username, 'CREATE_PLAN', `新增檢查計畫：${n} (年度：${y})`, req);
         res.json({success:true});
     } catch (e) { 
         handleApiError(e, req, res, 'Create plan error');
@@ -1887,7 +1911,7 @@ app.get('/api/plan-schedule/next-number', requireAuth, async (req, res) => {
 });
 
 app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
-    const { plan_name, start_date, end_date, year, railway, inspection_type, business } = req.body;
+    const { plan_name, start_date, end_date, year, railway, inspection_type, business, location, inspector } = req.body;
     try {
         if (!plan_name || !start_date || !year || !railway || !inspection_type || !business) {
             return res.status(400).json({ error: '計畫名稱、開始日期、年度、鐵路機構、檢查類別、業務類別為必填' });
@@ -1907,9 +1931,9 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
         const planNumber = `${y}${r}${it}-${seq}-${b}`;
         const name = String(plan_name).trim();
         await pool.query(
-            `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [start_date, end_date || null, name, y, r, it, b, seq, planNumber]
+            `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, location, inspector) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            [start_date, end_date || null, name, y, r, it, b, seq, planNumber, location || null, inspector || null]
         );
         const dateRange = end_date ? `${start_date} ~ ${end_date}` : start_date;
         logAction(req.session.user.username, 'CREATE_PLAN_SCHEDULE', `新增檢查計畫規劃：${name}，取號 ${planNumber}，日期 ${dateRange}`, req);

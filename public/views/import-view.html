@@ -419,6 +419,12 @@
                     <div style="font-weight:700; font-size:15px; color:#334155; margin-bottom:16px;">新增檢查計畫</div>
                     <input type="hidden" id="scheduleSelectedDate">
                     <div class="form-group">
+                        <label>檢查計畫 <span style="color:#ef4444;">*</span></label>
+                        <select id="schedulePlanSelect" class="filter-select">
+                            <option value="">請選擇已建立的檢查計畫</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label>開始日期 <span style="color:#ef4444;">*</span></label>
                         <input type="date" id="scheduleStartDate" class="filter-input" required>
                     </div>
@@ -427,46 +433,12 @@
                         <input type="date" id="scheduleEndDate" class="filter-input">
                     </div>
                     <div class="form-group">
-                        <label>計畫名稱 <span style="color:#ef4444;">*</span></label>
-                        <input type="text" id="schedulePlanName" class="filter-input" placeholder="例：115年度臺鐵上半年定期檢查" autocomplete="off">
-                    </div>
-                    <div class="form-group" id="scheduleYearDisplayWrap" style="display:none;">
-                        <label>年度（民國）</label>
-                        <div id="scheduleYearDisplay" style="padding:10px 12px; background:#f1f5f9; color:#475569; border-radius:8px; font-size:14px; border:1px solid #e2e8f0;">由開始日期自動換算</div>
+                        <label>地點 <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="scheduleLocation" class="filter-input" placeholder="例如：臺北車站" autocomplete="off">
                     </div>
                     <div class="form-group">
-                        <label>鐵路機構 <span style="color:#ef4444;">*</span></label>
-                        <select id="scheduleRailway" class="filter-select">
-                            <option value="">請選擇</option>
-                            <option value="T">臺鐵 (T)</option>
-                            <option value="H">高鐵 (H)</option>
-                            <option value="A">林鐵 (A)</option>
-                            <option value="S">糖鐵 (S)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>檢查類別 <span style="color:#ef4444;">*</span></label>
-                        <select id="scheduleInspectionType" class="filter-select">
-                            <option value="">請選擇</option>
-                            <option value="1">年度定期檢查 (1)</option>
-                            <option value="2">特別檢查 (2)</option>
-                            <option value="3">例行性檢查 (3)</option>
-                            <option value="4">臨時檢查 (4)</option>
-                            <option value="5">調查 (5)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>業務類別 <span style="color:#ef4444;">*</span></label>
-                        <select id="scheduleBusiness" class="filter-select">
-                            <option value="">請選擇</option>
-                            <option value="OP">運轉 (OP)</option>
-                            <option value="CV">土建 (CV)</option>
-                            <option value="ME">機務 (ME)</option>
-                            <option value="EL">電務 (EL)</option>
-                            <option value="SM">安全管理 (SM)</option>
-                            <option value="AD">營運 (AD)</option>
-                            <option value="OT">其他 (OT)</option>
-                        </select>
+                        <label>檢查人員 <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="scheduleInspector" class="filter-input" placeholder="例如：張三、李四" autocomplete="off">
                     </div>
                     <div style="display:flex; gap:8px;">
                         <button type="button" class="btn btn-primary" style="flex:1;" onclick="scheduleSubmitPlan()">上傳至資料庫</button>
@@ -543,6 +515,10 @@
             <input type="hidden" id="targetPlanId">
             <input type="hidden" id="targetScheduleId">
             <div class="form-group">
+                <label>年度（民國） <span style="color:#ef4444;">*</span></label>
+                <input type="text" id="planYear" class="filter-input" placeholder="例如: 113" autocomplete="off">
+            </div>
+            <div class="form-group">
                 <label>計畫名稱 <span style="color:#ef4444;">*</span></label>
                 <input type="text" id="planName" class="filter-input" placeholder="例如: 113年度上半年定期檢查" autocomplete="off">
             </div>
@@ -554,20 +530,6 @@
                 <label>結束日期 <span style="color:#64748b; font-size:12px;">（選填）</span></label>
                 <input type="date" id="planEndDate" class="filter-input">
             </div>
-            <div class="form-group">
-                <label>年度（民國） <span style="color:#ef4444;">*</span></label>
-                <input type="text" id="planYear" class="filter-input" placeholder="例如: 113" autocomplete="off">
-            </div>
-            <div class="form-group" id="planTypeGroup">
-                <label>檢查類型 <span style="color:#ef4444;">*</span></label>
-                <select id="planType" class="filter-select">
-                    <option value="">請選擇</option>
-                    <option value="定期檢查">定期檢查</option>
-                    <option value="特別檢查">特別檢查</option>
-                    <option value="例行性檢查">例行性檢查</option>
-                    <option value="臨時檢查">臨時檢查</option>
-                </select>
-            </div>
             <div class="form-group" id="planDetailsGroup">
                 <label>鐵路機構 <span style="color:#ef4444;">*</span></label>
                 <select id="planRailway" class="filter-select">
@@ -578,7 +540,7 @@
                     <option value="S">糖鐵 (S)</option>
                 </select>
             </div>
-            <div class="form-group">
+            <div class="form-group" id="planDetailsGroup2">
                 <label>檢查類別 <span style="color:#ef4444;">*</span></label>
                 <select id="planInspectionType" class="filter-select">
                     <option value="">請選擇</option>
@@ -589,7 +551,7 @@
                     <option value="5">調查 (5)</option>
                 </select>
             </div>
-            <div class="form-group">
+            <div class="form-group" id="planDetailsGroup3">
                 <label>業務類別 <span style="color:#ef4444;">*</span></label>
                 <select id="planBusiness" class="filter-select">
                     <option value="">請選擇</option>

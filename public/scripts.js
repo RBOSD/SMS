@@ -5239,6 +5239,7 @@ if (dashboard) {
             scheduleCalendarMonth = now.getMonth() + 1;
             renderScheduleCalendar();
             loadScheduleForMonth();
+            loadSchedulePlanOptions();
             const startDateInput = document.getElementById('scheduleStartDate');
             const endDateInput = document.getElementById('scheduleEndDate');
             if (startDateInput) {
@@ -5598,32 +5599,107 @@ if (dashboard) {
             if (startDateInput) startDateInput.value = '';
             if (endDateInput) endDateInput.value = '';
             if (sel) sel.value = '';
-            const name = document.getElementById('schedulePlanName');
-            const railway = document.getElementById('scheduleRailway');
-            const inspection = document.getElementById('scheduleInspectionType');
-            const business = document.getElementById('scheduleBusiness');
-            if (name) name.value = '';
-            if (railway) railway.value = '';
-            if (inspection) inspection.value = '';
-            if (business) business.value = '';
+            const planSelect = document.getElementById('schedulePlanSelect');
+            const location = document.getElementById('scheduleLocation');
+            const inspector = document.getElementById('scheduleInspector');
+            if (planSelect) planSelect.value = '';
+            if (location) location.value = '';
+            if (inspector) inspector.value = '';
             scheduleUpdateYearFromStartDate();
             const dayList = document.getElementById('scheduleDayListBody');
             if (dayList) dayList.textContent = '點選月曆日期後顯示';
         }
+        
+        let schedulePlanDetails = {};
+        
+        async function loadSchedulePlanOptions() {
+            try {
+                const res = await fetch(`/api/options/plans?t=${Date.now()}`, { credentials: 'include' });
+                if (!res.ok) return;
+                const j = await res.json();
+                const select = document.getElementById('schedulePlanSelect');
+                if (!select) return;
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">請選擇已建立的檢查計畫</option>';
+                if (j.data && Array.isArray(j.data)) {
+                    j.data.forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = `${p.name}|||${p.year}`;
+                        opt.textContent = `${p.name} (${p.year}年)`;
+                        select.appendChild(opt);
+                    });
+                }
+                if (currentValue) select.value = currentValue;
+                
+                select.onchange = async function() {
+                    const val = select.value;
+                    if (!val) {
+                        schedulePlanDetails = {};
+                        return;
+                    }
+                    const [planName, planYear] = val.split('|||');
+                    try {
+                        const planRes = await fetch(`/api/plans/by-name?name=${encodeURIComponent(planName)}&year=${encodeURIComponent(planYear)}&t=${Date.now()}`, { credentials: 'include' });
+                        if (planRes.ok) {
+                            const planData = await planRes.json();
+                            if (planData.data && planData.data.length > 0) {
+                                const plan = planData.data[0];
+                                const scheduleRes = await fetch(`/api/plans/${plan.id}/schedules?t=${Date.now()}`, { credentials: 'include' });
+                                if (scheduleRes.ok) {
+                                    const scheduleData = await scheduleRes.json();
+                                    if (scheduleData.data && scheduleData.data.length > 0) {
+                                        const s = scheduleData.data[0];
+                                        schedulePlanDetails = {
+                                            plan_name: planName,
+                                            year: planYear,
+                                            railway: s.railway || '',
+                                            inspection_type: s.inspection_type || '',
+                                            business: s.business || ''
+                                        };
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('載入計畫詳情失敗:', e);
+                    }
+                };
+            } catch (e) {
+                console.error('載入計畫選項失敗:', e);
+            }
+        }
 
         async function scheduleSubmitPlan() {
-            const planName = (document.getElementById('schedulePlanName') || {}).value?.trim();
+            const planSelect = document.getElementById('schedulePlanSelect');
+            const planValue = planSelect ? planSelect.value : '';
+            if (!planValue) {
+                showToast('請選擇檢查計畫', 'error');
+                return;
+            }
+            const [planName, planYear] = planValue.split('|||');
             const startDateVal = (document.getElementById('scheduleStartDate') || {}).value;
             const endDateVal = (document.getElementById('scheduleEndDate') || {}).value;
-            const railway = (document.getElementById('scheduleRailway') || {}).value;
-            const inspection = (document.getElementById('scheduleInspectionType') || {}).value;
-            const business = (document.getElementById('scheduleBusiness') || {}).value;
-            if (!planName || !startDateVal || !railway || !inspection || !business) {
-                showToast('請填寫計畫名稱、開始日期、鐵路機構、檢查類別、業務類別', 'error');
+            const location = (document.getElementById('scheduleLocation') || {}).value?.trim();
+            const inspector = (document.getElementById('scheduleInspector') || {}).value?.trim();
+            
+            if (!startDateVal) {
+                showToast('請選擇開始日期', 'error');
+                return;
+            }
+            if (!location) {
+                showToast('請填寫地點', 'error');
+                return;
+            }
+            if (!inspector) {
+                showToast('請填寫檢查人員', 'error');
                 return;
             }
             if (endDateVal && endDateVal < startDateVal) {
                 showToast('結束日期不能早於開始日期', 'error');
+                return;
+            }
+            if (!schedulePlanDetails.railway || !schedulePlanDetails.inspection_type || !schedulePlanDetails.business) {
+                showToast('無法取得計畫資訊，請重新選擇計畫', 'error');
                 return;
             }
             const adYear = parseInt(startDateVal.slice(0, 4), 10);
@@ -5638,9 +5714,11 @@ if (dashboard) {
                         start_date: startDateVal,
                         end_date: endDateVal || null,
                         year: yr,
-                        railway,
-                        inspection_type: inspection,
-                        business
+                        railway: schedulePlanDetails.railway,
+                        inspection_type: schedulePlanDetails.inspection_type,
+                        business: schedulePlanDetails.business,
+                        location,
+                        inspector
                     })
                 });
                 const j = await res.json().catch(() => ({}));
@@ -5656,6 +5734,7 @@ if (dashboard) {
                 if (endDateVal) document.getElementById('scheduleEndDate').value = endDateVal;
                 document.getElementById('scheduleSelectedDate').value = startDateVal;
                 loadPlanOptions();
+                loadSchedulePlanOptions();
             } catch (e) {
                 showToast('儲存失敗：' + e.message, 'error');
             }
@@ -5664,8 +5743,9 @@ if (dashboard) {
         async function openPlanModal(mode, id) {
             const m = document.getElementById('planModal');
             const t = document.getElementById('planModalTitle');
-            const planTypeGroup = document.getElementById('planTypeGroup');
             const planDetailsGroup = document.getElementById('planDetailsGroup');
+            const planDetailsGroup2 = document.getElementById('planDetailsGroup2');
+            const planDetailsGroup3 = document.getElementById('planDetailsGroup3');
             const planStartDateGroup = document.getElementById('planStartDateGroup');
             const planEndDateGroup = document.getElementById('planEndDateGroup');
             
@@ -5675,15 +5755,15 @@ if (dashboard) {
                 document.getElementById('targetScheduleId').value = '';
                 document.getElementById('planName').value = '';
                 document.getElementById('planYear').value = '';
-                document.getElementById('planType').value = '';
                 document.getElementById('planStartDate').value = '';
                 document.getElementById('planEndDate').value = '';
                 document.getElementById('planRailway').value = '';
                 document.getElementById('planInspectionType').value = '';
                 document.getElementById('planBusiness').value = '';
                 
-                if (planTypeGroup) planTypeGroup.style.display = 'block';
-                if (planDetailsGroup) planDetailsGroup.style.display = 'none';
+                if (planDetailsGroup) planDetailsGroup.style.display = 'block';
+                if (planDetailsGroup2) planDetailsGroup2.style.display = 'block';
+                if (planDetailsGroup3) planDetailsGroup3.style.display = 'block';
                 if (planStartDateGroup) planStartDateGroup.style.display = 'none';
                 if (planEndDateGroup) planEndDateGroup.style.display = 'none';
                 
@@ -5693,8 +5773,9 @@ if (dashboard) {
                 t.innerText = '編輯檢查計畫';
                 document.getElementById('targetPlanId').value = p.id || '';
                 
-                if (planTypeGroup) planTypeGroup.style.display = 'none';
                 if (planDetailsGroup) planDetailsGroup.style.display = 'block';
+                if (planDetailsGroup2) planDetailsGroup2.style.display = 'block';
+                if (planDetailsGroup3) planDetailsGroup3.style.display = 'block';
                 if (planStartDateGroup) planStartDateGroup.style.display = 'block';
                 if (planEndDateGroup) planEndDateGroup.style.display = 'block';
                 
@@ -5943,7 +6024,6 @@ if (dashboard) {
             const scheduleId = document.getElementById('targetScheduleId').value;
             const name = document.getElementById('planName').value.trim();
             const year = document.getElementById('planYear').value.trim();
-            const planType = document.getElementById('planType').value;
             const startDate = document.getElementById('planStartDate').value;
             const endDate = document.getElementById('planEndDate').value;
             const railway = document.getElementById('planRailway').value;
@@ -5953,7 +6033,9 @@ if (dashboard) {
             if (!planId) {
                 if (!name) return showToast('請輸入計畫名稱', 'error');
                 if (!year) return showToast('請輸入年度', 'error');
-                if (!planType) return showToast('請選擇檢查類型', 'error');
+                if (!railway) return showToast('請選擇鐵路機構', 'error');
+                if (!inspectionType) return showToast('請選擇檢查類別', 'error');
+                if (!business) return showToast('請選擇業務類別', 'error');
                 
                 try {
                     const res = await apiFetch('/api/plans', {
@@ -5961,7 +6043,9 @@ if (dashboard) {
                         body: JSON.stringify({
                             name,
                             year: year.padStart(3, '0'),
-                            plan_type: planType
+                            railway,
+                            inspection_type: inspectionType,
+                            business
                         })
                     });
                     const j = await res.json();
@@ -5970,6 +6054,7 @@ if (dashboard) {
                         closePlanModal();
                         loadPlansPage(plansPage || 1);
                         loadPlanOptions();
+                        loadSchedulePlanOptions();
                     } else {
                         showToast(j.error || '新增失敗', 'error');
                     }
