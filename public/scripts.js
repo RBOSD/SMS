@@ -5648,10 +5648,16 @@ if (dashboard) {
                         return;
                     }
                     try {
-                        const url = `/api/plans/by-name?name=${encodeURIComponent(planName)}&year=${encodeURIComponent(planYear)}&t=${Date.now()}`;
+                        // 確保正確編碼 URL 參數
+                        const encodedName = encodeURIComponent(planName.trim());
+                        const encodedYear = encodeURIComponent(planYear.trim());
+                        const url = `/api/plans/by-name?name=${encodedName}&year=${encodedYear}&t=${Date.now()}`;
                         const planRes = await fetch(url, { 
                             credentials: 'include',
-                            cache: 'no-store'
+                            cache: 'no-store',
+                            headers: {
+                                'Accept': 'application/json'
+                            }
                         });
                         if (!planRes.ok) {
                             let errorMsg = '無法取得計畫資訊，請重新選擇計畫';

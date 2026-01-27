@@ -1600,11 +1600,21 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         
         let decodedName, decodedYear;
         try {
-            decodedName = decodeURIComponent(String(name));
-            decodedYear = decodeURIComponent(String(year));
+            // 處理 URL 編碼，可能需要多次解碼
+            let tempName = String(name);
+            let tempYear = String(year);
+            try {
+                tempName = decodeURIComponent(tempName);
+                tempYear = decodeURIComponent(tempYear);
+            } catch (e1) {
+                // 如果解碼失敗，嘗試直接使用
+                console.warn('First decode attempt failed, using raw value');
+            }
+            decodedName = tempName;
+            decodedYear = tempYear;
         } catch (decodeError) {
             console.error('URL decode error:', decodeError);
-            decodedName = String(name);
+            decodedName = String(name).replace(/\+/g, ' ');
             decodedYear = String(year);
         }
         
@@ -1612,14 +1622,28 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             return res.status(400).json({error: '計畫名稱或年度格式錯誤'});
         }
         
-        const result = await pool.query(
-            `SELECT id, plan_name AS name, year, railway, inspection_type, business 
-             FROM inspection_plan_schedule 
-             WHERE plan_name = $1 AND year = $2 
-             ORDER BY id ASC 
-             LIMIT 1`,
-            [decodedName.trim(), decodedYear.trim()]
-        );
+        decodedName = decodedName.trim();
+        decodedYear = decodedYear.trim();
+        
+        if (!decodedName || !decodedYear) {
+            return res.status(400).json({error: '計畫名稱或年度不能為空'});
+        }
+        
+        let result;
+        try {
+            result = await pool.query(
+                `SELECT id, plan_name AS name, year, railway, inspection_type, business 
+                 FROM inspection_plan_schedule 
+                 WHERE plan_name = $1 AND year = $2 
+                 ORDER BY id ASC 
+                 LIMIT 1`,
+                [decodedName, decodedYear]
+            );
+        } catch (queryError) {
+            console.error('Database query error in /api/plans/by-name:', queryError);
+            console.error('Query params - name:', decodedName, 'year:', decodedYear);
+            return res.status(500).json({error: '查詢資料庫時發生錯誤', details: queryError.message});
+        }
         
         if (result.rows.length === 0) {
             return res.status(404).json({error: '找不到該計畫'});
@@ -1645,6 +1669,7 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
     } catch (e) {
         console.error('Get plan by name and year error:', e);
         console.error('Request params - name:', name, 'year:', year);
+        console.error('Error stack:', e.stack);
         handleApiError(e, req, res, 'Get plan by name and year error');
     }
 });
