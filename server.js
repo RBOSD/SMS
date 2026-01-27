@@ -1431,40 +1431,51 @@ app.post('/api/admin/action_logs/cleanup', requireAuth, requireAdmin, verifyCsrf
 
 app.get('/api/options/plans', requireAuth, async (req, res) => {
     try {
-        const { withIssues } = req.query; // 如果 withIssues=true，只返回有關聯開立事項的計畫
+        const { withIssues } = req.query;
         
         let planResult;
-        if (withIssues === 'true') {
-            planResult = await pool.query(`
-                SELECT DISTINCT s.plan_name AS name, s.year 
-                FROM inspection_plan_schedule s
-                INNER JOIN issues i ON i.plan_name = s.plan_name AND i.year = s.year
-                WHERE s.plan_name IS NOT NULL AND s.plan_name != ''
-                    AND i.plan_name IS NOT NULL AND i.plan_name != ''
-                    AND i.year IS NOT NULL AND i.year != ''
-                    AND s.year IS NOT NULL AND s.year != ''
-                ORDER BY s.year DESC, s.plan_name ASC
-            `);
-        } else {
-            planResult = await pool.query(`
-                SELECT DISTINCT plan_name AS name, year 
-                FROM inspection_plan_schedule 
-                WHERE plan_name IS NOT NULL AND plan_name != ''
-                ORDER BY COALESCE(year, '') DESC, plan_name ASC
-            `);
+        try {
+            if (withIssues === 'true') {
+                planResult = await pool.query(`
+                    SELECT DISTINCT s.plan_name AS name, s.year 
+                    FROM inspection_plan_schedule s
+                    INNER JOIN issues i ON i.plan_name = s.plan_name AND i.year = s.year
+                    WHERE s.plan_name IS NOT NULL AND s.plan_name != ''
+                        AND i.plan_name IS NOT NULL AND i.plan_name != ''
+                        AND i.year IS NOT NULL AND i.year != ''
+                        AND s.year IS NOT NULL AND s.year != ''
+                    ORDER BY s.year DESC, s.plan_name ASC
+                `);
+            } else {
+                planResult = await pool.query(`
+                    SELECT DISTINCT plan_name AS name, year 
+                    FROM inspection_plan_schedule 
+                    WHERE plan_name IS NOT NULL AND plan_name != ''
+                        AND year IS NOT NULL AND year != ''
+                    ORDER BY year DESC, plan_name ASC
+                `);
+            }
+        } catch (queryError) {
+            console.error('Database query error in /api/options/plans:', queryError);
+            return res.status(500).json({ error: '查詢資料庫時發生錯誤', details: queryError.message });
         }
         
         res.set('Cache-Control', 'no-store');
-        const plans = (planResult.rows || [])
-            .filter(r => r.name && r.name.trim() !== '')
-            .map(r => ({
-                name: r.name,
-                year: r.year || '',
-                display: `${r.name}${r.year ? ` (${r.year})` : ''}`,
-                value: `${r.name}|||${r.year || ''}`
-            }));
+        const plans = (planResult?.rows || [])
+            .filter(r => r && r.name && String(r.name).trim() !== '')
+            .map(r => {
+                const name = String(r.name || '').trim();
+                const year = String(r.year || '').trim();
+                return {
+                    name,
+                    year,
+                    display: `${name}${year ? ` (${year})` : ''}`,
+                    value: `${name}|||${year}`
+                };
+            });
         res.json({ data: plans });
-    } catch (e) { 
+    } catch (e) {
+        console.error('Get plan options error:', e);
         handleApiError(e, req, res, 'Get plan options error');
     }
 });
