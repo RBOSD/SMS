@@ -4420,6 +4420,7 @@ if (dashboard) {
                 
                 let issuesData = [];
                 let plansData = [];
+                let planSchedulesData = [];
                 
                 // 根據選擇的資料類型獲取資料
                 if (exportDataType === 'issues' || exportDataType === 'both') {
@@ -4434,6 +4435,13 @@ if (dashboard) {
                     if (!res.ok) throw new Error('取得檢查計畫資料失敗');
                     const json = await res.json();
                     plansData = json.data || [];
+                    
+                    // 取得檢查計畫規劃（排程）資料
+                    const scheduleRes = await fetch('/api/plan-schedule/all', { credentials: 'include' });
+                    if (scheduleRes.ok) {
+                        const scheduleJson = await scheduleRes.json();
+                        planSchedulesData = scheduleJson.data || [];
+                    }
                 }
                 
                 // 檢查是否有資料可匯出
@@ -4455,6 +4463,9 @@ if (dashboard) {
                     }
                     if (exportDataType === 'plans' || exportDataType === 'both') {
                         exportData.plans = plansData;
+                        if (planSchedulesData.length > 0) {
+                            exportData.planSchedules = planSchedulesData;
+                        }
                     }
                     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
                     const link = document.createElement("a");
@@ -4472,7 +4483,7 @@ if (dashboard) {
                 if (exportFormat === 'excel') {
                     const wb = XLSX.utils.book_new();
                     
-                    // 如果選擇合併匯出，創建兩個工作表
+                    // 如果選擇合併匯出，創建多個工作表
                     if (exportDataType === 'both') {
                         // 工作表1：檢查計畫
                         if (plansData.length > 0) {
@@ -4492,7 +4503,30 @@ if (dashboard) {
                             XLSX.utils.book_append_sheet(wb, plansWS, '檢查計畫');
                         }
                         
-                        // 工作表2：開立事項
+                        // 工作表：檢查計畫規劃（排程）
+                        if (planSchedulesData.length > 0) {
+                            const schedulesWSData = [
+                                ['計畫名稱', '年度', '開始日期', '結束日期', '鐵路機構', '檢查類別', '業務類別', '檢查次數', '取號編碼', '建立時間']
+                            ];
+                            planSchedulesData.forEach(s => {
+                                schedulesWSData.push([
+                                    s.plan_name || '',
+                                    s.year || '',
+                                    s.start_date ? s.start_date.slice(0, 10) : '',
+                                    s.end_date ? s.end_date.slice(0, 10) : '',
+                                    s.railway || '',
+                                    s.inspection_type || '',
+                                    s.business || '',
+                                    s.inspection_seq || '',
+                                    s.plan_number || '',
+                                    s.created_at ? new Date(s.created_at).toLocaleString('zh-TW') : ''
+                                ]);
+                            });
+                            const schedulesWS = XLSX.utils.aoa_to_sheet(schedulesWSData);
+                            XLSX.utils.book_append_sheet(wb, schedulesWS, '檢查計畫規劃');
+                        }
+                        
+                        // 工作表：開立事項
                         if (issuesData.length > 0) {
                             const issuesWSData = [];
                             if (exportScope === 'latest') {
@@ -4548,20 +4582,45 @@ if (dashboard) {
                         }
                     } else if (exportDataType === 'plans') {
                         // 僅匯出檢查計畫
-                        const plansWSData = [
-                            ['計畫名稱', '年度', '建立時間', '更新時間', '關聯事項數']
-                        ];
-                        plansData.forEach(plan => {
-                            plansWSData.push([
-                                plan.name || '',
-                                plan.year || '',
-                                new Date(plan.created_at).toLocaleString('zh-TW'),
-                                new Date(plan.updated_at).toLocaleString('zh-TW'),
-                                plan.issue_count || 0
-                            ]);
-                        });
-                        const plansWS = XLSX.utils.aoa_to_sheet(plansWSData);
-                        XLSX.utils.book_append_sheet(wb, plansWS, '檢查計畫');
+                        if (plansData.length > 0) {
+                            const plansWSData = [
+                                ['計畫名稱', '年度', '建立時間', '更新時間', '關聯事項數']
+                            ];
+                            plansData.forEach(plan => {
+                                plansWSData.push([
+                                    plan.name || '',
+                                    plan.year || '',
+                                    new Date(plan.created_at).toLocaleString('zh-TW'),
+                                    new Date(plan.updated_at).toLocaleString('zh-TW'),
+                                    plan.issue_count || 0
+                                ]);
+                            });
+                            const plansWS = XLSX.utils.aoa_to_sheet(plansWSData);
+                            XLSX.utils.book_append_sheet(wb, plansWS, '檢查計畫');
+                        }
+                        
+                        // 檢查計畫規劃（排程）
+                        if (planSchedulesData.length > 0) {
+                            const schedulesWSData = [
+                                ['計畫名稱', '年度', '開始日期', '結束日期', '鐵路機構', '檢查類別', '業務類別', '檢查次數', '取號編碼', '建立時間']
+                            ];
+                            planSchedulesData.forEach(s => {
+                                schedulesWSData.push([
+                                    s.plan_name || '',
+                                    s.year || '',
+                                    s.start_date ? s.start_date.slice(0, 10) : '',
+                                    s.end_date ? s.end_date.slice(0, 10) : '',
+                                    s.railway || '',
+                                    s.inspection_type || '',
+                                    s.business || '',
+                                    s.inspection_seq || '',
+                                    s.plan_number || '',
+                                    s.created_at ? new Date(s.created_at).toLocaleString('zh-TW') : ''
+                                ]);
+                            });
+                            const schedulesWS = XLSX.utils.aoa_to_sheet(schedulesWSData);
+                            XLSX.utils.book_append_sheet(wb, schedulesWS, '檢查計畫規劃');
+                        }
                     } else {
                         // 僅匯出開立事項
                         const issuesWSData = [];
@@ -5179,6 +5238,11 @@ if (dashboard) {
                     showToast(msg, failCount > 0 ? 'warning' : 'success');
                     loadPlansPage(plansPage);
                     loadPlanOptions();
+                    // 如果當前在計畫規劃頁面，重新載入月曆
+                    const scheduleTab = document.getElementById('subtab-plans-schedule');
+                    if (scheduleTab && !scheduleTab.classList.contains('hidden')) {
+                        loadScheduleForMonth();
+                    }
                 } else {
                     showToast(`刪除失敗：${errors.length > 0 ? errors[0] : '未知錯誤'}`, 'error');
                 }
@@ -5717,7 +5781,12 @@ if (dashboard) {
                 if (res.ok) {
                     showToast('刪除成功');
                     loadPlansPage(1);
-                    loadPlanOptions(); // 重新載入計畫選項
+                    loadPlanOptions();
+                    // 如果當前在計畫規劃頁面，重新載入月曆
+                    const scheduleTab = document.getElementById('subtab-plans-schedule');
+                    if (scheduleTab && !scheduleTab.classList.contains('hidden')) {
+                        loadScheduleForMonth();
+                    }
                 } else {
                     showToast(j.error || '刪除失敗', 'error');
                 }

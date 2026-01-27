@@ -1640,13 +1640,17 @@ app.delete('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, asy
         const planYear = planRes.rows[0].year || '';
         
         // 檢查是否有關聯事項
-        const issueCount = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1", [planName]);
+        const issueCount = await pool.query("SELECT count(*) FROM issues WHERE plan_name = $1 AND year = $2", [planName, planYear]);
         const count = parseInt(issueCount.rows[0].count);
         
         if (count > 0) {
             return res.status(400).json({error: `無法刪除計畫，因為尚有 ${count} 筆相關開立事項。請先刪除或轉移相關事項。`});
         }
         
+        // 刪除相關的檢查計畫規劃（排程項目）
+        await pool.query("DELETE FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2", [planName, planYear]);
+        
+        // 刪除計畫
         await pool.query("DELETE FROM inspection_plans WHERE id=$1", [req.params.id]);
         logAction(req.session.user.username, 'DELETE_PLAN', `刪除檢查計畫：${planName}${planYear ? ` (年度：${planYear})` : ''}`, req);
         res.json({success:true});
@@ -1839,6 +1843,19 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
         res.json({ success: true, planNumber, inspectionSeq: seq });
     } catch (e) {
         handleApiError(e, req, res, 'Create plan schedule error');
+    }
+});
+
+app.get('/api/plan-schedule/all', requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+        const rows = await pool.query(
+            `SELECT id, start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, created_at, updated_at 
+             FROM inspection_plan_schedule 
+             ORDER BY year DESC, start_date ASC, id ASC`
+        );
+        res.json({ data: rows.rows || [] });
+    } catch (e) {
+        handleApiError(e, req, res, 'Get all plan schedules error');
     }
 });
 
