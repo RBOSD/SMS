@@ -1628,23 +1628,39 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         
         let result;
         try {
+            // 確保參數是字串類型
+            const queryName = String(decodedName).trim();
+            const queryYear = String(decodedYear).trim();
+            
+            if (!queryName || !queryYear) {
+                return res.status(400).json({error: '計畫名稱或年度不能為空'});
+            }
+            
             result = await pool.query(
                 `SELECT id, plan_name AS name, year, railway, inspection_type, business 
                  FROM inspection_plan_schedule 
                  WHERE plan_name = $1 AND year = $2 
                  ORDER BY id ASC 
                  LIMIT 1`,
-                [decodedName, decodedYear]
+                [queryName, queryYear]
             );
         } catch (queryError) {
             console.error('Database query error in /api/plans/by-name:', queryError);
             console.error('Query params - name:', decodedName, 'year:', decodedYear);
             console.error('Error code:', queryError.code);
             console.error('Error detail:', queryError.detail);
+            console.error('Error message:', queryError.message);
+            console.error('Error stack:', queryError.stack);
             
             // 如果是連線錯誤，返回特定訊息
-            if (queryError.code === 'ECONNREFUSED' || queryError.code === 'ETIMEDOUT' || queryError.message?.includes('Connection')) {
+            if (queryError.code === 'ECONNREFUSED' || queryError.code === 'ETIMEDOUT' || 
+                queryError.message?.includes('Connection') || queryError.message?.includes('timeout')) {
                 return res.status(503).json({error: '資料庫連線失敗，請稍後再試'});
+            }
+            
+            // 如果是 MaxClients 錯誤
+            if (queryError.code === 'XX000' || queryError.message?.includes('MaxClients')) {
+                return res.status(503).json({error: '資料庫連線數已達上限，請稍後再試'});
             }
             
             return res.status(500).json({
@@ -1664,23 +1680,50 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         
         const plan = result.rows[0];
         if (!plan) {
+            console.error('Plan row is null or undefined');
             return res.status(500).json({error: '無法讀取計畫資料'});
         }
         
-        // 檢查是否有有效的 railway, inspection_type, business
-        const hasValidInfo = plan.railway && plan.railway !== '-' && 
-                            plan.inspection_type && plan.inspection_type !== '-' && 
-                            plan.business && plan.business !== '-';
-        
-        if (!hasValidInfo) {
-            // 返回計畫資訊，但標記為不完整
-            return res.json({
-                data: [plan],
-                warning: '該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯'
+        try {
+            // 檢查是否有有效的 railway, inspection_type, business
+            const railway = plan.railway ? String(plan.railway).trim() : '';
+            const inspection_type = plan.inspection_type ? String(plan.inspection_type).trim() : '';
+            const business = plan.business ? String(plan.business).trim() : '';
+            
+            const hasValidInfo = railway && railway !== '-' && 
+                                inspection_type && inspection_type !== '-' && 
+                                business && business !== '-';
+            
+            if (!hasValidInfo) {
+                // 返回計畫資訊，但標記為不完整
+                return res.json({
+                    data: [{
+                        id: plan.id,
+                        name: plan.name,
+                        year: plan.year,
+                        railway: railway,
+                        inspection_type: inspection_type,
+                        business: business
+                    }],
+                    warning: '該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯'
+                });
+            }
+            
+            res.json({
+                data: [{
+                    id: plan.id,
+                    name: plan.name,
+                    year: plan.year,
+                    railway: railway,
+                    inspection_type: inspection_type,
+                    business: business
+                }]
             });
+        } catch (processError) {
+            console.error('Error processing plan data:', processError);
+            console.error('Plan object:', plan);
+            return res.status(500).json({error: '處理計畫資料時發生錯誤'});
         }
-        
-        res.json({data: [plan]});
     } catch (e) {
         console.error('Get plan by name and year error:', e);
         console.error('Request params - name:', name, 'year:', year);
