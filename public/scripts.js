@@ -5072,9 +5072,13 @@ if (dashboard) {
                     if (scheduleRes.ok) {
                         const scheduleData = await scheduleRes.json();
                         const schedules = scheduleData.data || [];
-                        if (schedules.length > 0) {
-                            codesHtml = schedules.map(s => `<div style="margin:2px 0; font-size:12px;">${s.plan_number || '-'}</div>`).join('');
-                            datesHtml = schedules.map(s => {
+                        // 過濾掉沒有實際日期的排程（plan_number = '(手動)' 且 start_date 為 NULL 的記錄）
+                        const validSchedules = schedules.filter(s => 
+                            s.start_date && s.plan_number && s.plan_number !== '(手動)'
+                        );
+                        if (validSchedules.length > 0) {
+                            codesHtml = validSchedules.map(s => `<div style="margin:2px 0; font-size:12px;">${s.plan_number || '-'}</div>`).join('');
+                            datesHtml = validSchedules.map(s => {
                                 const startDate = s.start_date ? s.start_date.slice(0, 10) : '-';
                                 const endDate = s.end_date ? s.end_date.slice(0, 10) : null;
                                 const range = endDate && endDate !== startDate ? `${startDate} ~ ${endDate}` : startDate;
@@ -5640,28 +5644,36 @@ if (dashboard) {
                     const [planName, planYear] = val.split('|||');
                     try {
                         const planRes = await fetch(`/api/plans/by-name?name=${encodeURIComponent(planName)}&year=${encodeURIComponent(planYear)}&t=${Date.now()}`, { credentials: 'include' });
-                        if (planRes.ok) {
-                            const planData = await planRes.json();
-                            if (planData.data && planData.data.length > 0) {
-                                const plan = planData.data[0];
-                                const scheduleRes = await fetch(`/api/plans/${plan.id}/schedules?t=${Date.now()}`, { credentials: 'include' });
-                                if (scheduleRes.ok) {
-                                    const scheduleData = await scheduleRes.json();
-                                    if (scheduleData.data && scheduleData.data.length > 0) {
-                                        const s = scheduleData.data[0];
-                                        schedulePlanDetails = {
-                                            plan_name: planName,
-                                            year: planYear,
-                                            railway: s.railway || '',
-                                            inspection_type: s.inspection_type || '',
-                                            business: s.business || ''
-                                        };
-                                    }
-                                }
+                        if (!planRes.ok) {
+                            if (planRes.status === 404) {
+                                showToast('找不到該計畫，請重新選擇', 'error');
+                            } else {
+                                showToast('無法取得計畫資訊，請重新選擇計畫', 'error');
                             }
+                            schedulePlanDetails = {};
+                            return;
+                        }
+                        const planData = await planRes.json();
+                        if (planData.data && planData.data.length > 0) {
+                            const plan = planData.data[0];
+                            schedulePlanDetails = {
+                                plan_name: planName,
+                                year: planYear,
+                                railway: plan.railway || '',
+                                inspection_type: plan.inspection_type || '',
+                                business: plan.business || ''
+                            };
+                            if (!schedulePlanDetails.railway || !schedulePlanDetails.inspection_type || !schedulePlanDetails.business) {
+                                showToast('該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯', 'warning');
+                            }
+                        } else {
+                            showToast('無法取得計畫資訊，請重新選擇計畫', 'error');
+                            schedulePlanDetails = {};
                         }
                     } catch (e) {
                         console.error('載入計畫詳情失敗:', e);
+                        showToast('無法取得計畫資訊，請重新選擇計畫', 'error');
+                        schedulePlanDetails = {};
                     }
                 };
             } catch (e) {

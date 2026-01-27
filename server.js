@@ -316,7 +316,7 @@ async function initDB() {
                 // 檢查計畫單一表（原 inspection_plan_schedule）：月曆排程 + 取號 等，不再使用 inspection_plans
                 await client.query(`CREATE TABLE IF NOT EXISTS inspection_plan_schedule (
                     id SERIAL PRIMARY KEY,
-                    start_date DATE NOT NULL,
+                    start_date DATE,
                     end_date DATE,
                     plan_name TEXT NOT NULL,
                     year TEXT NOT NULL,
@@ -331,6 +331,12 @@ async function initDB() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
+                // 修改 start_date 為允許 NULL（如果原本是 NOT NULL）
+                try {
+                    await client.query(`ALTER TABLE inspection_plan_schedule ALTER COLUMN start_date DROP NOT NULL`);
+                } catch (e) {
+                    // 如果已經是 NULL 或不存在，忽略錯誤
+                }
                 await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS plan_type TEXT`);
                 await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS location TEXT`);
                 await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS inspector TEXT`);
@@ -1590,7 +1596,11 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
     try {
         if (name && year) {
             const result = await pool.query(
-                "SELECT id, plan_name AS name, year FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 LIMIT 1",
+                `SELECT id, plan_name AS name, year, railway, inspection_type, business 
+                 FROM inspection_plan_schedule 
+                 WHERE plan_name = $1 AND year = $2 
+                 ORDER BY id ASC 
+                 LIMIT 1`,
                 [name, year]
             );
             if (result.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
@@ -1662,7 +1672,6 @@ app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (re
         const rCode = String(railway).toUpperCase();
         const it = String(inspection_type);
         const b = String(business).toUpperCase();
-        const today = new Date().toISOString().slice(0, 10);
         const exists = await pool.query(
             "SELECT 1 FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 LIMIT 1",
             [n, y]
@@ -1672,8 +1681,8 @@ app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (re
         }
         await pool.query(
             `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number)
-             VALUES ($1, NULL, $2, $3, $4, $5, $6, '00', '(手動)')`,
-            [today, n, y, rCode, it, b]
+             VALUES (NULL, NULL, $1, $2, $3, $4, $5, '00', '(手動)')`,
+            [n, y, rCode, it, b]
         );
         logAction(req.session.user.username, 'CREATE_PLAN', `新增檢查計畫：${n} (年度：${y})`, req);
         res.json({success:true});
