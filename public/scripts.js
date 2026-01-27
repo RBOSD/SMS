@@ -5652,6 +5652,9 @@ if (dashboard) {
                         const encodedName = encodeURIComponent(planName.trim());
                         const encodedYear = encodeURIComponent(planYear.trim());
                         const url = `/api/plans/by-name?name=${encodedName}&year=${encodedYear}&t=${Date.now()}`;
+                        
+                        console.log('Fetching plan:', { planName, planYear, url });
+                        
                         const planRes = await fetch(url, { 
                             credentials: 'include',
                             cache: 'no-store',
@@ -5659,19 +5662,29 @@ if (dashboard) {
                                 'Accept': 'application/json'
                             }
                         });
+                        
+                        console.log('Plan response status:', planRes.status, planRes.statusText);
                         if (!planRes.ok) {
                             let errorMsg = '無法取得計畫資訊，請重新選擇計畫';
                             let errorDetails = '';
+                            let errorText = '';
+                            
                             try {
-                                const errorData = await planRes.json();
+                                errorText = await planRes.text();
+                                console.error('Plan API error response:', errorText);
+                                const errorData = JSON.parse(errorText);
                                 if (errorData.error) errorMsg = errorData.error;
                                 if (errorData.details) errorDetails = errorData.details;
                             } catch (e) {
+                                console.error('Failed to parse error response:', e);
+                                console.error('Raw error text:', errorText);
                                 // 如果無法解析 JSON，使用狀態碼訊息
                                 if (planRes.status === 500) {
                                     errorMsg = '伺服器錯誤，請稍後再試';
                                 } else if (planRes.status === 503) {
                                     errorMsg = '服務暫時不可用，請稍後再試';
+                                } else if (planRes.status === 401) {
+                                    errorMsg = '請重新登入';
                                 }
                             }
                             
@@ -5719,6 +5732,9 @@ if (dashboard) {
                         }
                     } catch (e) {
                         console.error('載入計畫詳情失敗:', e);
+                        console.error('Error type:', e?.constructor?.name);
+                        console.error('Error message:', e?.message);
+                        console.error('Error stack:', e?.stack);
                         showToast('無法取得計畫資訊，請重新選擇計畫', 'error');
                         schedulePlanDetails = {};
                         select.value = '';

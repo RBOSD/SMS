@@ -231,10 +231,16 @@ const verifyCsrf = (req, res, next) => {
 app.use('/api/', getCsrfToken);
 
 const requireAuth = (req, res, next) => {
-    if (req.session && req.session.user) {
-        next();
-    } else {
-        res.status(401).json({ error: 'Unauthorized' });
+    try {
+        if (req.session && req.session.user) {
+            next();
+        } else {
+            console.warn('[AUTH] Unauthorized request to:', req.path, 'Session:', !!req.session);
+            res.status(401).json({ error: 'Unauthorized' });
+        }
+    } catch (e) {
+        console.error('[AUTH] Error in requireAuth middleware:', e);
+        res.status(500).json({ error: 'Authentication check failed' });
     }
 };
 
@@ -1593,8 +1599,10 @@ app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) =
 
 app.get('/api/plans/by-name', requireAuth, async (req, res) => {
     const { name, year } = req.query;
+    console.log('[API] /api/plans/by-name called with:', { name, year, hasSession: !!req.session?.user });
     try {
         if (!name || !year) {
+            console.warn('[API] Missing params:', { name, year });
             return res.status(400).json({error: '請提供 name 和 year 參數'});
         }
         
@@ -1709,6 +1717,7 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
                 });
             }
             
+                console.log('[API] Returning plan data:', { id: plan.id, name: plan.name, year: plan.year });
             res.json({
                 data: [{
                     id: plan.id,
@@ -1720,20 +1729,27 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
                 }]
             });
         } catch (processError) {
-            console.error('Error processing plan data:', processError);
-            console.error('Plan object:', plan);
-            return res.status(500).json({error: '處理計畫資料時發生錯誤'});
+            console.error('[API] Error processing plan data:', processError);
+            console.error('[API] Plan object:', plan);
+            console.error('[API] Error stack:', processError.stack);
+            if (!res.headersSent) {
+                return res.status(500).json({error: '處理計畫資料時發生錯誤'});
+            }
         }
     } catch (e) {
-        console.error('Get plan by name and year error:', e);
-        console.error('Request params - name:', name, 'year:', year);
-        console.error('Error type:', e?.constructor?.name);
-        console.error('Error message:', e?.message);
-        console.error('Error stack:', e?.stack);
+        console.error('[API] Get plan by name and year error:', e);
+        console.error('[API] Request params - name:', name, 'year:', year);
+        console.error('[API] Error type:', e?.constructor?.name);
+        console.error('[API] Error message:', e?.message);
+        console.error('[API] Error stack:', e?.stack);
+        console.error('[API] Request URL:', req.url);
+        console.error('[API] Request query:', req.query);
         
         // 確保總是返回響應
         if (!res.headersSent) {
             handleApiError(e, req, res, 'Get plan by name and year error');
+        } else {
+            console.error('[API] Response already sent, cannot send error response');
         }
     }
 });
