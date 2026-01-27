@@ -5366,12 +5366,51 @@ if (dashboard) {
         }
 
         async function printScheduleCalendar() {
-            const cal = document.getElementById('scheduleCalendar');
             const title = document.getElementById('scheduleMonthTitle');
-            if (!cal || !title) return;
+            if (!title) return;
+            
+            const y = scheduleCalendarYear;
+            const m = scheduleCalendarMonth;
+            const first = new Date(y, m - 1, 1);
+            const last = new Date(y, m, 0);
+            const startPad = (first.getDay() + 6) % 7;
+            const days = last.getDate();
+            const pad = Array(startPad).fill(0).map(() => '<div class="schedule-cal-day schedule-cal-pad"></div>').join('');
+            const dayCells = [];
+            
+            for (let d = 1; d <= days; d++) {
+                const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const isHoliday = holidayData[dateStr] || false;
+                const holidayClass = isHoliday ? 'schedule-cal-holiday' : '';
+                const plansForDay = scheduleMonthData.filter(s => {
+                    const startStr = (s.start_date || '').slice(0, 10);
+                    const endStr = (s.end_date || '').slice(0, 10) || startStr;
+                    return dateStr >= startStr && dateStr <= endStr;
+                });
+                const hasPlan = plansForDay.length > 0;
+                const colorIndices = plansForDay.map(s => schedulePlanColorIndex(s.plan_name || s.id));
+                const colorDots = colorIndices.map((idx, i) => {
+                    const name = (plansForDay[i].plan_name || '').trim() || '未命名';
+                    return `<span class="schedule-cal-color-dot" style="background:${SCHEDULE_PLAN_COLORS[idx]};" title="${name}"></span>`;
+                }).join('');
+                const colorDotsHtml = colorDots ? `<div class="schedule-cal-dots">${colorDots}</div>` : '';
+                const nameSpans = plansForDay.map((s, i) => {
+                    const idx = colorIndices[i];
+                    const tc = SCHEDULE_PLAN_TEXT_COLORS[idx] || '#1e3a8a';
+                    const name = (s.plan_name || '').trim() || '未命名';
+                    return `<span class="schedule-cal-plan-name" style="color:${tc};" title="${name}">${name}</span>`;
+                });
+                const planText = nameSpans.length > 0 ? `<div class="schedule-cal-plan-names">${nameSpans.join('<span class="schedule-cal-sep">、</span>')}</div>` : '';
+                const primaryColorIdx = hasPlan ? colorIndices[0] : 0;
+                const colorClass = hasPlan ? `schedule-cal-plan-${primaryColorIdx}` : '';
+                const bgColor = hasPlan ? SCHEDULE_PLAN_COLORS[primaryColorIdx] : '#fff';
+                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan ' + colorClass : ''} ${holidayClass}" style="background:${isHoliday ? '#fef2f2' : bgColor};"><div class="schedule-cal-day-num">${d}</div>${colorDotsHtml}${planText}</div>`);
+            }
+            
+            const calendarHtml = `<div class="schedule-cal-head">一</div><div class="schedule-cal-head">二</div><div class="schedule-cal-head">三</div><div class="schedule-cal-head">四</div><div class="schedule-cal-head">五</div><div class="schedule-cal-head">六</div><div class="schedule-cal-head">日</div>${pad}${dayCells.join('')}`;
+            const monthTitle = title.textContent;
             
             const printWindow = window.open('', '_blank');
-            const monthTitle = title.textContent;
             printWindow.document.write(`
                 <!DOCTYPE html>
                 <html>
@@ -5379,31 +5418,121 @@ if (dashboard) {
                     <meta charset="UTF-8">
                     <title>${monthTitle} - 檢查計畫月曆</title>
                     <style>
-                        @page { size: A4 landscape; margin: 15mm; }
-                        body { font-family: "Microsoft JhengHei", Arial, sans-serif; margin: 0; padding: 20px; }
-                        h1 { text-align: center; margin-bottom: 20px; font-size: 24px; }
-                        .schedule-calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-                        .schedule-cal-head { background: #334155; color: white; padding: 12px; text-align: center; font-weight: 700; font-size: 16px; }
-                        .schedule-cal-day { border: 1px solid #e2e8f0; padding: 8px; min-height: 100px; background: white; }
-                        .schedule-cal-day-num { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
-                        .schedule-cal-holiday { background: #fef2f2 !important; }
-                        .schedule-cal-holiday .schedule-cal-day-num { color: #dc2626; }
-                        .schedule-cal-plan-names { font-size: 14px; line-height: 1.5; margin-top: 4px; }
-                        .schedule-cal-plan-name { font-weight: 600; font-size: 14px; display: block; margin: 2px 0; }
-                        .schedule-cal-sep { color: #94a3b8; }
-                        .schedule-cal-pad { background: #f8fafc; }
+                        @page { size: A4 landscape; margin: 5mm; }
+                        * { box-sizing: border-box; }
+                        body { 
+                            font-family: "Microsoft JhengHei", "微軟正黑體", Arial, sans-serif; 
+                            margin: 0; 
+                            padding: 10px; 
+                            background: white;
+                        }
+                        h1 { 
+                            text-align: center; 
+                            margin: 0 0 15px 0; 
+                            font-size: 28px; 
+                            font-weight: 700;
+                            color: #334155;
+                        }
+                        .schedule-calendar { 
+                            display: grid; 
+                            grid-template-columns: repeat(7, 1fr); 
+                            gap: 3px; 
+                            background: #e2e8f0;
+                            border: 2px solid #e2e8f0;
+                            border-radius: 8px;
+                            overflow: hidden;
+                        }
+                        .schedule-cal-head { 
+                            background: #334155; 
+                            color: white; 
+                            padding: 16px 8px; 
+                            text-align: center; 
+                            font-weight: 700; 
+                            font-size: 18px; 
+                        }
+                        .schedule-cal-day { 
+                            border: 1px solid #e2e8f0; 
+                            padding: 10px 6px; 
+                            min-height: 140px; 
+                            background: white; 
+                            display: flex;
+                            flex-direction: column;
+                            align-items: flex-start;
+                            justify-content: flex-start;
+                        }
+                        .schedule-cal-day-num { 
+                            font-weight: 700; 
+                            font-size: 18px; 
+                            margin-bottom: 6px; 
+                            color: #334155;
+                        }
+                        .schedule-cal-holiday { 
+                            background: #fef2f2 !important; 
+                        }
+                        .schedule-cal-holiday .schedule-cal-day-num { 
+                            color: #dc2626; 
+                        }
+                        .schedule-cal-plan-names { 
+                            font-size: 16px; 
+                            line-height: 1.6; 
+                            margin-top: 4px; 
+                            width: 100%;
+                            word-break: break-word;
+                        }
+                        .schedule-cal-plan-name { 
+                            font-weight: 600; 
+                            font-size: 16px; 
+                            display: block; 
+                            margin: 3px 0; 
+                        }
+                        .schedule-cal-sep { 
+                            color: #94a3b8; 
+                            margin: 0 4px;
+                        }
+                        .schedule-cal-pad { 
+                            background: #f8fafc; 
+                        }
+                        .schedule-cal-dots {
+                            display: flex;
+                            gap: 4px;
+                            flex-wrap: wrap;
+                            margin-bottom: 4px;
+                        }
+                        .schedule-cal-color-dot {
+                            width: 10px;
+                            height: 10px;
+                            border-radius: 50%;
+                            display: inline-block;
+                            border: 1px solid rgba(0,0,0,0.1);
+                        }
+                        .schedule-cal-day.schedule-cal-plan-0 { background: #dbeafe; }
+                        .schedule-cal-day.schedule-cal-plan-1 { background: #dcfce7; }
+                        .schedule-cal-day.schedule-cal-plan-2 { background: #fef3c7; }
+                        .schedule-cal-day.schedule-cal-plan-3 { background: #fce7f3; }
+                        .schedule-cal-day.schedule-cal-plan-4 { background: #e0e7ff; }
+                        .schedule-cal-day.schedule-cal-plan-5 { background: #d1fae5; }
+                        .schedule-cal-day.schedule-cal-plan-6 { background: #fed7aa; }
+                        .schedule-cal-day.schedule-cal-plan-7 { background: #e9d5ff; }
+                        @media print {
+                            body { padding: 0; }
+                            h1 { margin-bottom: 10px; font-size: 32px; }
+                            .schedule-cal-day { min-height: 160px; padding: 12px 8px; }
+                            .schedule-cal-day-num { font-size: 20px; }
+                            .schedule-cal-plan-names { font-size: 17px; }
+                            .schedule-cal-plan-name { font-size: 17px; }
+                        }
                     </style>
                 </head>
                 <body>
                     <h1>${monthTitle} - 檢查計畫月曆</h1>
-                    ${cal.innerHTML}
+                    <div class="schedule-calendar">${calendarHtml}</div>
                 </body>
                 </html>
             `);
             printWindow.document.close();
             setTimeout(() => {
                 printWindow.print();
-            }, 250);
+            }, 300);
         }
 
         async function loadScheduleForMonth() {
@@ -5422,15 +5551,24 @@ if (dashboard) {
                 scheduleMonthData = j.data || [];
                 
                 try {
-                    const holidayRes = await fetch(`/api/holidays/${scheduleCalendarYear}`, { credentials: 'include' });
+                    const holidayRes = await fetch(`/api/holidays/${scheduleCalendarYear}?t=${Date.now()}`, { 
+                        credentials: 'include',
+                        cache: 'no-store'
+                    });
                     if (holidayRes.ok) {
                         const holidayJson = await holidayRes.json();
                         holidayData = {};
                         (holidayJson.data || []).forEach(h => {
-                            if (h.isHoliday && h.date) {
-                                holidayData[h.date.slice(0, 10)] = true;
+                            if (h && h.date) {
+                                const dateStr = String(h.date).slice(0, 10);
+                                if (h.isHoliday === true || h.isHoliday === 'true' || String(h.isHoliday).toLowerCase() === 'true') {
+                                    holidayData[dateStr] = true;
+                                }
                             }
                         });
+                        console.log(`已載入 ${Object.keys(holidayData).length} 個假日`);
+                    } else {
+                        console.warn('取得假日資料失敗，狀態碼:', holidayRes.status);
                     }
                 } catch (e) {
                     console.warn('載入假日資料失敗:', e);

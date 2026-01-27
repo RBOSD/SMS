@@ -1934,30 +1934,46 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
         if (!year || year < 2000 || year > 2100) {
             return res.status(400).json({ error: '無效的年份' });
         }
+        
+        // 使用 https 模組直接請求，避免 fetch 相容性問題
+        const https = require('https');
         const url = `https://data.ntpc.gov.tw/api/datasets/308DCD75-6434-45BC-A95F-584DA4FED251/json?page=0&size=1000`;
-        let fetchFn = fetch;
-        if (typeof fetch === 'undefined') {
-            try {
-                fetchFn = require('node-fetch');
-            } catch (e) {
-                return res.json({ data: [] });
-            }
-        }
-        const response = await fetchFn(url);
-        if (!response.ok) {
-            return res.json({ data: [] });
-        }
-        const data = await response.json();
-        const holidays = (data || []).filter(h => {
-            if (!h.date) return false;
-            const hYear = parseInt(h.date.slice(0, 4), 10);
-            return hYear === year;
-        }).map(h => ({
-            date: h.date,
-            name: h.name || h.holidayCategory || '假日',
-            isHoliday: h.isHoliday !== '否'
-        }));
-        res.json({ data: holidays });
+        
+        return new Promise((resolve) => {
+            https.get(url, (response) => {
+                let data = '';
+                response.on('data', (chunk) => { data += chunk; });
+                response.on('end', () => {
+                    try {
+                        const jsonData = JSON.parse(data);
+                        const holidays = (jsonData || []).filter(h => {
+                            if (!h.date) return false;
+                            const dateStr = String(h.date);
+                            const hYear = parseInt(dateStr.slice(0, 4), 10);
+                            return hYear === year;
+                        }).map(h => {
+                            const dateStr = String(h.date || '');
+                            const isHoliday = String(h.isHoliday || '').trim() !== '否' && String(h.isHoliday || '').trim() !== 'N';
+                            return {
+                                date: dateStr,
+                                name: h.name || h.holidayCategory || '假日',
+                                isHoliday: isHoliday
+                            };
+                        });
+                        res.json({ data: holidays });
+                        resolve();
+                    } catch (parseError) {
+                        console.warn('解析假日資料失敗:', parseError?.message || parseError);
+                        res.json({ data: [] });
+                        resolve();
+                    }
+                });
+            }).on('error', (err) => {
+                console.warn('取得假日資料失敗:', err?.message || err);
+                res.json({ data: [] });
+                resolve();
+            });
+        });
     } catch (e) {
         console.warn('取得假日資料失敗:', e?.message || e);
         res.json({ data: [] });
