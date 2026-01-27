@@ -1937,7 +1937,7 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
         
         // 使用 https 模組直接請求，避免 fetch 相容性問題
         const https = require('https');
-        const url = `https://data.ntpc.gov.tw/api/datasets/308DCD75-6434-45BC-A95F-584DA4FED251/json?page=0&size=1000`;
+        const url = `https://data.ntpc.gov.tw/api/datasets/308DCD75-6434-45BC-A95F-584DA4FED251/json?page=0&size=5000`;
         
         return new Promise((resolve) => {
             const request = https.get(url, { timeout: 5000 }, (response) => {
@@ -1956,34 +1956,17 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
                         const rawData = Array.isArray(jsonData) ? jsonData : [];
                         console.log(`假日 API 返回 ${rawData.length} 筆原始資料`);
                         
-                        // 檢查前幾筆資料的格式
-                        if (rawData.length > 0) {
-                            const sample = rawData[0];
-                            console.log('範例資料結構:', {
-                                date: sample.date,
-                                dateType: typeof sample.date,
-                                isHoliday: sample.isHoliday,
-                                isHolidayType: typeof sample.isHoliday,
-                                name: sample.name,
-                                keys: Object.keys(sample)
-                            });
-                        }
-                        
+                        // 一律從 date 解析西元年（格式 20170101），不依賴 year 欄位（可能為民國年）
                         const holidays = rawData.filter(h => {
-                            if (!h) return false;
-                            // 使用 year 欄位（如果存在），否則從 date 解析
+                            if (!h || !h.date) return false;
+                            const dateStr = String(h.date).trim();
                             let hYear;
-                            if (h.year) {
-                                hYear = parseInt(String(h.year), 10);
-                            } else if (h.date) {
-                                const dateStr = String(h.date || '');
-                                if (dateStr.match(/^\d{4}/)) {
-                                    hYear = parseInt(dateStr.slice(0, 4), 10);
-                                } else if (dateStr.match(/^\d{8}$/)) {
-                                    hYear = parseInt(dateStr.slice(0, 4), 10);
-                                } else {
-                                    return false;
-                                }
+                            if (dateStr.match(/^\d{8}$/)) {
+                                hYear = parseInt(dateStr.slice(0, 4), 10);
+                            } else if (dateStr.match(/^\d{4}[-/]\d/)) {
+                                hYear = parseInt(dateStr.slice(0, 4), 10);
+                            } else if (dateStr.match(/^\d{4}/)) {
+                                hYear = parseInt(dateStr.slice(0, 4), 10);
                             } else {
                                 return false;
                             }
@@ -2021,8 +2004,12 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
                         });
                         
                         console.log(`過濾後 ${year} 年有 ${holidays.length} 個假日`);
-                        if (holidays.length > 0) {
-                            console.log('前 5 個假日:', holidays.slice(0, 5).map(h => `${h.date} (${h.name}, 假日:${h.isHoliday})`));
+                        if (holidays.length === 0 && rawData.length > 0) {
+                            const years = [...new Set(rawData.map(h => {
+                                const d = String(h.date || '');
+                                return d.match(/^\d{4}/) ? d.slice(0, 4) : null;
+                            }).filter(Boolean))].sort();
+                            console.log(`資料集涵蓋年份: ${years.slice(0, 10).join(', ')}${years.length > 10 ? '...' : ''}`);
                         }
                         res.json({ data: holidays });
                         resolve();
