@@ -2921,7 +2921,6 @@
         }
         .schedule-cal-plan-names {
             font-size: 10px;
-            color: #1e3a8a;
             line-height: 1.3;
             width: 100%;
             overflow: hidden;
@@ -2931,3 +2930,5 @@
             -webkit-box-orient: vertical;
             word-break: break-word;
         }
+        .schedule-cal-plan-name { font-weight: 600; }
+        .schedule-cal-sep { color: #94a3b8; font-weight: 400; }

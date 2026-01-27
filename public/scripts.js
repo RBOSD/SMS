@@ -2466,7 +2466,7 @@ if (dashboard) {
             }
             if (tab === 'plans') {
                 // 恢復檢查計畫子 tab
-                const savedSubTab = sessionStorage.getItem('currentPlansSubTab') || 'manage';
+                const savedSubTab = sessionStorage.getItem('currentPlansSubTab') || 'schedule';
                 setTimeout(() => switchPlansSubTab(savedSubTab), 100);
                 loadPlanOptions();
             }
@@ -2480,9 +2480,8 @@ if (dashboard) {
         function switchPlansSubTab(subTab) {
             sessionStorage.setItem('currentPlansSubTab', subTab);
             
-            // 更新子 tab 按鈕狀態
             document.querySelectorAll('#tab-data-plans .admin-tab-btn').forEach(b => b.classList.remove('active'));
-            if (event && event.target) {
+            if (typeof event !== 'undefined' && event && event.target) {
                 event.target.classList.add('active');
             } else {
                 const buttons = document.querySelectorAll('#tab-data-plans .admin-tab-btn');
@@ -2493,16 +2492,12 @@ if (dashboard) {
                 });
             }
             
-            // 切換子 tab 內容
             document.getElementById('subtab-plans-manage').classList.toggle('hidden', subTab !== 'manage');
             document.getElementById('subtab-plans-schedule').classList.toggle('hidden', subTab !== 'schedule');
             
             if (subTab === 'manage') {
-                // 恢復檢查計畫管理頁面的狀態
                 restorePlansViewState();
-                setTimeout(() => {
-                    loadPlansPage(plansPage || 1);
-                }, 200);
+                setTimeout(() => loadPlansPage(plansPage || 1), 200);
             }
             if (subTab === 'schedule') {
                 initScheduleCalendar();
@@ -5298,6 +5293,7 @@ if (dashboard) {
         }
 
         const SCHEDULE_PLAN_COLORS = ['#dbeafe', '#dcfce7', '#fef3c7', '#fce7f3', '#e0e7ff', '#d1fae5', '#fed7aa', '#e9d5ff'];
+        const SCHEDULE_PLAN_TEXT_COLORS = ['#1e40af', '#166534', '#92400e', '#9d174d', '#3730a3', '#065f46', '#c2410c', '#6b21a8'];
 
         function schedulePlanColorIndex(planNameOrId) {
             if (planNameOrId == null) return 0;
@@ -5328,11 +5324,19 @@ if (dashboard) {
                     return dateStr >= startStr && dateStr <= endStr;
                 });
                 const hasPlan = plansForDay.length > 0;
-                const planNames = plansForDay.map(s => s.plan_name || '').filter(Boolean);
-                const planText = planNames.length > 0 ? `<div class="schedule-cal-plan-names">${planNames.join('、')}</div>` : '';
                 const colorIndices = plansForDay.map(s => schedulePlanColorIndex(s.plan_name || s.id));
-                const colorDots = colorIndices.map((idx, i) => `<span class="schedule-cal-color-dot" style="background:${SCHEDULE_PLAN_COLORS[idx]};" title="${planNames[i] || ''}"></span>`).join('');
+                const colorDots = colorIndices.map((idx, i) => {
+                    const name = (plansForDay[i].plan_name || '').trim() || '未命名';
+                    return `<span class="schedule-cal-color-dot" style="background:${SCHEDULE_PLAN_COLORS[idx]};" title="${name}"></span>`;
+                }).join('');
                 const colorDotsHtml = colorDots ? `<div class="schedule-cal-dots">${colorDots}</div>` : '';
+                const nameSpans = plansForDay.map((s, i) => {
+                    const idx = colorIndices[i];
+                    const tc = SCHEDULE_PLAN_TEXT_COLORS[idx] || '#1e3a8a';
+                    const name = (s.plan_name || '').trim() || '未命名';
+                    return `<span class="schedule-cal-plan-name" style="color:${tc};" title="${name}">${name}</span>`;
+                });
+                const planText = nameSpans.length > 0 ? `<div class="schedule-cal-plan-names">${nameSpans.join('<span class="schedule-cal-sep">、</span>')}</div>` : '';
                 const primaryColorIdx = hasPlan ? colorIndices[0] : 0;
                 const colorClass = hasPlan ? `schedule-cal-plan-${primaryColorIdx}` : '';
                 dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan ' + colorClass : ''}" data-date="${dateStr}" onclick="scheduleSelectDay('${dateStr}')"><div class="schedule-cal-day-num">${d}</div>${colorDotsHtml}${planText}</div>`);
@@ -5367,7 +5371,7 @@ if (dashboard) {
             const box = document.getElementById('scheduleDayListBody');
             if (!box) return;
             if (!dateStr) {
-                box.innerHTML = '點選月曆日期或輸入日期後顯示';
+                box.innerHTML = '點選月曆日期後顯示';
                 return;
             }
             const list = scheduleMonthData.filter(s => {
@@ -5380,8 +5384,10 @@ if (dashboard) {
                 return;
             }
             box.innerHTML = list.map(s => {
-                const dateRange = s.end_date && s.end_date !== s.start_date ? `${s.start_date} ~ ${s.end_date}` : s.start_date;
-                return `<div style="margin-bottom:8px; padding:8px; background:#f1f5f9; border-radius:6px;"><span style="font-weight:600;">${s.plan_name || '-'}</span><br><span style="color:#64748b; font-size:12px;">${s.plan_number || '-'} | ${dateRange}</span></div>`;
+                const startDate = (s.start_date || '').slice(0, 10);
+                const endDate = (s.end_date || '').slice(0, 10);
+                const range = endDate && endDate !== startDate ? `${startDate} ~ ${endDate}` : startDate;
+                return `<div style="margin-bottom:8px; padding:8px; background:#f1f5f9; border-radius:6px;"><span style="font-weight:600;">${s.plan_name || '-'}</span><br><span style="color:#64748b; font-size:12px;">${range}</span></div>`;
             }).join('');
         }
 
@@ -5402,7 +5408,7 @@ if (dashboard) {
             if (business) business.value = '';
             scheduleUpdateYearFromStartDate();
             const dayList = document.getElementById('scheduleDayListBody');
-            if (dayList) dayList.textContent = '點選月曆日期或輸入日期後顯示';
+            if (dayList) dayList.textContent = '點選月曆日期後顯示';
         }
 
         async function scheduleSubmitPlan() {

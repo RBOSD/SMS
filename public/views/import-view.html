@@ -387,17 +387,17 @@
 <!-- Tab: 檢查計畫（合併管理與規劃） -->
 <div id="tab-data-plans" class="hidden">
     <div class="admin-tabs" style="margin-bottom:20px; border-bottom:2px solid #e2e8f0;">
-        <button class="admin-tab-btn active" onclick="switchPlansSubTab('manage')">計畫管理</button>
-        <button class="admin-tab-btn" onclick="switchPlansSubTab('schedule')">計畫規劃</button>
+        <button class="admin-tab-btn active" onclick="switchPlansSubTab('schedule')">計畫規劃</button>
+        <button class="admin-tab-btn" onclick="switchPlansSubTab('manage')">計畫管理</button>
     </div>
 
-    <!-- Sub-tab 1: 檢查計畫管理 -->
-    <div id="subtab-plans-manage">
+    <!-- Sub-tab 1: 計畫規劃（月曆型） -->
+    <div id="subtab-plans-schedule">
     <div class="main-card">
         <div style="margin-bottom:20px;">
             <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">📅 檢查計畫規劃</h3>
             <p style="margin:0; color:#64748b; font-size:13px;">
-                以月曆排程規劃檢查日期，填寫計畫名稱與取號條件後系統自動取號（格式：年度+鐵路機構+檢查類別-檢查次數-業務類別，例如：115T1-01-OP，檢查次數由 01 起自動加 1）。已寫入的計畫名稱可供「檢查計畫管理」與「開立事項」使用。
+                以月曆排程規劃檢查日期，填寫計畫名稱與取號條件後系統自動取號（格式：年度+鐵路機構+檢查類別-檢查次數-業務類別，例如：115T1-01-OP，檢查次數由 01 起自動加 1）。已寫入的計畫名稱可供「計畫管理」與「開立事項」使用。
             </p>
         </div>
         <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;">
@@ -407,8 +407,10 @@
                     <span id="scheduleMonthTitle" style="font-weight:700; font-size:16px; color:#334155; min-width:140px;">— 年 — 月</span>
                     <button type="button" class="btn btn-outline" id="scheduleNextMonth" onclick="scheduleNextMonth()">下月 ▶</button>
                 </div>
-                <div id="scheduleCalendar" class="schedule-calendar">
-                    <!-- 月曆由 JS 產生 -->
+                <div id="scheduleCalendar" class="schedule-calendar"></div>
+                <div id="scheduleDayList" style="margin-top:16px; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0;">
+                    <div style="font-weight:600; font-size:14px; color:#334155; margin-bottom:8px;">當日排程</div>
+                    <div id="scheduleDayListBody" style="font-size:13px; color:#64748b;">點選月曆日期後顯示</div>
                 </div>
             </div>
             <div style="width:360px; flex-shrink:0;">
@@ -470,31 +472,26 @@
                         <button type="button" class="btn btn-outline" onclick="scheduleClearForm()">清空</button>
                     </div>
                 </div>
-                <div id="scheduleDayList" style="margin-top:16px;">
-                    <div style="font-weight:600; font-size:14px; color:#334155; margin-bottom:8px;">當日排程</div>
-                    <div id="scheduleDayListBody" style="font-size:13px; color:#64748b;">點選月曆日期或輸入日期後顯示</div>
-                </div>
             </div>
         </div>
     </div>
-</div>
+    </div>
 
-        <div class="main-card">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
-                <div style="flex:1; min-width:200px;">
-                    <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">檢查計畫管理</h3>
-                    <p style="margin:0; color:#64748b; font-size:13px;">
-                        管理檢查計畫資料，可新增、編輯、刪除檢查計畫，並支援 CSV 匯入功能。
-                    </div>
+    <!-- Sub-tab 2: 計畫管理 -->
+    <div id="subtab-plans-manage" class="hidden">
+    <div class="main-card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+            <div style="flex:1; min-width:200px;">
+                <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">檢查計畫管理</h3>
+                <p style="margin:0; color:#64748b; font-size:13px;">管理檢查計畫資料，可新增、編輯、刪除檢查計畫，並支援 CSV 匯入功能。</p>
+            </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
                 <button class="btn btn-primary" onclick="openPlanModal('create')">新增計畫</button>
                 <button class="btn btn-outline" onclick="openPlanImportModal()">📥 CSV 匯入</button>
             </div>
         </div>
-        
         <div style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
-            <input id="planSearch" class="filter-input" placeholder="搜尋計畫名稱..." style="max-width:300px;"
-                oninput="loadPlansPage(1)" autocomplete="off">
+            <input id="planSearch" class="filter-input" placeholder="搜尋計畫名稱..." style="max-width:300px;" oninput="loadPlansPage(1)" autocomplete="off">
             <select id="planYearFilter" class="filter-select" style="width:120px;" onchange="loadPlansPage(1)">
                 <option value="">全部年度</option>
             </select>
@@ -502,13 +499,10 @@
                 <button class="btn btn-outline" onclick="loadPlansPage(1)">搜尋</button>
             </div>
         </div>
-        
         <div class="control-row-actions" style="padding:16px; border-bottom:1px solid var(--border);">
             <div style="display:flex; gap:12px; align-items:center;">
                 <div id="plansBatchActionContainer" style="display:none;">
-                    <button class="btn btn-danger btn-sm" onclick="batchDeletePlans()">
-                        批次刪除 <span id="selectedPlansCountBadge"></span>
-                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="batchDeletePlans()">批次刪除 <span id="selectedPlansCountBadge"></span></button>
                 </div>
             </div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
@@ -541,8 +535,7 @@
     </div>
     </div>
 
-    <!-- Sub-tab 2: 檢查計畫規劃（月曆型） -->
-    <div id="subtab-plans-schedule" class="hidden">
+    <!-- Plan Modal（共用） -->
     <div class="modal-overlay" id="planModal">
         <div class="modal-box" style="max-width:600px;">
             <h3 style="margin-top:0;" id="planModalTitle">檢查計畫</h3>
@@ -562,7 +555,7 @@
         </div>
     </div>
 
-    <!-- Plan Import Modal -->
+    <!-- Plan Import Modal（共用） -->
     <div class="modal-overlay" id="planImportModal">
         <div class="modal-box" style="max-width:600px;">
             <h3 style="margin-top:0;">CSV 匯入檢查計畫</h3>
@@ -576,7 +569,6 @@
                 <button class="btn btn-outline" style="flex:1;" onclick="downloadPlanCSVTemplate()">📥 下載範例檔</button>
             </div>
         </div>
-    </div>
     </div>
 </div>
 
