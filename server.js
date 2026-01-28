@@ -1603,7 +1603,7 @@ app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) =
     }
 });
 
-app.get('/api/plans/by-name', requireAuth, async (req, res, next) => {
+app.get('/api/plans/by-name', requireAuth, async (req, res) => {
     const { name, year } = req.query;
     
     // 確保 decodedName 和 decodedYear 在 catch 區塊中可用
