@@ -1646,14 +1646,44 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             });
         }
         
-        // 執行查詢
-        const queryResult = await pool.query(
+        // 標準化年度格式（移除前導零，統一為3位數）
+        const normalizedYear = planYear.replace(/^0+/, '').padStart(3, '0');
+        
+        // 執行查詢（嘗試多種格式匹配）
+        console.log('[API] 查詢計畫 - name:', planName, 'year:', planYear, 'normalizedYear:', normalizedYear);
+        
+        // 先嘗試精確匹配
+        let queryResult = await pool.query(
             'SELECT id, plan_name, year, railway, inspection_type, business FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 ORDER BY id ASC LIMIT 1',
             [planName, planYear]
         );
         
+        // 如果找不到，嘗試標準化年度格式
+        if (!queryResult || !queryResult.rows || queryResult.rows.length === 0) {
+            console.log('[API] 精確匹配失敗，嘗試標準化年度格式');
+            queryResult = await pool.query(
+                'SELECT id, plan_name, year, railway, inspection_type, business FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 ORDER BY id ASC LIMIT 1',
+                [planName, normalizedYear]
+            );
+        }
+        
+        // 如果還是找不到，嘗試模糊匹配（去除前導零）
+        if (!queryResult || !queryResult.rows || queryResult.rows.length === 0) {
+            console.log('[API] 標準化格式匹配失敗，嘗試模糊匹配');
+            queryResult = await pool.query(
+                `SELECT id, plan_name, year, railway, inspection_type, business 
+                 FROM inspection_plan_schedule 
+                 WHERE plan_name = $1 AND (year = $2 OR year = $3 OR TRIM(LEADING '0' FROM year) = TRIM(LEADING '0' FROM $2))
+                 ORDER BY id ASC LIMIT 1`,
+                [planName, planYear, normalizedYear]
+            );
+        }
+        
+        console.log('[API] 查詢結果筆數:', queryResult?.rows?.length || 0);
+        
         // 處理結果
         if (!queryResult || !queryResult.rows || queryResult.rows.length === 0) {
+            console.log('[API] 找不到計畫 - name:', planName, 'year:', planYear);
             return res.status(404).json({ 
                 error: '找不到計畫',
                 message: `找不到名稱為「${planName}」且年度為「${planYear}」的計畫`
@@ -1661,11 +1691,14 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         }
         
         const plan = queryResult.rows[0];
+        console.log('[API] 找到計畫:', plan);
         
         // 處理資料（business 改為選填）
         const railway = (plan.railway && plan.railway !== '-') ? String(plan.railway).trim() : '';
         const inspection_type = (plan.inspection_type && plan.inspection_type !== '-') ? String(plan.inspection_type).trim() : '';
         const business = (plan.business && plan.business !== '-') ? String(plan.business).trim() : '';
+        
+        console.log('[API] 處理後的資料 - railway:', railway, 'inspection_type:', inspection_type, 'business:', business);
         
         // 準備回應
         const response = {
@@ -1682,13 +1715,19 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         // 只檢查必要的欄位（不再檢查 business）
         if (!railway || !inspection_type) {
             response.warning = '該計畫缺少必要資訊（鐵路機構、檢查類別），請先在計畫管理中編輯';
+            console.warn('[API] 計畫缺少必要資訊 - railway:', railway, 'inspection_type:', inspection_type);
         }
         
+        console.log('[API] 回應資料:', response);
         return res.json(response);
         
     } catch (error) {
-        // 記錄錯誤（僅保留重要錯誤）
-        console.error('[API] /api/plans/by-name error:', error.message);
+        // 記錄詳細錯誤以便除錯
+        console.error('[API] /api/plans/by-name error:', error);
+        console.error('[API] Error code:', error.code);
+        console.error('[API] Error detail:', error.detail);
+        console.error('[API] Error message:', error.message);
+        console.error('[API] Request query:', req.query);
         
         // 檢查是否已經發送回應
         if (res.headersSent) {
@@ -1703,10 +1742,14 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             });
         }
         
-        // 返回錯誤
+        // 返回錯誤（在非生產環境提供更詳細的錯誤訊息）
+        const errorMessage = process.env.NODE_ENV === 'production' 
+            ? '查詢失敗，請稍後再試'
+            : (error.detail || error.message || '未知錯誤');
+        
         return res.status(500).json({ 
             error: '查詢失敗',
-            message: error.message || '未知錯誤'
+            message: errorMessage
         });
     }
 });

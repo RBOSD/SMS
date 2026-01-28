@@ -5823,6 +5823,7 @@ if (dashboard) {
                     // 呼叫 API 取得計畫詳情
                     try {
                         const apiUrl = `/api/plans/by-name?name=${encodeURIComponent(planName)}&year=${encodeURIComponent(planYear)}`;
+                        console.log('[Frontend] 呼叫 API:', apiUrl);
                         const response = await fetch(apiUrl, {
                             method: 'GET',
                             credentials: 'include',
@@ -5831,14 +5832,18 @@ if (dashboard) {
                             }
                         });
                         
+                        console.log('[Frontend] 回應狀態:', response.status, response.statusText);
+                        
                         // 處理回應
                         if (!response.ok) {
                             let errorMessage = '無法取得計畫資訊';
                             
                             try {
                                 const errorData = await response.json();
+                                console.error('[Frontend] 錯誤回應:', errorData);
                                 errorMessage = errorData.message || errorData.error || errorMessage;
                             } catch (e) {
+                                console.error('[Frontend] 無法解析錯誤回應:', e);
                                 // 如果無法解析 JSON，使用狀態碼
                                 if (response.status === 404) {
                                     errorMessage = '找不到該計畫';
@@ -5856,18 +5861,23 @@ if (dashboard) {
                         
                         // 解析成功回應
                         const result = await response.json();
+                        console.log('[Frontend] API 回應:', result);
                         
                         if (!result.data || !Array.isArray(result.data) || result.data.length === 0) {
-                            showToast('無法取得計畫資訊', 'error');
+                            console.error('[Frontend] 回應資料格式錯誤或為空:', result);
+                            showToast('無法取得計畫資訊：回應資料格式錯誤', 'error');
                             select.value = '';
                             return;
                         }
                         
                         const plan = result.data[0];
+                        console.log('[Frontend] 計畫資料:', plan);
                         
                         // 處理計畫資料（不再需要 business）
                         const railway = (plan.railway && plan.railway !== '-') ? String(plan.railway).trim() : '';
                         const inspection_type = (plan.inspection_type && plan.inspection_type !== '-') ? String(plan.inspection_type).trim() : '';
+                        
+                        console.log('[Frontend] 處理後的資料 - railway:', railway, 'inspection_type:', inspection_type);
                         
                         // 儲存到變數
                         schedulePlanDetails = {
@@ -5879,6 +5889,7 @@ if (dashboard) {
                         
                         // 檢查是否有完整資訊（不再需要 business）
                         if (!railway || !inspection_type) {
+                            console.warn('[Frontend] 計畫缺少必要資訊 - railway:', railway, 'inspection_type:', inspection_type);
                             if (result.warning) {
                                 showToast(result.warning, 'warning');
                             } else {
@@ -5912,7 +5923,9 @@ if (dashboard) {
                         await updateSchedulePlanNumber();
                         
                     } catch (error) {
-                        showToast('無法取得計畫資訊，請稍後再試', 'error');
+                        console.error('[Frontend] 取得計畫資訊時發生錯誤:', error);
+                        console.error('[Frontend] 錯誤詳情:', error.message, error.stack);
+                        showToast('無法取得計畫資訊：' + (error.message || '未知錯誤'), 'error');
                         select.value = '';
                         schedulePlanDetails = {};
                     }
