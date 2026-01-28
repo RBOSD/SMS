@@ -5889,19 +5889,22 @@ if (dashboard) {
                             return;
                         }
                         
-                        // 顯示計畫資訊
+                        // 顯示計畫資訊（不再顯示業務類別）
                         const railwaySpan = document.getElementById('schedulePlanRailway');
                         const inspectionTypeSpan = document.getElementById('schedulePlanInspectionType');
                         const businessSpan = document.getElementById('schedulePlanBusiness');
                         
-                        if (planInfoDiv && railwaySpan && inspectionTypeSpan && businessSpan) {
+                        if (planInfoDiv && railwaySpan && inspectionTypeSpan) {
                             const railwayNames = { 'T': '臺鐵', 'H': '高鐵', 'A': '林鐵', 'S': '糖鐵' };
                             const inspectionTypeNames = { '1': '年度定期檢查', '2': '特別檢查', '3': '例行性檢查', '4': '臨時檢查', '5': '調查' };
-                            const businessNames = { 'OP': '運轉', 'CV': '土建', 'ME': '機務', 'EL': '電務', 'SM': '安全管理', 'AD': '營運', 'OT': '其他' };
                             
                             railwaySpan.textContent = railwayNames[railway] || railway;
                             inspectionTypeSpan.textContent = inspectionTypeNames[inspection_type] || inspection_type;
-                            businessSpan.textContent = businessNames[business] || business;
+                            // 業務類別不再顯示
+                            if (businessSpan) {
+                                const businessNames = { 'OP': '運轉', 'CV': '土建', 'ME': '機務', 'EL': '電務', 'SM': '安全管理', 'AD': '營運', 'OT': '其他' };
+                                businessSpan.textContent = businessNames[business] || business || '-';
+                            }
                             planInfoDiv.style.display = 'block';
                         }
                         

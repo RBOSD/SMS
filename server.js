@@ -1662,7 +1662,7 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         
         const plan = queryResult.rows[0];
         
-        // 處理資料
+        // 處理資料（business 改為選填）
         const railway = (plan.railway && plan.railway !== '-') ? String(plan.railway).trim() : '';
         const inspection_type = (plan.inspection_type && plan.inspection_type !== '-') ? String(plan.inspection_type).trim() : '';
         const business = (plan.business && plan.business !== '-') ? String(plan.business).trim() : '';
@@ -1679,8 +1679,9 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             }]
         };
         
-        if (!railway || !inspection_type || !business) {
-            response.warning = '該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯';
+        // 只檢查必要的欄位（不再檢查 business）
+        if (!railway || !inspection_type) {
+            response.warning = '該計畫缺少必要資訊（鐵路機構、檢查類別），請先在計畫管理中編輯';
         }
         
         return res.json(response);
