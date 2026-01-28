@@ -1593,28 +1593,14 @@ app.get('/api/plans', requireAuth, requireAdminOrManager, async (req, res) => {
     }
 });
 
-// 重新設計的檢查計畫查詢 API - 完全重寫版本
-// 注意：這個路由必須在 /api/plans/:id 之前定義，否則 "by-name" 會被當作 id
+// 檢查計畫查詢 API
 app.get('/api/plans/by-name', requireAuth, async (req, res) => {
-    // 強制輸出到 stdout 和 stderr（確保 Render 能看到）
-    process.stdout.write('[API] /api/plans/by-name ENTRY POINT\n');
-    process.stderr.write('[API] /api/plans/by-name ENTRY POINT\n');
-    
     try {
-        // 記錄請求
-        console.log('[API] /api/plans/by-name request received');
-        process.stdout.write(`[API] Query params: ${JSON.stringify(req.query)}\n`);
-        process.stdout.write(`[API] Has session: ${!!req.session}\n`);
-        process.stdout.write(`[API] User: ${req.session?.user?.username || 'N/A'}\n`);
-        
         // 驗證參數
         const name = req.query.name;
         const year = req.query.year;
         
-        process.stdout.write(`[API] Parameters: name=${name}, year=${year}\n`);
-        
         if (!name || !year) {
-            process.stdout.write('[API] Missing parameters\n');
             return res.status(400).json({ 
                 error: '缺少必要參數',
                 message: '請提供 name 和 year 參數'
@@ -1631,8 +1617,6 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             planYear = String(year).trim();
         }
         
-        console.log('[API] Decoded:', { planName, planYear });
-        
         if (!planName || !planYear) {
             return res.status(400).json({ 
                 error: '參數格式錯誤',
@@ -1640,9 +1624,8 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             });
         }
         
-        // 驗證 pool
+        // 驗證資料庫連線
         if (!pool) {
-            console.error('[API] Pool is null');
             return res.status(503).json({ 
                 error: '資料庫未初始化',
                 message: '資料庫連線未初始化'
@@ -1650,23 +1633,10 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         }
         
         // 執行查詢
-        process.stdout.write('[API] Starting database query...\n');
-        console.log('[API] Starting database query...');
-        
-        let queryResult;
-        try {
-            queryResult = await pool.query(
-                'SELECT id, plan_name, year, railway, inspection_type, business FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 ORDER BY id ASC LIMIT 1',
-                [planName, planYear]
-            );
-            process.stdout.write(`[API] Query completed, rows: ${queryResult?.rows?.length || 0}\n`);
-            console.log('[API] Query completed, rows:', queryResult?.rows?.length || 0);
-        } catch (queryErr) {
-            process.stderr.write(`[API] QUERY ERROR: ${queryErr.message}\n`);
-            process.stderr.write(`[API] QUERY ERROR CODE: ${queryErr.code || 'N/A'}\n`);
-            process.stderr.write(`[API] QUERY ERROR DETAIL: ${queryErr.detail || 'N/A'}\n`);
-            throw queryErr;
-        }
+        const queryResult = await pool.query(
+            'SELECT id, plan_name, year, railway, inspection_type, business FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 ORDER BY id ASC LIMIT 1',
+            [planName, planYear]
+        );
         
         // 處理結果
         if (!queryResult || !queryResult.rows || queryResult.rows.length === 0) {
@@ -1677,7 +1647,6 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         }
         
         const plan = queryResult.rows[0];
-        console.log('[API] Plan found:', plan.id);
         
         // 處理資料
         const railway = (plan.railway && plan.railway !== '-') ? String(plan.railway).trim() : '';
@@ -1700,43 +1669,30 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             response.warning = '該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯';
         }
         
-        console.log('[API] Sending response');
         return res.json(response);
         
     } catch (error) {
-        // 強制輸出錯誤到 stderr
-        process.stderr.write(`[API] /api/plans/by-name CATCH BLOCK\n`);
-        process.stderr.write(`[API] ERROR MESSAGE: ${error.message}\n`);
-        process.stderr.write(`[API] ERROR CODE: ${error.code || 'N/A'}\n`);
-        process.stderr.write(`[API] ERROR NAME: ${error.name || 'N/A'}\n`);
-        process.stderr.write(`[API] ERROR STACK: ${error.stack || 'N/A'}\n`);
-        
-        // 詳細錯誤記錄
-        console.error('[API] /api/plans/by-name ERROR:');
-        console.error('[API] Error message:', error.message);
-        console.error('[API] Error code:', error.code);
-        console.error('[API] Error name:', error.name);
-        console.error('[API] Error stack:', error.stack);
+        // 記錄錯誤（僅保留重要錯誤）
+        console.error('[API] /api/plans/by-name error:', error.message);
         
         // 檢查是否已經發送回應
         if (res.headersSent) {
-            process.stderr.write('[API] Response already sent, cannot send error\n');
-            console.error('[API] Response already sent, cannot send error');
             return;
         }
         
-        // 返回錯誤（不使用 handleApiError，直接返回）
-        const errorResponse = {
+        // 處理資料庫連線錯誤
+        if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+            return res.status(503).json({ 
+                error: '資料庫連線失敗',
+                message: '無法連接到資料庫，請稍後再試'
+            });
+        }
+        
+        // 返回錯誤
+        return res.status(500).json({ 
             error: '查詢失敗',
             message: error.message || '未知錯誤'
-        };
-        
-        if (error.code) errorResponse.code = error.code;
-        if (error.detail) errorResponse.detail = error.detail;
-        if (error.hint) errorResponse.hint = error.hint;
-        
-        process.stderr.write(`[API] Sending error response: ${JSON.stringify(errorResponse)}\n`);
-        return res.status(500).json(errorResponse);
+        });
     }
 });
 

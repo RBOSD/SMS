@@ -5737,8 +5737,6 @@ if (dashboard) {
                     // 呼叫 API 取得計畫詳情
                     try {
                         const apiUrl = `/api/plans/by-name?name=${encodeURIComponent(planName)}&year=${encodeURIComponent(planYear)}`;
-                        console.log('[Frontend] Calling API:', apiUrl);
-                        
                         const response = await fetch(apiUrl, {
                             method: 'GET',
                             credentials: 'include',
@@ -5747,24 +5745,14 @@ if (dashboard) {
                             }
                         });
                         
-                        console.log('[Frontend] Response status:', response.status, response.statusText);
-                        
                         // 處理回應
                         if (!response.ok) {
                             let errorMessage = '無法取得計畫資訊';
-                            let errorDetails = '';
                             
                             try {
-                                const errorText = await response.text();
-                                console.error('[Frontend] Error response text:', errorText);
-                                
-                                const errorData = JSON.parse(errorText);
+                                const errorData = await response.json();
                                 errorMessage = errorData.message || errorData.error || errorMessage;
-                                errorDetails = errorData.code || errorData.detail || '';
-                                
-                                console.error('[Frontend] Error data:', errorData);
                             } catch (e) {
-                                console.error('[Frontend] Failed to parse error:', e);
                                 // 如果無法解析 JSON，使用狀態碼
                                 if (response.status === 404) {
                                     errorMessage = '找不到該計畫';
@@ -5775,7 +5763,7 @@ if (dashboard) {
                                 }
                             }
                             
-                            showToast(errorMessage + (errorDetails ? ` (${errorDetails})` : ''), 'error');
+                            showToast(errorMessage, 'error');
                             select.value = '';
                             return;
                         }
@@ -5837,8 +5825,7 @@ if (dashboard) {
                         await updateSchedulePlanNumber();
                         
                     } catch (error) {
-                        console.error('載入計畫詳情時發生錯誤:', error);
-                        showToast('無法取得計畫資訊：' + (error.message || '未知錯誤'), 'error');
+                        showToast('無法取得計畫資訊，請稍後再試', 'error');
                         select.value = '';
                         schedulePlanDetails = {};
                     }
@@ -5922,8 +5909,7 @@ if (dashboard) {
                         return;
                     }
                 } catch (e) {
-                    console.error('重新載入計畫詳情失敗:', e);
-                    showToast('無法取得計畫資訊：' + (e.message || '未知錯誤'), 'error');
+                    showToast('無法取得計畫資訊，請稍後再試', 'error');
                     return;
                 }
             }
@@ -5964,7 +5950,6 @@ if (dashboard) {
                         errorMsg = '伺服器錯誤：' + (j.error || '請稍後再試');
                     }
                     showToast(errorMsg, 'error');
-                    console.error('上傳失敗:', { status: res.status, error: j });
                     return;
                 }
                 
@@ -5994,7 +5979,6 @@ if (dashboard) {
                 loadPlanOptions();
                 loadSchedulePlanOptions();
             } catch (e) {
-                console.error('上傳時發生錯誤:', e);
                 let errorMsg = '儲存失敗';
                 if (e.message) {
                     if (e.message.includes('CSRF')) {
@@ -6002,7 +5986,7 @@ if (dashboard) {
                     } else if (e.message.includes('fetch')) {
                         errorMsg = '網路連線錯誤，請檢查網路連線後再試';
                     } else {
-                        errorMsg = '儲存失敗：' + e.message;
+                        errorMsg = '儲存失敗，請稍後再試';
                     }
                 }
                 showToast(errorMsg, 'error');
