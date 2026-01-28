@@ -1679,16 +1679,6 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         console.error('[API] /api/plans/by-name error:', e);
         handleApiError(e, req, res, 'Get plan by name error');
     }
-            console.error('[API] Sending error response:', JSON.stringify(errorDetails));
-            try {
-                res.status(500).json(errorDetails);
-            } catch (sendError) {
-                console.error('[API] Failed to send error response:', sendError);
-            }
-        } else {
-            console.error('[API] Response already sent, cannot send error response');
-        }
-    }
 });
 
 app.get('/api/plans/:id/issues', requireAuth, requireAdminOrManager, async (req, res) => {
