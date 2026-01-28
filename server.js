@@ -1603,101 +1603,69 @@ app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) =
     }
 });
 
+// 重新設計的檢查計畫查詢 API - 簡化版本
 app.get('/api/plans/by-name', requireAuth, async (req, res) => {
-    const { name, year } = req.query;
-    
-    // 確保 decodedName 和 decodedYear 在 catch 區塊中可用
-    let decodedName = '';
-    let decodedYear = '';
-    
     try {
-        // 驗證參數
+        // 取得並驗證參數
+        const name = req.query.name;
+        const year = req.query.year;
+        
         if (!name || !year) {
-            return res.status(400).json({ error: '請提供 name 和 year 參數' });
-        }
-        
-        // 處理 URL 編碼
-        try {
-            decodedName = decodeURIComponent(String(name)).trim();
-            decodedYear = decodeURIComponent(String(year)).trim();
-        } catch (decodeError) {
-            decodedName = String(name).replace(/\+/g, ' ').trim();
-            decodedYear = String(year).trim();
-        }
-        
-        if (!decodedName || !decodedYear) {
-            return res.status(400).json({ error: '計畫名稱或年度格式錯誤' });
-        }
-        
-        // 檢查 pool 是否存在
-        if (!pool) {
-            console.error('[API] Database pool is not initialized');
-            return res.status(503).json({ error: '資料庫連線未初始化' });
-        }
-        
-        // 查詢資料庫
-        console.log('[API] Querying plan:', { decodedName, decodedYear });
-        let result;
-        try {
-            result = await pool.query(
-                `SELECT id, plan_name AS name, year, railway, inspection_type, business 
-                 FROM inspection_plan_schedule 
-                 WHERE plan_name = $1 AND year = $2 
-                 ORDER BY id ASC 
-                 LIMIT 1`,
-                [decodedName, decodedYear]
-            );
-            console.log('[API] Query executed, rows found:', result?.rows?.length || 0);
-        } catch (queryError) {
-            console.error('[API] Query execution error:', {
-                message: queryError.message,
-                code: queryError.code,
-                detail: queryError.detail,
-                hint: queryError.hint,
-                query: 'SELECT id, plan_name AS name, year, railway, inspection_type, business FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2',
-                params: [decodedName, decodedYear]
+            return res.status(400).json({ 
+                error: '缺少必要參數',
+                message: '請提供 name 和 year 參數'
             });
-            throw queryError;
         }
         
-        if (!result || !result.rows) {
-            console.error('[API] Invalid query result:', result);
-            return res.status(500).json({ error: '資料庫查詢結果格式錯誤' });
+        // 解碼 URL 參數
+        let planName = '';
+        let planYear = '';
+        try {
+            planName = decodeURIComponent(String(name)).trim();
+            planYear = String(year).trim();
+        } catch (err) {
+            planName = String(name).replace(/\+/g, ' ').trim();
+            planYear = String(year).trim();
         }
         
-        if (result.rows.length === 0) {
-            console.log('[API] No plan found for:', { decodedName, decodedYear });
-            return res.status(404).json({ error: '找不到該計畫' });
+        if (!planName || !planYear) {
+            return res.status(400).json({ 
+                error: '參數格式錯誤',
+                message: '計畫名稱或年度不能為空'
+            });
         }
         
-        const plan = result.rows[0];
-        if (!plan) {
-            console.error('[API] Plan row is null or undefined');
-            return res.status(500).json({ error: '無法讀取計畫資料' });
+        // 執行查詢
+        const queryResult = await pool.query(
+            'SELECT id, plan_name, year, railway, inspection_type, business FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 ORDER BY id ASC LIMIT 1',
+            [planName, planYear]
+        );
+        
+        // 檢查查詢結果
+        if (!queryResult || !queryResult.rows || queryResult.rows.length === 0) {
+            return res.status(404).json({ 
+                error: '找不到計畫',
+                message: `找不到名稱為「${planName}」且年度為「${planYear}」的計畫`
+            });
         }
         
-        console.log('[API] Plan found:', { 
-            id: plan.id, 
-            name: plan.name, 
-            year: plan.year,
-            railway: plan.railway,
-            inspection_type: plan.inspection_type,
-            business: plan.business
-        });
+        const plan = queryResult.rows[0];
         
-        // 處理計畫資料（安全處理 NULL 值）
-        const railway = (plan.railway != null) ? String(plan.railway).trim() : '';
-        const inspection_type = (plan.inspection_type != null) ? String(plan.inspection_type).trim() : '';
-        const business = (plan.business != null) ? String(plan.business).trim() : '';
+        // 處理資料（安全處理 NULL）
+        const railway = plan.railway ? String(plan.railway).trim() : '';
+        const inspection_type = plan.inspection_type ? String(plan.inspection_type).trim() : '';
+        const business = plan.business ? String(plan.business).trim() : '';
         
-        const hasValidInfo = railway && railway !== '-' && 
-                            inspection_type && inspection_type !== '-' && 
-                            business && business !== '-';
+        // 檢查是否有完整資訊
+        const hasCompleteInfo = railway && railway !== '-' && 
+                               inspection_type && inspection_type !== '-' && 
+                               business && business !== '-';
         
-        const responseData = {
+        // 準備回應資料
+        const response = {
             data: [{
                 id: plan.id,
-                name: plan.name,
+                name: plan.plan_name,
                 year: plan.year,
                 railway: railway,
                 inspection_type: inspection_type,
@@ -1705,95 +1673,32 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             }]
         };
         
-        // 如果缺少必要資訊，添加警告
-        if (!hasValidInfo) {
-            responseData.warning = '該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯';
+        // 如果資訊不完整，添加警告
+        if (!hasCompleteInfo) {
+            response.warning = '該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯';
         }
         
-        res.json(responseData);
-    } catch (e) {
-        // 記錄詳細錯誤到控制台（無論環境）
-        console.error('[API] /api/plans/by-name error:', {
-            message: e.message,
-            code: e.code,
-            detail: e.detail,
-            hint: e.hint,
-            stack: e.stack,
-            name: name,
-            year: year,
-            decodedName: decodedName,
-            decodedYear: decodedYear
+        return res.json(response);
+        
+    } catch (error) {
+        // 統一錯誤處理
+        console.error('[API] /api/plans/by-name error:', error.message);
+        console.error('[API] Error stack:', error.stack);
+        
+        // 根據錯誤類型返回適當的狀態碼
+        if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+            return res.status(503).json({ 
+                error: '資料庫連線失敗',
+                message: '無法連接到資料庫，請稍後再試'
+            });
+        }
+        
+        // 返回詳細錯誤（用於除錯）
+        return res.status(500).json({ 
+            error: '查詢失敗',
+            message: error.message || '未知錯誤',
+            code: error.code || undefined
         });
-        
-        // 強制輸出到 stderr（確保 Render 能看到）
-        process.stderr.write(`[ERROR] /api/plans/by-name: ${e.message}\n`);
-        process.stderr.write(`[ERROR] Code: ${e.code || 'N/A'}\n`);
-        process.stderr.write(`[ERROR] Detail: ${e.detail || 'N/A'}\n`);
-        process.stderr.write(`[ERROR] Query params: name=${decodedName}, year=${decodedYear}\n`);
-        
-        // 處理資料庫連線錯誤
-        if (e.code === 'ECONNREFUSED' || e.code === 'ETIMEDOUT' || 
-            e.message?.includes('Connection') || e.message?.includes('timeout')) {
-            return res.status(503).json({
-                error: '資料庫連線失敗，請稍後再試',
-                code: e.code
-            });
-        }
-        
-        // 處理表不存在錯誤
-        if (e.code === '42P01' || e.message?.includes('does not exist') || 
-            (e.message?.includes('relation') && e.message?.includes('does not exist'))) {
-            return res.status(500).json({
-                error: '資料庫表不存在，請檢查資料庫結構',
-                message: e.message
-            });
-        }
-        
-        // 處理欄位不存在錯誤
-        if (e.code === '42703' || e.message?.includes('column') && e.message?.includes('does not exist')) {
-            return res.status(500).json({
-                error: '資料庫欄位不存在，請檢查資料庫結構',
-                message: e.message,
-                detail: e.detail
-            });
-        }
-        
-        // 處理語法錯誤
-        if (e.code === '42601' || e.message?.includes('syntax error')) {
-            return res.status(500).json({
-                error: '資料庫查詢語法錯誤',
-                message: e.message,
-                detail: e.detail,
-                hint: e.hint
-            });
-        }
-        
-        // 檢查是否已經發送回應
-        if (res.headersSent) {
-            console.error('[API] Response already sent, cannot send error response');
-            return;
-        }
-        
-        // 返回詳細錯誤訊息（暫時用於除錯）
-        const errorResponse = {
-            error: '查詢計畫時發生錯誤',
-            message: e.message || '未知錯誤'
-        };
-        
-        // 添加可選的錯誤詳情
-        if (e.code) errorResponse.code = e.code;
-        if (e.detail) errorResponse.detail = e.detail;
-        if (e.hint) errorResponse.hint = e.hint;
-        
-        // 添加查詢參數以便除錯
-        errorResponse.queryParams = {
-            name: name,
-            year: year,
-            decodedName: decodedName,
-            decodedYear: decodedYear
-        };
-        
-        return res.status(500).json(errorResponse);
     }
 });
 
