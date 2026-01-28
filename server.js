@@ -236,10 +236,13 @@ const requireAuth = (req, res, next) => {
             next();
         } else {
             console.warn('[AUTH] Unauthorized request to:', req.path, 'Session:', !!req.session);
-            res.status(401).json({ error: 'Unauthorized' });
+            if (!res.headersSent) {
+                res.status(401).json({ error: 'Unauthorized' });
+            }
         }
     } catch (e) {
         console.error('[AUTH] Error in requireAuth middleware:', e);
+        process.stderr.write(`[AUTH] ERROR: ${e.message}\n`);
         if (!res.headersSent) {
             res.status(500).json({ 
                 error: 'Authentication check failed',
@@ -1590,35 +1593,28 @@ app.get('/api/plans', requireAuth, requireAdminOrManager, async (req, res) => {
     }
 });
 
-app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) => {
-    try {
-        const result = await pool.query(
-            "SELECT id, plan_name AS name, year, created_at, updated_at FROM inspection_plan_schedule WHERE id = $1",
-            [req.params.id]
-        );
-        if (result.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
-        res.json(result.rows[0]);
-    } catch (e) { 
-        handleApiError(e, req, res, 'Get plan by id error');
-    }
-});
-
 // 重新設計的檢查計畫查詢 API - 完全重寫版本
+// 注意：這個路由必須在 /api/plans/:id 之前定義，否則 "by-name" 會被當作 id
 app.get('/api/plans/by-name', requireAuth, async (req, res) => {
-    // 使用 process.nextTick 確保錯誤處理正確
+    // 強制輸出到 stdout 和 stderr（確保 Render 能看到）
+    process.stdout.write('[API] /api/plans/by-name ENTRY POINT\n');
+    process.stderr.write('[API] /api/plans/by-name ENTRY POINT\n');
+    
     try {
         // 記錄請求
         console.log('[API] /api/plans/by-name request received');
-        console.log('[API] Query params:', req.query);
-        console.log('[API] Has session:', !!req.session);
-        console.log('[API] User:', req.session?.user?.username);
+        process.stdout.write(`[API] Query params: ${JSON.stringify(req.query)}\n`);
+        process.stdout.write(`[API] Has session: ${!!req.session}\n`);
+        process.stdout.write(`[API] User: ${req.session?.user?.username || 'N/A'}\n`);
         
         // 驗證參數
         const name = req.query.name;
         const year = req.query.year;
         
+        process.stdout.write(`[API] Parameters: name=${name}, year=${year}\n`);
+        
         if (!name || !year) {
-            console.log('[API] Missing parameters');
+            process.stdout.write('[API] Missing parameters\n');
             return res.status(400).json({ 
                 error: '缺少必要參數',
                 message: '請提供 name 和 year 參數'
@@ -1654,13 +1650,23 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         }
         
         // 執行查詢
+        process.stdout.write('[API] Starting database query...\n');
         console.log('[API] Starting database query...');
-        const queryResult = await pool.query(
-            'SELECT id, plan_name, year, railway, inspection_type, business FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 ORDER BY id ASC LIMIT 1',
-            [planName, planYear]
-        );
         
-        console.log('[API] Query completed, rows:', queryResult?.rows?.length || 0);
+        let queryResult;
+        try {
+            queryResult = await pool.query(
+                'SELECT id, plan_name, year, railway, inspection_type, business FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 ORDER BY id ASC LIMIT 1',
+                [planName, planYear]
+            );
+            process.stdout.write(`[API] Query completed, rows: ${queryResult?.rows?.length || 0}\n`);
+            console.log('[API] Query completed, rows:', queryResult?.rows?.length || 0);
+        } catch (queryErr) {
+            process.stderr.write(`[API] QUERY ERROR: ${queryErr.message}\n`);
+            process.stderr.write(`[API] QUERY ERROR CODE: ${queryErr.code || 'N/A'}\n`);
+            process.stderr.write(`[API] QUERY ERROR DETAIL: ${queryErr.detail || 'N/A'}\n`);
+            throw queryErr;
+        }
         
         // 處理結果
         if (!queryResult || !queryResult.rows || queryResult.rows.length === 0) {
@@ -1698,6 +1704,13 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         return res.json(response);
         
     } catch (error) {
+        // 強制輸出錯誤到 stderr
+        process.stderr.write(`[API] /api/plans/by-name CATCH BLOCK\n`);
+        process.stderr.write(`[API] ERROR MESSAGE: ${error.message}\n`);
+        process.stderr.write(`[API] ERROR CODE: ${error.code || 'N/A'}\n`);
+        process.stderr.write(`[API] ERROR NAME: ${error.name || 'N/A'}\n`);
+        process.stderr.write(`[API] ERROR STACK: ${error.stack || 'N/A'}\n`);
+        
         // 詳細錯誤記錄
         console.error('[API] /api/plans/by-name ERROR:');
         console.error('[API] Error message:', error.message);
@@ -1707,6 +1720,7 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         
         // 檢查是否已經發送回應
         if (res.headersSent) {
+            process.stderr.write('[API] Response already sent, cannot send error\n');
             console.error('[API] Response already sent, cannot send error');
             return;
         }
@@ -1719,8 +1733,28 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         
         if (error.code) errorResponse.code = error.code;
         if (error.detail) errorResponse.detail = error.detail;
+        if (error.hint) errorResponse.hint = error.hint;
         
+        process.stderr.write(`[API] Sending error response: ${JSON.stringify(errorResponse)}\n`);
         return res.status(500).json(errorResponse);
+    }
+});
+
+app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+        // 檢查是否為特殊路由（避免與 /api/plans/by-name 衝突）
+        if (req.params.id === 'by-name') {
+            return res.status(404).json({error: 'Invalid route'});
+        }
+        
+        const result = await pool.query(
+            "SELECT id, plan_name AS name, year, created_at, updated_at FROM inspection_plan_schedule WHERE id = $1",
+            [req.params.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
+        res.json(result.rows[0]);
+    } catch (e) { 
+        handleApiError(e, req, res, 'Get plan by id error');
     }
 });
 
