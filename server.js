@@ -1767,12 +1767,12 @@ app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (re
     const { name, year, railway, inspection_type, business } = req.body;
     try {
         if (!name || !year) return res.status(400).json({error: '計畫名稱和年度為必填'});
-        if (!railway || !inspection_type || !business) return res.status(400).json({error: '鐵路機構、檢查類別、業務類別為必填'});
+        if (!railway || !inspection_type) return res.status(400).json({error: '鐵路機構、檢查類別為必填'});
         const n = name.trim();
         const y = year.trim();
         const rCode = String(railway).toUpperCase();
         const it = String(inspection_type);
-        const b = String(business).toUpperCase();
+        const b = business ? String(business).toUpperCase() : null; // 業務類別改為選填
         const exists = await pool.query(
             "SELECT 1 FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 LIMIT 1",
             [n, y]
@@ -1897,9 +1897,15 @@ app.post('/api/plans/import', requireAuth, requireAdminOrManager, verifyCsrf, as
             continue;
         }
         
-        if (!name || !start_date) {
+        if (!name || !start_date || !end_date) {
             results.failed++;
-            results.errors.push(`第 ${i + 2} 行：計畫名稱和開始日期為必填`);
+            results.errors.push(`第 ${i + 2} 行：計畫名稱、開始日期和結束日期為必填`);
+            continue;
+        }
+        
+        if (end_date < start_date) {
+            results.failed++;
+            results.errors.push(`第 ${i + 2} 行（${name}）：結束日期不能早於開始日期`);
             continue;
         }
         
@@ -1914,33 +1920,34 @@ app.post('/api/plans/import', requireAuth, requireAdminOrManager, verifyCsrf, as
         
         if (!railway) railway = '-';
         if (!inspection_type) inspection_type = '-';
-        if (!business) business = '-';
+        // business 改為選填，不再用於取號
         
         try {
             const y = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
             const r = railway === '-' ? '-' : String(railway).toUpperCase();
             const it = inspection_type === '-' ? '-' : String(inspection_type);
-            const b = business === '-' ? '-' : String(business).toUpperCase();
+            const b = business ? String(business).toUpperCase() : null;
             
             let inspection_seq = '00';
             let plan_number = '(匯入)';
             
-            if (r !== '-' && it !== '-' && b !== '-') {
+            // 取號編碼不再包含業務類別
+            if (r !== '-' && it !== '-') {
                 const maxRes = await pool.query(
                     `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
                      FROM inspection_plan_schedule 
-                     WHERE year = $1 AND railway = $2 AND inspection_type = $3 AND business = $4`,
-                    [y, r, it, b]
+                     WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
+                    [y, r, it]
                 );
                 const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
                 inspection_seq = String(next).padStart(2, '0');
-                plan_number = `${y}${r}${it}-${inspection_seq}-${b}`;
+                plan_number = `${y}${r}${it}-${inspection_seq}`;
             }
             
             await pool.query(
                 `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [start_date, end_date || null, name, y, r, it, b, inspection_seq, plan_number]
+                [start_date, end_date, name, y, r, it, b, inspection_seq, plan_number]
             );
             results.success++;
         } catch (e) {
@@ -1966,7 +1973,7 @@ app.post('/api/plans/import', requireAuth, requireAdminOrManager, verifyCsrf, as
 });
 
 // --- 檢查計畫規劃（月曆排程）API ---
-// 取號規則：年度(3碼)-鐵路機構-檢查類別-檢查次數-業務類別；檢查次數由 01 起自動加 1
+// 取號規則：年度(3碼)-鐵路機構-檢查類別-檢查次數；檢查次數由 01 起自動加 1（不再包含業務類別）
 const RAILWAY_CODES = { T: '臺鐵', H: '高鐵', A: '林鐵', S: '糖鐵' };
 const INSPECTION_CODES = { '1': '年度定期檢查', '2': '特別檢查', '3': '例行性檢查', '4': '臨時檢查', '5': '調查' };
 const BUSINESS_CODES = { OP: '運轉', CV: '土建', ME: '機務', EL: '電務', SM: '安全管理', AD: '營運', OT: '其他' };
@@ -1996,24 +2003,23 @@ app.get('/api/plan-schedule', requireAuth, async (req, res) => {
 });
 
 app.get('/api/plan-schedule/next-number', requireAuth, async (req, res) => {
-    const { year, railway, inspectionType, business } = req.query;
+    const { year, railway, inspectionType } = req.query;
     try {
-        if (!year || !railway || !inspectionType || !business) {
-            return res.status(400).json({ error: '請提供 year, railway, inspectionType, business' });
+        if (!year || !railway || !inspectionType) {
+            return res.status(400).json({ error: '請提供 year, railway, inspectionType' });
         }
         const y = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
         const r = String(railway).toUpperCase();
         const it = String(inspectionType);
-        const b = String(business).toUpperCase();
         const maxRes = await pool.query(
             `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
              FROM inspection_plan_schedule 
-             WHERE year = $1 AND railway = $2 AND inspection_type = $3 AND business = $4`,
-            [y, r, it, b]
+             WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
+            [y, r, it]
         );
         const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
         const seq = String(next).padStart(2, '0');
-        const planNumber = `${y}${r}${it}-${seq}-${b}`;
+        const planNumber = `${y}${r}${it}-${seq}`;
         res.json({ nextSeq: seq, planNumber });
     } catch (e) {
         handleApiError(e, req, res, 'Get next plan number error');
@@ -2024,14 +2030,14 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
     const { plan_name, start_date, end_date, year, railway, inspection_type, business, location, inspector } = req.body;
     try {
         // 驗證必填欄位
-        if (!plan_name || !start_date || !year || !railway || !inspection_type || !business) {
+        if (!plan_name || !start_date || !end_date || !year || !railway || !inspection_type) {
             const missingFields = [];
             if (!plan_name) missingFields.push('計畫名稱');
             if (!start_date) missingFields.push('開始日期');
+            if (!end_date) missingFields.push('結束日期');
             if (!year) missingFields.push('年度');
             if (!railway) missingFields.push('鐵路機構');
             if (!inspection_type) missingFields.push('檢查類別');
-            if (!business) missingFields.push('業務類別');
             return res.status(400).json({ 
                 error: `以下欄位為必填：${missingFields.join('、')}`,
                 missingFields: missingFields
@@ -2039,19 +2045,17 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
         }
         
         // 驗證日期格式
-        if (end_date && end_date < start_date) {
+        if (end_date < start_date) {
             return res.status(400).json({ error: '結束日期不能早於開始日期' });
         }
         
         const y = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
         const r = String(railway).toUpperCase();
         const it = String(inspection_type);
-        const b = String(business).toUpperCase();
         
-        // 驗證鐵路機構、檢查類別、業務類別的值
+        // 驗證鐵路機構、檢查類別的值
         const validRailways = ['T', 'H', 'A', 'S'];
         const validInspectionTypes = ['1', '2', '3', '4', '5'];
-        const validBusinesses = ['OP', 'CV', 'ME', 'EL', 'SM', 'AD', 'OT'];
         
         if (!validRailways.includes(r)) {
             return res.status(400).json({ error: `無效的鐵路機構：${r}，請選擇有效的鐵路機構` });
@@ -2059,25 +2063,26 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
         if (!validInspectionTypes.includes(it)) {
             return res.status(400).json({ error: `無效的檢查類別：${it}，請選擇有效的檢查類別` });
         }
-        if (!validBusinesses.includes(b)) {
-            return res.status(400).json({ error: `無效的業務類別：${b}，請選擇有效的業務類別` });
-        }
         
+        // 取號編碼不再包含業務類別
         const maxRes = await pool.query(
             `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
              FROM inspection_plan_schedule 
-             WHERE year = $1 AND railway = $2 AND inspection_type = $3 AND business = $4`,
-            [y, r, it, b]
+             WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
+            [y, r, it]
         );
         const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
         const seq = String(next).padStart(2, '0');
-        const planNumber = `${y}${r}${it}-${seq}-${b}`;
+        const planNumber = `${y}${r}${it}-${seq}`;
         const name = String(plan_name).trim();
+        
+        // business 欄位仍然儲存（為了向後兼容），但取號編碼不再使用
+        const b = business ? String(business).toUpperCase() : null;
         
         await pool.query(
             `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, location, inspector) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-            [start_date, end_date || null, name, y, r, it, b, seq, planNumber, location || null, inspector || null]
+            [start_date, end_date, name, y, r, it, b, seq, planNumber, location || null, inspector || null]
         );
         const dateRange = end_date ? `${start_date} ~ ${end_date}` : start_date;
         logAction(req.session.user.username, 'CREATE_PLAN_SCHEDULE', `新增檢查計畫規劃：${name}，取號 ${planNumber}，日期 ${dateRange}`, req);
@@ -2170,8 +2175,11 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
 app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { plan_name, start_date, end_date, year, railway, inspection_type, business, location, inspector } = req.body;
     try {
-        if (!plan_name || !start_date || !year || !railway || !inspection_type || !business) {
-            return res.status(400).json({ error: '計畫名稱、開始日期、年度、鐵路機構、檢查類別、業務類別為必填' });
+        if (!plan_name || !start_date || !end_date || !year || !railway || !inspection_type) {
+            return res.status(400).json({ error: '計畫名稱、開始日期、結束日期、年度、鐵路機構、檢查類別為必填' });
+        }
+        if (end_date < start_date) {
+            return res.status(400).json({ error: '結束日期不能早於開始日期' });
         }
         const r = await pool.query('SELECT * FROM inspection_plan_schedule WHERE id = $1', [req.params.id]);
         if (r.rows.length === 0) return res.status(404).json({ error: '找不到該筆排程' });
@@ -2179,21 +2187,22 @@ app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf
         const y = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
         const rCode = String(railway).toUpperCase();
         const it = String(inspection_type);
-        const b = String(business).toUpperCase();
+        const b = business ? String(business).toUpperCase() : null;
         
         let inspection_seq = r.rows[0].inspection_seq;
         let plan_number = r.rows[0].plan_number;
         
-        if (rCode !== r.rows[0].railway || it !== r.rows[0].inspection_type || b !== r.rows[0].business) {
+        // 取號編碼不再包含業務類別，只根據 year, railway, inspection_type
+        if (rCode !== r.rows[0].railway || it !== r.rows[0].inspection_type) {
             const maxRes = await pool.query(
                 `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
                  FROM inspection_plan_schedule 
-                 WHERE year = $1 AND railway = $2 AND inspection_type = $3 AND business = $4`,
-                [y, rCode, it, b]
+                 WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
+                [y, rCode, it]
             );
             const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
             inspection_seq = String(next).padStart(2, '0');
-            plan_number = `${y}${rCode}${it}-${inspection_seq}-${b}`;
+            plan_number = `${y}${rCode}${it}-${inspection_seq}`;
         }
         
         await pool.query(
@@ -2202,10 +2211,10 @@ app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf
                  inspection_type = $6, business = $7, inspection_seq = $8, plan_number = $9, 
                  location = $10, inspector = $11, updated_at = CURRENT_TIMESTAMP
              WHERE id = $12`,
-            [plan_name.trim(), start_date, end_date || null, y, rCode, it, b, inspection_seq, plan_number, location || null, inspector || null, req.params.id]
+            [plan_name.trim(), start_date, end_date, y, rCode, it, b, inspection_seq, plan_number, location || null, inspector || null, req.params.id]
         );
         
-        const dateRange = end_date ? `${start_date} ~ ${end_date}` : start_date;
+        const dateRange = `${start_date} ~ ${end_date}`;
         logAction(req.session.user.username, 'UPDATE_PLAN_SCHEDULE', `更新檢查計畫規劃：${plan_name}，取號 ${plan_number}，日期 ${dateRange}`, req);
         res.json({ success: true, planNumber: plan_number });
     } catch (e) {

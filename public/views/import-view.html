@@ -437,8 +437,8 @@
                         <input type="date" id="scheduleStartDate" class="filter-input" required>
                     </div>
                     <div class="form-group">
-                        <label>結束日期 <span style="color:#64748b; font-size:12px;">（選填，不填則為單日）</span></label>
-                        <input type="date" id="scheduleEndDate" class="filter-input">
+                        <label>結束日期 <span style="color:#ef4444;">*</span></label>
+                        <input type="date" id="scheduleEndDate" class="filter-input" required>
                     </div>
                     <div class="form-group">
                         <label>地點 <span style="color:#ef4444;">*</span></label>
@@ -567,8 +567,8 @@
                     <option value="5">調查 (5)</option>
                 </select>
             </div>
-            <div class="form-group" id="planDetailsGroup3">
-                <label>業務類別 <span style="color:#ef4444;">*</span></label>
+            <div class="form-group" id="planDetailsGroup3" style="display:none;">
+                <label>業務類別</label>
                 <select id="planBusiness" class="filter-select">
                     <option value="">請選擇</option>
                     <option value="OP">運轉 (OP)</option>
