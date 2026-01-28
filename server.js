@@ -240,7 +240,13 @@ const requireAuth = (req, res, next) => {
         }
     } catch (e) {
         console.error('[AUTH] Error in requireAuth middleware:', e);
-        res.status(500).json({ error: 'Authentication check failed' });
+        if (!res.headersSent) {
+            res.status(500).json({ 
+                error: 'Authentication check failed',
+                message: e.message,
+                code: e.code
+            });
+        }
     }
 };
 
@@ -1597,8 +1603,12 @@ app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) =
     }
 });
 
-app.get('/api/plans/by-name', requireAuth, async (req, res) => {
+app.get('/api/plans/by-name', requireAuth, async (req, res, next) => {
     const { name, year } = req.query;
+    
+    // 確保 decodedName 和 decodedYear 在 catch 區塊中可用
+    let decodedName = '';
+    let decodedYear = '';
     
     try {
         // 驗證參數
@@ -1607,7 +1617,6 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         }
         
         // 處理 URL 編碼
-        let decodedName, decodedYear;
         try {
             decodedName = decodeURIComponent(String(name)).trim();
             decodedYear = decodeURIComponent(String(year)).trim();
@@ -1759,20 +1768,43 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             });
         }
         
-        // 暫時在生產環境也返回詳細錯誤以便除錯（之後可以改回通用訊息）
         // 檢查是否已經發送回應
-        if (!res.headersSent) {
-            return res.status(500).json({
-                error: '查詢計畫時發生錯誤',
-                message: e.message || '未知錯誤',
-                code: e.code || undefined,
-                detail: e.detail || undefined,
-                hint: e.hint || undefined
-            });
+        if (res.headersSent) {
+            console.error('[API] Response already sent, cannot send error response');
+            return;
         }
         
-        // 如果已經發送回應，記錄錯誤但不再次發送
-        console.error('[API] Response already sent, cannot send error response');
+        // 返回詳細錯誤訊息（暫時用於除錯）
+        const errorResponse = {
+            error: '查詢計畫時發生錯誤',
+            message: e.message || '未知錯誤'
+        };
+        
+        // 添加可選的錯誤詳情
+        if (e.code) errorResponse.code = e.code;
+        if (e.detail) errorResponse.detail = e.detail;
+        if (e.hint) errorResponse.hint = e.hint;
+        
+        // 添加查詢參數以便除錯
+        errorResponse.queryParams = {
+            name: name,
+            year: year,
+            decodedName: decodedName,
+            decodedYear: decodedYear
+        };
+        
+        return res.status(500).json(errorResponse);
+    } catch (outerError) {
+        // 如果連錯誤處理都失敗了
+        console.error('[API] Critical error in error handler:', outerError);
+        process.stderr.write(`[CRITICAL ERROR] /api/plans/by-name: ${outerError.message}\n`);
+        if (!res.headersSent) {
+            return res.status(500).json({
+                error: '伺服器發生嚴重錯誤',
+                message: outerError.message,
+                stack: process.env.NODE_ENV !== 'production' ? outerError.stack : undefined
+            });
+        }
     }
 });
 
