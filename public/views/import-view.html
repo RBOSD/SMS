@@ -397,15 +397,15 @@
         <div style="margin-bottom:20px;">
             <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">📅 檢查計畫規劃</h3>
             <p style="margin:0; color:#64748b; font-size:13px;">
-                以月曆排程規劃檢查日期，填寫計畫名稱與取號條件後系統自動取號（格式：年度+鐵路機構+檢查類別-檢查次數-業務類別，例如：115T1-01-OP，檢查次數由 01 起自動加 1）。已寫入的計畫名稱可供「計畫管理」與「開立事項」使用。
+                以月曆排程規劃檢查日期，填寫檢查行程後，系統會自動取號。
             </p>
         </div>
         <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;">
             <div style="flex:1; min-width:280px;">
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-outline" id="schedulePrevMonth" onclick="schedulePrevMonth()">◀ 上月</button>
-                    <span id="scheduleMonthTitle" style="font-weight:700; font-size:16px; color:#334155; min-width:140px;">— 年 — 月</span>
-                    <button type="button" class="btn btn-outline" id="scheduleNextMonth" onclick="scheduleNextMonth()">下月 ▶</button>
+                    <button type="button" class="btn btn-outline" id="schedulePrevMonth" onclick="schedulePrevMonth()">◀ 上個月</button>
+                    <span id="scheduleMonthTitle" style="font-weight:700; font-size:16px; color:#334155; flex:1; text-align:center;">— 年 — 月</span>
+                    <button type="button" class="btn btn-outline" id="scheduleNextMonth" onclick="scheduleNextMonth()">下個月 ▶</button>
                     <button type="button" class="btn btn-primary" onclick="printScheduleCalendar()" style="margin-left:auto;">🖨️ 列印月曆</button>
                 </div>
                 <div id="scheduleCalendar" class="schedule-calendar"></div>
@@ -416,7 +416,7 @@
             </div>
             <div style="width:360px; flex-shrink:0;">
                 <div style="background:#f8fafc; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
-                    <div style="font-weight:700; font-size:15px; color:#334155; margin-bottom:16px;">新增檢查計畫</div>
+                    <div style="font-weight:700; font-size:15px; color:#334155; margin-bottom:16px;">填寫檢查行程</div>
                     <input type="hidden" id="scheduleSelectedDate">
                     <div class="form-group">
                         <label>檢查計畫 <span style="color:#ef4444;">*</span></label>
@@ -424,13 +424,20 @@
                             <option value="">請選擇已建立的檢查計畫</option>
                         </select>
                     </div>
+                    <div id="schedulePlanInfo" style="display:none; background:#f0f9ff; padding:12px; border-radius:6px; margin-bottom:16px; border:1px solid #bae6fd;">
+                        <div style="font-size:12px; color:#0369a1; font-weight:600; margin-bottom:6px;">已讀取計畫資訊：</div>
+                        <div style="font-size:12px; color:#0c4a6e;">
+                            <div>鐵路機構：<span id="schedulePlanRailway" style="font-weight:600;">-</span></div>
+                            <div>檢查類別：<span id="schedulePlanInspectionType" style="font-weight:600;">-</span></div>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label>開始日期 <span style="color:#ef4444;">*</span></label>
                         <input type="date" id="scheduleStartDate" class="filter-input" required>
                     </div>
                     <div class="form-group">
-                        <label>結束日期 <span style="color:#64748b; font-size:12px;">（選填，不填則為單日）</span></label>
-                        <input type="date" id="scheduleEndDate" class="filter-input">
+                        <label>結束日期 <span style="color:#ef4444;">*</span></label>
+                        <input type="date" id="scheduleEndDate" class="filter-input" required>
                     </div>
                     <div class="form-group">
                         <label>地點 <span style="color:#ef4444;">*</span></label>
@@ -439,6 +446,11 @@
                     <div class="form-group">
                         <label>檢查人員 <span style="color:#ef4444;">*</span></label>
                         <input type="text" id="scheduleInspector" class="filter-input" placeholder="例如：張三、李四" autocomplete="off">
+                    </div>
+                    <div id="schedulePlanNumberDisplay" style="display:none; background:#fef3c7; padding:12px; border-radius:6px; margin-bottom:16px; border:1px solid #fcd34d;">
+                        <div style="font-size:12px; color:#92400e; font-weight:600; margin-bottom:6px;">自動取號編號：</div>
+                        <div id="schedulePlanNumberValue" style="font-size:16px; color:#78350f; font-weight:700; font-family:monospace;">-</div>
+                        <div style="font-size:11px; color:#a16207; margin-top:4px;">此編號將在提交時自動產生</div>
                     </div>
                     <div style="display:flex; gap:8px;">
                         <button type="button" class="btn btn-primary" style="flex:1;" onclick="scheduleSubmitPlan()">上傳至資料庫</button>
@@ -493,8 +505,11 @@
                     <tr>
                         <th style="width:50px;"><input type="checkbox" id="selectAllPlans" onchange="toggleSelectAllPlans()"></th>
                         <th onclick="plansSortBy('year')">年度</th>
+                        <th style="padding:12px; min-width:120px;">檢查類別</th>
                         <th style="padding:16px;" onclick="plansSortBy('name')">檢查計畫名稱</th>
                         <th style="min-width:200px;">檢查起訖日期</th>
+                        <th style="min-width:150px;">地點</th>
+                        <th style="min-width:150px;">檢查人員</th>
                         <th style="min-width:180px;">取號編碼</th>
                         <th>事項數量</th>
                         <th onclick="plansSortBy('created_at')">建立日期</th>
@@ -551,8 +566,8 @@
                     <option value="5">調查 (5)</option>
                 </select>
             </div>
-            <div class="form-group" id="planDetailsGroup3">
-                <label>業務類別 <span style="color:#ef4444;">*</span></label>
+            <div class="form-group" id="planDetailsGroup3" style="display:none;">
+                <label>業務類別</label>
                 <select id="planBusiness" class="filter-select">
                     <option value="">請選擇</option>
                     <option value="OP">運轉 (OP)</option>
@@ -563,6 +578,13 @@
                     <option value="AD">營運 (AD)</option>
                     <option value="OT">其他 (OT)</option>
                 </select>
+            </div>
+            <!-- 新增：此計畫所有檢查行程列表 -->
+            <div id="planSchedulesSection" style="margin-top:16px;">
+                <div style="font-size:13px; color:#475569; font-weight:600; margin-bottom:6px;">此計畫的檢查行程</div>
+                <div id="planSchedulesList" style="max-height:260px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; padding:8px;">
+                    <div style="font-size:12px; color:#94a3b8; text-align:center; padding:12px 0;">尚未有檢查行程，請先至「填寫檢查行程」或在此建立第一筆行程。</div>
+                </div>
             </div>
             <div style="display:flex;gap:12px;margin-top:24px;">
                 <button class="btn btn-primary" style="flex:1;" onclick="submitPlan()">儲存</button>

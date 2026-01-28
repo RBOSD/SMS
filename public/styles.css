@@ -2920,17 +2920,19 @@
             border: 1px solid rgba(0,0,0,0.1);
         }
         .schedule-cal-plan-names {
-            font-size: 13px;
-            line-height: 1.4;
+            font-size: 12px;
+            line-height: 1.5;
             width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
             display: -webkit-box;
-            -webkit-line-clamp: 3;
+            -webkit-line-clamp: 4;
             -webkit-box-orient: vertical;
             word-break: break-word;
         }
-        .schedule-cal-plan-name { font-weight: 600; font-size: 13px; }
+        .schedule-cal-plan-name { font-weight: 600; font-size: 12px; display: block; }
+        .schedule-cal-plan-detail { font-size: 11px; display: block; }
+        .schedule-cal-plan-item { margin-bottom: 3px; }
         .schedule-cal-sep { color: #94a3b8; font-weight: 400; }
         .schedule-cal-holiday {
             background-color: #fef2f2 !important;
