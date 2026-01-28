@@ -183,10 +183,18 @@ function handleApiError(e, req, res, context) {
     // 記錄錯誤日誌
     logError(e, context, req).catch(() => {});
     
+    // 在開發環境或非生產環境，記錄詳細錯誤
+    if (process.env.NODE_ENV !== 'production') {
+        console.error(`[${context}] Error:`, e);
+        console.error('Error code:', e.code);
+        console.error('Error detail:', e.detail);
+        console.error('Error message:', e.message);
+    }
+    
     // 根據環境決定錯誤訊息
     const errorMessage = process.env.NODE_ENV === 'production' 
         ? '伺服器錯誤，請稍後再試' 
-        : e.message;
+        : (e.detail || e.message || '伺服器錯誤，請稍後再試');
     
     res.status(500).json({ error: errorMessage });
 }
@@ -338,7 +346,7 @@ async function initDB() {
                     plan_type TEXT,
                     railway TEXT NOT NULL,
                     inspection_type TEXT NOT NULL,
-                    business TEXT NOT NULL,
+                    business TEXT,
                     inspection_seq TEXT NOT NULL,
                     plan_number TEXT NOT NULL,
                     location TEXT,
@@ -349,6 +357,12 @@ async function initDB() {
                 // 修改 start_date 為允許 NULL（如果原本是 NOT NULL）
                 try {
                     await client.query(`ALTER TABLE inspection_plan_schedule ALTER COLUMN start_date DROP NOT NULL`);
+                } catch (e) {
+                    // 如果已經是 NULL 或不存在，忽略錯誤
+                }
+                // 修改 business 為允許 NULL（因為取號編碼不再使用業務類別）
+                try {
+                    await client.query(`ALTER TABLE inspection_plan_schedule ALTER COLUMN business DROP NOT NULL`);
                 } catch (e) {
                     // 如果已經是 NULL 或不存在，忽略錯誤
                 }
@@ -1787,7 +1801,12 @@ app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (re
         );
         logAction(req.session.user.username, 'CREATE_PLAN', `新增檢查計畫：${n} (年度：${y})`, req);
         res.json({success:true});
-    } catch (e) { 
+    } catch (e) {
+        // 記錄詳細錯誤以便除錯
+        console.error('Create plan error:', e);
+        console.error('Request body:', req.body);
+        console.error('Error code:', e.code);
+        console.error('Error detail:', e.detail);
         handleApiError(e, req, res, 'Create plan error');
     }
 });

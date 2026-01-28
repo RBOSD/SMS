@@ -6445,10 +6445,13 @@ if (dashboard) {
                         loadPlanOptions();
                         loadSchedulePlanOptions();
                     } else {
-                        showToast(j.error || '新增失敗', 'error');
+                        const errorMsg = j.error || j.message || '新增失敗';
+                        console.error('新增計畫失敗:', j);
+                        showToast(errorMsg, 'error');
                     }
                 } catch (e) {
-                    showToast('操作失敗：' + e.message, 'error');
+                    console.error('新增計畫錯誤:', e);
+                    showToast('操作失敗：' + (e.message || '未知錯誤'), 'error');
                 }
                 return;
             }
