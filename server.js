@@ -1794,17 +1794,6 @@ app.get('/api/plans/by-name', requireAuth, async (req, res, next) => {
         };
         
         return res.status(500).json(errorResponse);
-    } catch (outerError) {
-        // 如果連錯誤處理都失敗了
-        console.error('[API] Critical error in error handler:', outerError);
-        process.stderr.write(`[CRITICAL ERROR] /api/plans/by-name: ${outerError.message}\n`);
-        if (!res.headersSent) {
-            return res.status(500).json({
-                error: '伺服器發生嚴重錯誤',
-                message: outerError.message,
-                stack: process.env.NODE_ENV !== 'production' ? outerError.stack : undefined
-            });
-        }
     }
 });
 
