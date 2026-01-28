@@ -579,6 +579,13 @@
                     <option value="OT">其他 (OT)</option>
                 </select>
             </div>
+            <!-- 新增：此計畫所有檢查行程列表 -->
+            <div id="planSchedulesSection" style="margin-top:16px;">
+                <div style="font-size:13px; color:#475569; font-weight:600; margin-bottom:6px;">此計畫的檢查行程</div>
+                <div id="planSchedulesList" style="max-height:260px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; padding:8px;">
+                    <div style="font-size:12px; color:#94a3b8; text-align:center; padding:12px 0;">尚未有檢查行程，請先至「填寫檢查行程」或在此建立第一筆行程。</div>
+                </div>
+            </div>
             <div style="display:flex;gap:12px;margin-top:24px;">
                 <button class="btn btn-primary" style="flex:1;" onclick="submitPlan()">儲存</button>
                 <button class="btn btn-outline" style="flex:1;" onclick="closePlanModal()">取消</button>

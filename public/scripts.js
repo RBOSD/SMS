@@ -152,6 +152,10 @@
         let usersPage = 1, usersPageSize = 20, usersTotal = 0, usersPages = 1, usersSortField = 'id', usersSortDir = 'asc';
         let plansPage = 1, plansPageSize = 20, plansTotal = 0, plansPages = 1, plansSortField = 'year', plansSortDir = 'desc';
         let planList = [];
+        // 目前在計畫管理編輯視窗中正在查看的該計畫所有排程
+        let currentPlanSchedules = [];
+        // 目前在計畫管理編輯視窗中正在查看的該計畫所有排程
+        let currentPlanSchedules = [];
         let logsPage = 1, logsPageSize = 20, logsTotal = 0, logsPages = 1;
         let actionsPage = 1, actionsPageSize = 20, actionsTotal = 0, actionsPages = 1;
         // Current import mode: 'word' (uses param) or 'backup' (ignores param)
@@ -6112,6 +6116,50 @@ if (dashboard) {
             }
         }
         
+        // 將一筆排程資料套用到「計畫管理」編輯視窗中的欄位
+        function applyScheduleToPlanForm(schedule, basePlan) {
+            const scheduleIdInput = document.getElementById('targetScheduleId');
+            const nameInput = document.getElementById('planName');
+            const yearInput = document.getElementById('planYear');
+            const startInput = document.getElementById('planStartDate');
+            const endInput = document.getElementById('planEndDate');
+            const railwaySelect = document.getElementById('planRailway');
+            const inspectionSelect = document.getElementById('planInspectionType');
+            if (!schedule || !nameInput || !yearInput || !railwaySelect || !inspectionSelect) return;
+            
+            if (scheduleIdInput) scheduleIdInput.value = schedule.id || '';
+            nameInput.value = (basePlan && basePlan.name) ? basePlan.name : (schedule.plan_name || '');
+            
+            // 年度預設使用排程開始日期推算，否則使用基礎計畫年度
+            let rocYear = '';
+            if (schedule.start_date) {
+                const adYear = parseInt(schedule.start_date.slice(0, 4), 10);
+                if (!Number.isNaN(adYear)) {
+                    rocYear = String(adYear - 1911).padStart(3, '0');
+                }
+            }
+            if (!rocYear && basePlan && basePlan.year) {
+                rocYear = String(basePlan.year).padStart(3, '0');
+            }
+            if (yearInput) yearInput.value = rocYear;
+            
+            if (startInput) startInput.value = schedule.start_date ? schedule.start_date.slice(0, 10) : '';
+            if (endInput) endInput.value = schedule.end_date ? schedule.end_date.slice(0, 10) : '';
+            railwaySelect.value = schedule.railway || '';
+            inspectionSelect.value = schedule.inspection_type || '';
+        }
+        
+        // 在計畫管理編輯視窗中，選擇要編輯的某一筆行程
+        function selectPlanSchedule(scheduleId) {
+            const idNum = Number(scheduleId);
+            if (!currentPlanSchedules || currentPlanSchedules.length === 0) return;
+            const schedule = currentPlanSchedules.find(s => Number(s.id) === idNum);
+            if (!schedule) return;
+            const planId = Number((document.getElementById('targetPlanId') || {}).value || '0');
+            const basePlan = planList.find(p => Number(p.id) === planId) || {};
+            applyScheduleToPlanForm(schedule, basePlan);
+        }
+        
         async function openPlanModal(mode, id) {
             const m = document.getElementById('planModal');
             const t = document.getElementById('planModalTitle');
@@ -6133,6 +6181,11 @@ if (dashboard) {
                 document.getElementById('planInspectionType').value = '';
                 const planBusinessEl = document.getElementById('planBusiness');
                 if (planBusinessEl) planBusinessEl.value = '';
+                currentPlanSchedules = [];
+                const planSchedulesList = document.getElementById('planSchedulesList');
+                if (planSchedulesList) {
+                    planSchedulesList.innerHTML = '<div style="font-size:12px; color:#94a3b8; text-align:center; padding:12px 0;">尚未有檢查行程，請先新增行程。</div>';
+                }
                 
                 if (planDetailsGroup) planDetailsGroup.style.display = 'block';
                 if (planDetailsGroup2) planDetailsGroup2.style.display = 'block';
@@ -6174,30 +6227,47 @@ if (dashboard) {
                 
                 try {
                     const scheduleRes = await fetch(`/api/plans/${p.id}/schedules?t=${Date.now()}`, { credentials: 'include' });
+                    const planSchedulesList = document.getElementById('planSchedulesList');
+                    currentPlanSchedules = [];
                     if (scheduleRes.ok) {
                         const scheduleData = await scheduleRes.json();
                         const schedules = scheduleData.data || [];
-                        if (schedules.length > 0) {
-                            const s = schedules[0];
-                            document.getElementById('targetScheduleId').value = s.id || '';
-                            document.getElementById('planName').value = p.name || '';
-                            document.getElementById('planStartDate').value = s.start_date ? s.start_date.slice(0, 10) : '';
-                            document.getElementById('planEndDate').value = s.end_date ? s.end_date.slice(0, 10) : '';
-                            const adYear = s.start_date ? parseInt(s.start_date.slice(0, 4), 10) : new Date().getFullYear();
-                            document.getElementById('planYear').value = String(adYear - 1911).padStart(3, '0');
-                            const planTypeEl = document.getElementById('planType');
-                            if (planTypeEl) planTypeEl.value = s.plan_type || '';
-                            document.getElementById('planRailway').value = s.railway || '';
-                            document.getElementById('planInspectionType').value = s.inspection_type || '';
-                            const planBusinessEl = document.getElementById('planBusiness');
-                            if (planBusinessEl) planBusinessEl.value = s.business || '';
-                        } else {
-                            document.getElementById('planName').value = p.name || '';
-                            document.getElementById('planYear').value = p.year || '';
+                        currentPlanSchedules = schedules;
+                        if (planSchedulesList) {
+                            if (!schedules.length) {
+                                planSchedulesList.innerHTML = '<div style="font-size:12px; color:#94a3b8; text-align:center; padding:12px 0;">尚未有檢查行程，請先新增行程。</div>';
+                            } else {
+                                planSchedulesList.innerHTML = schedules.map((s, idx) => {
+                                    const start = (s.start_date || '').slice(0, 10);
+                                    const end = (s.end_date || '').slice(0, 10);
+                                    const range = end && end !== start ? `${start} ~ ${end}` : start;
+                                    const planNumber = (s.plan_number || '').trim();
+                                    return `<div onclick="selectPlanSchedule(${s.id})" style="cursor:pointer; padding:6px 8px; border-radius:6px; margin-bottom:4px; background:#ffffff; border:1px solid #e2e8f0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#334155;">
+            <span>第 ${idx + 1} 筆行程</span>
+            ${planNumber ? `<span style="color:#2563eb; font-weight:600;">${planNumber}</span>` : ''}
+        </div>
+        <div style="font-size:12px; color:#64748b; margin-top:2px;">📅 ${range || '尚未設定日期'}</div>
+    </div>`;
+                                }).join('');
+                            }
                         }
+                        if (schedules.length > 0) {
+                            applyScheduleToPlanForm(schedules[0], p);
+                        } else {
+                            const nameInput = document.getElementById('planName');
+                            const yearInput = document.getElementById('planYear');
+                            if (nameInput) nameInput.value = p.name || '';
+                            if (yearInput) yearInput.value = p.year || '';
+                        }
+                    } else if (planSchedulesList) {
+                        planSchedulesList.innerHTML = '<div style="font-size:12px; color:#f97316; text-align:center; padding:12px 0;">無法載入行程列表，請稍後再試。</div>';
                     }
                 } catch (e) {
-                    console.error('載入計畫詳情失敗:', e);
+                    const planSchedulesList = document.getElementById('planSchedulesList');
+                    if (planSchedulesList) {
+                        planSchedulesList.innerHTML = '<div style="font-size:12px; color:#f97316; text-align:center; padding:12px 0;">載入行程列表時發生錯誤，請稍後再試。</div>';
+                    }
                 }
                 if (m) m.classList.add('open');
             }
