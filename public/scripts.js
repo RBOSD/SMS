@@ -5862,18 +5862,18 @@ if (dashboard) {
             }
             const startDateVal = (document.getElementById('scheduleStartDate') || {}).value;
             const endDateVal = (document.getElementById('scheduleEndDate') || {}).value;
-            const location = (document.getElementById('scheduleLocation') || {}).value?.trim();
-            const inspector = (document.getElementById('scheduleInspector') || {}).value?.trim();
+            const locationValue = (document.getElementById('scheduleLocation') || {}).value?.trim();
+            const inspectorValue = (document.getElementById('scheduleInspector') || {}).value?.trim();
             
             if (!startDateVal) {
                 showToast('請選擇開始日期', 'error');
                 return;
             }
-            if (!location) {
+            if (!locationValue) {
                 showToast('請填寫地點', 'error');
                 return;
             }
-            if (!inspector) {
+            if (!inspectorValue) {
                 showToast('請填寫檢查人員', 'error');
                 return;
             }
@@ -5948,8 +5948,8 @@ if (dashboard) {
                         railway: schedulePlanDetails.railway,
                         inspection_type: schedulePlanDetails.inspection_type,
                         business: schedulePlanDetails.business,
-                        location,
-                        inspector
+                        location: locationValue,
+                        inspector: inspectorValue
                     })
                 });
                 const j = await res.json().catch(() => ({}));
@@ -5983,10 +5983,10 @@ if (dashboard) {
                 // scheduleClearForm();
                 
                 // 只清空地點和檢查人員，保留計畫和日期
-                const location = document.getElementById('scheduleLocation');
-                const inspector = document.getElementById('scheduleInspector');
-                if (location) location.value = '';
-                if (inspector) inspector.value = '';
+                const locationInput = document.getElementById('scheduleLocation');
+                const inspectorInput = document.getElementById('scheduleInspector');
+                if (locationInput) locationInput.value = '';
+                if (inspectorInput) inspectorInput.value = '';
                 
                 // 重新計算取號編號（因為已經新增了一筆，下一個編號會改變）
                 await updateSchedulePlanNumber();
