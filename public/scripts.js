@@ -5876,8 +5876,9 @@ if (dashboard) {
                         // 處理計畫資料（不再需要 business）
                         const railway = (plan.railway && plan.railway !== '-') ? String(plan.railway).trim() : '';
                         const inspection_type = (plan.inspection_type && plan.inspection_type !== '-') ? String(plan.inspection_type).trim() : '';
+                        const business = (plan.business && plan.business !== '-') ? String(plan.business).trim() : ''; // 取得 business 用於顯示
                         
-                        console.log('[Frontend] 處理後的資料 - railway:', railway, 'inspection_type:', inspection_type);
+                        console.log('[Frontend] 處理後的資料 - railway:', railway, 'inspection_type:', inspection_type, 'business:', business);
                         
                         // 儲存到變數
                         schedulePlanDetails = {
@@ -5911,10 +5912,10 @@ if (dashboard) {
                             
                             railwaySpan.textContent = railwayNames[railway] || railway;
                             inspectionTypeSpan.textContent = inspectionTypeNames[inspection_type] || inspection_type;
-                            // 業務類別不再顯示
+                            // 業務類別不再顯示（但如果有值仍可顯示）
                             if (businessSpan) {
                                 const businessNames = { 'OP': '運轉', 'CV': '土建', 'ME': '機務', 'EL': '電務', 'SM': '安全管理', 'AD': '營運', 'OT': '其他' };
-                                businessSpan.textContent = businessNames[business] || business || '-';
+                                businessSpan.textContent = business ? (businessNames[business] || business) : '-';
                             }
                             planInfoDiv.style.display = 'block';
                         }
