@@ -154,8 +154,6 @@
         let planList = [];
         // 目前在計畫管理編輯視窗中正在查看的該計畫所有排程
         let currentPlanSchedules = [];
-        // 目前在計畫管理編輯視窗中正在查看的該計畫所有排程
-        let currentPlanSchedules = [];
         let logsPage = 1, logsPageSize = 20, logsTotal = 0, logsPages = 1;
         let actionsPage = 1, actionsPageSize = 20, actionsTotal = 0, actionsPages = 1;
         // Current import mode: 'word' (uses param) or 'backup' (ignores param)
