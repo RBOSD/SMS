@@ -5064,6 +5064,18 @@ if (dashboard) {
                 showToast('載入計畫錯誤: ' + e.message, 'error');
             }
         }
+        // 檢查類別轉換函數
+        function getInspectionTypeName(type) {
+            const typeMap = {
+                '1': '年度定期檢查',
+                '2': '特別檢查',
+                '3': '例行性檢查',
+                '4': '臨時檢查',
+                '5': '調查'
+            };
+            return typeMap[String(type)] || '-';
+        }
+        
         async function renderPlans() {
             const tbody = document.getElementById('plansTableBody');
             if (!tbody) return;
@@ -5073,6 +5085,7 @@ if (dashboard) {
                 let datesHtml = '';
                 let locationsHtml = '';
                 let inspectorsHtml = '';
+                let inspectionTypeHtml = '';
                 try {
                     const scheduleRes = await fetch(`/api/plans/${p.id}/schedules?t=${Date.now()}`, { credentials: 'include' });
                     if (scheduleRes.ok) {
@@ -5093,10 +5106,17 @@ if (dashboard) {
                             // 取得地點和人員資訊
                             locationsHtml = validSchedules.map(s => `<div style="margin:2px 0; font-size:12px;">${s.location || '-'}</div>`).join('');
                             inspectorsHtml = validSchedules.map(s => `<div style="margin:2px 0; font-size:12px;">${s.inspector || '-'}</div>`).join('');
+                            // 取得檢查類別（取第一個有效的檢查類別）
+                            const firstType = validSchedules[0]?.inspection_type;
+                            inspectionTypeHtml = firstType ? `<div style="margin:2px 0; font-size:12px;">${getInspectionTypeName(firstType)}</div>` : '<span style="color:#94a3b8; font-size:12px;">—</span>';
+                        } else {
+                            inspectionTypeHtml = '<span style="color:#94a3b8; font-size:12px;">—</span>';
                         }
+                    } else {
+                        inspectionTypeHtml = '<span style="color:#94a3b8; font-size:12px;">—</span>';
                     }
                 } catch (e) {
-                    // 忽略錯誤
+                    inspectionTypeHtml = '<span style="color:#94a3b8; font-size:12px;">—</span>';
                 }
                 const createdDate = p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : '-';
                 rows.push(`<tr>
@@ -5104,14 +5124,15 @@ if (dashboard) {
                         <input type="checkbox" class="plan-check" value="${p.id}" onchange="updatePlansBatchDeleteBtn()">
                     </td>
                     <td data-label="年度" style="padding:12px;font-weight:600;">${p.year || '-'}</td>
+                    <td data-label="檢查類別" style="padding:12px;">${inspectionTypeHtml}</td>
                     <td data-label="檢查計畫名稱" style="padding:12px;font-weight:600;">${p.name || '-'}</td>
                     <td data-label="檢查起訖日期" style="padding:12px;">${datesHtml || '<span style="color:#94a3b8; font-size:12px;">—</span>'}</td>
                     <td data-label="地點" style="padding:12px;">${locationsHtml || '<span style="color:#94a3b8; font-size:12px;">—</span>'}</td>
                     <td data-label="檢查人員" style="padding:12px;">${inspectorsHtml || '<span style="color:#94a3b8; font-size:12px;">—</span>'}</td>
                     <td data-label="取號編碼" style="padding:12px;">${codesHtml || '<span style="color:#94a3b8; font-size:12px;">無</span>'}</td>
-                    <td data-label="事項數量">${p.issue_count || 0}</td>
-                    <td data-label="建立日期">${createdDate}</td>
-                    <td data-label="操作">
+                    <td data-label="事項數量" style="padding:12px;text-align:center;">${p.issue_count || 0}</td>
+                    <td data-label="建立日期" style="padding:12px;">${createdDate}</td>
+                    <td data-label="操作" style="padding:12px;">
                         <button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openPlanModal('edit', ${p.id})">✏️</button>
                         <button class="btn btn-danger" style="padding:2px 6px;" onclick="deletePlan(${p.id})">🗑️</button>
                     </td>
@@ -5410,12 +5431,18 @@ if (dashboard) {
         const SCHEDULE_PLAN_COLORS = ['#dbeafe', '#dcfce7', '#fef3c7', '#fce7f3', '#e0e7ff', '#d1fae5', '#fed7aa', '#e9d5ff'];
         const SCHEDULE_PLAN_TEXT_COLORS = ['#1e40af', '#166534', '#92400e', '#9d174d', '#3730a3', '#065f46', '#c2410c', '#6b21a8'];
 
-        function schedulePlanColorIndex(planNameOrId) {
-            if (planNameOrId == null) return 0;
-            let h = 0;
-            const str = String(planNameOrId);
-            for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
-            return h % SCHEDULE_PLAN_COLORS.length;
+        // 根據檢查類別決定顏色索引
+        function schedulePlanColorIndex(inspectionType) {
+            // 檢查類別：1=年度定期檢查, 2=特別檢查, 3=例行性檢查, 4=臨時檢查, 5=調查
+            const typeMap = {
+                '1': 0, // 年度定期檢查 - 藍色
+                '2': 1, // 特別檢查 - 綠色
+                '3': 2, // 例行性檢查 - 黃色
+                '4': 3, // 臨時檢查 - 粉色
+                '5': 4  // 調查 - 紫色
+            };
+            const type = String(inspectionType || '').trim();
+            return typeMap[type] !== undefined ? typeMap[type] : 5; // 預設為第6個顏色（橙色）
         }
 
         function renderScheduleCalendar() {
@@ -5443,7 +5470,7 @@ if (dashboard) {
                     return dateStr >= startStr && dateStr <= endStr;
                 });
                 const hasPlan = plansForDay.length > 0;
-                const colorIndices = plansForDay.map(s => schedulePlanColorIndex(s.plan_name || s.id));
+                const colorIndices = plansForDay.map(s => schedulePlanColorIndex(s.inspection_type));
                 const colorDots = colorIndices.map((idx, i) => {
                     const name = (plansForDay[i].plan_name || '').trim() || '未命名';
                     return `<span class="schedule-cal-color-dot" style="background:${SCHEDULE_PLAN_COLORS[idx]};" title="${name}"></span>`;
@@ -5499,7 +5526,7 @@ if (dashboard) {
                     return dateStr >= startStr && dateStr <= endStr;
                 });
                 const hasPlan = plansForDay.length > 0;
-                const colorIndices = plansForDay.map(s => schedulePlanColorIndex(s.plan_name || s.id));
+                const colorIndices = plansForDay.map(s => schedulePlanColorIndex(s.inspection_type));
                 const colorDots = colorIndices.map((idx, i) => {
                     const name = (plansForDay[i].plan_name || '').trim() || '未命名';
                     return `<span class="schedule-cal-color-dot" style="background:${SCHEDULE_PLAN_COLORS[idx]};" title="${name}"></span>`;
@@ -5540,7 +5567,7 @@ if (dashboard) {
                     <meta charset="UTF-8">
                     <title>${monthTitle} - 檢查計畫月曆</title>
                     <style>
-                        @page { size: A4 landscape; margin: 25mm 20mm; }
+                        @page { size: A4 landscape; margin: 30mm 25mm; }
                         * { box-sizing: border-box; margin: 0; padding: 0; }
                         html, body { height: 100%; width: 100%; overflow: hidden; }
                         body { 
@@ -5602,7 +5629,7 @@ if (dashboard) {
                         .schedule-cal-day.schedule-cal-plan-6 { background: #fed7aa; }
                         .schedule-cal-day.schedule-cal-plan-7 { background: #e9d5ff; }
                         @media print {
-                            @page { size: A4 landscape; margin: 25mm 20mm; }
+                            @page { size: A4 landscape; margin: 30mm 25mm; }
                             body { padding: 0; margin: 0; height: 100%; overflow: hidden; }
                             h1 { margin-bottom: 6px; font-size: 16px; page-break-after: avoid; }
                             .schedule-calendar { max-height: calc(257mm - 50mm); page-break-inside: avoid; }
@@ -6369,7 +6396,7 @@ if (dashboard) {
             reader.readAsText(file, 'UTF-8');
         }
         function downloadPlanCSVTemplate() {
-            const csv = '計畫名稱,年度,開始日期,結束日期,鐵路機構,檢查類別,業務類別\n113年度上半年定期檢查,113,2024-01-01,2024-06-30,T,1,OP\n113年度下半年定期檢查,113,2024-07-01,2024-12-31,T,1,OP';
+            const csv = '計畫名稱,年度,開始日期,結束日期,鐵路機構,檢查類別,業務類別\n上半年定期檢查,113,2024-01-01,2024-06-30,T,1,OP\n下半年定期檢查,113,2024-07-01,2024-12-31,T,1,OP\n特別檢查,113,2024-03-15,2024-03-20,H,2,CV';
             const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
