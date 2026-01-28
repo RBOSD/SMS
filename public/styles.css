@@ -2844,3 +2844,109 @@
         #createHandlingRoundsContainer textarea:focus {
             z-index: 6;
         }
+
+        /* 檢查計畫規劃月曆 */
+        .schedule-calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .schedule-cal-head {
+            background: #e2e8f0;
+            padding: 8px 4px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            text-align: center;
+        }
+        .schedule-cal-day {
+            background: #fff;
+            min-height: 60px;
+            padding: 4px;
+            font-size: 13px;
+            color: #334155;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: flex-start;
+            cursor: pointer;
+            transition: background 0.15s;
+            position: relative;
+        }
+        .schedule-cal-day:hover {
+            background: #f1f5f9;
+        }
+        .schedule-cal-day.has-plan {
+            background: #eff6ff;
+        }
+        .schedule-cal-day.has-plan:hover {
+            filter: brightness(0.96);
+        }
+        .schedule-cal-day.schedule-cal-plan-0 { background: #dbeafe; }
+        .schedule-cal-day.schedule-cal-plan-1 { background: #dcfce7; }
+        .schedule-cal-day.schedule-cal-plan-2 { background: #fef3c7; }
+        .schedule-cal-day.schedule-cal-plan-3 { background: #fce7f3; }
+        .schedule-cal-day.schedule-cal-plan-4 { background: #e0e7ff; }
+        .schedule-cal-day.schedule-cal-plan-5 { background: #d1fae5; }
+        .schedule-cal-day.schedule-cal-plan-6 { background: #fed7aa; }
+        .schedule-cal-day.schedule-cal-plan-7 { background: #e9d5ff; }
+        .schedule-cal-pad {
+            background: #f8fafc;
+            cursor: default;
+        }
+        .schedule-cal-pad:hover {
+            background: #f8fafc;
+        }
+        .schedule-cal-day-num {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+        .schedule-cal-dots {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+            margin-bottom: 2px;
+        }
+        .schedule-cal-color-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .schedule-cal-plan-names {
+            font-size: 13px;
+            line-height: 1.4;
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            word-break: break-word;
+        }
+        .schedule-cal-plan-name { font-weight: 600; font-size: 13px; }
+        .schedule-cal-sep { color: #94a3b8; font-weight: 400; }
+        .schedule-cal-holiday {
+            background-color: #fef2f2 !important;
+        }
+        .schedule-cal-holiday .schedule-cal-day-num {
+            color: #dc2626;
+            font-weight: 700;
+        }
+        .schedule-cal-holiday-tag {
+            font-size: 10px;
+            color: #dc2626;
+            font-weight: 600;
+            margin-bottom: 2px;
+            display: block;
+        }
+        @media print {
+            .schedule-cal-plan-names { font-size: 14px; }
+            .schedule-cal-plan-name { font-size: 14px; }
+        }
