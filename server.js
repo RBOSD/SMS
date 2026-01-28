@@ -1620,15 +1620,41 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             return res.status(400).json({ error: '計畫名稱或年度格式錯誤' });
         }
         
+        // 檢查 pool 是否存在
+        if (!pool) {
+            console.error('[API] Database pool is not initialized');
+            return res.status(503).json({ error: '資料庫連線未初始化' });
+        }
+        
         // 查詢資料庫
-        const result = await pool.query(
-            `SELECT id, plan_name AS name, year, railway, inspection_type, business 
-             FROM inspection_plan_schedule 
-             WHERE plan_name = $1 AND year = $2 
-             ORDER BY id ASC 
-             LIMIT 1`,
-            [decodedName, decodedYear]
-        );
+        let result;
+        try {
+            result = await pool.query(
+                `SELECT id, plan_name AS name, year, railway, inspection_type, business 
+                 FROM inspection_plan_schedule 
+                 WHERE plan_name = $1 AND year = $2 
+                 ORDER BY id ASC 
+                 LIMIT 1`,
+                [decodedName, decodedYear]
+            );
+        } catch (queryError) {
+            console.error('[API] Database query error:', queryError);
+            // 處理資料庫連線錯誤
+            if (queryError.code === 'ECONNREFUSED' || queryError.code === 'ETIMEDOUT' || 
+                queryError.message?.includes('Connection') || queryError.message?.includes('timeout')) {
+                return res.status(503).json({
+                    error: '資料庫連線失敗，請稍後再試',
+                    code: queryError.code
+                });
+            }
+            // 重新拋出以便外層處理
+            throw queryError;
+        }
+        
+        if (!result || !result.rows) {
+            console.error('[API] Invalid query result:', result);
+            return res.status(500).json({ error: '資料庫查詢結果格式錯誤' });
+        }
         
         if (result.rows.length === 0) {
             return res.status(404).json({ error: '找不到該計畫' });
@@ -1666,6 +1692,15 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         
         res.json(responseData);
     } catch (e) {
+        // 記錄詳細錯誤
+        console.error('[API] /api/plans/by-name error:', {
+            message: e.message,
+            code: e.code,
+            stack: e.stack,
+            name: name,
+            year: year
+        });
+        
         // 處理資料庫連線錯誤
         if (e.code === 'ECONNREFUSED' || e.code === 'ETIMEDOUT' || 
             e.message?.includes('Connection') || e.message?.includes('timeout')) {
@@ -1675,8 +1710,17 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             });
         }
         
-        // 處理其他錯誤
-        console.error('[API] /api/plans/by-name error:', e);
+        // 處理其他錯誤 - 在開發環境提供詳細錯誤訊息
+        if (process.env.NODE_ENV !== 'production') {
+            return res.status(500).json({
+                error: '查詢計畫時發生錯誤',
+                message: e.message,
+                code: e.code,
+                detail: e.detail
+            });
+        }
+        
+        // 生產環境使用通用錯誤處理
         handleApiError(e, req, res, 'Get plan by name error');
     }
 });
