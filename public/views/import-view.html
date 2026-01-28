@@ -403,9 +403,9 @@
         <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap;">
             <div style="flex:1; min-width:280px;">
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
-                    <button type="button" class="btn btn-outline" id="schedulePrevMonth" onclick="schedulePrevMonth()">◀ 上月</button>
-                    <span id="scheduleMonthTitle" style="font-weight:700; font-size:16px; color:#334155; min-width:140px;">— 年 — 月</span>
-                    <button type="button" class="btn btn-outline" id="scheduleNextMonth" onclick="scheduleNextMonth()">下月 ▶</button>
+                    <button type="button" class="btn btn-outline" id="schedulePrevMonth" onclick="schedulePrevMonth()">◀ 上個月</button>
+                    <span id="scheduleMonthTitle" style="font-weight:700; font-size:16px; color:#334155; flex:1; text-align:center;">— 年 — 月</span>
+                    <button type="button" class="btn btn-outline" id="scheduleNextMonth" onclick="scheduleNextMonth()">下個月 ▶</button>
                     <button type="button" class="btn btn-primary" onclick="printScheduleCalendar()" style="margin-left:auto;">🖨️ 列印月曆</button>
                 </div>
                 <div id="scheduleCalendar" class="schedule-calendar"></div>
@@ -416,7 +416,7 @@
             </div>
             <div style="width:360px; flex-shrink:0;">
                 <div style="background:#f8fafc; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
-                    <div style="font-weight:700; font-size:15px; color:#334155; margin-bottom:16px;">新增檢查計畫</div>
+                    <div style="font-weight:700; font-size:15px; color:#334155; margin-bottom:16px;">填寫檢查行程</div>
                     <input type="hidden" id="scheduleSelectedDate">
                     <div class="form-group">
                         <label>檢查計畫 <span style="color:#ef4444;">*</span></label>
@@ -508,6 +508,8 @@
                         <th onclick="plansSortBy('year')">年度</th>
                         <th style="padding:16px;" onclick="plansSortBy('name')">檢查計畫名稱</th>
                         <th style="min-width:200px;">檢查起訖日期</th>
+                        <th style="min-width:150px;">地點</th>
+                        <th style="min-width:150px;">檢查人員</th>
                         <th style="min-width:180px;">取號編碼</th>
                         <th>事項數量</th>
                         <th onclick="plansSortBy('created_at')">建立日期</th>
