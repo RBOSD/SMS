@@ -1750,7 +1750,7 @@ app.get('/api/plans/:id/schedules', requireAuth, requireAdminOrManager, async (r
         const planYear = planResult.rows[0].year || '';
         
         const scheduleRes = await pool.query(
-            `SELECT id, start_date, end_date, plan_number, inspection_seq, railway, inspection_type, business, plan_type 
+            `SELECT id, start_date, end_date, plan_number, inspection_seq, railway, inspection_type, business, plan_type, location, inspector 
              FROM inspection_plan_schedule 
              WHERE plan_name = $1 AND year = $2 
              ORDER BY start_date ASC, id ASC`,
@@ -1983,7 +1983,7 @@ app.get('/api/plan-schedule', requireAuth, async (req, res) => {
         const lastDay = new Date(y, m, 0).getDate();
         const end = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
         const rows = await pool.query(
-            `SELECT id, start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, created_at 
+            `SELECT id, start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, created_at, location, inspector 
              FROM inspection_plan_schedule 
              WHERE (start_date <= $2::date AND (end_date IS NULL OR end_date >= $1::date))
              ORDER BY start_date ASC, id ASC`,
@@ -2098,7 +2098,7 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
 app.get('/api/plan-schedule/all', requireAuth, requireAdminOrManager, async (req, res) => {
     try {
         const rows = await pool.query(
-            `SELECT id, start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, created_at, updated_at 
+            `SELECT id, start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, created_at, updated_at, location, inspector 
              FROM inspection_plan_schedule 
              ORDER BY year DESC, start_date ASC, id ASC`
         );
@@ -2168,7 +2168,7 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
 });
 
 app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
-    const { plan_name, start_date, end_date, year, railway, inspection_type, business } = req.body;
+    const { plan_name, start_date, end_date, year, railway, inspection_type, business, location, inspector } = req.body;
     try {
         if (!plan_name || !start_date || !year || !railway || !inspection_type || !business) {
             return res.status(400).json({ error: '計畫名稱、開始日期、年度、鐵路機構、檢查類別、業務類別為必填' });
@@ -2199,9 +2199,10 @@ app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf
         await pool.query(
             `UPDATE inspection_plan_schedule 
              SET plan_name = $1, start_date = $2, end_date = $3, year = $4, railway = $5, 
-                 inspection_type = $6, business = $7, inspection_seq = $8, plan_number = $9, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $10`,
-            [plan_name.trim(), start_date, end_date || null, y, rCode, it, b, inspection_seq, plan_number, req.params.id]
+                 inspection_type = $6, business = $7, inspection_seq = $8, plan_number = $9, 
+                 location = $10, inspector = $11, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $12`,
+            [plan_name.trim(), start_date, end_date || null, y, rCode, it, b, inspection_seq, plan_number, location || null, inspector || null, req.params.id]
         );
         
         const dateRange = end_date ? `${start_date} ~ ${end_date}` : start_date;
