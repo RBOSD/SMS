@@ -6123,7 +6123,8 @@ if (dashboard) {
                 document.getElementById('planEndDate').value = '';
                 document.getElementById('planRailway').value = '';
                 document.getElementById('planInspectionType').value = '';
-                document.getElementById('planBusiness').value = '';
+                const planBusinessEl = document.getElementById('planBusiness');
+                if (planBusinessEl) planBusinessEl.value = '';
                 
                 if (planDetailsGroup) planDetailsGroup.style.display = 'block';
                 if (planDetailsGroup2) planDetailsGroup2.style.display = 'block';
@@ -6176,10 +6177,12 @@ if (dashboard) {
                             document.getElementById('planEndDate').value = s.end_date ? s.end_date.slice(0, 10) : '';
                             const adYear = s.start_date ? parseInt(s.start_date.slice(0, 4), 10) : new Date().getFullYear();
                             document.getElementById('planYear').value = String(adYear - 1911).padStart(3, '0');
-                            document.getElementById('planType').value = s.plan_type || '';
+                            const planTypeEl = document.getElementById('planType');
+                            if (planTypeEl) planTypeEl.value = s.plan_type || '';
                             document.getElementById('planRailway').value = s.railway || '';
                             document.getElementById('planInspectionType').value = s.inspection_type || '';
-                            document.getElementById('planBusiness').value = s.business || '';
+                            const planBusinessEl = document.getElementById('planBusiness');
+                            if (planBusinessEl) planBusinessEl.value = s.business || '';
                         } else {
                             document.getElementById('planName').value = p.name || '';
                             document.getElementById('planYear').value = p.year || '';
@@ -6413,7 +6416,8 @@ if (dashboard) {
             const endDate = document.getElementById('planEndDate').value;
             const railway = document.getElementById('planRailway').value;
             const inspectionType = document.getElementById('planInspectionType').value;
-            const business = document.getElementById('planBusiness').value;
+            const planBusinessEl = document.getElementById('planBusiness');
+            const business = planBusinessEl ? planBusinessEl.value : null; // 業務類別改為選填
             
             if (!planId) {
                 if (!name) return showToast('請輸入計畫名稱', 'error');
@@ -6451,7 +6455,9 @@ if (dashboard) {
             
             if (!name) return showToast('請輸入計畫名稱', 'error');
             if (!startDate) return showToast('請選擇開始日期', 'error');
-            if (!railway || !inspectionType || !business) return showToast('請填寫鐵路機構、檢查類別、業務類別', 'error');
+            if (!endDate) return showToast('請選擇結束日期', 'error');
+            if (!railway || !inspectionType) return showToast('請填寫鐵路機構、檢查類別', 'error');
+            // 業務類別不再必填
             
             const adYear = parseInt(startDate.slice(0, 4), 10);
             const rocYear = adYear - 1911;
@@ -6464,11 +6470,11 @@ if (dashboard) {
                         body: JSON.stringify({
                             plan_name: name,
                             start_date: startDate,
-                            end_date: endDate || null,
+                            end_date: endDate,
                             year: yearStr,
                             railway,
                             inspection_type: inspectionType,
-                            business
+                            business: null // 業務類別不再使用
                         })
                     });
                     const j = await res.json();
