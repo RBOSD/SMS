@@ -2203,13 +2203,46 @@ app.get('/api/plan-schedule/next-number', requireAuth, async (req, res) => {
 app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { plan_name, start_date, end_date, year, railway, inspection_type, business, location, inspector } = req.body;
     try {
+        // 驗證必填欄位
         if (!plan_name || !start_date || !year || !railway || !inspection_type || !business) {
-            return res.status(400).json({ error: '計畫名稱、開始日期、年度、鐵路機構、檢查類別、業務類別為必填' });
+            const missingFields = [];
+            if (!plan_name) missingFields.push('計畫名稱');
+            if (!start_date) missingFields.push('開始日期');
+            if (!year) missingFields.push('年度');
+            if (!railway) missingFields.push('鐵路機構');
+            if (!inspection_type) missingFields.push('檢查類別');
+            if (!business) missingFields.push('業務類別');
+            return res.status(400).json({ 
+                error: `以下欄位為必填：${missingFields.join('、')}`,
+                missingFields: missingFields
+            });
         }
+        
+        // 驗證日期格式
+        if (end_date && end_date < start_date) {
+            return res.status(400).json({ error: '結束日期不能早於開始日期' });
+        }
+        
         const y = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
         const r = String(railway).toUpperCase();
         const it = String(inspection_type);
         const b = String(business).toUpperCase();
+        
+        // 驗證鐵路機構、檢查類別、業務類別的值
+        const validRailways = ['T', 'H', 'A', 'S'];
+        const validInspectionTypes = ['1', '2', '3', '4', '5'];
+        const validBusinesses = ['OP', 'CV', 'ME', 'EL', 'SM', 'AD', 'OT'];
+        
+        if (!validRailways.includes(r)) {
+            return res.status(400).json({ error: `無效的鐵路機構：${r}，請選擇有效的鐵路機構` });
+        }
+        if (!validInspectionTypes.includes(it)) {
+            return res.status(400).json({ error: `無效的檢查類別：${it}，請選擇有效的檢查類別` });
+        }
+        if (!validBusinesses.includes(b)) {
+            return res.status(400).json({ error: `無效的業務類別：${b}，請選擇有效的業務類別` });
+        }
+        
         const maxRes = await pool.query(
             `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
              FROM inspection_plan_schedule 
@@ -2220,6 +2253,7 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
         const seq = String(next).padStart(2, '0');
         const planNumber = `${y}${r}${it}-${seq}-${b}`;
         const name = String(plan_name).trim();
+        
         await pool.query(
             `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, location, inspector) 
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
@@ -2229,6 +2263,14 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
         logAction(req.session.user.username, 'CREATE_PLAN_SCHEDULE', `新增檢查計畫規劃：${name}，取號 ${planNumber}，日期 ${dateRange}`, req);
         res.json({ success: true, planNumber, inspectionSeq: seq });
     } catch (e) {
+        // 如果是資料庫約束錯誤，提供更清楚的錯誤訊息
+        if (e.code === '23505') { // 唯一約束違反
+            return res.status(400).json({ error: '該計畫排程已存在，請勿重複新增' });
+        } else if (e.code === '23502') { // NOT NULL 約束違反
+            return res.status(400).json({ error: '必填欄位不能為空，請檢查輸入的資料' });
+        } else if (e.code === '22007' || e.code === '22008') { // 日期格式錯誤
+            return res.status(400).json({ error: '日期格式錯誤，請使用正確的日期格式（YYYY-MM-DD）' });
+        }
         handleApiError(e, req, res, 'Create plan schedule error');
     }
 });

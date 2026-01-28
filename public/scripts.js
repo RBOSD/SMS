@@ -5785,28 +5785,59 @@ if (dashboard) {
                     const url = `/api/plans/by-name?name=${encodeURIComponent(planName)}&year=${encodeURIComponent(planYear)}&t=${Date.now()}`;
                     const planRes = await fetch(url, { 
                         credentials: 'include',
-                        cache: 'no-store'
+                        cache: 'no-store',
+                        headers: {
+                            'Accept': 'application/json'
+                        }
                     });
                     if (planRes.ok) {
                         const planData = await planRes.json();
                         if (planData.data && planData.data.length > 0) {
                             const plan = planData.data[0];
+                            const railway = plan.railway && plan.railway !== '-' ? plan.railway : '';
+                            const inspection_type = plan.inspection_type && plan.inspection_type !== '-' ? plan.inspection_type : '';
+                            const business = plan.business && plan.business !== '-' ? plan.business : '';
+                            
                             schedulePlanDetails = {
                                 plan_name: planName,
                                 year: planYear,
-                                railway: plan.railway || '',
-                                inspection_type: plan.inspection_type || '',
-                                business: plan.business || ''
+                                railway: railway,
+                                inspection_type: inspection_type,
+                                business: business
                             };
+                            
+                            // 如果計畫缺少必要資訊，提示用戶
+                            if (!railway || !inspection_type || !business) {
+                                if (planData.warning) {
+                                    showToast(planData.warning + '，請先在計畫管理中編輯該計畫', 'error');
+                                } else {
+                                    showToast('該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯該計畫', 'error');
+                                }
+                                return;
+                            }
+                        } else {
+                            showToast('找不到該計畫，請重新選擇', 'error');
+                            return;
                         }
+                    } else {
+                        const errorData = await planRes.json().catch(() => ({}));
+                        if (planRes.status === 404) {
+                            showToast('找不到該計畫，請重新選擇', 'error');
+                        } else {
+                            showToast(errorData.error || '無法取得計畫資訊，請稍後再試', 'error');
+                        }
+                        return;
                     }
                 } catch (e) {
                     console.error('重新載入計畫詳情失敗:', e);
+                    showToast('無法取得計畫資訊：' + (e.message || '未知錯誤') + '，請稍後再試', 'error');
+                    return;
                 }
             }
             
+            // 再次確認計畫詳情是否完整
             if (!schedulePlanDetails.railway || !schedulePlanDetails.inspection_type || !schedulePlanDetails.business) {
-                showToast('無法取得計畫資訊，請重新選擇計畫後再試', 'error');
+                showToast('該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯該計畫', 'error');
                 return;
             }
             const adYear = parseInt(startDateVal.slice(0, 4), 10);
@@ -5830,7 +5861,17 @@ if (dashboard) {
                 });
                 const j = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    showToast(j.error || '儲存失敗', 'error');
+                    // 根據不同的錯誤狀態碼顯示不同的錯誤訊息
+                    let errorMsg = j.error || '儲存失敗';
+                    if (res.status === 400) {
+                        errorMsg = j.error || '資料格式錯誤，請檢查輸入的資料';
+                    } else if (res.status === 403) {
+                        errorMsg = '權限不足，請確認您的帳號權限';
+                    } else if (res.status === 500) {
+                        errorMsg = '伺服器錯誤：' + (j.error || '請稍後再試');
+                    }
+                    showToast(errorMsg, 'error');
+                    console.error('上傳失敗:', { status: res.status, error: j });
                     return;
                 }
                 showToast(`已上傳，取號：${j.planNumber || ''}`, 'success');
@@ -5843,7 +5884,18 @@ if (dashboard) {
                 loadPlanOptions();
                 loadSchedulePlanOptions();
             } catch (e) {
-                showToast('儲存失敗：' + e.message, 'error');
+                console.error('上傳時發生錯誤:', e);
+                let errorMsg = '儲存失敗';
+                if (e.message) {
+                    if (e.message.includes('CSRF')) {
+                        errorMsg = '安全驗證失敗，請重新整理頁面後再試';
+                    } else if (e.message.includes('fetch')) {
+                        errorMsg = '網路連線錯誤，請檢查網路連線後再試';
+                    } else {
+                        errorMsg = '儲存失敗：' + e.message;
+                    }
+                }
+                showToast(errorMsg, 'error');
             }
         }
 
