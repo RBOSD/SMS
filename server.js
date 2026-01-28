@@ -1605,12 +1605,18 @@ app.get('/api/plans/:id', requireAuth, requireAdminOrManager, async (req, res) =
 
 // 重新設計的檢查計畫查詢 API - 簡化版本
 app.get('/api/plans/by-name', requireAuth, async (req, res) => {
+    // 確保在錯誤時也能返回回應
+    let hasResponded = false;
+    
     try {
         // 取得並驗證參數
         const name = req.query.name;
         const year = req.query.year;
         
+        console.log('[API] /api/plans/by-name called with:', { name, year });
+        
         if (!name || !year) {
+            hasResponded = true;
             return res.status(400).json({ 
                 error: '缺少必要參數',
                 message: '請提供 name 和 year 參數'
@@ -1628,21 +1634,51 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             planYear = String(year).trim();
         }
         
+        console.log('[API] Decoded params:', { planName, planYear });
+        
         if (!planName || !planYear) {
+            hasResponded = true;
             return res.status(400).json({ 
                 error: '參數格式錯誤',
                 message: '計畫名稱或年度不能為空'
             });
         }
         
+        // 檢查 pool 是否存在
+        if (!pool) {
+            hasResponded = true;
+            console.error('[API] Database pool is not initialized');
+            return res.status(503).json({ 
+                error: '資料庫未初始化',
+                message: '資料庫連線未初始化，請稍後再試'
+            });
+        }
+        
         // 執行查詢
-        const queryResult = await pool.query(
-            'SELECT id, plan_name, year, railway, inspection_type, business FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 ORDER BY id ASC LIMIT 1',
-            [planName, planYear]
-        );
+        console.log('[API] Executing query...');
+        let queryResult;
+        try {
+            queryResult = await pool.query(
+                'SELECT id, plan_name, year, railway, inspection_type, business FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 ORDER BY id ASC LIMIT 1',
+                [planName, planYear]
+            );
+            console.log('[API] Query executed, rows found:', queryResult?.rows?.length || 0);
+        } catch (queryError) {
+            console.error('[API] Query error:', queryError.message);
+            console.error('[API] Query error code:', queryError.code);
+            console.error('[API] Query error detail:', queryError.detail);
+            hasResponded = true;
+            return res.status(500).json({ 
+                error: '資料庫查詢失敗',
+                message: queryError.message || '查詢資料庫時發生錯誤',
+                code: queryError.code,
+                detail: queryError.detail
+            });
+        }
         
         // 檢查查詢結果
         if (!queryResult || !queryResult.rows || queryResult.rows.length === 0) {
+            hasResponded = true;
             return res.status(404).json({ 
                 error: '找不到計畫',
                 message: `找不到名稱為「${planName}」且年度為「${planYear}」的計畫`
@@ -1650,6 +1686,7 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         }
         
         const plan = queryResult.rows[0];
+        console.log('[API] Plan found:', { id: plan.id, name: plan.plan_name, year: plan.year });
         
         // 處理資料（安全處理 NULL）
         const railway = plan.railway ? String(plan.railway).trim() : '';
@@ -1678,27 +1715,35 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             response.warning = '該計畫缺少必要資訊（鐵路機構、檢查類別、業務類別），請先在計畫管理中編輯';
         }
         
+        hasResponded = true;
         return res.json(response);
         
     } catch (error) {
         // 統一錯誤處理
-        console.error('[API] /api/plans/by-name error:', error.message);
+        console.error('[API] /api/plans/by-name unexpected error:', error.message);
+        console.error('[API] Error type:', error.constructor.name);
+        console.error('[API] Error code:', error.code);
         console.error('[API] Error stack:', error.stack);
         
-        // 根據錯誤類型返回適當的狀態碼
-        if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
-            return res.status(503).json({ 
-                error: '資料庫連線失敗',
-                message: '無法連接到資料庫，請稍後再試'
+        // 如果還沒有回應，才發送錯誤回應
+        if (!hasResponded) {
+            // 根據錯誤類型返回適當的狀態碼
+            if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+                return res.status(503).json({ 
+                    error: '資料庫連線失敗',
+                    message: '無法連接到資料庫，請稍後再試',
+                    code: error.code
+                });
+            }
+            
+            // 返回詳細錯誤（用於除錯）
+            return res.status(500).json({ 
+                error: '查詢失敗',
+                message: error.message || '未知錯誤',
+                code: error.code || undefined,
+                type: error.constructor.name
             });
         }
-        
-        // 返回詳細錯誤（用於除錯）
-        return res.status(500).json({ 
-            error: '查詢失敗',
-            message: error.message || '未知錯誤',
-            code: error.code || undefined
-        });
     }
 });
 

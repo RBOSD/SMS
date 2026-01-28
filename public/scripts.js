@@ -5737,6 +5737,8 @@ if (dashboard) {
                     // 呼叫 API 取得計畫詳情
                     try {
                         const apiUrl = `/api/plans/by-name?name=${encodeURIComponent(planName)}&year=${encodeURIComponent(planYear)}`;
+                        console.log('[Frontend] Calling API:', apiUrl);
+                        
                         const response = await fetch(apiUrl, {
                             method: 'GET',
                             credentials: 'include',
@@ -5745,21 +5747,35 @@ if (dashboard) {
                             }
                         });
                         
+                        console.log('[Frontend] Response status:', response.status, response.statusText);
+                        
                         // 處理回應
                         if (!response.ok) {
                             let errorMessage = '無法取得計畫資訊';
+                            let errorDetails = '';
+                            
                             try {
-                                const errorData = await response.json();
+                                const errorText = await response.text();
+                                console.error('[Frontend] Error response text:', errorText);
+                                
+                                const errorData = JSON.parse(errorText);
                                 errorMessage = errorData.message || errorData.error || errorMessage;
+                                errorDetails = errorData.code || errorData.detail || '';
+                                
+                                console.error('[Frontend] Error data:', errorData);
                             } catch (e) {
+                                console.error('[Frontend] Failed to parse error:', e);
                                 // 如果無法解析 JSON，使用狀態碼
                                 if (response.status === 404) {
                                     errorMessage = '找不到該計畫';
                                 } else if (response.status === 500) {
                                     errorMessage = '伺服器錯誤，請稍後再試';
+                                } else if (response.status === 503) {
+                                    errorMessage = '服務暫時不可用，請稍後再試';
                                 }
                             }
-                            showToast(errorMessage, 'error');
+                            
+                            showToast(errorMessage + (errorDetails ? ` (${errorDetails})` : ''), 'error');
                             select.value = '';
                             return;
                         }
