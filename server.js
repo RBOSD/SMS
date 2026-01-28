@@ -1703,15 +1703,24 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         
         res.json(responseData);
     } catch (e) {
-        // 記錄詳細錯誤
+        // 記錄詳細錯誤到控制台（無論環境）
         console.error('[API] /api/plans/by-name error:', {
             message: e.message,
             code: e.code,
             detail: e.detail,
             hint: e.hint,
+            stack: e.stack,
             name: name,
-            year: year
+            year: year,
+            decodedName: decodedName,
+            decodedYear: decodedYear
         });
+        
+        // 強制輸出到 stderr（確保 Render 能看到）
+        process.stderr.write(`[ERROR] /api/plans/by-name: ${e.message}\n`);
+        process.stderr.write(`[ERROR] Code: ${e.code || 'N/A'}\n`);
+        process.stderr.write(`[ERROR] Detail: ${e.detail || 'N/A'}\n`);
+        process.stderr.write(`[ERROR] Query params: name=${decodedName}, year=${decodedYear}\n`);
         
         // 處理資料庫連線錯誤
         if (e.code === 'ECONNREFUSED' || e.code === 'ETIMEDOUT' || 
@@ -1724,26 +1733,46 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         
         // 處理表不存在錯誤
         if (e.code === '42P01' || e.message?.includes('does not exist') || 
-            e.message?.includes('relation') && e.message?.includes('does not exist')) {
+            (e.message?.includes('relation') && e.message?.includes('does not exist'))) {
             return res.status(500).json({
                 error: '資料庫表不存在，請檢查資料庫結構',
                 message: e.message
             });
         }
         
-        // 處理其他錯誤 - 在開發環境提供詳細錯誤訊息
-        if (process.env.NODE_ENV !== 'production') {
+        // 處理欄位不存在錯誤
+        if (e.code === '42703' || e.message?.includes('column') && e.message?.includes('does not exist')) {
             return res.status(500).json({
-                error: '查詢計畫時發生錯誤',
+                error: '資料庫欄位不存在，請檢查資料庫結構',
                 message: e.message,
-                code: e.code,
+                detail: e.detail
+            });
+        }
+        
+        // 處理語法錯誤
+        if (e.code === '42601' || e.message?.includes('syntax error')) {
+            return res.status(500).json({
+                error: '資料庫查詢語法錯誤',
+                message: e.message,
                 detail: e.detail,
                 hint: e.hint
             });
         }
         
-        // 生產環境使用通用錯誤處理
-        handleApiError(e, req, res, 'Get plan by name error');
+        // 暫時在生產環境也返回詳細錯誤以便除錯（之後可以改回通用訊息）
+        // 檢查是否已經發送回應
+        if (!res.headersSent) {
+            return res.status(500).json({
+                error: '查詢計畫時發生錯誤',
+                message: e.message || '未知錯誤',
+                code: e.code || undefined,
+                detail: e.detail || undefined,
+                hint: e.hint || undefined
+            });
+        }
+        
+        // 如果已經發送回應，記錄錯誤但不再次發送
+        console.error('[API] Response already sent, cannot send error response');
     }
 });
 
