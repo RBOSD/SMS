@@ -5281,6 +5281,7 @@ if (dashboard) {
             scheduleUpdateYearFromStartDate();
             if (!v) {
                 scheduleRenderDayList('');
+                hideSchedulePlanNumber();
                 return;
             }
             const parts = v.split('-').map(Number);
@@ -5292,6 +5293,68 @@ if (dashboard) {
                 renderScheduleCalendar();
             }
             scheduleRenderDayList(v);
+            
+            // 如果有計畫資訊，自動計算取號編號
+            await updateSchedulePlanNumber();
+        }
+        
+        async function updateSchedulePlanNumber() {
+            // 檢查是否有必要的資訊
+            if (!schedulePlanDetails.railway || !schedulePlanDetails.inspection_type || !schedulePlanDetails.business) {
+                hideSchedulePlanNumber();
+                return;
+            }
+            
+            const startDateInput = document.getElementById('scheduleStartDate');
+            const startDateVal = startDateInput?.value || '';
+            if (!startDateVal) {
+                hideSchedulePlanNumber();
+                return;
+            }
+            
+            try {
+                // 計算年度（民國年）
+                const adYear = parseInt(startDateVal.slice(0, 4), 10);
+                const rocYear = adYear - 1911;
+                const yr = String(rocYear).replace(/\D/g, '').slice(-3).padStart(3, '0');
+                
+                // 呼叫 API 取得下一個編號
+                const url = `/api/plan-schedule/next-number?year=${encodeURIComponent(yr)}&railway=${encodeURIComponent(schedulePlanDetails.railway)}&inspectionType=${encodeURIComponent(schedulePlanDetails.inspection_type)}&business=${encodeURIComponent(schedulePlanDetails.business)}&t=${Date.now()}`;
+                const res = await fetch(url, {
+                    credentials: 'include',
+                    cache: 'no-store'
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.planNumber) {
+                        showSchedulePlanNumber(data.planNumber);
+                    } else {
+                        hideSchedulePlanNumber();
+                    }
+                } else {
+                    hideSchedulePlanNumber();
+                }
+            } catch (e) {
+                console.error('取得取號編號失敗:', e);
+                hideSchedulePlanNumber();
+            }
+        }
+        
+        function showSchedulePlanNumber(planNumber) {
+            const displayDiv = document.getElementById('schedulePlanNumberDisplay');
+            const valueSpan = document.getElementById('schedulePlanNumberValue');
+            if (displayDiv && valueSpan) {
+                valueSpan.textContent = planNumber;
+                displayDiv.style.display = 'block';
+            }
+        }
+        
+        function hideSchedulePlanNumber() {
+            const displayDiv = document.getElementById('schedulePlanNumberDisplay');
+            if (displayDiv) {
+                displayDiv.style.display = 'none';
+            }
         }
 
         function schedulePrevMonth() {
@@ -5606,9 +5669,13 @@ if (dashboard) {
             const planSelect = document.getElementById('schedulePlanSelect');
             const location = document.getElementById('scheduleLocation');
             const inspector = document.getElementById('scheduleInspector');
+            const planInfoDiv = document.getElementById('schedulePlanInfo');
             if (planSelect) planSelect.value = '';
             if (location) location.value = '';
             if (inspector) inspector.value = '';
+            if (planInfoDiv) planInfoDiv.style.display = 'none';
+            schedulePlanDetails = {};
+            hideSchedulePlanNumber();
             scheduleUpdateYearFromStartDate();
             const dayList = document.getElementById('scheduleDayListBody');
             if (dayList) dayList.textContent = '點選月曆日期後顯示';
@@ -5699,6 +5766,8 @@ if (dashboard) {
                             }
                             schedulePlanDetails = {};
                             select.value = '';
+                            const planInfoDiv = document.getElementById('schedulePlanInfo');
+                            if (planInfoDiv) planInfoDiv.style.display = 'none';
                             return;
                         }
                         const planData = await planRes.json();
@@ -5716,6 +5785,32 @@ if (dashboard) {
                                 business: business
                             };
                             
+                            // 顯示已讀取的計畫資訊
+                            const planInfoDiv = document.getElementById('schedulePlanInfo');
+                            const railwaySpan = document.getElementById('schedulePlanRailway');
+                            const inspectionTypeSpan = document.getElementById('schedulePlanInspectionType');
+                            const businessSpan = document.getElementById('schedulePlanBusiness');
+                            
+                            if (planInfoDiv && railwaySpan && inspectionTypeSpan && businessSpan) {
+                                if (railway && inspection_type && business) {
+                                    // 顯示計畫資訊
+                                    const railwayNames = { 'T': '臺鐵', 'H': '高鐵', 'A': '林鐵', 'S': '糖鐵' };
+                                    const inspectionTypeNames = { '1': '年度定期檢查', '2': '特別檢查', '3': '例行性檢查', '4': '臨時檢查', '5': '調查' };
+                                    const businessNames = { 'OP': '運轉', 'CV': '土建', 'ME': '機務', 'EL': '電務', 'SM': '安全管理', 'AD': '營運', 'OT': '其他' };
+                                    
+                                    railwaySpan.textContent = railwayNames[railway] || railway;
+                                    inspectionTypeSpan.textContent = inspectionTypeNames[inspection_type] || inspection_type;
+                                    businessSpan.textContent = businessNames[business] || business;
+                                    planInfoDiv.style.display = 'block';
+                                    
+                                    // 如果有開始日期，自動計算取號編號
+                                    await updateSchedulePlanNumber();
+                                } else {
+                                    planInfoDiv.style.display = 'none';
+                                    hideSchedulePlanNumber();
+                                }
+                            }
+                            
                             if (!railway || !inspection_type || !business) {
                                 if (planData.warning) {
                                     showToast(planData.warning, 'warning');
@@ -5724,11 +5819,16 @@ if (dashboard) {
                                 }
                                 schedulePlanDetails = {};
                                 select.value = '';
+                                if (planInfoDiv) planInfoDiv.style.display = 'none';
+                                hideSchedulePlanNumber();
                             }
                         } else {
                             showToast('無法取得計畫資訊，請重新選擇計畫', 'error');
                             schedulePlanDetails = {};
                             select.value = '';
+                            const planInfoDiv = document.getElementById('schedulePlanInfo');
+                            if (planInfoDiv) planInfoDiv.style.display = 'none';
+                            hideSchedulePlanNumber();
                         }
                     } catch (e) {
                         console.error('載入計畫詳情失敗:', e);
@@ -5738,6 +5838,9 @@ if (dashboard) {
                         showToast('無法取得計畫資訊，請重新選擇計畫', 'error');
                         schedulePlanDetails = {};
                         select.value = '';
+                        const planInfoDiv = document.getElementById('schedulePlanInfo');
+                        if (planInfoDiv) planInfoDiv.style.display = 'none';
+                        hideSchedulePlanNumber();
                     }
                 };
             } catch (e) {
@@ -5874,13 +5977,30 @@ if (dashboard) {
                     console.error('上傳失敗:', { status: res.status, error: j });
                     return;
                 }
-                showToast(`已上傳，取號：${j.planNumber || ''}`, 'success');
+                
+                // 顯示實際產生的編號
+                if (j.planNumber) {
+                    showSchedulePlanNumber(j.planNumber);
+                    showToast(`已上傳，取號：${j.planNumber}`, 'success');
+                } else {
+                    showToast('已上傳成功', 'success');
+                }
+                
                 loadScheduleForMonth();
                 scheduleRenderDayList(startDateVal);
-                scheduleClearForm();
-                document.getElementById('scheduleStartDate').value = startDateVal;
-                if (endDateVal) document.getElementById('scheduleEndDate').value = endDateVal;
-                document.getElementById('scheduleSelectedDate').value = startDateVal;
+                
+                // 不清空表單，保留資料以便查看取號結果
+                // scheduleClearForm();
+                
+                // 只清空地點和檢查人員，保留計畫和日期
+                const location = document.getElementById('scheduleLocation');
+                const inspector = document.getElementById('scheduleInspector');
+                if (location) location.value = '';
+                if (inspector) inspector.value = '';
+                
+                // 重新計算取號編號（因為已經新增了一筆，下一個編號會改變）
+                await updateSchedulePlanNumber();
+                
                 loadPlanOptions();
                 loadSchedulePlanOptions();
             } catch (e) {
