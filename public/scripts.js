@@ -5071,6 +5071,8 @@ if (dashboard) {
             for (const p of planList) {
                 let codesHtml = '';
                 let datesHtml = '';
+                let locationsHtml = '';
+                let inspectorsHtml = '';
                 try {
                     const scheduleRes = await fetch(`/api/plans/${p.id}/schedules?t=${Date.now()}`, { credentials: 'include' });
                     if (scheduleRes.ok) {
@@ -5080,8 +5082,6 @@ if (dashboard) {
                         const validSchedules = schedules.filter(s => 
                             s.start_date && s.plan_number && s.plan_number !== '(手動)'
                         );
-                        let locationsHtml = '';
-                        let inspectorsHtml = '';
                         if (validSchedules.length > 0) {
                             codesHtml = validSchedules.map(s => `<div style="margin:2px 0; font-size:12px;">${s.plan_number || '-'}</div>`).join('');
                             datesHtml = validSchedules.map(s => {
@@ -5286,10 +5286,27 @@ if (dashboard) {
 
         async function scheduleOnDateChange() {
             const startDateInput = document.getElementById('scheduleStartDate');
+            const endDateInput = document.getElementById('scheduleEndDate');
             const v = startDateInput?.value || '';
             const sel = document.getElementById('scheduleSelectedDate');
             if (sel) sel.value = v;
             scheduleUpdateYearFromStartDate();
+            
+            // 自動設定結束日期為該月最後一天
+            if (v && endDateInput) {
+                const date = new Date(v);
+                const year = date.getFullYear();
+                const month = date.getMonth();
+                const lastDay = new Date(year, month + 1, 0).getDate();
+                const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+                // 如果結束日期為空或早於開始日期，自動設定為該月最後一天
+                if (!endDateInput.value || endDateInput.value < v) {
+                    endDateInput.value = endDate;
+                }
+            } else if (!v && endDateInput) {
+                endDateInput.value = '';
+            }
+            
             if (!v) {
                 scheduleRenderDayList('');
                 hideSchedulePlanNumber();
@@ -5545,16 +5562,19 @@ if (dashboard) {
                         }
                         .schedule-cal-head { 
                             background: #334155; color: white; 
-                            padding: 2px 1px; text-align: center; 
-                            font-weight: 600; font-size: 8px; 
+                            padding: 6px 4px; text-align: center; 
+                            font-weight: 600; font-size: 13px; 
                             page-break-inside: avoid;
-                            line-height: 1.1;
-                            min-width: 0;
-                            flex: 0 0 auto;
+                            line-height: 1.3;
+                            min-height: 28px;
+                            max-height: 28px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
                         }
                         .schedule-cal-day { 
-                            border: 1px solid #e2e8f0; padding: 5px 3px; 
-                            height: 100%; background: white; 
+                            border: 1px solid #e2e8f0; padding: 8px 5px; 
+                            min-height: 100px; background: white; 
                             display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start;
                             page-break-inside: avoid; overflow: hidden;
                         }
@@ -5565,9 +5585,9 @@ if (dashboard) {
                             font-size: 9px; color: #dc2626; font-weight: 600; 
                             margin-bottom: 2px; display: block;
                         }
-                        .schedule-cal-plan-names { font-size: 10px; line-height: 1.3; margin-top: 2px; width: 100%; word-break: break-word; overflow: hidden; }
-                        .schedule-cal-plan-name { font-weight: 600; font-size: 10px; display: inline; margin-right: 4px; }
-                        .schedule-cal-plan-detail { font-size: 9px; display: inline; margin-right: 4px; }
+                        .schedule-cal-plan-names { font-size: 12px; line-height: 1.5; margin-top: 3px; width: 100%; word-break: break-word; overflow: hidden; }
+                        .schedule-cal-plan-name { font-weight: 600; font-size: 12px; display: inline; margin-right: 5px; }
+                        .schedule-cal-plan-detail { font-size: 11px; display: inline; margin-right: 5px; }
                         .schedule-cal-plan-item { margin-bottom: 2px; }
                         .schedule-cal-sep { color: #94a3b8; margin: 0 2px; }
                         .schedule-cal-pad { background: #f8fafc; }
@@ -5589,10 +5609,11 @@ if (dashboard) {
                             .schedule-cal-day { padding: 4px 3px; page-break-inside: avoid; height: auto; min-height: 0; }
                             .schedule-cal-day-num { font-size: 13px; }
                             .schedule-cal-holiday-tag { font-size: 8px; }
-                            .schedule-cal-plan-names { font-size: 9px; }
-                            .schedule-cal-plan-name { font-size: 9px; }
-                            .schedule-cal-plan-detail { font-size: 8px; }
-                            .schedule-cal-head { font-size: 7px; padding: 1px 0.5px; line-height: 1.0; min-width: 0; }
+                            .schedule-cal-plan-names { font-size: 11px; }
+                            .schedule-cal-plan-name { font-size: 11px; }
+                            .schedule-cal-plan-detail { font-size: 10px; }
+                            .schedule-cal-head { font-size: 12px; padding: 5px 3px; line-height: 1.3; min-height: 26px; max-height: 26px; }
+                            .schedule-cal-day { min-height: 95px; padding: 7px 4px; }
                         }
                     </style>
                 </head>
@@ -6105,6 +6126,16 @@ if (dashboard) {
                 if (planDetailsGroup3) planDetailsGroup3.style.display = 'block';
                 if (planStartDateGroup) planStartDateGroup.style.display = 'block';
                 if (planEndDateGroup) planEndDateGroup.style.display = 'block';
+                
+                // 設定開始日期變更時，自動設定結束日期為同月最後一天（編輯模式也需要）
+                const planStartDateInput = document.getElementById('planStartDate');
+                const planEndDateInput = document.getElementById('planEndDate');
+                if (planStartDateInput && planEndDateInput) {
+                    // 移除舊的事件監聽器
+                    planStartDateInput.removeEventListener('change', handlePlanStartDateChange);
+                    // 添加新的事件監聽器
+                    planStartDateInput.addEventListener('change', handlePlanStartDateChange);
+                }
                 
                 try {
                     const scheduleRes = await fetch(`/api/plans/${p.id}/schedules?t=${Date.now()}`, { credentials: 'include' });
