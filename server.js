@@ -1626,9 +1626,12 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             return res.status(503).json({ error: '資料庫連線未初始化' });
         }
         
-        // 查詢資料庫
+        // 先檢查使用哪個表（向後兼容）
+        let useScheduleTable = true;
         let result;
+        
         try {
+            // 先嘗試查詢 inspection_plan_schedule 表
             result = await pool.query(
                 `SELECT id, plan_name AS name, year, railway, inspection_type, business 
                  FROM inspection_plan_schedule 
@@ -1638,17 +1641,39 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
                 [decodedName, decodedYear]
             );
         } catch (queryError) {
-            console.error('[API] Database query error:', queryError);
-            // 處理資料庫連線錯誤
-            if (queryError.code === 'ECONNREFUSED' || queryError.code === 'ETIMEDOUT' || 
-                queryError.message?.includes('Connection') || queryError.message?.includes('timeout')) {
-                return res.status(503).json({
-                    error: '資料庫連線失敗，請稍後再試',
-                    code: queryError.code
-                });
+            // 如果表不存在，嘗試使用 inspection_plans 表
+            if (queryError.code === '42P01' || queryError.message?.includes('does not exist') || 
+                queryError.message?.includes('relation "inspection_plan_schedule" does not exist')) {
+                console.log('[API] inspection_plan_schedule table not found, trying inspection_plans');
+                useScheduleTable = false;
+                
+                try {
+                    // 查詢 inspection_plans 表（舊表結構）
+                    result = await pool.query(
+                        `SELECT id, name, year 
+                         FROM inspection_plans 
+                         WHERE name = $1 AND year = $2 
+                         ORDER BY id ASC 
+                         LIMIT 1`,
+                        [decodedName, decodedYear]
+                    );
+                } catch (oldTableError) {
+                    console.error('[API] Both tables query failed:', oldTableError);
+                    throw queryError; // 拋出原始錯誤
+                }
+            } else {
+                // 其他資料庫錯誤
+                console.error('[API] Database query error:', queryError);
+                // 處理資料庫連線錯誤
+                if (queryError.code === 'ECONNREFUSED' || queryError.code === 'ETIMEDOUT' || 
+                    queryError.message?.includes('Connection') || queryError.message?.includes('timeout')) {
+                    return res.status(503).json({
+                        error: '資料庫連線失敗，請稍後再試',
+                        code: queryError.code
+                    });
+                }
+                throw queryError;
             }
-            // 重新拋出以便外層處理
-            throw queryError;
         }
         
         if (!result || !result.rows) {
@@ -1665,10 +1690,22 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
             return res.status(500).json({ error: '無法讀取計畫資料' });
         }
         
-        // 處理計畫資料
-        const railway = plan.railway ? String(plan.railway).trim() : '';
-        const inspection_type = plan.inspection_type ? String(plan.inspection_type).trim() : '';
-        const business = plan.business ? String(plan.business).trim() : '';
+        // 處理計畫資料（根據使用的表結構）
+        let railway = '';
+        let inspection_type = '';
+        let business = '';
+        
+        if (useScheduleTable) {
+            // 使用 inspection_plan_schedule 表
+            railway = plan.railway ? String(plan.railway).trim() : '';
+            inspection_type = plan.inspection_type ? String(plan.inspection_type).trim() : '';
+            business = plan.business ? String(plan.business).trim() : '';
+        } else {
+            // 使用 inspection_plans 表（舊表，沒有這些欄位）
+            railway = '';
+            inspection_type = '';
+            business = '';
+        }
         
         const hasValidInfo = railway && railway !== '-' && 
                             inspection_type && inspection_type !== '-' && 
@@ -1677,7 +1714,7 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         const responseData = {
             data: [{
                 id: plan.id,
-                name: plan.name,
+                name: plan.name || plan.plan_name,
                 year: plan.year,
                 railway: railway,
                 inspection_type: inspection_type,
