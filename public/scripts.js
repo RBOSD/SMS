@@ -5457,10 +5457,10 @@ if (dashboard) {
                     const location = (s.location || '').trim() || '';
                     const inspector = (s.inspector || '').trim() || '';
                     const planInfo = [];
-                    planInfo.push(`<span class="schedule-cal-plan-name" style="color:${tc}; font-weight:600;">${name}</span>`);
-                    if (location) planInfo.push(`<span class="schedule-cal-plan-detail" style="color:#64748b; font-size:11px;">📍 ${location}</span>`);
-                    if (inspector) planInfo.push(`<span class="schedule-cal-plan-detail" style="color:#64748b; font-size:11px;">👤 ${inspector}</span>`);
-                    return `<div class="schedule-cal-plan-item" style="margin-bottom:2px;">${planInfo.join(' ')}</div>`;
+                    planInfo.push(`<div class="schedule-cal-plan-name" style="color:${tc}; font-weight:600; font-size:12px; margin-bottom:2px;">${name}</div>`);
+                    if (location) planInfo.push(`<div class="schedule-cal-plan-detail" style="color:#64748b; font-size:11px; margin-bottom:1px;">📍 ${location}</div>`);
+                    if (inspector) planInfo.push(`<div class="schedule-cal-plan-detail" style="color:#64748b; font-size:11px;">👤 ${inspector}</div>`);
+                    return `<div class="schedule-cal-plan-item" style="margin-bottom:3px; padding:2px 0;">${planInfo.join('')}</div>`;
                 });
                 const planText = planItems.length > 0 ? `<div class="schedule-cal-plan-names">${planItems.join('')}</div>` : '';
                 const primaryColorIdx = hasPlan ? colorIndices[0] : 0;
@@ -5513,10 +5513,10 @@ if (dashboard) {
                     const location = (s.location || '').trim() || '';
                     const inspector = (s.inspector || '').trim() || '';
                     const planInfo = [];
-                    planInfo.push(`<span class="schedule-cal-plan-name" style="color:${tc}; font-weight:600; font-size:10px;">${name}</span>`);
-                    if (location) planInfo.push(`<span class="schedule-cal-plan-detail" style="color:#64748b; font-size:9px;">📍${location}</span>`);
-                    if (inspector) planInfo.push(`<span class="schedule-cal-plan-detail" style="color:#64748b; font-size:9px;">👤${inspector}</span>`);
-                    return `<div class="schedule-cal-plan-item" style="margin-bottom:1px; line-height:1.2;">${planInfo.join(' ')}</div>`;
+                    planInfo.push(`<div class="schedule-cal-plan-name" style="color:${tc}; font-weight:600; font-size:11px; margin-bottom:2px;">${name}</div>`);
+                    if (location) planInfo.push(`<div class="schedule-cal-plan-detail" style="color:#64748b; font-size:10px; margin-bottom:1px;">📍 ${location}</div>`);
+                    if (inspector) planInfo.push(`<div class="schedule-cal-plan-detail" style="color:#64748b; font-size:10px;">👤 ${inspector}</div>`);
+                    return `<div class="schedule-cal-plan-item" style="margin-bottom:2px; padding:1px 0;">${planInfo.join('')}</div>`;
                 });
                 const planText = planItems.length > 0 ? `<div class="schedule-cal-plan-names">${planItems.join('')}</div>` : '';
                 const primaryColorIdx = hasPlan ? colorIndices[0] : 0;
@@ -5708,13 +5708,12 @@ if (dashboard) {
                 const range = endDate && endDate !== startDate ? `${startDate} ~ ${endDate}` : startDate;
                 const location = (s.location || '').trim() || '';
                 const inspector = (s.inspector || '').trim() || '';
-                const details = [];
-                if (location) details.push(`📍 ${location}`);
-                if (inspector) details.push(`👤 ${inspector}`);
-                return `<div style="margin-bottom:8px; padding:8px; background:#f1f5f9; border-radius:6px;">
-                    <div style="font-weight:600; margin-bottom:4px;">${s.plan_name || '-'}</div>
-                    <div style="color:#64748b; font-size:12px; margin-bottom:2px;">${range}</div>
-                    ${details.length > 0 ? `<div style="color:#64748b; font-size:11px;">${details.join(' | ')}</div>` : ''}
+                return `<div style="margin-bottom:10px; padding:10px; background:#f1f5f9; border-radius:6px; border-left:3px solid #3b82f6;">
+                    <div style="font-weight:600; font-size:14px; margin-bottom:6px; color:#334155;">${s.plan_name || '-'}</div>
+                    <div style="color:#64748b; font-size:12px; margin-bottom:6px;">📅 ${range}</div>
+                    ${location ? `<div style="color:#475569; font-size:12px; margin-bottom:4px;">📍 地點：<span style="font-weight:500;">${location}</span></div>` : ''}
+                    ${inspector ? `<div style="color:#475569; font-size:12px;">👤 人員：<span style="font-weight:500;">${inspector}</span></div>` : ''}
+                    ${!location && !inspector ? '<div style="color:#94a3b8; font-size:11px; font-style:italic;">無地點及人員資訊</div>' : ''}
                 </div>`;
             }).join('');
         }
