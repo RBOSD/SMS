@@ -2337,7 +2337,7 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
 });
 
 app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
-    const { plan_name, start_date, end_date, year, railway, inspection_type, business, location, inspector } = req.body;
+    const { plan_name, start_date, end_date, year, railway, inspection_type, business, location, inspector, plan_number: clientPlanNumber } = req.body;
     try {
         if (!plan_name || !start_date || !end_date || !year || !railway || !inspection_type) {
             return res.status(400).json({ error: '計畫名稱、開始日期、結束日期、年度、鐵路機構、檢查類別為必填' });
@@ -2356,8 +2356,12 @@ app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf
         let inspection_seq = r.rows[0].inspection_seq;
         let plan_number = r.rows[0].plan_number;
         
-        // 取號編碼不再包含業務類別，只根據 year, railway, inspection_type
-        if (rCode !== r.rows[0].railway || it !== r.rows[0].inspection_type) {
+        const manualNumber = clientPlanNumber && String(clientPlanNumber).trim();
+        if (manualNumber) {
+            plan_number = manualNumber;
+            const seqMatch = manualNumber.match(/-(\d{2,3})$/);
+            if (seqMatch) inspection_seq = seqMatch[1];
+        } else if (rCode !== r.rows[0].railway || it !== r.rows[0].inspection_type) {
             const maxRes = await pool.query(
                 `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
                  FROM inspection_plan_schedule 

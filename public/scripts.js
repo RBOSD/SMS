@@ -1255,8 +1255,8 @@ if (dashboard) {
                         const planned = p.planned_count != null ? p.planned_count : 0;
                         const done = p.schedule_count != null ? p.schedule_count : 0;
                         const pct = planned > 0 ? Math.min(100, Math.round((done / planned) * 100)) : (done > 0 ? 100 : 0);
-                        return `<tr><td style="padding:10px;">${p.year || '-'}</td><td style="padding:10px;">${(p.name || '-')}</td><td style="padding:10px;">${planned}</td><td style="padding:10px;">${done}</td><td style="padding:10px;"><span style="display:inline-block;width:80px;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;"><span style="display:block;height:100%;width:${pct}%;background:#2563eb;border-radius:4px;"></span></span> ${pct}%</td></tr>`;
-                    }).join('') || '<tr><td colspan="5" style="padding:12px;color:#64748b;">尚無資料</td></tr>';
+                        return `<tr><td data-label="年度" style="padding:10px;">${p.year || '-'}</td><td data-label="計畫名稱" style="padding:10px;">${(p.name || '-')}</td><td data-label="規劃次數" style="padding:10px;">${planned}</td><td data-label="已檢查次數" style="padding:10px;">${done}</td><td data-label="進度" style="padding:10px;"><span style="display:inline-block;width:80px;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;"><span style="display:block;height:100%;width:${pct}%;background:#2563eb;border-radius:4px;"></span></span> ${pct}%</td></tr>`;
+                    }).join('') || '<tr><td data-label="說明" colspan="5" style="padding:12px;color:#64748b;">尚無資料</td></tr>';
                 }
             } catch (e) {
                 if (statPlans) statPlans.textContent = '—';
@@ -1264,7 +1264,7 @@ if (dashboard) {
                 const statPlanned = document.getElementById('dashboardStatPlanned');
                 if (statPlanned) statPlanned.textContent = '—';
                 if (statByType) statByType.innerHTML = '<span style="color:#94a3b8;">載入失敗</span>';
-                if (progressBody) progressBody.innerHTML = '<tr><td colspan="5" style="padding:12px;color:#ef4444;">載入失敗</td></tr>';
+                if (progressBody) progressBody.innerHTML = '<tr><td data-label="說明" colspan="5" style="padding:12px;color:#ef4444;">載入失敗</td></tr>';
             }
         }
 
@@ -5886,34 +5886,34 @@ if (dashboard) {
                     <meta charset="UTF-8">
                     <title>${monthTitle} 檢查計畫月曆</title>
                     <style>
-                        @page { size: A4 landscape; margin: 15mm 18mm; }
+                        @page { size: A4 landscape; margin: 18mm 28mm; }
                         * { box-sizing: border-box; margin: 0; padding: 0; }
                         html, body { height: 100%; width: 100%; overflow: hidden; font-family: "Microsoft JhengHei", "微軟正黑體", "Noto Sans TC", Arial, sans-serif; }
                         body { background: #fafafa; padding: 0 0 12px 0; }
                         .print-header {
-                            text-align: center; margin-bottom: 12px; padding: 10px 0 10px 0; border-bottom: 3px solid #1e40af;
+                            text-align: center; margin-bottom: 14px; padding: 10px 0 10px 0; border-bottom: 3px solid #1e40af;
                             background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
                         }
                         .print-header h1 { font-size: 20px; font-weight: 700; color: #1e3a8a; letter-spacing: 0.02em; margin: 0; }
                         .print-header .sub { font-size: 11px; color: #64748b; margin-top: 3px; }
                         .schedule-calendar {
-                            display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
-                            background: #94a3b8; border: 2px solid #64748b; border-radius: 6px; overflow: hidden;
+                            display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px;
+                            background: #64748b; border: 3px solid #475569; border-radius: 8px; overflow: hidden;
                             width: 100%; max-width: 100%; page-break-inside: avoid;
                         }
                         .schedule-cal-head {
                             background: linear-gradient(180deg, #1e40af 0%, #1d4ed8 100%); color: #fff;
                             padding: 10px 6px; text-align: center; font-weight: 700; font-size: 13px;
                             display: flex; align-items: center; justify-content: center; min-height: 34px;
-                            border-right: 1px solid rgba(255,255,255,0.2);
+                            border-right: 2px solid rgba(255,255,255,0.3);
                         }
                         .schedule-cal-head:last-child { border-right: none; }
                         .schedule-cal-day {
-                            border: 1px solid #cbd5e1; padding: 10px 6px; min-height: 100px; background: #fff;
+                            border: 2px solid #94a3b8; padding: 10px 6px; min-height: 100px; background: #fff;
                             display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start;
                             page-break-inside: avoid; overflow: hidden;
-                            border-right: 1px solid #cbd5e1;
-                            border-bottom: 1px solid #cbd5e1;
+                            border-right: 2px solid #94a3b8;
+                            border-bottom: 2px solid #94a3b8;
                         }
                         .schedule-cal-day:nth-child(7n) { border-right: none; }
                         .schedule-cal-day-num { font-weight: 700; font-size: 15px; margin-bottom: 4px; color: #0f172a; }
@@ -5937,7 +5937,7 @@ if (dashboard) {
                         .schedule-cal-day.schedule-cal-plan-6 { background: #ffedd5; border-color: #fdba74; }
                         .schedule-cal-day.schedule-cal-plan-7 { background: #ede9fe; border-color: #c4b5fd; }
                         @media print {
-                            @page { size: A4 landscape; margin: 15mm 18mm; }
+                            @page { size: A4 landscape; margin: 18mm 28mm; }
                             body { background: #fff; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                             .print-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                             .schedule-cal-head, .schedule-cal-day.schedule-cal-plan-0, .schedule-cal-day.schedule-cal-plan-1,
@@ -5945,9 +5945,9 @@ if (dashboard) {
                             .schedule-cal-day.schedule-cal-plan-4, .schedule-cal-day.schedule-cal-plan-5,
                             .schedule-cal-day.schedule-cal-plan-6, .schedule-cal-day.schedule-cal-plan-7,
                             .schedule-cal-holiday { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                            .schedule-cal-day { min-height: 95px; padding: 8px 5px; border: 1px solid #cbd5e1 !important; }
+                            .schedule-cal-day { min-height: 95px; padding: 8px 5px; border: 2px solid #94a3b8 !important; }
                             .schedule-cal-day-num { font-size: 14px; }
-                            .schedule-calendar { border: 2px solid #64748b !important; }
+                            .schedule-calendar { border: 3px solid #475569 !important; }
                         }
                     </style>
                 </head>
@@ -6454,6 +6454,8 @@ if (dashboard) {
             const inspectionSelect = document.getElementById('planInspectionType');
             const locationInput = document.getElementById('planLocation');
             const inspectorInput = document.getElementById('planInspector');
+            const planNumberInput = document.getElementById('planScheduleNumber');
+            const planNumberRow = document.getElementById('planNumberRow');
             if (!schedule || !nameInput || !yearInput || !railwaySelect || !inspectionSelect) return;
             
             if (scheduleIdInput) scheduleIdInput.value = schedule.id || '';
@@ -6467,6 +6469,8 @@ if (dashboard) {
             if (yearInput) yearInput.value = rocYear;
             if (startInput) startInput.value = schedule.start_date ? schedule.start_date.slice(0, 10) : '';
             if (endInput) endInput.value = schedule.end_date ? schedule.end_date.slice(0, 10) : '';
+            if (planNumberInput) planNumberInput.value = (schedule.plan_number || '').trim();
+            if (planNumberRow) planNumberRow.style.display = 'flex';
             railwaySelect.value = schedule.railway || '';
             inspectionSelect.value = schedule.inspection_type || '';
             if (locationInput) locationInput.value = schedule.location || '';
@@ -6484,6 +6488,8 @@ if (dashboard) {
             document.querySelectorAll('.plan-schedule-item').forEach(el => el.classList.remove('selected'));
             const el = document.querySelector(`.plan-schedule-item[data-schedule-id="${scheduleId}"]`);
             if (el) el.classList.add('selected');
+            var datesSection = document.getElementById('planDatesSection');
+            if (datesSection) datesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         
         async function openPlanModal(mode, id) {
@@ -6583,6 +6589,10 @@ if (dashboard) {
                         document.getElementById('planYear').value = p.year || '';
                         if (document.getElementById('planLocation')) document.getElementById('planLocation').value = '';
                         if (document.getElementById('planInspector')) document.getElementById('planInspector').value = '';
+                        var planNumberRow = document.getElementById('planNumberRow');
+                        if (planNumberRow) planNumberRow.style.display = 'none';
+                        var planScheduleNumber = document.getElementById('planScheduleNumber');
+                        if (planScheduleNumber) planScheduleNumber.value = '';
                     }
                 } else if (planSchedulesList) {
                     planSchedulesList.innerHTML = '<div class="plan-schedules-empty" style="color:#f97316;">無法載入行程列表，請稍後再試。</div>';
@@ -6865,20 +6875,24 @@ if (dashboard) {
                 const adYear = parseInt(startDate.slice(0, 4), 10);
                 const rocYear = adYear - 1911;
                 const yearStr = String(rocYear).padStart(3, '0');
+                const planNumberEl = document.getElementById('planScheduleNumber');
+                const customPlanNumber = planNumberEl && planNumberEl.value ? String(planNumberEl.value).trim() : null;
+                const payload = {
+                    plan_name: name,
+                    start_date: startDate,
+                    end_date: endDate,
+                    year: yearStr,
+                    railway,
+                    inspection_type: inspectionType,
+                    business: null,
+                    location: location || null,
+                    inspector: inspector || null
+                };
+                if (customPlanNumber) payload.plan_number = customPlanNumber;
                 try {
                     const res = await apiFetch(`/api/plan-schedule/${scheduleId}`, {
                         method: 'PUT',
-                        body: JSON.stringify({
-                            plan_name: name,
-                            start_date: startDate,
-                            end_date: endDate,
-                            year: yearStr,
-                            railway,
-                            inspection_type: inspectionType,
-                            business: null,
-                            location: location || null,
-                            inspector: inspector || null
-                        })
+                        body: JSON.stringify(payload)
                     });
                     const j = await res.json();
                     if (res.ok) {
