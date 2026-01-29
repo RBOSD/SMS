@@ -6109,7 +6109,7 @@ if (dashboard) {
                     j.data.forEach(p => {
                         const opt = document.createElement('option');
                         opt.value = `${p.name}|||${p.year}`;
-                        opt.textContent = `${p.name} (${p.year}年)`;
+                        opt.textContent = p.name;
                         select.appendChild(opt);
                     });
                 }
