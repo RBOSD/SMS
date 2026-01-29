@@ -1083,8 +1083,8 @@ if (dashboard) {
         onToggleSidebar();
     }
 
-            // 動態載入視圖內容
             const viewMap = {
+                'planCalendarView': '/views/calendar-dashboard-view.html',
                 'importView': '/views/import-view.html',
                 'usersView': '/views/users-view.html'
             };
@@ -1096,35 +1096,28 @@ if (dashboard) {
                         const html = await response.text();
                         viewElement.innerHTML = html;
                         viewElement.dataset.loaded = 'true';
-                        // 視圖載入完成後，設置 admin 專屬元素
-                        if (viewId === 'importView') {
+                        if (viewId === 'planCalendarView') {
+                            setTimeout(() => loadCalendarDashboardStats(), 100);
+                        } else if (viewId === 'importView') {
                             setupAdminElements();
-                            // [Added] 設置導入視圖的事件監聽器
                             setTimeout(() => setupImportListeners(), 100);
-                            // 確保檢查計畫選項已載入
                             loadPlanOptions();
+                            const openPlansSchedule = sessionStorage.getItem('openPlansSchedule');
+                            if (openPlansSchedule) {
+                                sessionStorage.removeItem('openPlansSchedule');
+                                setTimeout(() => { switchDataTab('plans'); switchPlansSubTab('schedule'); }, 250);
+                            } else {
+                                const savedTab = sessionStorage.getItem('currentDataTab');
+                                if (savedTab) setTimeout(() => switchDataTab(savedTab), 200);
+                            }
                         } else if (viewId === 'usersView') {
-                            // 設置清除舊記錄的UI
                             setTimeout(() => setupCleanupDaysSelect(), 100);
                         }
-                        
-                        // 恢復資料管理頁面的 tab
-                        if (viewId === 'importView') {
-                            const savedTab = sessionStorage.getItem('currentDataTab');
-                            if (savedTab) {
-                                setTimeout(() => {
-                                    switchDataTab(savedTab);
-                                }, 200);
-                            }
-                        }
-                    } else {
-                        // 錯誤已在伺服器 log 中記錄
                     }
-                } catch (error) {
-                    // 錯誤已在伺服器 log 中記錄
-                }
+                } catch (error) {}
+            } else if (viewId === 'planCalendarView' && viewElement.dataset.loaded) {
+                loadCalendarDashboardStats();
             } else if (viewId === 'usersView' && viewElement.dataset.loaded) {
-                // 如果視圖已經載入，也要設置清除舊記錄的UI
                 setTimeout(() => setupCleanupDaysSelect(), 100);
             }
 
@@ -1145,23 +1138,83 @@ if (dashboard) {
                     switchAdminTab(savedTab);
                     setupCleanupDaysSelect();
                 }, 200);
+            } else if (viewId === 'planCalendarView' && viewElement.dataset.loaded) {
+                loadCalendarDashboardStats();
             } else if (viewId === 'importView' && viewElement.dataset.loaded) {
-                // 恢復資料管理頁面的 tab
-                const savedTab = sessionStorage.getItem('currentDataTab');
-                // 確保檢查計畫選項已載入（無論切換到哪個 tab）
+                const openPlansSchedule = sessionStorage.getItem('openPlansSchedule');
                 loadPlanOptions();
-                if (savedTab) {
-                    setTimeout(() => {
-                        switchDataTab(savedTab);
-                        // 如果是檢查計畫管理 tab，恢復其狀態
-                        if (savedTab === 'plans') {
-                            restorePlansViewState();
-                            setTimeout(() => {
-                                loadPlansPage(plansPage || 1);
-                            }, 300);
-                        }
-                    }, 200);
+                if (openPlansSchedule) {
+                    sessionStorage.removeItem('openPlansSchedule');
+                    setTimeout(() => { switchDataTab('plans'); switchPlansSubTab('schedule'); }, 100);
+                } else {
+                    const savedTab = sessionStorage.getItem('currentDataTab');
+                    if (savedTab) {
+                        setTimeout(() => {
+                            switchDataTab(savedTab);
+                            if (savedTab === 'plans') {
+                                restorePlansViewState();
+                                setTimeout(() => loadPlansPage(plansPage || 1), 300);
+                            }
+                        }, 200);
+                    }
                 }
+            }
+        }
+        
+        async function loadCalendarDashboardStats() {
+            const statPlans = document.getElementById('dashboardStatPlans');
+            const statSchedules = document.getElementById('dashboardStatSchedules');
+            const statYearSchedules = document.getElementById('dashboardStatYearSchedules');
+            const statWithIssues = document.getElementById('dashboardStatWithIssues');
+            const statByType = document.getElementById('dashboardStatByType');
+            const progressBody = document.getElementById('dashboardPlanProgressBody');
+            if (!statPlans && !statSchedules) return;
+            const thisYear = String(new Date().getFullYear() - 1911).replace(/\D/g, '').slice(-3).padStart(3, '0');
+            const typeNames = { '1': '年度定期檢查', '2': '特別檢查', '3': '例行性檢查', '4': '臨時檢查', '5': '調查' };
+            try {
+                const [plansRes, scheduleRes] = await Promise.all([
+                    fetch(`/api/plans?page=1&pageSize=9999&t=${Date.now()}`, { credentials: 'include' }),
+                    fetch('/api/plan-schedule/all?t=' + Date.now(), { credentials: 'include' })
+                ]);
+                const plansData = plansRes.ok ? await plansRes.json() : { data: [], total: 0 };
+                const scheduleData = scheduleRes.ok ? await scheduleRes.json() : { data: [] };
+                const plans = plansData.data || [];
+                const schedules = (scheduleData.data || []).filter(s => s.plan_number !== '(手動)');
+                const totalPlans = plansData.total != null ? plansData.total : plans.length;
+                const totalSchedules = schedules.length;
+                const yearSchedules = schedules.filter(s => String(s.year || '').trim() === thisYear).length;
+                const withIssues = plans.filter(p => (p.issue_count || 0) > 0).length;
+                if (statPlans) statPlans.textContent = totalPlans;
+                if (statSchedules) statSchedules.textContent = totalSchedules;
+                if (statYearSchedules) statYearSchedules.textContent = yearSchedules;
+                if (statWithIssues) statWithIssues.textContent = withIssues;
+                const byType = {};
+                schedules.forEach(s => {
+                    const t = String(s.inspection_type || '').trim();
+                    if (t) byType[t] = (byType[t] || 0) + 1;
+                });
+                if (statByType) {
+                    statByType.innerHTML = ['1', '2', '3', '4', '5'].map(t => {
+                        const count = byType[t] || 0;
+                        return `<span style="background:#f1f5f9; padding:6px 12px; border-radius:8px; font-size:13px;">${typeNames[t] || t}：${count}</span>`;
+                    }).join('');
+                }
+                const sortedPlans = [...plans].sort((a, b) => (b.schedule_count || 0) - (a.schedule_count || 0)).slice(0, 10);
+                if (progressBody) {
+                    progressBody.innerHTML = sortedPlans.map(p => {
+                        const planned = p.planned_count != null ? p.planned_count : 0;
+                        const done = p.schedule_count != null ? p.schedule_count : 0;
+                        const pct = planned > 0 ? Math.min(100, Math.round((done / planned) * 100)) : (done > 0 ? 100 : 0);
+                        return `<tr><td style="padding:10px;">${(p.name || '-')}</td><td style="padding:10px;">${p.year || '-'}</td><td style="padding:10px;">${planned}</td><td style="padding:10px;">${done}</td><td style="padding:10px;"><span style="display:inline-block;width:80px;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;"><span style="display:block;height:100%;width:${pct}%;background:#2563eb;border-radius:4px;"></span></span> ${pct}%</td></tr>`;
+                    }).join('') || '<tr><td colspan="5" style="padding:12px;color:#64748b;">尚無資料</td></tr>';
+                }
+            } catch (e) {
+                if (statPlans) statPlans.textContent = '—';
+                if (statSchedules) statSchedules.textContent = '—';
+                if (statYearSchedules) statYearSchedules.textContent = '—';
+                if (statWithIssues) statWithIssues.textContent = '—';
+                if (statByType) statByType.innerHTML = '<span style="color:#94a3b8;">載入失敗</span>';
+                if (progressBody) progressBody.innerHTML = '<tr><td colspan="5" style="padding:12px;color:#ef4444;">載入失敗</td></tr>';
             }
         }
 
@@ -1324,20 +1377,22 @@ if (dashboard) {
                     if (nameEl) nameEl.innerText = data.name || data.username;
                     if (roleEl) roleEl.innerText = getRoleName(data.role);
                     
-                    // 根據角色顯示/隱藏功能按鈕
                     if (['admin', 'manager'].includes(data.role)) {
                         const btnImport = document.getElementById('btn-importView');
+                        const btnCalendar = document.getElementById('btn-planCalendarView');
                         if (btnImport) btnImport.classList.remove('hidden');
+                        if (btnCalendar) btnCalendar.classList.remove('hidden');
                         if (data.role === 'admin') {
                             const btnUsers = document.getElementById('btn-usersView');
                             if (btnUsers) btnUsers.classList.remove('hidden');
                         }
                     } else {
-                        // 非管理員隱藏管理功能
                         const btnImport = document.getElementById('btn-importView');
                         const btnUsers = document.getElementById('btn-usersView');
+                        const btnCalendar = document.getElementById('btn-planCalendarView');
                         if (btnImport) btnImport.classList.add('hidden');
                         if (btnUsers) btnUsers.classList.add('hidden');
+                        if (btnCalendar) btnCalendar.classList.add('hidden');
                     }
                 } else {
                     // 未登入或資料不完整，重定向到登入頁
@@ -4476,15 +4531,17 @@ if (dashboard) {
                     
                     // 如果選擇合併匯出，創建多個工作表
                     if (exportDataType === 'both') {
-                        // 工作表：檢查計畫（由檢查計畫規劃資料組成）
                         if (planSchedulesData.length > 0) {
                             const schedulesWSData = [
-                                ['計畫名稱', '年度', '開始日期', '結束日期', '地點', '檢查人員', '鐵路機構', '檢查類別', '檢查次數', '取號編碼', '建立時間']
+                                ['計畫名稱', '年度', '業務類型', '規劃檢查次數', '開始日期', '結束日期', '地點', '檢查人員', '鐵路機構', '檢查類別', '檢查次數', '取號編碼', '建立時間']
                             ];
+                            const getBusinessTypeNameExport = (code) => ({ 'OP': '運轉', 'CV': '土建', 'ME': '機務', 'EL': '電務', 'SM': '安全管理', 'AD': '營運／災防審核', 'OT': '其他／產管規劃' }[String(code)] || (code || ''));
                             planSchedulesData.forEach(s => {
                                 schedulesWSData.push([
                                     s.plan_name || '',
                                     s.year || '',
+                                    getBusinessTypeNameExport(s.business),
+                                    s.planned_count != null ? s.planned_count : '',
                                     s.start_date ? s.start_date.slice(0, 10) : '',
                                     s.end_date ? s.end_date.slice(0, 10) : '',
                                     s.location || '',
@@ -4555,15 +4612,17 @@ if (dashboard) {
                             XLSX.utils.book_append_sheet(wb, issuesWS, '開立事項');
                         }
                     } else if (exportDataType === 'plans') {
-                        // 僅匯出檢查計畫（由檢查計畫規劃資料組成）
                         if (planSchedulesData.length > 0) {
                             const schedulesWSData = [
-                                ['計畫名稱', '年度', '開始日期', '結束日期', '地點', '檢查人員', '鐵路機構', '檢查類別', '檢查次數', '取號編碼', '建立時間']
+                                ['計畫名稱', '年度', '業務類型', '規劃檢查次數', '開始日期', '結束日期', '地點', '檢查人員', '鐵路機構', '檢查類別', '檢查次數', '取號編碼', '建立時間']
                             ];
+                            const getBusinessTypeNameExport = (code) => ({ 'OP': '運轉', 'CV': '土建', 'ME': '機務', 'EL': '電務', 'SM': '安全管理', 'AD': '營運／災防審核', 'OT': '其他／產管規劃' }[String(code)] || (code || ''));
                             planSchedulesData.forEach(s => {
                                 schedulesWSData.push([
                                     s.plan_name || '',
                                     s.year || '',
+                                    getBusinessTypeNameExport(s.business),
+                                    s.planned_count != null ? s.planned_count : '',
                                     s.start_date ? s.start_date.slice(0, 10) : '',
                                     s.end_date ? s.end_date.slice(0, 10) : '',
                                     s.location || '',
@@ -5064,16 +5123,13 @@ if (dashboard) {
                 showToast('載入計畫錯誤: ' + e.message, 'error');
             }
         }
-        // 檢查類別轉換函數
         function getInspectionTypeName(type) {
-            const typeMap = {
-                '1': '年度定期檢查',
-                '2': '特別檢查',
-                '3': '例行性檢查',
-                '4': '臨時檢查',
-                '5': '調查'
-            };
+            const typeMap = { '1': '年度定期檢查', '2': '特別檢查', '3': '例行性檢查', '4': '臨時檢查', '5': '調查' };
             return typeMap[String(type)] || '-';
+        }
+        function getBusinessTypeName(code) {
+            const typeMap = { 'OP': '運轉', 'CV': '土建', 'ME': '機務', 'EL': '電務', 'SM': '安全管理', 'AD': '營運／災防審核', 'OT': '其他／產管規劃' };
+            return typeMap[String(code)] || '-';
         }
         
         async function renderPlans() {
@@ -5119,6 +5175,9 @@ if (dashboard) {
                     inspectionTypeHtml = '<span style="color:#94a3b8; font-size:12px;">—</span>';
                 }
                 const createdDate = p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : '-';
+                const businessHtml = p.business ? getBusinessTypeName(p.business) : '<span style="color:#94a3b8;">—</span>';
+                const plannedCountHtml = p.planned_count != null ? String(p.planned_count) : '<span style="color:#94a3b8;">—</span>';
+                const scheduleCountVal = p.schedule_count != null ? p.schedule_count : 0;
                 rows.push(`<tr>
                     <td data-label="選擇" style="padding:12px;text-align:center;">
                         <input type="checkbox" class="plan-check" value="${p.id}" onchange="updatePlansBatchDeleteBtn()">
@@ -5126,6 +5185,9 @@ if (dashboard) {
                     <td data-label="年度" style="padding:12px;font-weight:600;">${p.year || '-'}</td>
                     <td data-label="檢查類別" style="padding:12px;">${inspectionTypeHtml}</td>
                     <td data-label="檢查計畫名稱" style="padding:12px;font-weight:600;">${p.name || '-'}</td>
+                    <td data-label="業務類型" style="padding:12px;">${businessHtml}</td>
+                    <td data-label="規劃次數" style="padding:12px;text-align:center;">${plannedCountHtml}</td>
+                    <td data-label="已檢查次數" style="padding:12px;text-align:center;">${scheduleCountVal}</td>
                     <td data-label="檢查起訖日期" style="padding:12px;">${datesHtml || '<span style="color:#94a3b8; font-size:12px;">—</span>'}</td>
                     <td data-label="地點" style="padding:12px;">${locationsHtml || '<span style="color:#94a3b8; font-size:12px;">—</span>'}</td>
                     <td data-label="檢查人員" style="padding:12px;">${inspectorsHtml || '<span style="color:#94a3b8; font-size:12px;">—</span>'}</td>
@@ -5791,9 +5853,15 @@ if (dashboard) {
         
         let schedulePlanDetails = {};
         
+        function onScheduleYearFilterChange() {
+            loadSchedulePlanOptions();
+        }
+        
         async function loadSchedulePlanOptions() {
             try {
-                const res = await fetch(`/api/options/plans?t=${Date.now()}`, { credentials: 'include' });
+                const yearSelect = document.getElementById('scheduleYearFilter');
+                const yearParam = yearSelect && yearSelect.value ? `&year=${encodeURIComponent(yearSelect.value)}` : '';
+                const res = await fetch(`/api/options/plans?t=${Date.now()}${yearParam}`, { credentials: 'include' });
                 if (!res.ok) return;
                 const j = await res.json();
                 const select = document.getElementById('schedulePlanSelect');
@@ -5809,6 +5877,16 @@ if (dashboard) {
                     });
                 }
                 if (currentValue) select.value = currentValue;
+                
+                if (yearSelect && (!yearSelect.options || yearSelect.options.length <= 1)) {
+                    const allRes = await fetch(`/api/options/plans?t=${Date.now()}`, { credentials: 'include' });
+                    if (allRes.ok) {
+                        const allJ = await allRes.json();
+                        const years = [...new Set((allJ.data || []).map(p => p.year).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+                        const firstOpt = yearSelect.options[0] ? yearSelect.options[0].outerHTML : '<option value="">全部年度</option>';
+                        yearSelect.innerHTML = firstOpt + years.map(y => `<option value="${y}">${y}年</option>`).join('');
+                    }
+                }
                 
                 // 重新設計的選擇計畫處理函數 - 簡化版本
                 select.onchange = async function() {
@@ -6114,7 +6192,6 @@ if (dashboard) {
             }
         }
         
-        // 將一筆排程資料套用到「計畫管理」編輯視窗中的欄位
         function applyScheduleToPlanForm(schedule, basePlan) {
             const scheduleIdInput = document.getElementById('targetScheduleId');
             const nameInput = document.getElementById('planName');
@@ -6123,31 +6200,27 @@ if (dashboard) {
             const endInput = document.getElementById('planEndDate');
             const railwaySelect = document.getElementById('planRailway');
             const inspectionSelect = document.getElementById('planInspectionType');
+            const locationInput = document.getElementById('planLocation');
+            const inspectorInput = document.getElementById('planInspector');
             if (!schedule || !nameInput || !yearInput || !railwaySelect || !inspectionSelect) return;
             
             if (scheduleIdInput) scheduleIdInput.value = schedule.id || '';
             nameInput.value = (basePlan && basePlan.name) ? basePlan.name : (schedule.plan_name || '');
-            
-            // 年度預設使用排程開始日期推算，否則使用基礎計畫年度
             let rocYear = '';
             if (schedule.start_date) {
                 const adYear = parseInt(schedule.start_date.slice(0, 4), 10);
-                if (!Number.isNaN(adYear)) {
-                    rocYear = String(adYear - 1911).padStart(3, '0');
-                }
+                if (!Number.isNaN(adYear)) rocYear = String(adYear - 1911).padStart(3, '0');
             }
-            if (!rocYear && basePlan && basePlan.year) {
-                rocYear = String(basePlan.year).padStart(3, '0');
-            }
+            if (!rocYear && basePlan && basePlan.year) rocYear = String(basePlan.year).padStart(3, '0');
             if (yearInput) yearInput.value = rocYear;
-            
             if (startInput) startInput.value = schedule.start_date ? schedule.start_date.slice(0, 10) : '';
             if (endInput) endInput.value = schedule.end_date ? schedule.end_date.slice(0, 10) : '';
             railwaySelect.value = schedule.railway || '';
             inspectionSelect.value = schedule.inspection_type || '';
+            if (locationInput) locationInput.value = schedule.location || '';
+            if (inspectorInput) inspectorInput.value = schedule.inspector || '';
         }
         
-        // 在計畫管理編輯視窗中，選擇要編輯的某一筆行程
         function selectPlanSchedule(scheduleId) {
             const idNum = Number(scheduleId);
             if (!currentPlanSchedules || currentPlanSchedules.length === 0) return;
@@ -6156,6 +6229,9 @@ if (dashboard) {
             const planId = Number((document.getElementById('targetPlanId') || {}).value || '0');
             const basePlan = planList.find(p => Number(p.id) === planId) || {};
             applyScheduleToPlanForm(schedule, basePlan);
+            document.querySelectorAll('.plan-schedule-item').forEach(el => el.classList.remove('selected'));
+            const el = document.querySelector(`.plan-schedule-item[data-schedule-id="${scheduleId}"]`);
+            if (el) el.classList.add('selected');
         }
         
         async function openPlanModal(mode, id) {
@@ -6163,112 +6239,107 @@ if (dashboard) {
             const t = document.getElementById('planModalTitle');
             const planDetailsGroup = document.getElementById('planDetailsGroup');
             const planDetailsGroup2 = document.getElementById('planDetailsGroup2');
-            const planDetailsGroup3 = document.getElementById('planDetailsGroup3');
+            const planBusinessGroup = document.getElementById('planBusinessGroup');
+            const planPlannedCountGroup = document.getElementById('planPlannedCountGroup');
+            const planDatesSection = document.getElementById('planDatesSection');
+            const planSchedulesSection = document.getElementById('planSchedulesSection');
             const planStartDateGroup = document.getElementById('planStartDateGroup');
             const planEndDateGroup = document.getElementById('planEndDateGroup');
+            const planLocationInspectorRow = document.getElementById('planLocationInspectorRow');
             
             if (mode === 'create') {
-                t.innerText = '填寫檢查行程';
+                t.innerText = '新增檢查計畫';
                 document.getElementById('targetPlanId').value = '';
                 document.getElementById('targetScheduleId').value = '';
                 document.getElementById('planName').value = '';
                 document.getElementById('planYear').value = '';
-                document.getElementById('planStartDate').value = '';
-                document.getElementById('planEndDate').value = '';
                 document.getElementById('planRailway').value = '';
                 document.getElementById('planInspectionType').value = '';
                 const planBusinessEl = document.getElementById('planBusiness');
                 if (planBusinessEl) planBusinessEl.value = '';
+                const planPlannedCountEl = document.getElementById('planPlannedCount');
+                if (planPlannedCountEl) planPlannedCountEl.value = '';
                 currentPlanSchedules = [];
                 const planSchedulesList = document.getElementById('planSchedulesList');
-                if (planSchedulesList) {
-                    planSchedulesList.innerHTML = '<div style="font-size:12px; color:#94a3b8; text-align:center; padding:12px 0;">尚未有檢查行程，請先新增行程。</div>';
-                }
-                
+                if (planSchedulesList) planSchedulesList.innerHTML = '<div class="plan-schedules-empty">尚未有檢查行程，請先至「填寫檢查行程」建立。</div>';
                 if (planDetailsGroup) planDetailsGroup.style.display = 'block';
                 if (planDetailsGroup2) planDetailsGroup2.style.display = 'block';
-                if (planDetailsGroup3) planDetailsGroup3.style.display = 'none'; // 隱藏業務類別
-                if (planStartDateGroup) planStartDateGroup.style.display = 'none';
-                if (planEndDateGroup) planEndDateGroup.style.display = 'none';
-                
-                // 設定開始日期變更時，自動設定結束日期為同月最後一天
-                const planStartDateInput = document.getElementById('planStartDate');
-                const planEndDateInput = document.getElementById('planEndDate');
-                if (planStartDateInput && planEndDateInput) {
-                    // 移除舊的事件監聽器
-                    planStartDateInput.removeEventListener('change', handlePlanStartDateChange);
-                    // 添加新的事件監聽器
-                    planStartDateInput.addEventListener('change', handlePlanStartDateChange);
-                }
-                
+                if (planBusinessGroup) planBusinessGroup.style.display = 'block';
+                if (planPlannedCountGroup) planPlannedCountGroup.style.display = 'block';
+                if (planDatesSection) planDatesSection.style.display = 'none';
+                if (planSchedulesSection) planSchedulesSection.style.display = 'none';
                 if (m) m.classList.add('open');
-            } else {
-                const p = planList.find(x => x.id === id) || {};
-                t.innerText = '編輯檢查計畫';
-                document.getElementById('targetPlanId').value = p.id || '';
-                
-                if (planDetailsGroup) planDetailsGroup.style.display = 'block';
-                if (planDetailsGroup2) planDetailsGroup2.style.display = 'block';
-                if (planDetailsGroup3) planDetailsGroup3.style.display = 'none'; // 隱藏業務類別
-                if (planStartDateGroup) planStartDateGroup.style.display = 'block';
-                if (planEndDateGroup) planEndDateGroup.style.display = 'block';
-                
-                // 設定開始日期變更時，自動設定結束日期為同月最後一天（編輯模式也需要）
-                const planStartDateInput = document.getElementById('planStartDate');
-                const planEndDateInput = document.getElementById('planEndDate');
-                if (planStartDateInput && planEndDateInput) {
-                    // 移除舊的事件監聽器
-                    planStartDateInput.removeEventListener('change', handlePlanStartDateChange);
-                    // 添加新的事件監聽器
-                    planStartDateInput.addEventListener('change', handlePlanStartDateChange);
-                }
-                
-                try {
-                    const scheduleRes = await fetch(`/api/plans/${p.id}/schedules?t=${Date.now()}`, { credentials: 'include' });
-                    const planSchedulesList = document.getElementById('planSchedulesList');
-                    currentPlanSchedules = [];
-                    if (scheduleRes.ok) {
-                        const scheduleData = await scheduleRes.json();
-                        const schedules = scheduleData.data || [];
-                        currentPlanSchedules = schedules;
-                        if (planSchedulesList) {
-                            if (!schedules.length) {
-                                planSchedulesList.innerHTML = '<div style="font-size:12px; color:#94a3b8; text-align:center; padding:12px 0;">尚未有檢查行程，請先新增行程。</div>';
-                            } else {
-                                planSchedulesList.innerHTML = schedules.map((s, idx) => {
-                                    const start = (s.start_date || '').slice(0, 10);
-                                    const end = (s.end_date || '').slice(0, 10);
-                                    const range = end && end !== start ? `${start} ~ ${end}` : start;
-                                    const planNumber = (s.plan_number || '').trim();
-                                    return `<div onclick="selectPlanSchedule(${s.id})" style="cursor:pointer; padding:6px 8px; border-radius:6px; margin-bottom:4px; background:#ffffff; border:1px solid #e2e8f0;">
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#334155;">
-            <span>第 ${idx + 1} 筆行程</span>
-            ${planNumber ? `<span style="color:#2563eb; font-weight:600;">${planNumber}</span>` : ''}
-        </div>
-        <div style="font-size:12px; color:#64748b; margin-top:2px;">📅 ${range || '尚未設定日期'}</div>
-    </div>`;
-                                }).join('');
-                            }
-                        }
-                        if (schedules.length > 0) {
-                            applyScheduleToPlanForm(schedules[0], p);
-                        } else {
-                            const nameInput = document.getElementById('planName');
-                            const yearInput = document.getElementById('planYear');
-                            if (nameInput) nameInput.value = p.name || '';
-                            if (yearInput) yearInput.value = p.year || '';
-                        }
-                    } else if (planSchedulesList) {
-                        planSchedulesList.innerHTML = '<div style="font-size:12px; color:#f97316; text-align:center; padding:12px 0;">無法載入行程列表，請稍後再試。</div>';
-                    }
-                } catch (e) {
-                    const planSchedulesList = document.getElementById('planSchedulesList');
-                    if (planSchedulesList) {
-                        planSchedulesList.innerHTML = '<div style="font-size:12px; color:#f97316; text-align:center; padding:12px 0;">載入行程列表時發生錯誤，請稍後再試。</div>';
-                    }
-                }
-                if (m) m.classList.add('open');
+                return;
             }
+            
+            const p = planList.find(x => x.id === id) || {};
+            t.innerText = '編輯檢查計畫';
+            document.getElementById('targetPlanId').value = p.id || '';
+            document.getElementById('targetScheduleId').value = '';
+            const planPlannedCountEl = document.getElementById('planPlannedCount');
+            if (planPlannedCountEl) planPlannedCountEl.value = p.planned_count != null ? String(p.planned_count) : '';
+            const planBusinessEl = document.getElementById('planBusiness');
+            if (planBusinessEl) planBusinessEl.value = p.business || '';
+            if (planDetailsGroup) planDetailsGroup.style.display = 'block';
+            if (planDetailsGroup2) planDetailsGroup2.style.display = 'block';
+            if (planBusinessGroup) planBusinessGroup.style.display = 'block';
+            if (planPlannedCountGroup) planPlannedCountGroup.style.display = 'block';
+            if (planDatesSection) planDatesSection.style.display = 'block';
+            if (planSchedulesSection) planSchedulesSection.style.display = 'block';
+            if (planStartDateGroup) planStartDateGroup.style.display = 'block';
+            if (planEndDateGroup) planEndDateGroup.style.display = 'block';
+            if (planLocationInspectorRow) planLocationInspectorRow.style.display = 'flex';
+            const planStartDateInput = document.getElementById('planStartDate');
+            const planEndDateInput = document.getElementById('planEndDate');
+            if (planStartDateInput && planEndDateInput) {
+                planStartDateInput.removeEventListener('change', handlePlanStartDateChange);
+                planStartDateInput.addEventListener('change', handlePlanStartDateChange);
+            }
+            try {
+                const scheduleRes = await fetch(`/api/plans/${p.id}/schedules?t=${Date.now()}`, { credentials: 'include' });
+                const planSchedulesList = document.getElementById('planSchedulesList');
+                currentPlanSchedules = [];
+                if (scheduleRes.ok) {
+                    const scheduleData = await scheduleRes.json();
+                    const schedules = scheduleData.data || [];
+                    currentPlanSchedules = schedules;
+                    const validSchedules = schedules.filter(s => s.plan_number && s.plan_number !== '(手動)');
+                    if (planSchedulesList) {
+                        if (!validSchedules.length) {
+                            planSchedulesList.innerHTML = '<div class="plan-schedules-empty">尚未有檢查行程，請先至「填寫檢查行程」或在此建立第一筆行程。</div>';
+                        } else {
+                            planSchedulesList.innerHTML = validSchedules.map((s, idx) => {
+                                const start = (s.start_date || '').slice(0, 10);
+                                const end = (s.end_date || '').slice(0, 10);
+                                const range = end && end !== start ? `${start} ~ ${end}` : start;
+                                const planNumber = (s.plan_number || '').trim();
+                                const loc = (s.location || '').trim();
+                                const insp = (s.inspector || '').trim();
+                                return `<div class="plan-schedule-item" data-schedule-id="${s.id}" onclick="selectPlanSchedule(${s.id})">
+                                    <div class="schedule-row-top"><span>第 ${idx + 1} 筆行程</span>${planNumber ? `<span class="plan-number">${planNumber}</span>` : ''}</div>
+                                    <div class="schedule-row-detail">📅 ${range || '尚未設定日期'}${loc ? ' · 📍 ' + loc : ''}${insp ? ' · 👤 ' + insp : ''}</div>
+                                </div>`;
+                            }).join('');
+                        }
+                    }
+                    if (validSchedules.length > 0) {
+                        applyScheduleToPlanForm(validSchedules[0], p);
+                        const firstEl = planSchedulesList && planSchedulesList.querySelector('.plan-schedule-item');
+                        if (firstEl) firstEl.classList.add('selected');
+                    } else {
+                        document.getElementById('planName').value = p.name || '';
+                        document.getElementById('planYear').value = p.year || '';
+                        if (document.getElementById('planLocation')) document.getElementById('planLocation').value = '';
+                        if (document.getElementById('planInspector')) document.getElementById('planInspector').value = '';
+                    }
+                } else if (planSchedulesList) {
+                    planSchedulesList.innerHTML = '<div class="plan-schedules-empty" style="color:#f97316;">無法載入行程列表，請稍後再試。</div>';
+                }
+            } catch (e) {
+                const planSchedulesList = document.getElementById('planSchedulesList');
+                if (planSchedulesList) planSchedulesList.innerHTML = '<div class="plan-schedules-empty" style="color:#f97316;">載入行程列表時發生錯誤。</div>';
+            }
+            if (m) m.classList.add('open');
         }
         function closePlanModal() {
             const m = document.getElementById('planModal');
@@ -6476,7 +6547,7 @@ if (dashboard) {
             reader.readAsText(file, 'UTF-8');
         }
         function downloadPlanCSVTemplate() {
-            const csv = '計畫名稱,年度,開始日期,結束日期,鐵路機構,檢查類別\n上半年定期檢查,113,2024-01-01,2024-06-30,T,1\n下半年定期檢查,113,2024-07-01,2024-12-31,T,1\n特別檢查,113,2024-03-15,2024-03-20,H,2';
+            const csv = '計畫名稱,年度,業務類型,規劃檢查次數,開始日期,結束日期,鐵路機構,檢查類別\n上半年定期檢查,113,OP,2,2024-01-01,2024-06-30,T,1\n下半年定期檢查,113,CV,1,2024-07-01,2024-12-31,T,1\n特別檢查,113,,1,2024-03-15,2024-03-20,H,2';
             const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
@@ -6488,29 +6559,34 @@ if (dashboard) {
             const scheduleId = document.getElementById('targetScheduleId').value;
             const name = document.getElementById('planName').value.trim();
             const year = document.getElementById('planYear').value.trim();
-            const startDate = document.getElementById('planStartDate').value;
-            const endDate = document.getElementById('planEndDate').value;
+            const startDate = (document.getElementById('planStartDate') || {}).value;
+            const endDate = (document.getElementById('planEndDate') || {}).value;
             const railway = document.getElementById('planRailway').value;
             const inspectionType = document.getElementById('planInspectionType').value;
             const planBusinessEl = document.getElementById('planBusiness');
-            const business = planBusinessEl ? planBusinessEl.value : null; // 業務類別改為選填
+            const business = planBusinessEl && planBusinessEl.value ? planBusinessEl.value : null;
+            const planPlannedCountEl = document.getElementById('planPlannedCount');
+            const plannedCount = planPlannedCountEl && planPlannedCountEl.value !== '' ? planPlannedCountEl.value : null;
+            const planLocationEl = document.getElementById('planLocation');
+            const planInspectorEl = document.getElementById('planInspector');
+            const location = planLocationEl ? planLocationEl.value.trim() : '';
+            const inspector = planInspectorEl ? planInspectorEl.value.trim() : '';
             
             if (!planId) {
                 if (!name) return showToast('請輸入計畫名稱', 'error');
                 if (!year) return showToast('請輸入年度', 'error');
                 if (!railway) return showToast('請選擇鐵路機構', 'error');
                 if (!inspectionType) return showToast('請選擇檢查類別', 'error');
-                // 業務類別不再必填
-                
                 try {
                     const res = await apiFetch('/api/plans', {
                         method: 'POST',
                         body: JSON.stringify({
                             name,
-                            year: year.padStart(3, '0'),
+                            year: year.replace(/\D/g, '').slice(-3).padStart(3, '0'),
                             railway,
                             inspection_type: inspectionType,
-                            business: null // 業務類別不再使用
+                            business,
+                            planned_count: plannedCount
                         })
                     });
                     const j = await res.json();
@@ -6521,8 +6597,7 @@ if (dashboard) {
                         loadPlanOptions();
                         loadSchedulePlanOptions();
                     } else {
-                        const errorMsg = j.error || j.message || '新增失敗';
-                        showToast(errorMsg, 'error');
+                        showToast(j.error || j.message || '新增失敗', 'error');
                     }
                 } catch (e) {
                     showToast('操作失敗，請稍後再試', 'error');
@@ -6530,18 +6605,15 @@ if (dashboard) {
                 return;
             }
             
-            if (!name) return showToast('請輸入計畫名稱', 'error');
-            if (!startDate) return showToast('請選擇開始日期', 'error');
-            if (!endDate) return showToast('請選擇結束日期', 'error');
-            if (!railway || !inspectionType) return showToast('請填寫鐵路機構、檢查類別', 'error');
-            // 業務類別不再必填
-            
-            const adYear = parseInt(startDate.slice(0, 4), 10);
-            const rocYear = adYear - 1911;
-            const yearStr = String(rocYear).padStart(3, '0');
-            
-            try {
-                if (scheduleId) {
+            if (scheduleId) {
+                if (!name) return showToast('請輸入計畫名稱', 'error');
+                if (!startDate) return showToast('請選擇開始日期', 'error');
+                if (!endDate) return showToast('請選擇結束日期', 'error');
+                if (!railway || !inspectionType) return showToast('請填寫鐵路機構、檢查類別', 'error');
+                const adYear = parseInt(startDate.slice(0, 4), 10);
+                const rocYear = adYear - 1911;
+                const yearStr = String(rocYear).padStart(3, '0');
+                try {
                     const res = await apiFetch(`/api/plan-schedule/${scheduleId}`, {
                         method: 'PUT',
                         body: JSON.stringify({
@@ -6551,12 +6623,14 @@ if (dashboard) {
                             year: yearStr,
                             railway,
                             inspection_type: inspectionType,
-                            business: null // 業務類別不再使用
+                            business: null,
+                            location: location || null,
+                            inspector: inspector || null
                         })
                     });
                     const j = await res.json();
                     if (res.ok) {
-                        showToast('更新成功');
+                        showToast('行程更新成功');
                         closePlanModal();
                         loadPlansPage(plansPage || 1);
                         loadPlanOptions();
@@ -6568,8 +6642,33 @@ if (dashboard) {
                     } else {
                         showToast(j.error || '更新失敗', 'error');
                     }
+                } catch (e) {
+                    showToast('操作失敗：' + e.message, 'error');
+                }
+                return;
+            }
+            
+            if (!name) return showToast('請輸入計畫名稱', 'error');
+            if (!year) return showToast('請輸入年度', 'error');
+            try {
+                const res = await apiFetch(`/api/plans/${planId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        name,
+                        year: year.replace(/\D/g, '').slice(-3).padStart(3, '0'),
+                        business,
+                        planned_count: plannedCount
+                    })
+                });
+                const j = await res.json();
+                if (res.ok) {
+                    showToast('計畫更新成功');
+                    closePlanModal();
+                    loadPlansPage(plansPage || 1);
+                    loadPlanOptions();
+                    loadSchedulePlanOptions();
                 } else {
-                    showToast('找不到排程資料', 'error');
+                    showToast(j.error || '更新失敗', 'error');
                 }
             } catch (e) {
                 showToast('操作失敗：' + e.message, 'error');

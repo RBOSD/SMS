@@ -50,6 +50,8 @@
             </div>
             <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')">
                 查詢看板</button>
+            <button class="sidebar-btn hidden" id="btn-planCalendarView" onclick="switchView('planCalendarView')">
+                檢查計畫月曆</button>
             <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')">
                 資料管理</button>
             <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')">
@@ -227,6 +229,9 @@
                 <div id="emptyMsg" style="text-align:center;padding:40px;color:#999;display:none;">查無資料</div>
             </div>
 
+            <div id="planCalendarView" class="view-section">
+                <!-- 檢查計畫月曆看板，由 switchView 動態載入 -->
+            </div>
             <div id="importView" class="view-section">
                 <!-- 內容將由 switchView 函數動態載入 -->
             </div>

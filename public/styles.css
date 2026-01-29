@@ -2952,3 +2952,95 @@
             .schedule-cal-plan-names { font-size: 14px; }
             .schedule-cal-plan-name { font-size: 14px; }
         }
+
+        /* 檢查計畫編輯視窗（重新設計） */
+        .plan-edit-modal .plan-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .plan-edit-modal .plan-modal-header h3 { color: #334155; font-size: 18px; }
+        .plan-modal-close {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: #f1f5f9;
+            border-radius: 8px;
+            font-size: 22px;
+            line-height: 1;
+            color: #64748b;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, color 0.2s;
+        }
+        .plan-modal-close:hover {
+            background: #e2e8f0;
+            color: #334155;
+        }
+        .plan-modal-body { padding: 0 0 16px 0; }
+        .plan-form-section {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid #e2e8f0;
+        }
+        .plan-section-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .plan-form-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+        .plan-form-row:last-child { margin-bottom: 0; }
+        .plan-form-half { flex: 1; min-width: 0; }
+        .plan-form-half .form-group { margin-bottom: 0; }
+        .plan-schedules-list {
+            max-height: 220px;
+            overflow-y: auto;
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+        }
+        .plan-schedules-empty {
+            font-size: 12px;
+            color: #94a3b8;
+            text-align: center;
+            padding: 16px 0;
+        }
+        .plan-schedule-item {
+            cursor: pointer;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .plan-schedule-item:hover { background: #f0f9ff; border-color: #bae6fd; }
+        .plan-schedule-item.selected { background: #eff6ff; border-color: #2563eb; }
+        .plan-schedule-item .schedule-row-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #334155; }
+        .plan-schedule-item .schedule-row-top .plan-number { color: #2563eb; font-weight: 600; }
+        .plan-schedule-item .schedule-row-detail { font-size: 12px; color: #64748b; margin-top: 4px; }
+        .plan-modal-footer {
+            display: flex;
+            gap: 12px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .plan-modal-footer .btn { flex: 1; }
+        .schedule-calendar-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .schedule-calendar-toolbar .btn { flex-shrink: 0; }
+        .schedule-calendar-toolbar #scheduleMonthTitle { flex-shrink: 0; }
