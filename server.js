@@ -1624,7 +1624,6 @@ app.get('/api/plans/dashboard-stats', requireAuth, async (req, res) => {
             LEFT JOIN header h ON h.plan_name = g.name AND h.year = g.year
             LEFT JOIN schedule_counts sc ON sc.plan_name = g.name AND sc.year = g.year
             ORDER BY COALESCE(sc.cnt, 0) DESC
-            LIMIT 10
         `, [thisYear]);
         const planProgress = (progressRes.rows || []).map(r => ({
             name: r.name,

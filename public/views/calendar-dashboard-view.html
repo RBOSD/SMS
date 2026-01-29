@@ -2,19 +2,17 @@
     <div class="content-title">檢查計畫月曆看板</div>
 </div>
 <div class="main-card" style="margin-bottom:20px;">
-    <div style="margin-bottom:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
-            <div>
-                <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">📊 檢查計畫統計</h3>
-                <p style="margin:0; color:#64748b; font-size:13px;">選擇年度後顯示該年度統計資料與月曆。</p>
-            </div>
-            <div style="display:flex; align-items:center; gap:8px;">
+    <div style="margin-bottom:16px;">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:12px;">
+            <h3 style="margin:0; font-weight:700; font-size:18px; color:#334155;">📊 檢查計畫統計</h3>
+            <div style="display:flex; align-items:center; gap:6px;">
                 <label style="font-size:14px; color:#475569; font-weight:500;">選擇年度：</label>
                 <select id="dashboardYearSelect" class="filter-select" style="width:120px;" onchange="onDashboardYearChange()">
                     <option value="">載入中…</option>
                 </select>
             </div>
         </div>
+        <p style="margin:8px 0 0 0; color:#64748b; font-size:13px;">選擇年度後顯示該年度統計資料與月曆。</p>
     </div>
     <div id="calendarDashboardStats" class="stats-bar" style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
         <div class="stat-item" style="min-width:140px;">
@@ -30,7 +28,7 @@
     <div id="dashboardStatByType" style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:24px;">
         <span style="color:#64748b; font-size:13px;">請先選擇年度</span>
     </div>
-    <div style="margin-bottom:16px; font-weight:600; font-size:14px; color:#475569;">規劃 vs 已檢查（前 10 筆計畫）</div>
+    <div style="margin-bottom:16px; font-weight:600; font-size:14px; color:#475569;">規劃 vs 已檢查（所選年度全部計畫）</div>
     <div id="dashboardPlanProgress" style="overflow-x:auto;">
         <table class="user-table" style="font-size:13px;">
             <thead>
