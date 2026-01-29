@@ -2217,10 +2217,16 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
         if (manualNumber) {
             planNumber = manualNumber;
             const seqMatch = manualNumber.match(/-(\d{2,3})$/);
-            seq = seqMatch ? seqMatch[1] : String((await pool.query(
-                `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx FROM inspection_plan_schedule WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
-                [y, r, it]
-            )).rows[0]?.mx || 0) + 1).padStart(2, '0');
+            if (seqMatch) {
+                seq = seqMatch[1];
+            } else {
+                const maxRes = await pool.query(
+                    `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx FROM inspection_plan_schedule WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
+                    [y, r, it]
+                );
+                const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
+                seq = String(next).padStart(2, '0');
+            }
         } else {
             const maxRes = await pool.query(
                 `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
