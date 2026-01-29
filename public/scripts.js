@@ -1207,6 +1207,8 @@ if (dashboard) {
                 const progressBody = document.getElementById('dashboardPlanProgressBody');
                 if (statPlans) statPlans.textContent = '-';
                 if (statSchedules) statSchedules.textContent = '-';
+                const statPlanned = document.getElementById('dashboardStatPlanned');
+                if (statPlanned) statPlanned.textContent = '-';
                 if (statByType) statByType.innerHTML = '<span style="color:#64748b;">請先選擇年度</span>';
                 if (progressBody) progressBody.innerHTML = '<tr><td colspan="5" style="padding:12px;color:#64748b;">請先選擇年度</td></tr>';
                 dashboardMonthData = [];
@@ -1228,19 +1230,22 @@ if (dashboard) {
             const statByType = document.getElementById('dashboardStatByType');
             const progressBody = document.getElementById('dashboardPlanProgressBody');
             if (!statPlans && !statSchedules) return;
-            const typeNames = { '1': '年度定期檢查', '2': '特別檢查', '3': '例行性檢查', '4': '臨時檢查', '5': '調查' };
+            const typeNames = { '1': '年度定期檢查', '2': '特別檢查', '3': '例行性檢查', '4': '臨時檢查' };
             try {
                 const res = await fetch(`/api/plans/dashboard-stats?year=${encodeURIComponent(dashboardSelectedYear)}&t=${Date.now()}`, { credentials: 'include' });
                 if (!res.ok) throw new Error('無法載入統計');
                 const data = await res.json();
                 const totalPlans = data.totalPlans != null ? data.totalPlans : 0;
                 const totalSchedules = data.totalSchedules != null ? data.totalSchedules : 0;
+                const totalPlanned = data.totalPlanned != null ? data.totalPlanned : 0;
                 const byType = data.byType || {};
                 const planProgress = data.planProgress || [];
                 if (statPlans) statPlans.textContent = totalPlans;
                 if (statSchedules) statSchedules.textContent = totalSchedules;
+                const statPlanned = document.getElementById('dashboardStatPlanned');
+                if (statPlanned) statPlanned.textContent = totalPlanned;
                 if (statByType) {
-                    statByType.innerHTML = ['1', '2', '3', '4', '5'].map(t => {
+                    statByType.innerHTML = ['1', '2', '3', '4'].map(t => {
                         const count = byType[t] || 0;
                         return `<span style="background:#f1f5f9; padding:6px 12px; border-radius:8px; font-size:13px;">${typeNames[t] || t}：${count}</span>`;
                     }).join('');
@@ -1256,6 +1261,8 @@ if (dashboard) {
             } catch (e) {
                 if (statPlans) statPlans.textContent = '—';
                 if (statSchedules) statSchedules.textContent = '—';
+                const statPlanned = document.getElementById('dashboardStatPlanned');
+                if (statPlanned) statPlanned.textContent = '—';
                 if (statByType) statByType.innerHTML = '<span style="color:#94a3b8;">載入失敗</span>';
                 if (progressBody) progressBody.innerHTML = '<tr><td colspan="5" style="padding:12px;color:#ef4444;">載入失敗</td></tr>';
             }
@@ -3289,7 +3296,7 @@ if (dashboard) {
                         <td><input type="text" class="filter-input create-batch-year" value="${escapeHtml(issue.year || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
                         <td><input type="text" class="filter-input create-batch-unit" value="${escapeHtml(issue.unit || '')}" style="background:#f1f5f9;color:#64748b;" readonly></td>
                         <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務" ${divisionName === '運務' ? 'selected' : ''}>運務</option><option value="工務" ${divisionName === '工務' ? 'selected' : ''}>工務</option><option value="機務" ${divisionName === '機務' ? 'selected' : ''}>機務</option><option value="電務" ${divisionName === '電務' ? 'selected' : ''}>電務</option><option value="安全" ${divisionName === '安全' ? 'selected' : ''}>安全</option><option value="審核" ${divisionName === '審核' ? 'selected' : ''}>審核</option><option value="災防" ${divisionName === '災防' ? 'selected' : ''}>災防</option><option value="運轉" ${divisionName === '運轉' ? 'selected' : ''}>運轉</option><option value="土木" ${divisionName === '土木' ? 'selected' : ''}>土木</option><option value="機電" ${divisionName === '機電' ? 'selected' : ''}>機電</option><option value="土建" ${divisionName === '土建' ? 'selected' : ''}>土建</option><option value="安全管理" ${divisionName === '安全管理' ? 'selected' : ''}>安全管理</option><option value="營運" ${divisionName === '營運' ? 'selected' : ''}>營運</option><option value="其他" ${divisionName === '其他' ? 'selected' : ''}>其他</option></select></td>
-                        <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查" ${inspectionName === '定期檢查' ? 'selected' : ''}>定期檢查</option><option value="例行性檢查" ${inspectionName === '例行性檢查' ? 'selected' : ''}>例行性檢查</option><option value="特別檢查" ${inspectionName === '特別檢查' ? 'selected' : ''}>特別檢查</option><option value="臨時檢查" ${inspectionName === '臨時檢查' ? 'selected' : ''}>臨時檢查</option><option value="調查" ${inspectionName === '調查' ? 'selected' : ''}>調查</option></select></td>
+                        <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查" ${inspectionName === '定期檢查' ? 'selected' : ''}>定期檢查</option><option value="例行性檢查" ${inspectionName === '例行性檢查' ? 'selected' : ''}>例行性檢查</option><option value="特別檢查" ${inspectionName === '特別檢查' ? 'selected' : ''}>特別檢查</option><option value="臨時檢查" ${inspectionName === '臨時檢查' ? 'selected' : ''}>臨時檢查</option></select></td>
                         <td><select class="filter-select create-batch-kind"><option value="">-</option><option value="N" ${kindCode === 'N' ? 'selected' : ''}>缺失</option><option value="O" ${kindCode === 'O' ? 'selected' : ''}>觀察</option><option value="R" ${kindCode === 'R' ? 'selected' : ''}>建議</option></select></td>
                         <td><select class="filter-select create-batch-status"><option value="持續列管" ${status === '持續列管' ? 'selected' : ''}>持續列管</option><option value="解除列管" ${status === '解除列管' ? 'selected' : ''}>解除列管</option><option value="自行列管" ${status === '自行列管' ? 'selected' : ''}>自行列管</option></select></td>
                         <td style="text-align:center;">
@@ -3846,7 +3853,7 @@ if (dashboard) {
                 <td><input type="text" class="filter-input create-batch-year" style="background:#f1f5f9;color:#64748b;" readonly></td>
                 <td><input type="text" class="filter-input create-batch-unit" style="background:#f1f5f9;color:#64748b;" readonly></td>
                 <td><select class="filter-select create-batch-division"><option value="">-</option><option value="運務">運務</option><option value="工務">工務</option><option value="機務">機務</option><option value="電務">電務</option><option value="安全">安全</option><option value="審核">審核</option><option value="災防">災防</option><option value="運轉">運轉</option><option value="土木">土木</option><option value="機電">機電</option><option value="土建">土建</option><option value="安全管理">安全管理</option><option value="營運">營運</option><option value="其他">其他</option></select></td>
-                <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option><option value="調查">調查</option></select></td>
+                <td><select class="filter-select create-batch-inspection"><option value="">-</option><option value="定期檢查">定期檢查</option><option value="例行性檢查">例行性檢查</option><option value="特別檢查">特別檢查</option><option value="臨時檢查">臨時檢查</option></select></td>
                 <td><select class="filter-select create-batch-kind"><option value="">-</option><option value="N">缺失</option><option value="O">觀察</option><option value="R">建議</option></select></td>
                 <td><select class="filter-select create-batch-status"><option value="持續列管">持續列管</option><option value="解除列管">解除列管</option><option value="自行列管">自行列管</option></select></td>
                 <td style="text-align:center;">
@@ -5233,7 +5240,7 @@ if (dashboard) {
                     <td data-label="地點" style="padding:12px;">${locationsHtml || '<span style="color:#94a3b8; font-size:12px;">—</span>'}</td>
                     <td data-label="檢查人員" style="padding:12px;">${inspectorsHtml || '<span style="color:#94a3b8; font-size:12px;">—</span>'}</td>
                     <td data-label="取號編碼" style="padding:12px;">${codesHtml || '<span style="color:#94a3b8; font-size:12px;">無</span>'}</td>
-                    <td data-label="事項數量" style="padding:12px;text-align:center;">${p.issue_count || 0}</td>
+                    <td data-label="開立事項數量" style="padding:12px;text-align:center;">${p.issue_count || 0}</td>
                     <td data-label="建立日期" style="padding:12px;">${createdDate}</td>
                     <td data-label="操作" style="padding:12px;">
                         <button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openPlanModal('edit', ${p.id})">✏️</button>
@@ -5509,18 +5516,18 @@ if (dashboard) {
         
         function showSchedulePlanNumber(planNumber) {
             const displayDiv = document.getElementById('schedulePlanNumberDisplay');
-            const valueSpan = document.getElementById('schedulePlanNumberValue');
-            if (displayDiv && valueSpan) {
-                valueSpan.textContent = planNumber;
+            const valueInput = document.getElementById('schedulePlanNumberValue');
+            if (displayDiv && valueInput) {
+                valueInput.value = planNumber || '';
                 displayDiv.style.display = 'block';
             }
         }
         
         function hideSchedulePlanNumber() {
             const displayDiv = document.getElementById('schedulePlanNumberDisplay');
-            if (displayDiv) {
-                displayDiv.style.display = 'none';
-            }
+            const valueInput = document.getElementById('schedulePlanNumberValue');
+            if (displayDiv) displayDiv.style.display = 'none';
+            if (valueInput) valueInput.value = '';
         }
 
         function schedulePrevMonth() {
@@ -5678,11 +5685,7 @@ if (dashboard) {
             const title = document.getElementById('dashboardScheduleMonthTitle');
             const cal = document.getElementById('dashboardScheduleCalendar');
             if (!title || !cal) return;
-            if (dashboardSelectedYear) {
-                title.textContent = `${dashboardSelectedYear}年度 - ${dashboardCalendarYear} 年 ${dashboardCalendarMonth} 月`;
-            } else {
-                title.textContent = `${dashboardCalendarYear} 年 ${dashboardCalendarMonth} 月`;
-            }
+            title.textContent = `${dashboardCalendarYear} 年 ${dashboardCalendarMonth} 月`;
             const y = dashboardCalendarYear;
             const m = dashboardCalendarMonth;
             const first = new Date(y, m - 1, 1);
@@ -5783,6 +5786,8 @@ if (dashboard) {
             } else {
                 dashboardCalendarMonth--;
             }
+            const dayListBody = document.getElementById('dashboardScheduleDayListBody');
+            if (dayListBody) dayListBody.innerHTML = '點選月曆上的日期可查看該日詳細檢查內容';
             if (dashboardSelectedYear) {
                 loadDashboardScheduleForMonth();
             } else {
@@ -5797,6 +5802,8 @@ if (dashboard) {
             } else {
                 dashboardCalendarMonth++;
             }
+            const dayListBody = document.getElementById('dashboardScheduleDayListBody');
+            if (dayListBody) dayListBody.innerHTML = '點選月曆上的日期可查看該日詳細檢查內容';
             if (dashboardSelectedYear) {
                 loadDashboardScheduleForMonth();
             } else {
@@ -5877,87 +5884,72 @@ if (dashboard) {
                 <html>
                 <head>
                     <meta charset="UTF-8">
-                    <title>${monthTitle} - 檢查計畫月曆</title>
+                    <title>${monthTitle} 檢查計畫月曆</title>
                     <style>
-                        @page { size: A4 landscape; margin: 30mm 25mm; }
+                        @page { size: A4 landscape; margin: 22mm 20mm; }
                         * { box-sizing: border-box; margin: 0; padding: 0; }
-                        html, body { height: 100%; width: 100%; overflow: hidden; }
-                        body { 
-                            font-family: "Microsoft JhengHei", "微軟正黑體", Arial, sans-serif; 
-                            margin: 0; padding: 0; 
-                            background: white; page-break-inside: avoid;
+                        html, body { height: 100%; width: 100%; overflow: hidden; font-family: "Microsoft JhengHei", "微軟正黑體", "Noto Sans TC", Arial, sans-serif; }
+                        body { background: #fafafa; padding: 0 0 16px 0; }
+                        .print-header {
+                            text-align: center; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 2px solid #1e40af;
+                            background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
                         }
-                        h1 { 
-                            text-align: center; margin: 0 0 8px 0; 
-                            font-size: 18px; font-weight: 700; color: #334155;
-                            page-break-after: avoid;
+                        .print-header h1 { font-size: 20px; font-weight: 700; color: #1e3a8a; letter-spacing: 0.02em; margin: 0; }
+                        .print-header .sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+                        .schedule-calendar {
+                            display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+                            background: #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                            width: 100%; max-width: 100%; page-break-inside: avoid;
                         }
-                        .schedule-calendar { 
-                            display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; 
-                            background: #e2e8f0; border: 1px solid #e2e8f0; border-radius: 4px;
-                            overflow: hidden; page-break-inside: avoid;
-                            width: 100%; height: calc(100vh - 50px);
-                            max-height: calc(257mm - 50mm);
+                        .schedule-cal-head {
+                            background: linear-gradient(180deg, #1e40af 0%, #1d4ed8 100%); color: #fff;
+                            padding: 10px 6px; text-align: center; font-weight: 700; font-size: 13px;
+                            display: flex; align-items: center; justify-content: center; min-height: 32px;
                         }
-                        .schedule-cal-head { 
-                            background: #334155; color: white; 
-                            padding: 6px 4px; text-align: center; 
-                            font-weight: 600; font-size: 13px; 
-                            page-break-inside: avoid;
-                            line-height: 1.3;
-                            min-height: 28px;
-                            max-height: 28px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                        }
-                        .schedule-cal-day { 
-                            border: 1px solid #e2e8f0; padding: 8px 5px; 
-                            min-height: 100px; background: white; 
+                        .schedule-cal-day {
+                            border: none; padding: 10px 6px; min-height: 98px; background: #fff;
                             display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start;
                             page-break-inside: avoid; overflow: hidden;
                         }
-                        .schedule-cal-day-num { font-weight: 700; font-size: 14px; margin-bottom: 2px; color: #334155; }
+                        .schedule-cal-day-num { font-weight: 700; font-size: 15px; margin-bottom: 4px; color: #0f172a; }
                         .schedule-cal-holiday { background: #fef2f2 !important; }
-                        .schedule-cal-holiday .schedule-cal-day-num { color: #dc2626; }
-                        .schedule-cal-holiday-tag { 
-                            font-size: 9px; color: #dc2626; font-weight: 600; 
-                            margin-bottom: 2px; display: block;
-                        }
-                        .schedule-cal-plan-names { font-size: 12px; line-height: 1.5; margin-top: 3px; width: 100%; word-break: break-word; overflow: hidden; }
-                        .schedule-cal-plan-name { font-weight: 600; font-size: 12px; display: inline; margin-right: 5px; }
-                        .schedule-cal-plan-detail { font-size: 11px; display: inline; margin-right: 5px; }
-                        .schedule-cal-plan-item { margin-bottom: 2px; }
-                        .schedule-cal-sep { color: #94a3b8; margin: 0 2px; }
-                        .schedule-cal-pad { background: #f8fafc; }
-                        .schedule-cal-dots { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 2px; }
-                        .schedule-cal-color-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.1); }
+                        .schedule-cal-holiday .schedule-cal-day-num { color: #b91c1c; }
+                        .schedule-cal-holiday-tag { font-size: 10px; color: #b91c1c; font-weight: 600; margin-bottom: 2px; display: block; }
+                        .schedule-cal-plan-names { font-size: 11px; line-height: 1.45; margin-top: 4px; width: 100%; word-break: break-word; overflow: hidden; }
+                        .schedule-cal-plan-name { font-weight: 600; font-size: 11px; display: block; margin-bottom: 2px; }
+                        .schedule-cal-plan-detail { font-size: 10px; color: #475569; display: block; margin-bottom: 1px; }
+                        .schedule-cal-plan-item { margin-bottom: 4px; padding-bottom: 2px; border-bottom: 1px solid #f1f5f9; }
+                        .schedule-cal-plan-item:last-child { border-bottom: none; }
+                        .schedule-cal-pad { background: #f1f5f9; }
+                        .schedule-cal-dots { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 3px; }
+                        .schedule-cal-color-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.12); }
                         .schedule-cal-day.schedule-cal-plan-0 { background: #dbeafe; }
                         .schedule-cal-day.schedule-cal-plan-1 { background: #dcfce7; }
-                        .schedule-cal-day.schedule-cal-plan-2 { background: #fef3c7; }
+                        .schedule-cal-day.schedule-cal-plan-2 { background: #fef9c3; }
                         .schedule-cal-day.schedule-cal-plan-3 { background: #fce7f3; }
                         .schedule-cal-day.schedule-cal-plan-4 { background: #e0e7ff; }
                         .schedule-cal-day.schedule-cal-plan-5 { background: #d1fae5; }
-                        .schedule-cal-day.schedule-cal-plan-6 { background: #fed7aa; }
-                        .schedule-cal-day.schedule-cal-plan-7 { background: #e9d5ff; }
+                        .schedule-cal-day.schedule-cal-plan-6 { background: #ffedd5; }
+                        .schedule-cal-day.schedule-cal-plan-7 { background: #ede9fe; }
                         @media print {
-                            @page { size: A4 landscape; margin: 30mm 25mm; }
-                            body { padding: 0; margin: 0; height: 100%; overflow: hidden; }
-                            h1 { margin-bottom: 6px; font-size: 16px; page-break-after: avoid; }
-                            .schedule-calendar { max-height: calc(257mm - 50mm); page-break-inside: avoid; }
-                            .schedule-cal-day { padding: 4px 3px; page-break-inside: avoid; height: auto; min-height: 0; }
-                            .schedule-cal-day-num { font-size: 13px; }
-                            .schedule-cal-holiday-tag { font-size: 8px; }
-                            .schedule-cal-plan-names { font-size: 11px; }
-                            .schedule-cal-plan-name { font-size: 11px; }
-                            .schedule-cal-plan-detail { font-size: 10px; }
-                            .schedule-cal-head { font-size: 12px; padding: 5px 3px; line-height: 1.3; min-height: 26px; max-height: 26px; }
-                            .schedule-cal-day { min-height: 95px; padding: 7px 4px; }
+                            @page { size: A4 landscape; margin: 22mm 20mm; }
+                            body { background: #fff; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                            .print-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                            .schedule-cal-head, .schedule-cal-day.schedule-cal-plan-0, .schedule-cal-day.schedule-cal-plan-1,
+                            .schedule-cal-day.schedule-cal-plan-2, .schedule-cal-day.schedule-cal-plan-3,
+                            .schedule-cal-day.schedule-cal-plan-4, .schedule-cal-day.schedule-cal-plan-5,
+                            .schedule-cal-day.schedule-cal-plan-6, .schedule-cal-day.schedule-cal-plan-7,
+                            .schedule-cal-holiday { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                            .schedule-cal-day { min-height: 92px; padding: 8px 5px; }
+                            .schedule-cal-day-num { font-size: 14px; }
                         }
                     </style>
                 </head>
                 <body>
-                    <h1>${monthTitle} - 檢查計畫月曆</h1>
+                    <div class="print-header">
+                        <h1>${monthTitle} 檢查計畫月曆</h1>
+                        <div class="sub">SMS 開立事項查詢與審查系統 · 列印日期：${new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
+                    </div>
                     <div class="schedule-calendar">${calendarHtml}</div>
                 </body>
                 </html>
@@ -6344,21 +6336,25 @@ if (dashboard) {
             const adYear = parseInt(startDateVal.slice(0, 4), 10);
             const rocYear = adYear - 1911;
             const yr = String(rocYear).replace(/\D/g, '').slice(-3).padStart(3, '0');
+            const planNumberInput = document.getElementById('schedulePlanNumberValue');
+            const customPlanNumber = planNumberInput && planNumberInput.value ? String(planNumberInput.value).trim() : '';
+            const payload = {
+                plan_name: planName,
+                start_date: startDateVal,
+                end_date: endDateVal,
+                year: yr,
+                railway: schedulePlanDetails.railway,
+                inspection_type: schedulePlanDetails.inspection_type,
+                business: null,
+                location: locationValue,
+                inspector: inspectorValue
+            };
+            if (customPlanNumber) payload.plan_number = customPlanNumber;
             try {
                 const res = await apiFetch('/api/plan-schedule', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        plan_name: planName,
-                        start_date: startDateVal,
-                        end_date: endDateVal,
-                        year: yr,
-                        railway: schedulePlanDetails.railway,
-                        inspection_type: schedulePlanDetails.inspection_type,
-                        business: null, // 不再使用業務類別
-                        location: locationValue,
-                        inspector: inspectorValue
-                    })
+                    body: JSON.stringify(payload)
                 });
                 const j = await res.json().catch(() => ({}));
                 if (!res.ok) {

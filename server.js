@@ -1631,10 +1631,16 @@ app.get('/api/plans/dashboard-stats', requireAuth, async (req, res) => {
             planned_count: r.planned_count != null ? parseInt(r.planned_count, 10) : null,
             schedule_count: parseInt(r.schedule_count, 10) || 0
         }));
+        const plannedSumRes = await pool.query(`
+            SELECT COALESCE(SUM(CAST(planned_count AS INTEGER)), 0) AS total
+            FROM inspection_plan_schedule WHERE year = $1 AND inspection_seq = '00' AND planned_count IS NOT NULL
+        `, [thisYear]);
+        const totalPlanned = parseInt(plannedSumRes.rows[0]?.total, 10) || 0;
         res.json({
             year: thisYear,
             totalPlans,
             totalSchedules,
+            totalPlanned,
             withIssues,
             byType,
             planProgress
@@ -2167,7 +2173,7 @@ app.get('/api/plan-schedule/next-number', requireAuth, async (req, res) => {
 });
 
 app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
-    const { plan_name, start_date, end_date, year, railway, inspection_type, business, location, inspector } = req.body;
+    const { plan_name, start_date, end_date, year, railway, inspection_type, business, location, inspector, plan_number: clientPlanNumber } = req.body;
     try {
         // 驗證必填欄位
         if (!plan_name || !start_date || !end_date || !year || !railway || !inspection_type) {
@@ -2204,17 +2210,28 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
             return res.status(400).json({ error: `無效的檢查類別：${it}，請選擇有效的檢查類別` });
         }
         
-        // 取號編碼不再包含業務類別
-        const maxRes = await pool.query(
-            `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
-             FROM inspection_plan_schedule 
-             WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
-            [y, r, it]
-        );
-        const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
-        const seq = String(next).padStart(2, '0');
-        const planNumber = `${y}${r}${it}-${seq}`;
         const name = String(plan_name).trim();
+        let planNumber;
+        let seq;
+        const manualNumber = clientPlanNumber && String(clientPlanNumber).trim();
+        if (manualNumber) {
+            planNumber = manualNumber;
+            const seqMatch = manualNumber.match(/-(\d{2,3})$/);
+            seq = seqMatch ? seqMatch[1] : String((await pool.query(
+                `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx FROM inspection_plan_schedule WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
+                [y, r, it]
+            )).rows[0]?.mx || 0) + 1).padStart(2, '0');
+        } else {
+            const maxRes = await pool.query(
+                `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
+                 FROM inspection_plan_schedule 
+                 WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
+                [y, r, it]
+            );
+            const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
+            seq = String(next).padStart(2, '0');
+            planNumber = `${y}${r}${it}-${seq}`;
+        }
         
         // business 欄位仍然儲存（為了向後兼容），但取號編碼不再使用
         const b = business ? String(business).toUpperCase() : null;

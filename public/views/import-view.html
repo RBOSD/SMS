@@ -453,10 +453,10 @@
                         <label>檢查人員 <span style="color:#ef4444;">*</span></label>
                         <input type="text" id="scheduleInspector" class="filter-input" placeholder="例如：張三、李四" autocomplete="off">
                     </div>
-                    <div id="schedulePlanNumberDisplay" style="display:none; background:#fef3c7; padding:12px; border-radius:6px; margin-bottom:16px; border:1px solid #fcd34d;">
-                        <div style="font-size:12px; color:#92400e; font-weight:600; margin-bottom:6px;">自動取號編號：</div>
-                        <div id="schedulePlanNumberValue" style="font-size:16px; color:#78350f; font-weight:700; font-family:monospace;">-</div>
-                        <div style="font-size:11px; color:#a16207; margin-top:4px;">此編號將在提交時自動產生</div>
+                    <div id="schedulePlanNumberDisplay" style="display:none; background:#fef3c7; padding:12px; border-radius:8px; margin-bottom:16px; border:1px solid #fcd34d;">
+                        <div style="font-size:12px; color:#92400e; font-weight:600; margin-bottom:6px;">取號編號</div>
+                        <input type="text" id="schedulePlanNumberValue" class="filter-input" placeholder="自動帶入，可手動修改" style="font-size:15px; font-weight:600; font-family:monospace; color:#78350f; background:#fffbeb;" autocomplete="off">
+                        <div class="schedule-plan-number-warn" style="font-size:11px; color:#b45309; margin-top:6px;">⚠️ 若手動修改編號，請確認無重複後再提交。</div>
                     </div>
                     <div style="display:flex; gap:8px;">
                         <button type="button" class="btn btn-primary" style="flex:1;" onclick="scheduleSubmitPlan()">上傳至資料庫</button>
@@ -520,7 +520,7 @@
                         <th style="min-width:150px;">地點</th>
                         <th style="min-width:150px;">檢查人員</th>
                         <th style="min-width:180px;">取號編碼</th>
-                        <th>事項數量</th>
+                        <th>開立事項數量</th>
                         <th onclick="plansSortBy('created_at')">建立日期</th>
                         <th>操作</th>
                     </tr>
@@ -534,16 +534,16 @@
 
     <!-- Plan Modal（共用）－重新設計編輯視窗 -->
     <div class="modal-overlay" id="planModal">
-        <div class="modal-box plan-edit-modal" style="max-width:720px; max-height:90vh; overflow-y:auto;">
+        <div class="modal-box plan-edit-modal plan-edit-modal-v2">
             <div class="plan-modal-header">
-                <h3 style="margin:0;" id="planModalTitle">編輯檢查計畫</h3>
+                <h3 id="planModalTitle">編輯檢查計畫</h3>
                 <button type="button" class="plan-modal-close" onclick="closePlanModal()" aria-label="關閉">×</button>
             </div>
             <input type="hidden" id="targetPlanId">
             <input type="hidden" id="targetScheduleId">
             <div class="plan-modal-body">
                 <section class="plan-form-section">
-                    <div class="plan-section-title">基本資料</div>
+                    <div class="plan-section-title"><span class="plan-section-icon">📋</span> 基本資料</div>
                     <div class="plan-form-row">
                         <div class="form-group plan-form-half">
                             <label>年度（民國） <span class="required">*</span></label>
@@ -551,7 +551,7 @@
                         </div>
                         <div class="form-group plan-form-half">
                             <label>計畫名稱 <span class="required">*</span></label>
-                            <input type="text" id="planName" class="filter-input" placeholder="例如: 113年度上半年定期檢查" autocomplete="off">
+                            <input type="text" id="planName" class="filter-input" placeholder="例如: 上半年定期檢查" autocomplete="off">
                         </div>
                     </div>
                     <div class="plan-form-row">
@@ -573,7 +573,6 @@
                                 <option value="2">特別檢查</option>
                                 <option value="3">例行性檢查</option>
                                 <option value="4">臨時檢查</option>
-                                <option value="5">調查</option>
                             </select>
                         </div>
                     </div>
@@ -598,14 +597,14 @@
                     </div>
                 </section>
                 <section class="plan-form-section" id="planDatesSection">
-                    <div class="plan-section-title">行程日期</div>
+                    <div class="plan-section-title"><span class="plan-section-icon">📅</span> 行程日期</div>
                     <div class="plan-form-row">
                         <div class="form-group plan-form-half" id="planStartDateGroup">
                             <label>開始日期 <span class="required">*</span></label>
                             <input type="date" id="planStartDate" class="filter-input">
                         </div>
                         <div class="form-group plan-form-half" id="planEndDateGroup">
-                            <label>結束日期 <span style="color:#64748b;font-size:12px;">（選填）</span></label>
+                            <label>結束日期 <span class="required">*</span></label>
                             <input type="date" id="planEndDate" class="filter-input">
                         </div>
                     </div>
@@ -621,7 +620,7 @@
                     </div>
                 </section>
                 <section class="plan-form-section" id="planSchedulesSection">
-                    <div class="plan-section-title">此計畫的檢查行程 <span style="font-weight:400;color:#64748b;font-size:12px;">（可點選一筆編輯日期、地點、人員）</span></div>
+                    <div class="plan-section-title"><span class="plan-section-icon">📌</span> 此計畫的檢查行程 <span class="plan-section-hint">（可點選一筆編輯日期、地點、人員）</span></div>
                     <div id="planSchedulesList" class="plan-schedules-list">
                         <div class="plan-schedules-empty">尚未有檢查行程，請先至「填寫檢查行程」或在此建立第一筆行程。</div>
                     </div>

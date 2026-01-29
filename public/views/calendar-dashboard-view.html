@@ -14,17 +14,21 @@
         </div>
         <p style="margin:8px 0 0 0; color:#64748b; font-size:13px;">選擇年度後顯示該年度統計資料與月曆。</p>
     </div>
-    <div id="calendarDashboardStats" class="stats-bar" style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
-        <div class="stat-item" style="min-width:140px;">
-            <div class="stat-val" style="color:#6366f1;" id="dashboardStatPlans">-</div>
-            <div class="stat-label">計畫數</div>
+    <div id="calendarDashboardStats" class="stats-bar dashboard-stats-cards" style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
+        <div class="stat-item dashboard-stat-card" style="min-width:120px; background:linear-gradient(135deg,#eef2ff 0%,#e0e7ff 100%); border:1px solid #c7d2fe; border-radius:12px; padding:14px 18px;">
+            <div class="stat-val" style="color:#4338ca; font-size:1.5rem; font-weight:700;" id="dashboardStatPlans">-</div>
+            <div class="stat-label" style="color:#4f46e5; font-weight:600;">計畫</div>
         </div>
-        <div class="stat-item" style="min-width:140px;">
-            <div class="stat-val" style="color:#2563eb;" id="dashboardStatSchedules">-</div>
-            <div class="stat-label">排程數</div>
+        <div class="stat-item dashboard-stat-card" style="min-width:120px; background:linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%); border:1px solid #a7f3d0; border-radius:12px; padding:14px 18px;">
+            <div class="stat-val" style="color:#047857; font-size:1.5rem; font-weight:700;" id="dashboardStatSchedules">-</div>
+            <div class="stat-label" style="color:#059669; font-weight:600;">已檢查次數</div>
+        </div>
+        <div class="stat-item dashboard-stat-card" style="min-width:120px; background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%); border:1px solid #fcd34d; border-radius:12px; padding:14px 18px;">
+            <div class="stat-val" style="color:#b45309; font-size:1.5rem; font-weight:700;" id="dashboardStatPlanned">-</div>
+            <div class="stat-label" style="color:#d97706; font-weight:600;">規劃次數</div>
         </div>
     </div>
-    <div style="margin-bottom:16px; font-weight:600; font-size:14px; color:#475569;">依檢查類別統計（已排程次數）</div>
+    <div style="margin-bottom:16px; font-weight:600; font-size:14px; color:#475569;">依檢查類別統計（已檢查次數）</div>
     <div id="dashboardStatByType" style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:24px;">
         <span style="color:#64748b; font-size:13px;">請先選擇年度</span>
     </div>
