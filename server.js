@@ -1555,51 +1555,48 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
 
 // --- Inspection Plans Management API ---
 
-// 檢查計畫月曆看板統計（所有人可讀，僅回傳彙總數據）
+// 檢查計畫月曆看板統計（所有人可讀，僅回傳當年度彙總數據）
 app.get('/api/plans/dashboard-stats', requireAuth, async (req, res) => {
     try {
         const thisYear = String(new Date().getFullYear() - 1911).replace(/\D/g, '').slice(-3).padStart(3, '0');
         const planCountRes = await pool.query(`
             SELECT count(*) AS cnt FROM (
-                SELECT plan_name, year FROM inspection_plan_schedule GROUP BY plan_name, year
+                SELECT plan_name, year FROM inspection_plan_schedule WHERE year = $1 GROUP BY plan_name, year
             ) g
-        `);
+        `, [thisYear]);
         const totalPlans = parseInt(planCountRes.rows[0]?.cnt, 10) || 0;
         const scheduleCountRes = await pool.query(`
-            SELECT count(*) AS cnt FROM inspection_plan_schedule WHERE plan_number IS NULL OR plan_number <> '(手動)'
-        `);
-        const totalSchedules = parseInt(scheduleCountRes.rows[0]?.cnt, 10) || 0;
-        const yearScheduleRes = await pool.query(`
             SELECT count(*) AS cnt FROM inspection_plan_schedule 
             WHERE (plan_number IS NULL OR plan_number <> '(手動)') AND year = $1
         `, [thisYear]);
-        const yearSchedules = parseInt(yearScheduleRes.rows[0]?.cnt, 10) || 0;
+        const totalSchedules = parseInt(scheduleCountRes.rows[0]?.cnt, 10) || 0;
         const withIssuesRes = await pool.query(`
             SELECT count(*) AS cnt FROM (
                 SELECT DISTINCT s.plan_name, s.year
                 FROM inspection_plan_schedule s
                 INNER JOIN issues i ON i.plan_name = s.plan_name AND i.year = s.year
+                WHERE s.year = $1
             ) t
-        `);
+        `, [thisYear]);
         const withIssues = parseInt(withIssuesRes.rows[0]?.cnt, 10) || 0;
         const byTypeRes = await pool.query(`
             SELECT inspection_type AS type, count(*) AS cnt FROM inspection_plan_schedule 
-            WHERE plan_number IS NULL OR plan_number <> '(手動)'
+            WHERE (plan_number IS NULL OR plan_number <> '(手動)') AND year = $1
             GROUP BY inspection_type ORDER BY inspection_type
-        `);
+        `, [thisYear]);
         const byType = {};
         (byTypeRes.rows || []).forEach(r => { byType[String(r.type || '').trim()] = parseInt(r.cnt, 10) || 0; });
         const progressRes = await pool.query(`
             WITH g AS (
                 SELECT plan_name AS name, year, MIN(id) AS min_id
-                FROM inspection_plan_schedule GROUP BY plan_name, year
+                FROM inspection_plan_schedule WHERE year = $1 GROUP BY plan_name, year
             ),
             header AS (
-                SELECT plan_name, year, planned_count FROM inspection_plan_schedule WHERE inspection_seq = '00'
+                SELECT plan_name, year, planned_count FROM inspection_plan_schedule WHERE inspection_seq = '00' AND year = $1
             ),
             schedule_counts AS (
                 SELECT plan_name, year, COUNT(*) AS cnt FROM inspection_plan_schedule 
-                WHERE plan_number IS NULL OR plan_number <> '(手動)' GROUP BY plan_name, year
+                WHERE (plan_number IS NULL OR plan_number <> '(手動)') AND year = $1 GROUP BY plan_name, year
             )
             SELECT g.name, g.year, h.planned_count, COALESCE(sc.cnt, 0) AS schedule_count
             FROM g
@@ -1607,7 +1604,7 @@ app.get('/api/plans/dashboard-stats', requireAuth, async (req, res) => {
             LEFT JOIN schedule_counts sc ON sc.plan_name = g.name AND sc.year = g.year
             ORDER BY COALESCE(sc.cnt, 0) DESC
             LIMIT 10
-        `);
+        `, [thisYear]);
         const planProgress = (progressRes.rows || []).map(r => ({
             name: r.name,
             year: r.year,
@@ -1615,9 +1612,9 @@ app.get('/api/plans/dashboard-stats', requireAuth, async (req, res) => {
             schedule_count: parseInt(r.schedule_count, 10) || 0
         }));
         res.json({
+            year: thisYear,
             totalPlans,
             totalSchedules,
-            yearSchedules,
             withIssues,
             byType,
             planProgress

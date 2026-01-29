@@ -3,38 +3,34 @@
 </div>
 <div class="main-card" style="margin-bottom:20px;">
     <div style="margin-bottom:20px;">
-        <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">📊 檢查計畫統計</h3>
-        <p style="margin:0; color:#64748b; font-size:13px;">由檢查計畫管理資料統計，可快速掌握各類檢查進度。</p>
+        <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">📊 當年度檢查計畫統計</h3>
+        <p style="margin:0; color:#64748b; font-size:13px;">以下為當年度檢查計畫彙總，月曆則直接由資料庫抓取顯示。</p>
     </div>
     <div id="calendarDashboardStats" class="stats-bar" style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:24px;">
         <div class="stat-item" style="min-width:140px;">
             <div class="stat-val" style="color:#6366f1;" id="dashboardStatPlans">-</div>
-            <div class="stat-label">檢查計畫總數</div>
+            <div class="stat-label">當年度計畫數</div>
         </div>
         <div class="stat-item" style="min-width:140px;">
             <div class="stat-val" style="color:#2563eb;" id="dashboardStatSchedules">-</div>
-            <div class="stat-label">排程總筆數</div>
-        </div>
-        <div class="stat-item" style="min-width:140px;">
-            <div class="stat-val" style="color:#059669;" id="dashboardStatYearSchedules">-</div>
-            <div class="stat-label">本年度排程數</div>
+            <div class="stat-label">當年度排程數</div>
         </div>
         <div class="stat-item" style="min-width:140px;">
             <div class="stat-val" style="color:#d97706;" id="dashboardStatWithIssues">-</div>
             <div class="stat-label">有開立事項之計畫數</div>
         </div>
     </div>
-    <div style="margin-bottom:16px; font-weight:600; font-size:14px; color:#475569;">依檢查類別統計（已排程次數）</div>
+    <div style="margin-bottom:16px; font-weight:600; font-size:14px; color:#475569;">當年度依檢查類別統計（已排程次數）</div>
     <div id="dashboardStatByType" style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:24px;">
         <span style="color:#64748b; font-size:13px;">載入中…</span>
     </div>
-    <div style="margin-bottom:16px; font-weight:600; font-size:14px; color:#475569;">規劃 vs 已檢查（前 10 筆計畫）</div>
+    <div style="margin-bottom:16px; font-weight:600; font-size:14px; color:#475569;">當年度規劃 vs 已檢查（前 10 筆計畫）</div>
     <div id="dashboardPlanProgress" style="overflow-x:auto;">
         <table class="user-table" style="font-size:13px;">
             <thead>
                 <tr>
-                    <th style="padding:10px;">計畫名稱</th>
                     <th style="padding:10px;">年度</th>
+                    <th style="padding:10px;">計畫名稱</th>
                     <th style="padding:10px;">規劃次數</th>
                     <th style="padding:10px;">已檢查次數</th>
                     <th style="padding:10px;">進度</th>
@@ -56,4 +52,8 @@
         <button type="button" class="btn btn-outline" id="dashboardScheduleNextMonth" onclick="dashboardScheduleNextMonth()">下個月 ▶</button>
     </div>
     <div id="dashboardScheduleCalendar" class="schedule-calendar"></div>
+    <div id="dashboardScheduleDayList" style="margin-top:16px; padding:16px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0;">
+        <div style="font-weight:600; font-size:14px; color:#334155; margin-bottom:8px;">當日排程（點選月曆日期後顯示）</div>
+        <div id="dashboardScheduleDayListBody" style="font-size:13px; color:#64748b;">點選月曆上的日期可查看該日詳細檢查內容</div>
+    </div>
 </div>

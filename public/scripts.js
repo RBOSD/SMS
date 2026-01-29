@@ -1168,7 +1168,6 @@ if (dashboard) {
         async function loadCalendarDashboardStats() {
             const statPlans = document.getElementById('dashboardStatPlans');
             const statSchedules = document.getElementById('dashboardStatSchedules');
-            const statYearSchedules = document.getElementById('dashboardStatYearSchedules');
             const statWithIssues = document.getElementById('dashboardStatWithIssues');
             const statByType = document.getElementById('dashboardStatByType');
             const progressBody = document.getElementById('dashboardPlanProgressBody');
@@ -1180,13 +1179,11 @@ if (dashboard) {
                 const data = await res.json();
                 const totalPlans = data.totalPlans != null ? data.totalPlans : 0;
                 const totalSchedules = data.totalSchedules != null ? data.totalSchedules : 0;
-                const yearSchedules = data.yearSchedules != null ? data.yearSchedules : 0;
                 const withIssues = data.withIssues != null ? data.withIssues : 0;
                 const byType = data.byType || {};
                 const planProgress = data.planProgress || [];
                 if (statPlans) statPlans.textContent = totalPlans;
                 if (statSchedules) statSchedules.textContent = totalSchedules;
-                if (statYearSchedules) statYearSchedules.textContent = yearSchedules;
                 if (statWithIssues) statWithIssues.textContent = withIssues;
                 if (statByType) {
                     statByType.innerHTML = ['1', '2', '3', '4', '5'].map(t => {
@@ -1199,13 +1196,12 @@ if (dashboard) {
                         const planned = p.planned_count != null ? p.planned_count : 0;
                         const done = p.schedule_count != null ? p.schedule_count : 0;
                         const pct = planned > 0 ? Math.min(100, Math.round((done / planned) * 100)) : (done > 0 ? 100 : 0);
-                        return `<tr><td style="padding:10px;">${(p.name || '-')}</td><td style="padding:10px;">${p.year || '-'}</td><td style="padding:10px;">${planned}</td><td style="padding:10px;">${done}</td><td style="padding:10px;"><span style="display:inline-block;width:80px;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;"><span style="display:block;height:100%;width:${pct}%;background:#2563eb;border-radius:4px;"></span></span> ${pct}%</td></tr>`;
+                        return `<tr><td style="padding:10px;">${p.year || '-'}</td><td style="padding:10px;">${(p.name || '-')}</td><td style="padding:10px;">${planned}</td><td style="padding:10px;">${done}</td><td style="padding:10px;"><span style="display:inline-block;width:80px;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;"><span style="display:block;height:100%;width:${pct}%;background:#2563eb;border-radius:4px;"></span></span> ${pct}%</td></tr>`;
                     }).join('') || '<tr><td colspan="5" style="padding:12px;color:#64748b;">尚無資料</td></tr>';
                 }
             } catch (e) {
                 if (statPlans) statPlans.textContent = '—';
                 if (statSchedules) statSchedules.textContent = '—';
-                if (statYearSchedules) statYearSchedules.textContent = '—';
                 if (statWithIssues) statWithIssues.textContent = '—';
                 if (statByType) statByType.innerHTML = '<span style="color:#94a3b8;">載入失敗</span>';
                 if (progressBody) progressBody.innerHTML = '<tr><td colspan="5" style="padding:12px;color:#ef4444;">載入失敗</td></tr>';
@@ -5560,12 +5556,14 @@ if (dashboard) {
                 const planText = planItems.length > 0 ? `<div class="schedule-cal-plan-names">${planItems.join('')}</div>` : '';
                 const primaryColorIdx = hasPlan ? colorIndices[0] : 0;
                 const colorClass = hasPlan ? `schedule-cal-plan-${primaryColorIdx}` : '';
-                // 假日優先顯示紅色背景，即使有計畫也要顯示假日標記
                 const finalHolidayClass = isHoliday ? 'schedule-cal-holiday' : '';
                 const bgStyle = isHoliday ? 'background:#fef2f2 !important;' : '';
                 const numColor = isHoliday ? 'color:#dc2626;' : '';
                 const holidayTag = isHoliday ? `<span class="schedule-cal-holiday-tag" title="${holidayName}">假日</span>` : '';
-                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan ' + colorClass : ''} ${finalHolidayClass}" style="${bgStyle}" data-date="${dateStr}" onclick="scheduleSelectDay('${dateStr}')"><div class="schedule-cal-day-num" style="${numColor}">${d}</div>${holidayTag}${colorDotsHtml}${planText}</div>`);
+                const dayNumWrap = hasPlan
+                    ? `<div class="schedule-cal-day-num-wrap"><div class="schedule-cal-day-num" style="${numColor}">${d}</div><span class="schedule-cal-day-count">共 ${plansForDay.length} 筆</span></div>`
+                    : `<div class="schedule-cal-day-num" style="${numColor}">${d}</div>`;
+                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan ' + colorClass : ''} ${finalHolidayClass}" style="${bgStyle}" data-date="${dateStr}" onclick="scheduleSelectDay('${dateStr}')">${dayNumWrap}${holidayTag}${colorDotsHtml}${planText}</div>`);
             }
             cal.innerHTML = `<div class="schedule-cal-head">日</div><div class="schedule-cal-head">一</div><div class="schedule-cal-head">二</div><div class="schedule-cal-head">三</div><div class="schedule-cal-head">四</div><div class="schedule-cal-head">五</div><div class="schedule-cal-head">六</div>${pad}${dayCells.join('')}`;
         }
@@ -5656,9 +5654,53 @@ if (dashboard) {
                 const bgStyle = isHoliday ? 'background:#fef2f2 !important;' : '';
                 const numColor = isHoliday ? 'color:#dc2626;' : '';
                 const holidayTag = isHoliday ? `<span class="schedule-cal-holiday-tag" title="${holidayName}">假日</span>` : '';
-                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan ' + colorClass : ''} ${finalHolidayClass}" style="${bgStyle}"><div class="schedule-cal-day-num" style="${numColor}">${d}</div>${holidayTag}${colorDotsHtml}${planText}</div>`);
+                const dayNumWrap = hasPlan
+                    ? `<div class="schedule-cal-day-num-wrap"><div class="schedule-cal-day-num" style="${numColor}">${d}</div><span class="schedule-cal-day-count">共 ${plansForDay.length} 筆</span></div>`
+                    : `<div class="schedule-cal-day-num" style="${numColor}">${d}</div>`;
+                const onclickAttr = hasPlan ? ` onclick="dashboardScheduleSelectDay('${dateStr}')"` : '';
+                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan ' + colorClass : ''} ${finalHolidayClass}" style="${bgStyle}" data-date="${dateStr}"${onclickAttr}>${dayNumWrap}${holidayTag}${colorDotsHtml}${planText}</div>`);
             }
             cal.innerHTML = `<div class="schedule-cal-head">日</div><div class="schedule-cal-head">一</div><div class="schedule-cal-head">二</div><div class="schedule-cal-head">三</div><div class="schedule-cal-head">四</div><div class="schedule-cal-head">五</div><div class="schedule-cal-head">六</div>${pad}${dayCells.join('')}`;
+        }
+
+        function dashboardScheduleSelectDay(dateStr) {
+            dashboardRenderDayList(dateStr);
+        }
+
+        function dashboardRenderDayList(dateStr) {
+            const box = document.getElementById('dashboardScheduleDayListBody');
+            if (!box) return;
+            if (!dateStr) {
+                box.innerHTML = '點選月曆上的日期可查看該日詳細檢查內容';
+                return;
+            }
+            const list = dashboardMonthData.filter(s => {
+                const startStr = (s.start_date || '').slice(0, 10);
+                const endStr = (s.end_date || '').slice(0, 10) || startStr;
+                return dateStr >= startStr && dateStr <= endStr;
+            });
+            if (list.length === 0) {
+                box.innerHTML = '當日尚無排程';
+                return;
+            }
+            box.innerHTML = list.map(s => {
+                const startDate = (s.start_date || '').slice(0, 10);
+                const endDate = (s.end_date || '').slice(0, 10);
+                const range = endDate && endDate !== startDate ? `${startDate} ~ ${endDate}` : startDate;
+                const location = (s.location || '').trim() || '';
+                const inspector = (s.inspector || '').trim() || '';
+                const planNumber = (s.plan_number || '').trim() || '';
+                return `<div style="margin-bottom:10px; padding:10px; background:#f1f5f9; border-radius:6px; border-left:3px solid #3b82f6;">
+                    <div style="font-weight:600; font-size:14px; margin-bottom:6px; color:#334155;">
+                        ${s.plan_name || '-'}
+                        ${planNumber ? `<span style="margin-left:8px; font-size:12px; color:#3b82f6; font-weight:500;">[${planNumber}]</span>` : ''}
+                    </div>
+                    <div style="color:#64748b; font-size:12px; margin-bottom:6px;">📅 ${range}</div>
+                    ${location ? `<div style="color:#475569; font-size:12px; margin-bottom:4px;">📍 地點：<span style="font-weight:500;">${location}</span></div>` : ''}
+                    ${inspector ? `<div style="color:#475569; font-size:12px;">👤 人員：<span style="font-weight:500;">${inspector}</span></div>` : ''}
+                    ${!location && !inspector ? '<div style="color:#94a3b8; font-size:11px; font-style:italic;">無地點及人員資訊</div>' : ''}
+                </div>`;
+            }).join('');
         }
 
         function dashboardSchedulePrevMonth() {
