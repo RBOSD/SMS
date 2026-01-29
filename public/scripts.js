@@ -1097,7 +1097,10 @@ if (dashboard) {
                         viewElement.innerHTML = html;
                         viewElement.dataset.loaded = 'true';
                         if (viewId === 'planCalendarView') {
-                            setTimeout(() => loadCalendarDashboardStats(), 100);
+                            setTimeout(() => {
+                                loadCalendarDashboardStats();
+                                initDashboardCalendar();
+                            }, 100);
                         } else if (viewId === 'importView') {
                             setupAdminElements();
                             setTimeout(() => setupImportListeners(), 100);
@@ -1140,6 +1143,7 @@ if (dashboard) {
                 }, 200);
             } else if (viewId === 'planCalendarView' && viewElement.dataset.loaded) {
                 loadCalendarDashboardStats();
+                initDashboardCalendar();
             } else if (viewId === 'importView' && viewElement.dataset.loaded) {
                 const openPlansSchedule = sessionStorage.getItem('openPlansSchedule');
                 loadPlanOptions();
@@ -1169,39 +1173,29 @@ if (dashboard) {
             const statByType = document.getElementById('dashboardStatByType');
             const progressBody = document.getElementById('dashboardPlanProgressBody');
             if (!statPlans && !statSchedules) return;
-            const thisYear = String(new Date().getFullYear() - 1911).replace(/\D/g, '').slice(-3).padStart(3, '0');
             const typeNames = { '1': '年度定期檢查', '2': '特別檢查', '3': '例行性檢查', '4': '臨時檢查', '5': '調查' };
             try {
-                const [plansRes, scheduleRes] = await Promise.all([
-                    fetch(`/api/plans?page=1&pageSize=9999&t=${Date.now()}`, { credentials: 'include' }),
-                    fetch('/api/plan-schedule/all?t=' + Date.now(), { credentials: 'include' })
-                ]);
-                const plansData = plansRes.ok ? await plansRes.json() : { data: [], total: 0 };
-                const scheduleData = scheduleRes.ok ? await scheduleRes.json() : { data: [] };
-                const plans = plansData.data || [];
-                const schedules = (scheduleData.data || []).filter(s => s.plan_number !== '(手動)');
-                const totalPlans = plansData.total != null ? plansData.total : plans.length;
-                const totalSchedules = schedules.length;
-                const yearSchedules = schedules.filter(s => String(s.year || '').trim() === thisYear).length;
-                const withIssues = plans.filter(p => (p.issue_count || 0) > 0).length;
+                const res = await fetch(`/api/plans/dashboard-stats?t=${Date.now()}`, { credentials: 'include' });
+                if (!res.ok) throw new Error('無法載入統計');
+                const data = await res.json();
+                const totalPlans = data.totalPlans != null ? data.totalPlans : 0;
+                const totalSchedules = data.totalSchedules != null ? data.totalSchedules : 0;
+                const yearSchedules = data.yearSchedules != null ? data.yearSchedules : 0;
+                const withIssues = data.withIssues != null ? data.withIssues : 0;
+                const byType = data.byType || {};
+                const planProgress = data.planProgress || [];
                 if (statPlans) statPlans.textContent = totalPlans;
                 if (statSchedules) statSchedules.textContent = totalSchedules;
                 if (statYearSchedules) statYearSchedules.textContent = yearSchedules;
                 if (statWithIssues) statWithIssues.textContent = withIssues;
-                const byType = {};
-                schedules.forEach(s => {
-                    const t = String(s.inspection_type || '').trim();
-                    if (t) byType[t] = (byType[t] || 0) + 1;
-                });
                 if (statByType) {
                     statByType.innerHTML = ['1', '2', '3', '4', '5'].map(t => {
                         const count = byType[t] || 0;
                         return `<span style="background:#f1f5f9; padding:6px 12px; border-radius:8px; font-size:13px;">${typeNames[t] || t}：${count}</span>`;
                     }).join('');
                 }
-                const sortedPlans = [...plans].sort((a, b) => (b.schedule_count || 0) - (a.schedule_count || 0)).slice(0, 10);
                 if (progressBody) {
-                    progressBody.innerHTML = sortedPlans.map(p => {
+                    progressBody.innerHTML = planProgress.map(p => {
                         const planned = p.planned_count != null ? p.planned_count : 0;
                         const done = p.schedule_count != null ? p.schedule_count : 0;
                         const pct = planned > 0 ? Math.min(100, Math.round((done / planned) * 100)) : (done > 0 ? 100 : 0);
@@ -1377,11 +1371,11 @@ if (dashboard) {
                     if (nameEl) nameEl.innerText = data.name || data.username;
                     if (roleEl) roleEl.innerText = getRoleName(data.role);
                     
+                    const btnCalendar = document.getElementById('btn-planCalendarView');
+                    if (btnCalendar) btnCalendar.classList.remove('hidden');
                     if (['admin', 'manager'].includes(data.role)) {
                         const btnImport = document.getElementById('btn-importView');
-                        const btnCalendar = document.getElementById('btn-planCalendarView');
                         if (btnImport) btnImport.classList.remove('hidden');
-                        if (btnCalendar) btnCalendar.classList.remove('hidden');
                         if (data.role === 'admin') {
                             const btnUsers = document.getElementById('btn-usersView');
                             if (btnUsers) btnUsers.classList.remove('hidden');
@@ -1389,10 +1383,8 @@ if (dashboard) {
                     } else {
                         const btnImport = document.getElementById('btn-importView');
                         const btnUsers = document.getElementById('btn-usersView');
-                        const btnCalendar = document.getElementById('btn-planCalendarView');
                         if (btnImport) btnImport.classList.add('hidden');
                         if (btnUsers) btnUsers.classList.add('hidden');
-                        if (btnCalendar) btnCalendar.classList.add('hidden');
                     }
                 } else {
                     // 未登入或資料不完整，重定向到登入頁
@@ -5330,6 +5322,10 @@ if (dashboard) {
         let scheduleCalendarMonth = new Date().getMonth() + 1;
         let scheduleMonthData = [];
         let holidayData = {};
+        // --- 檢查計畫月曆看板（所有人可查看）---
+        let dashboardCalendarYear = new Date().getFullYear();
+        let dashboardCalendarMonth = new Date().getMonth() + 1;
+        let dashboardMonthData = [];
 
         function initScheduleCalendar() {
             const now = new Date();
@@ -5572,6 +5568,124 @@ if (dashboard) {
                 dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan ' + colorClass : ''} ${finalHolidayClass}" style="${bgStyle}" data-date="${dateStr}" onclick="scheduleSelectDay('${dateStr}')"><div class="schedule-cal-day-num" style="${numColor}">${d}</div>${holidayTag}${colorDotsHtml}${planText}</div>`);
             }
             cal.innerHTML = `<div class="schedule-cal-head">日</div><div class="schedule-cal-head">一</div><div class="schedule-cal-head">二</div><div class="schedule-cal-head">三</div><div class="schedule-cal-head">四</div><div class="schedule-cal-head">五</div><div class="schedule-cal-head">六</div>${pad}${dayCells.join('')}`;
+        }
+
+        async function loadDashboardScheduleForMonth() {
+            try {
+                const res = await fetch(`/api/plan-schedule?year=${dashboardCalendarYear}&month=${dashboardCalendarMonth}&t=${Date.now()}`, {
+                    credentials: 'include',
+                    cache: 'no-store',
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
+                if (!res.ok) {
+                    dashboardMonthData = [];
+                    renderDashboardCalendar();
+                    return;
+                }
+                const j = await res.json();
+                dashboardMonthData = j.data || [];
+                try {
+                    const holidayRes = await fetch(`/api/holidays/${dashboardCalendarYear}?t=${Date.now()}`, {
+                        credentials: 'include',
+                        cache: 'no-store'
+                    });
+                    if (holidayRes.ok) {
+                        const holidayJson = await holidayRes.json();
+                        holidayData = {};
+                        (holidayJson.data || []).forEach(h => {
+                            if (h && h.date && h.isHoliday === true) {
+                                const dateStr = String(h.date).slice(0, 10);
+                                holidayData[dateStr] = (h.name || '').trim() || '假日';
+                            }
+                        });
+                    }
+                } catch (e) {}
+                renderDashboardCalendar();
+            } catch (e) {
+                dashboardMonthData = [];
+                renderDashboardCalendar();
+            }
+        }
+
+        function renderDashboardCalendar() {
+            const title = document.getElementById('dashboardScheduleMonthTitle');
+            const cal = document.getElementById('dashboardScheduleCalendar');
+            if (!title || !cal) return;
+            title.textContent = `${dashboardCalendarYear} 年 ${dashboardCalendarMonth} 月`;
+            const y = dashboardCalendarYear;
+            const m = dashboardCalendarMonth;
+            const first = new Date(y, m - 1, 1);
+            const last = new Date(y, m, 0);
+            const startPad = first.getDay();
+            const days = last.getDate();
+            const pad = Array(startPad).fill(0).map((_, i) => `<div class="schedule-cal-day schedule-cal-pad"></div>`).join('');
+            const dayCells = [];
+            for (let d = 1; d <= days; d++) {
+                const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const holidayVal = holidayData[dateStr];
+                const isHoliday = !!holidayVal;
+                const holidayName = (typeof holidayVal === 'string' && holidayVal) ? holidayVal : '假日';
+                const plansForDay = dashboardMonthData.filter(s => {
+                    const startStr = (s.start_date || '').slice(0, 10);
+                    const endStr = (s.end_date || '').slice(0, 10) || startStr;
+                    return startStr && dateStr >= startStr && dateStr <= endStr;
+                });
+                const hasPlan = plansForDay.length > 0;
+                const colorIndices = plansForDay.map(s => schedulePlanColorIndex(s.inspection_type));
+                const colorDots = colorIndices.map((idx, i) => {
+                    const name = (plansForDay[i].plan_name || '').trim() || '未命名';
+                    return `<span class="schedule-cal-color-dot" style="background:${SCHEDULE_PLAN_COLORS[idx]};" title="${name}"></span>`;
+                }).join('');
+                const colorDotsHtml = colorDots ? `<div class="schedule-cal-dots">${colorDots}</div>` : '';
+                const planItems = plansForDay.map((s, i) => {
+                    const idx = colorIndices[i];
+                    const tc = SCHEDULE_PLAN_TEXT_COLORS[idx] || '#1e3a8a';
+                    const name = (s.plan_name || '').trim() || '未命名';
+                    const location = (s.location || '').trim() || '';
+                    const inspector = (s.inspector || '').trim() || '';
+                    const planInfo = [];
+                    planInfo.push(`<div class="schedule-cal-plan-name" style="color:${tc}; font-weight:600; font-size:12px; margin-bottom:2px;">${name}</div>`);
+                    if (location) planInfo.push(`<div class="schedule-cal-plan-detail" style="color:#64748b; font-size:11px; margin-bottom:1px;">📍 ${location}</div>`);
+                    if (inspector) planInfo.push(`<div class="schedule-cal-plan-detail" style="color:#64748b; font-size:11px;">👤 ${inspector}</div>`);
+                    return `<div class="schedule-cal-plan-item" style="margin-bottom:3px; padding:2px 0;">${planInfo.join('')}</div>`;
+                });
+                const planText = planItems.length > 0 ? `<div class="schedule-cal-plan-names">${planItems.join('')}</div>` : '';
+                const primaryColorIdx = hasPlan ? colorIndices[0] : 0;
+                const colorClass = hasPlan ? `schedule-cal-plan-${primaryColorIdx}` : '';
+                const finalHolidayClass = isHoliday ? 'schedule-cal-holiday' : '';
+                const bgStyle = isHoliday ? 'background:#fef2f2 !important;' : '';
+                const numColor = isHoliday ? 'color:#dc2626;' : '';
+                const holidayTag = isHoliday ? `<span class="schedule-cal-holiday-tag" title="${holidayName}">假日</span>` : '';
+                dayCells.push(`<div class="schedule-cal-day ${hasPlan ? 'has-plan ' + colorClass : ''} ${finalHolidayClass}" style="${bgStyle}"><div class="schedule-cal-day-num" style="${numColor}">${d}</div>${holidayTag}${colorDotsHtml}${planText}</div>`);
+            }
+            cal.innerHTML = `<div class="schedule-cal-head">日</div><div class="schedule-cal-head">一</div><div class="schedule-cal-head">二</div><div class="schedule-cal-head">三</div><div class="schedule-cal-head">四</div><div class="schedule-cal-head">五</div><div class="schedule-cal-head">六</div>${pad}${dayCells.join('')}`;
+        }
+
+        function dashboardSchedulePrevMonth() {
+            if (dashboardCalendarMonth === 1) {
+                dashboardCalendarYear--;
+                dashboardCalendarMonth = 12;
+            } else {
+                dashboardCalendarMonth--;
+            }
+            loadDashboardScheduleForMonth();
+        }
+
+        function dashboardScheduleNextMonth() {
+            if (dashboardCalendarMonth === 12) {
+                dashboardCalendarYear++;
+                dashboardCalendarMonth = 1;
+            } else {
+                dashboardCalendarMonth++;
+            }
+            loadDashboardScheduleForMonth();
+        }
+
+        function initDashboardCalendar() {
+            const now = new Date();
+            dashboardCalendarYear = now.getFullYear();
+            dashboardCalendarMonth = now.getMonth() + 1;
+            loadDashboardScheduleForMonth();
         }
 
         async function printScheduleCalendar() {

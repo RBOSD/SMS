@@ -1555,6 +1555,78 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
 
 // --- Inspection Plans Management API ---
 
+// 檢查計畫月曆看板統計（所有人可讀，僅回傳彙總數據）
+app.get('/api/plans/dashboard-stats', requireAuth, async (req, res) => {
+    try {
+        const thisYear = String(new Date().getFullYear() - 1911).replace(/\D/g, '').slice(-3).padStart(3, '0');
+        const planCountRes = await pool.query(`
+            SELECT count(*) AS cnt FROM (
+                SELECT plan_name, year FROM inspection_plan_schedule GROUP BY plan_name, year
+            ) g
+        `);
+        const totalPlans = parseInt(planCountRes.rows[0]?.cnt, 10) || 0;
+        const scheduleCountRes = await pool.query(`
+            SELECT count(*) AS cnt FROM inspection_plan_schedule WHERE plan_number IS NULL OR plan_number <> '(手動)'
+        `);
+        const totalSchedules = parseInt(scheduleCountRes.rows[0]?.cnt, 10) || 0;
+        const yearScheduleRes = await pool.query(`
+            SELECT count(*) AS cnt FROM inspection_plan_schedule 
+            WHERE (plan_number IS NULL OR plan_number <> '(手動)') AND year = $1
+        `, [thisYear]);
+        const yearSchedules = parseInt(yearScheduleRes.rows[0]?.cnt, 10) || 0;
+        const withIssuesRes = await pool.query(`
+            SELECT count(*) AS cnt FROM (
+                SELECT DISTINCT s.plan_name, s.year
+                FROM inspection_plan_schedule s
+                INNER JOIN issues i ON i.plan_name = s.plan_name AND i.year = s.year
+            ) t
+        `);
+        const withIssues = parseInt(withIssuesRes.rows[0]?.cnt, 10) || 0;
+        const byTypeRes = await pool.query(`
+            SELECT inspection_type AS type, count(*) AS cnt FROM inspection_plan_schedule 
+            WHERE plan_number IS NULL OR plan_number <> '(手動)'
+            GROUP BY inspection_type ORDER BY inspection_type
+        `);
+        const byType = {};
+        (byTypeRes.rows || []).forEach(r => { byType[String(r.type || '').trim()] = parseInt(r.cnt, 10) || 0; });
+        const progressRes = await pool.query(`
+            WITH g AS (
+                SELECT plan_name AS name, year, MIN(id) AS min_id
+                FROM inspection_plan_schedule GROUP BY plan_name, year
+            ),
+            header AS (
+                SELECT plan_name, year, planned_count FROM inspection_plan_schedule WHERE inspection_seq = '00'
+            ),
+            schedule_counts AS (
+                SELECT plan_name, year, COUNT(*) AS cnt FROM inspection_plan_schedule 
+                WHERE plan_number IS NULL OR plan_number <> '(手動)' GROUP BY plan_name, year
+            )
+            SELECT g.name, g.year, h.planned_count, COALESCE(sc.cnt, 0) AS schedule_count
+            FROM g
+            LEFT JOIN header h ON h.plan_name = g.name AND h.year = g.year
+            LEFT JOIN schedule_counts sc ON sc.plan_name = g.name AND sc.year = g.year
+            ORDER BY COALESCE(sc.cnt, 0) DESC
+            LIMIT 10
+        `);
+        const planProgress = (progressRes.rows || []).map(r => ({
+            name: r.name,
+            year: r.year,
+            planned_count: r.planned_count != null ? parseInt(r.planned_count, 10) : null,
+            schedule_count: parseInt(r.schedule_count, 10) || 0
+        }));
+        res.json({
+            totalPlans,
+            totalSchedules,
+            yearSchedules,
+            withIssues,
+            byType,
+            planProgress
+        });
+    } catch (e) {
+        handleApiError(e, req, res, 'Dashboard stats error');
+    }
+});
+
 app.get('/api/plans', requireAuth, requireAdminOrManager, async (req, res) => {
     const { page=1, pageSize=20, q, year, sortField='id', sortDir='desc' } = req.query;
     const limit = parseInt(pageSize);
