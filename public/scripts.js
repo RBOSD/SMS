@@ -1098,8 +1098,7 @@ if (dashboard) {
                         viewElement.dataset.loaded = 'true';
                         if (viewId === 'planCalendarView') {
                             setTimeout(() => {
-                                loadCalendarDashboardStats();
-                                initDashboardCalendar();
+                                loadDashboardYearOptions();
                             }, 100);
                         } else if (viewId === 'importView') {
                             setupAdminElements();
@@ -1142,8 +1141,7 @@ if (dashboard) {
                     setupCleanupDaysSelect();
                 }, 200);
             } else if (viewId === 'planCalendarView' && viewElement.dataset.loaded) {
-                loadCalendarDashboardStats();
-                initDashboardCalendar();
+                loadDashboardYearOptions();
             } else if (viewId === 'importView' && viewElement.dataset.loaded) {
                 const openPlansSchedule = sessionStorage.getItem('openPlansSchedule');
                 loadPlanOptions();
@@ -1165,26 +1163,82 @@ if (dashboard) {
             }
         }
         
+        async function loadDashboardYearOptions() {
+            try {
+                const res = await fetch(`/api/plans/dashboard-stats/years?t=${Date.now()}`, { credentials: 'include' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const years = data.years || [];
+                const select = document.getElementById('dashboardYearSelect');
+                if (!select) return;
+                const currentValue = select.value || dashboardSelectedYear;
+                select.innerHTML = '<option value="">請選擇年度</option>';
+                years.forEach(y => {
+                    const opt = document.createElement('option');
+                    opt.value = y;
+                    opt.textContent = `${y}年`;
+                    select.appendChild(opt);
+                });
+                if (currentValue) {
+                    select.value = currentValue;
+                    dashboardSelectedYear = currentValue;
+                } else if (years.length > 0) {
+                    select.value = years[0];
+                    dashboardSelectedYear = years[0];
+                }
+                if (dashboardSelectedYear) {
+                    loadCalendarDashboardStats();
+                    initDashboardCalendar();
+                }
+            } catch (e) {
+                console.error('載入年度選單失敗:', e);
+            }
+        }
+
+        function onDashboardYearChange() {
+            const select = document.getElementById('dashboardYearSelect');
+            if (!select) return;
+            const year = select.value;
+            if (!year) {
+                dashboardSelectedYear = '';
+                const statPlans = document.getElementById('dashboardStatPlans');
+                const statSchedules = document.getElementById('dashboardStatSchedules');
+                const statByType = document.getElementById('dashboardStatByType');
+                const progressBody = document.getElementById('dashboardPlanProgressBody');
+                if (statPlans) statPlans.textContent = '-';
+                if (statSchedules) statSchedules.textContent = '-';
+                if (statByType) statByType.innerHTML = '<span style="color:#64748b;">請先選擇年度</span>';
+                if (progressBody) progressBody.innerHTML = '<tr><td colspan="5" style="padding:12px;color:#64748b;">請先選擇年度</td></tr>';
+                dashboardMonthData = [];
+                renderDashboardCalendar();
+                const box = document.getElementById('dashboardScheduleDayListBody');
+                if (box) box.innerHTML = '請先選擇年度';
+                return;
+            }
+            dashboardSelectedYear = year;
+            loadCalendarDashboardStats();
+            loadDashboardScheduleForMonth();
+            renderDashboardCalendar();
+        }
+
         async function loadCalendarDashboardStats() {
+            if (!dashboardSelectedYear) return;
             const statPlans = document.getElementById('dashboardStatPlans');
             const statSchedules = document.getElementById('dashboardStatSchedules');
-            const statWithIssues = document.getElementById('dashboardStatWithIssues');
             const statByType = document.getElementById('dashboardStatByType');
             const progressBody = document.getElementById('dashboardPlanProgressBody');
             if (!statPlans && !statSchedules) return;
             const typeNames = { '1': '年度定期檢查', '2': '特別檢查', '3': '例行性檢查', '4': '臨時檢查', '5': '調查' };
             try {
-                const res = await fetch(`/api/plans/dashboard-stats?t=${Date.now()}`, { credentials: 'include' });
+                const res = await fetch(`/api/plans/dashboard-stats?year=${encodeURIComponent(dashboardSelectedYear)}&t=${Date.now()}`, { credentials: 'include' });
                 if (!res.ok) throw new Error('無法載入統計');
                 const data = await res.json();
                 const totalPlans = data.totalPlans != null ? data.totalPlans : 0;
                 const totalSchedules = data.totalSchedules != null ? data.totalSchedules : 0;
-                const withIssues = data.withIssues != null ? data.withIssues : 0;
                 const byType = data.byType || {};
                 const planProgress = data.planProgress || [];
                 if (statPlans) statPlans.textContent = totalPlans;
                 if (statSchedules) statSchedules.textContent = totalSchedules;
-                if (statWithIssues) statWithIssues.textContent = withIssues;
                 if (statByType) {
                     statByType.innerHTML = ['1', '2', '3', '4', '5'].map(t => {
                         const count = byType[t] || 0;
@@ -1202,7 +1256,6 @@ if (dashboard) {
             } catch (e) {
                 if (statPlans) statPlans.textContent = '—';
                 if (statSchedules) statSchedules.textContent = '—';
-                if (statWithIssues) statWithIssues.textContent = '—';
                 if (statByType) statByType.innerHTML = '<span style="color:#94a3b8;">載入失敗</span>';
                 if (progressBody) progressBody.innerHTML = '<tr><td colspan="5" style="padding:12px;color:#ef4444;">載入失敗</td></tr>';
             }
@@ -5322,6 +5375,7 @@ if (dashboard) {
         let dashboardCalendarYear = new Date().getFullYear();
         let dashboardCalendarMonth = new Date().getMonth() + 1;
         let dashboardMonthData = [];
+        let dashboardSelectedYear = String(new Date().getFullYear() - 1911).replace(/\D/g, '').slice(-3).padStart(3, '0');
 
         function initScheduleCalendar() {
             const now = new Date();
@@ -5569,6 +5623,11 @@ if (dashboard) {
         }
 
         async function loadDashboardScheduleForMonth() {
+            if (!dashboardSelectedYear) {
+                dashboardMonthData = [];
+                renderDashboardCalendar();
+                return;
+            }
             try {
                 const res = await fetch(`/api/plan-schedule?year=${dashboardCalendarYear}&month=${dashboardCalendarMonth}&t=${Date.now()}`, {
                     credentials: 'include',
@@ -5581,7 +5640,17 @@ if (dashboard) {
                     return;
                 }
                 const j = await res.json();
-                dashboardMonthData = j.data || [];
+                const allData = j.data || [];
+                dashboardMonthData = allData.filter(s => {
+                    if (!s.start_date && !s.year) return false;
+                    if (s.year && String(s.year).trim() === dashboardSelectedYear) return true;
+                    if (s.start_date) {
+                        const scheduleAdYear = parseInt(s.start_date.slice(0, 4), 10);
+                        const scheduleRocYear = scheduleAdYear - 1911;
+                        return String(scheduleRocYear).padStart(3, '0') === dashboardSelectedYear;
+                    }
+                    return false;
+                });
                 try {
                     const holidayRes = await fetch(`/api/holidays/${dashboardCalendarYear}?t=${Date.now()}`, {
                         credentials: 'include',
@@ -5609,7 +5678,11 @@ if (dashboard) {
             const title = document.getElementById('dashboardScheduleMonthTitle');
             const cal = document.getElementById('dashboardScheduleCalendar');
             if (!title || !cal) return;
-            title.textContent = `${dashboardCalendarYear} 年 ${dashboardCalendarMonth} 月`;
+            if (dashboardSelectedYear) {
+                title.textContent = `${dashboardSelectedYear}年度 - ${dashboardCalendarYear} 年 ${dashboardCalendarMonth} 月`;
+            } else {
+                title.textContent = `${dashboardCalendarYear} 年 ${dashboardCalendarMonth} 月`;
+            }
             const y = dashboardCalendarYear;
             const m = dashboardCalendarMonth;
             const first = new Date(y, m - 1, 1);
@@ -5710,7 +5783,11 @@ if (dashboard) {
             } else {
                 dashboardCalendarMonth--;
             }
-            loadDashboardScheduleForMonth();
+            if (dashboardSelectedYear) {
+                loadDashboardScheduleForMonth();
+            } else {
+                renderDashboardCalendar();
+            }
         }
 
         function dashboardScheduleNextMonth() {
@@ -5720,14 +5797,20 @@ if (dashboard) {
             } else {
                 dashboardCalendarMonth++;
             }
-            loadDashboardScheduleForMonth();
+            if (dashboardSelectedYear) {
+                loadDashboardScheduleForMonth();
+            } else {
+                renderDashboardCalendar();
+            }
         }
 
         function initDashboardCalendar() {
             const now = new Date();
             dashboardCalendarYear = now.getFullYear();
             dashboardCalendarMonth = now.getMonth() + 1;
-            loadDashboardScheduleForMonth();
+            if (dashboardSelectedYear) {
+                loadDashboardScheduleForMonth();
+            }
         }
 
         async function printScheduleCalendar() {

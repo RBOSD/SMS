@@ -1555,10 +1555,31 @@ app.get('/api/options/plans', requireAuth, async (req, res) => {
 
 // --- Inspection Plans Management API ---
 
-// 檢查計畫月曆看板統計（所有人可讀，僅回傳當年度彙總數據）
+// 取得檢查計畫所有可用年度（用於年度選單）
+app.get('/api/plans/dashboard-stats/years', requireAuth, async (req, res) => {
+    try {
+        const yearRes = await pool.query(`
+            SELECT DISTINCT year FROM inspection_plan_schedule 
+            WHERE year IS NOT NULL AND year != '' 
+            ORDER BY year DESC
+        `);
+        const years = (yearRes.rows || []).map(r => String(r.year || '').trim()).filter(Boolean);
+        res.json({ years });
+    } catch (e) {
+        handleApiError(e, req, res, 'Get dashboard years error');
+    }
+});
+
+// 檢查計畫月曆看板統計（所有人可讀，可指定年度）
 app.get('/api/plans/dashboard-stats', requireAuth, async (req, res) => {
     try {
-        const thisYear = String(new Date().getFullYear() - 1911).replace(/\D/g, '').slice(-3).padStart(3, '0');
+        let selectedYear = req.query.year;
+        if (!selectedYear) {
+            selectedYear = String(new Date().getFullYear() - 1911).replace(/\D/g, '').slice(-3).padStart(3, '0');
+        } else {
+            selectedYear = String(selectedYear).replace(/\D/g, '').slice(-3).padStart(3, '0');
+        }
+        const thisYear = selectedYear;
         const planCountRes = await pool.query(`
             SELECT count(*) AS cnt FROM (
                 SELECT plan_name, year FROM inspection_plan_schedule WHERE year = $1 GROUP BY plan_name, year
