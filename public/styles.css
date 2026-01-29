@@ -1472,6 +1472,37 @@
             .dashboard-progress-table td:first-child { padding-left: 12px !important; }
             .dashboard-progress-table th:last-child,
             .dashboard-progress-table td:last-child { padding-right: 12px !important; }
+            /* 手機版：計畫進度統計改為卡片式，每格顯示標題+內容 */
+            #dashboardPlanProgress { overflow-x: visible; padding: 0; margin: 0; }
+            .dashboard-progress-table { min-width: 0; width: 100%; display: block; }
+            .dashboard-progress-table thead { display: none; }
+            .dashboard-progress-table tbody { display: block; }
+            .dashboard-progress-table tbody tr {
+                display: block;
+                background: #fff;
+                border: 2px solid #e2e8f0;
+                border-radius: 10px;
+                margin-bottom: 12px;
+                padding: 14px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+            }
+            .dashboard-progress-table tbody td {
+                display: flex !important;
+                align-items: flex-start;
+                padding: 8px 0 !important;
+                border-bottom: 1px solid #f1f5f9;
+                font-size: 13px !important;
+            }
+            .dashboard-progress-table tbody td:last-child { border-bottom: none; }
+            .dashboard-progress-table tbody td[data-label]::before {
+                content: attr(data-label);
+                font-weight: 700;
+                color: #475569;
+                min-width: 90px;
+                flex-shrink: 0;
+            }
+            .dashboard-progress-table tbody td[colspan] { display: block !important; padding: 12px !important; text-align: center; }
+            .dashboard-progress-table tbody td[colspan]::before { display: none; }
             .schedule-calendar-toolbar { flex-wrap: wrap; gap: 8px; }
             #dashboardScheduleDayList { padding: 12px; margin-top: 12px; }
 
@@ -3141,6 +3172,10 @@
             background: #f8fafc;
             border: 2px solid #e2e8f0;
             padding: 12px;
+        }
+        .plan-schedules-list-no-scroll {
+            max-height: none;
+            overflow-y: visible;
         }
         @media (max-width: 768px) {
             .plan-edit-modal-v2 { width: 100%; max-width: 100%; max-height: 95vh; border-radius: 12px; margin: 8px; }

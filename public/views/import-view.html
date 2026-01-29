@@ -600,8 +600,8 @@
                         </div>
                     </div>
                 </section>
-                <section class="plan-form-section" id="planDatesSection">
-                    <div class="plan-section-title"><span class="plan-section-icon">📅</span> 行程日期</div>
+                <section class="plan-form-section plan-dates-section-sticky" id="planDatesSection">
+                    <div class="plan-section-title"><span class="plan-section-icon">📅</span> 目前編輯的行程（點選下方一筆後可編輯日期、地點、人員、取號編碼）</div>
                     <div class="plan-form-row">
                         <div class="form-group plan-form-half" id="planStartDateGroup">
                             <label>開始日期 <span class="required">*</span></label>
@@ -622,10 +622,17 @@
                             <input type="text" id="planInspector" class="filter-input" placeholder="檢查人員" autocomplete="off">
                         </div>
                     </div>
+                    <div class="plan-form-row" id="planNumberRow" style="display:none;">
+                        <div class="form-group" style="flex:1;">
+                            <label>取號編碼</label>
+                            <input type="text" id="planScheduleNumber" class="filter-input" placeholder="可手動修改，請確認無重複" style="font-family:monospace; font-weight:600;" autocomplete="off">
+                            <div class="plan-number-warn" style="font-size:12px; color:#b45309; margin-top:6px;">⚠️ 若手動修改編號，請確認無重複後再儲存。</div>
+                        </div>
+                    </div>
                 </section>
                 <section class="plan-form-section" id="planSchedulesSection">
-                    <div class="plan-section-title"><span class="plan-section-icon">📌</span> 此計畫的檢查行程 <span class="plan-section-hint">（可點選一筆編輯日期、地點、人員）</span></div>
-                    <div id="planSchedulesList" class="plan-schedules-list">
+                    <div class="plan-section-title"><span class="plan-section-icon">📌</span> 此計畫的檢查行程（點選一筆後於上方編輯）</div>
+                    <div id="planSchedulesList" class="plan-schedules-list plan-schedules-list-no-scroll">
                         <div class="plan-schedules-empty">尚未有檢查行程，請先至「填寫檢查行程」或在此建立第一筆行程。</div>
                     </div>
                 </section>
