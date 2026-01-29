@@ -1464,8 +1464,14 @@
             .dashboard-stat-card .stat-label { font-size: 12px !important; }
             .dashboard-stat-card:last-child { min-width: 100% !important; flex: 1 1 100%; }
             #dashboardStatByType { flex-wrap: wrap; gap: 8px; }
-            #dashboardPlanProgress { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-            #dashboardPlanProgress table { min-width: 480px; font-size: 12px; }
+            #dashboardPlanProgress { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -12px; padding: 0 12px; }
+            .dashboard-progress-table { min-width: 600px; font-size: 12px; }
+            .dashboard-progress-table th,
+            .dashboard-progress-table td { padding: 10px 8px !important; font-size: 12px !important; }
+            .dashboard-progress-table th:first-child,
+            .dashboard-progress-table td:first-child { padding-left: 12px !important; }
+            .dashboard-progress-table th:last-child,
+            .dashboard-progress-table td:last-child { padding-right: 12px !important; }
             .schedule-calendar-toolbar { flex-wrap: wrap; gap: 8px; }
             #dashboardScheduleDayList { padding: 12px; margin-top: 12px; }
 
@@ -3028,14 +3034,6 @@
         .plan-form-row:last-child { margin-bottom: 0; }
         .plan-form-half { flex: 1; min-width: 0; }
         .plan-form-half .form-group { margin-bottom: 0; }
-        .plan-schedules-list {
-            max-height: 220px;
-            overflow-y: auto;
-            border-radius: 8px;
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            padding: 8px;
-        }
         .plan-schedules-empty {
             font-size: 12px;
             color: #94a3b8;
@@ -3074,67 +3072,88 @@
 
         /* 編輯計畫視窗 v2：跳出框架重新設計 */
         .plan-edit-modal-v2 {
-            max-width: 680px;
+            max-width: 900px;
             width: 95%;
-            max-height: 90vh;
-            overflow-y: auto;
+            max-height: 92vh;
+            display: flex;
+            flex-direction: column;
             border-radius: 16px;
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
             border: 1px solid #e2e8f0;
+            background: #fff;
         }
         .plan-edit-modal-v2 .plan-modal-header {
-            padding: 20px 24px;
+            padding: 24px 28px;
             background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 2px solid #e2e8f0;
             border-radius: 16px 16px 0 0;
+            flex-shrink: 0;
         }
         .plan-edit-modal-v2 .plan-modal-header h3 {
             margin: 0;
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 700;
             color: #0f172a;
         }
-        .plan-edit-modal-v2 .plan-modal-body { padding: 20px 24px 24px; }
+        .plan-edit-modal-v2 .plan-modal-body {
+            padding: 24px 28px;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+        }
         .plan-edit-modal-v2 .plan-form-section {
             background: #fff;
             border-radius: 12px;
-            padding: 20px;
+            padding: 24px;
             margin-bottom: 20px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 2px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+        .plan-edit-modal-v2 .plan-form-section:last-of-type {
+            margin-bottom: 0;
         }
         .plan-edit-modal-v2 .plan-section-title {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 700;
-            color: #334155;
-            margin-bottom: 16px;
+            color: #1e293b;
+            margin-bottom: 18px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f1f5f9;
         }
-        .plan-section-icon { font-size: 16px; }
-        .plan-section-hint { font-weight: 400; color: #64748b; font-size: 12px; }
-        .plan-edit-modal-v2 .plan-form-row { margin-bottom: 16px; }
+        .plan-section-icon { font-size: 18px; }
+        .plan-section-hint { font-weight: 400; color: #64748b; font-size: 12px; margin-left: 4px; }
+        .plan-edit-modal-v2 .plan-form-row { margin-bottom: 18px; }
         .plan-edit-modal-v2 .plan-form-row:last-child { margin-bottom: 0; }
         .plan-edit-modal-v2 .plan-modal-footer {
-            padding: 16px 24px 24px;
-            border-top: none;
+            padding: 20px 28px 24px;
+            border-top: 2px solid #e2e8f0;
             background: #f8fafc;
             border-radius: 0 0 16px 16px;
-            margin: 0 24px 24px;
-            border-radius: 12px;
+            flex-shrink: 0;
+        }
+        .plan-schedules-list {
+            max-height: 280px;
+            overflow-y: auto;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            padding: 12px;
         }
         @media (max-width: 768px) {
-            .plan-edit-modal-v2 { width: 100%; max-width: 100%; max-height: 95vh; border-radius: 12px; margin: 12px; }
-            .plan-edit-modal-v2 .plan-modal-header { padding: 16px 16px; border-radius: 12px 12px 0 0; }
+            .plan-edit-modal-v2 { width: 100%; max-width: 100%; max-height: 95vh; border-radius: 12px; margin: 8px; }
+            .plan-edit-modal-v2 .plan-modal-header { padding: 18px 16px; border-radius: 12px 12px 0 0; }
             .plan-edit-modal-v2 .plan-modal-header h3 { font-size: 18px; }
-            .plan-edit-modal-v2 .plan-modal-body { padding: 16px; }
-            .plan-edit-modal-v2 .plan-form-section { padding: 16px; margin-bottom: 14px; }
+            .plan-edit-modal-v2 .plan-modal-body { padding: 16px; overflow-y: auto; }
+            .plan-edit-modal-v2 .plan-form-section { padding: 16px; margin-bottom: 16px; }
+            .plan-edit-modal-v2 .plan-section-title { font-size: 14px; margin-bottom: 14px; }
             .plan-edit-modal-v2 .plan-form-row { flex-direction: column; gap: 12px; margin-bottom: 14px; }
             .plan-edit-modal-v2 .plan-form-half { width: 100%; }
-            .plan-edit-modal-v2 .plan-modal-footer { padding: 14px 16px 16px; margin: 0 16px 16px; }
+            .plan-edit-modal-v2 .plan-modal-footer { padding: 16px; margin: 0; border-radius: 0 0 12px 12px; }
             .plan-edit-modal-v2 .plan-modal-footer .btn { min-height: 44px; font-size: 15px; }
-            .plan-schedules-list { max-height: 200px; }
+            .plan-schedules-list { max-height: 240px; }
             .data-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
             .user-table { min-width: 700px; }
         }

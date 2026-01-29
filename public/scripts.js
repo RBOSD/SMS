@@ -5886,53 +5886,58 @@ if (dashboard) {
                     <meta charset="UTF-8">
                     <title>${monthTitle} 檢查計畫月曆</title>
                     <style>
-                        @page { size: A4 landscape; margin: 22mm 20mm; }
+                        @page { size: A4 landscape; margin: 15mm 18mm; }
                         * { box-sizing: border-box; margin: 0; padding: 0; }
                         html, body { height: 100%; width: 100%; overflow: hidden; font-family: "Microsoft JhengHei", "微軟正黑體", "Noto Sans TC", Arial, sans-serif; }
-                        body { background: #fafafa; padding: 0 0 16px 0; }
+                        body { background: #fafafa; padding: 0 0 12px 0; }
                         .print-header {
-                            text-align: center; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 2px solid #1e40af;
+                            text-align: center; margin-bottom: 12px; padding: 10px 0 10px 0; border-bottom: 3px solid #1e40af;
                             background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
                         }
                         .print-header h1 { font-size: 20px; font-weight: 700; color: #1e3a8a; letter-spacing: 0.02em; margin: 0; }
-                        .print-header .sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+                        .print-header .sub { font-size: 11px; color: #64748b; margin-top: 3px; }
                         .schedule-calendar {
-                            display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
-                            background: #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                            display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+                            background: #94a3b8; border: 2px solid #64748b; border-radius: 6px; overflow: hidden;
                             width: 100%; max-width: 100%; page-break-inside: avoid;
                         }
                         .schedule-cal-head {
                             background: linear-gradient(180deg, #1e40af 0%, #1d4ed8 100%); color: #fff;
                             padding: 10px 6px; text-align: center; font-weight: 700; font-size: 13px;
-                            display: flex; align-items: center; justify-content: center; min-height: 32px;
+                            display: flex; align-items: center; justify-content: center; min-height: 34px;
+                            border-right: 1px solid rgba(255,255,255,0.2);
                         }
+                        .schedule-cal-head:last-child { border-right: none; }
                         .schedule-cal-day {
-                            border: none; padding: 10px 6px; min-height: 98px; background: #fff;
+                            border: 1px solid #cbd5e1; padding: 10px 6px; min-height: 100px; background: #fff;
                             display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start;
                             page-break-inside: avoid; overflow: hidden;
+                            border-right: 1px solid #cbd5e1;
+                            border-bottom: 1px solid #cbd5e1;
                         }
+                        .schedule-cal-day:nth-child(7n) { border-right: none; }
                         .schedule-cal-day-num { font-weight: 700; font-size: 15px; margin-bottom: 4px; color: #0f172a; }
-                        .schedule-cal-holiday { background: #fef2f2 !important; }
+                        .schedule-cal-holiday { background: #fef2f2 !important; border-color: #fca5a5 !important; }
                         .schedule-cal-holiday .schedule-cal-day-num { color: #b91c1c; }
                         .schedule-cal-holiday-tag { font-size: 10px; color: #b91c1c; font-weight: 600; margin-bottom: 2px; display: block; }
                         .schedule-cal-plan-names { font-size: 11px; line-height: 1.45; margin-top: 4px; width: 100%; word-break: break-word; overflow: hidden; }
                         .schedule-cal-plan-name { font-weight: 600; font-size: 11px; display: block; margin-bottom: 2px; }
                         .schedule-cal-plan-detail { font-size: 10px; color: #475569; display: block; margin-bottom: 1px; }
-                        .schedule-cal-plan-item { margin-bottom: 4px; padding-bottom: 2px; border-bottom: 1px solid #f1f5f9; }
+                        .schedule-cal-plan-item { margin-bottom: 4px; padding-bottom: 2px; border-bottom: 1px solid #e2e8f0; }
                         .schedule-cal-plan-item:last-child { border-bottom: none; }
-                        .schedule-cal-pad { background: #f1f5f9; }
+                        .schedule-cal-pad { background: #f1f5f9; border: 1px solid #e2e8f0; }
                         .schedule-cal-dots { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 3px; }
-                        .schedule-cal-color-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.12); }
-                        .schedule-cal-day.schedule-cal-plan-0 { background: #dbeafe; }
-                        .schedule-cal-day.schedule-cal-plan-1 { background: #dcfce7; }
-                        .schedule-cal-day.schedule-cal-plan-2 { background: #fef9c3; }
-                        .schedule-cal-day.schedule-cal-plan-3 { background: #fce7f3; }
-                        .schedule-cal-day.schedule-cal-plan-4 { background: #e0e7ff; }
-                        .schedule-cal-day.schedule-cal-plan-5 { background: #d1fae5; }
-                        .schedule-cal-day.schedule-cal-plan-6 { background: #ffedd5; }
-                        .schedule-cal-day.schedule-cal-plan-7 { background: #ede9fe; }
+                        .schedule-cal-color-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.15); }
+                        .schedule-cal-day.schedule-cal-plan-0 { background: #dbeafe; border-color: #93c5fd; }
+                        .schedule-cal-day.schedule-cal-plan-1 { background: #dcfce7; border-color: #86efac; }
+                        .schedule-cal-day.schedule-cal-plan-2 { background: #fef9c3; border-color: #fde047; }
+                        .schedule-cal-day.schedule-cal-plan-3 { background: #fce7f3; border-color: #f9a8d4; }
+                        .schedule-cal-day.schedule-cal-plan-4 { background: #e0e7ff; border-color: #a5b4fc; }
+                        .schedule-cal-day.schedule-cal-plan-5 { background: #d1fae5; border-color: #6ee7b7; }
+                        .schedule-cal-day.schedule-cal-plan-6 { background: #ffedd5; border-color: #fdba74; }
+                        .schedule-cal-day.schedule-cal-plan-7 { background: #ede9fe; border-color: #c4b5fd; }
                         @media print {
-                            @page { size: A4 landscape; margin: 22mm 20mm; }
+                            @page { size: A4 landscape; margin: 15mm 18mm; }
                             body { background: #fff; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                             .print-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                             .schedule-cal-head, .schedule-cal-day.schedule-cal-plan-0, .schedule-cal-day.schedule-cal-plan-1,
@@ -5940,8 +5945,9 @@ if (dashboard) {
                             .schedule-cal-day.schedule-cal-plan-4, .schedule-cal-day.schedule-cal-plan-5,
                             .schedule-cal-day.schedule-cal-plan-6, .schedule-cal-day.schedule-cal-plan-7,
                             .schedule-cal-holiday { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                            .schedule-cal-day { min-height: 92px; padding: 8px 5px; }
+                            .schedule-cal-day { min-height: 95px; padding: 8px 5px; border: 1px solid #cbd5e1 !important; }
                             .schedule-cal-day-num { font-size: 14px; }
+                            .schedule-calendar { border: 2px solid #64748b !important; }
                         }
                     </style>
                 </head>
@@ -6242,9 +6248,20 @@ if (dashboard) {
                         schedulePlanDetails = {};
                     }
                 };
+                
+                // 為開始日期添加事件監聽，當日期改變時更新取號編號
+                const startDateInput = document.getElementById('scheduleStartDate');
+                if (startDateInput) {
+                    startDateInput.removeEventListener('change', handleScheduleStartDateChange);
+                    startDateInput.addEventListener('change', handleScheduleStartDateChange);
+                }
             } catch (e) {
                 console.error('載入計畫選項失敗:', e);
             }
+        }
+        
+        async function handleScheduleStartDateChange() {
+            await updateSchedulePlanNumber();
         }
 
         async function scheduleSubmitPlan() {
