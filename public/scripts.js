@@ -2089,13 +2089,14 @@ if (dashboard) {
             }
             if (tab === 'users') {
                 loadUsersPage(usersPage || 1);
+                // 同頁也載入群組管理（放在帳號列表內）
+                setTimeout(() => { try { loadGroupsAdmin(); } catch (e) {} }, 50);
             }
             if (tab === 'system') {
                 // 初始化匯出選項顯示/隱藏
                 setTimeout(() => { 
                     try { setupAdminElements(); } catch (e) {}
                     try { setupExportOptions(); } catch (e) {} 
-                    try { loadGroupsAdmin(); } catch (e) {}
                 }, 50);
             }
         }
