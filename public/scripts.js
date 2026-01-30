@@ -2049,6 +2049,8 @@ if (dashboard) {
         }
 
         function switchAdminTab(tab) {
+            // 舊版 tab 向後相容：已移除「帳號匯入/匯出」分頁
+            if (tab === 'import-export') tab = 'users';
             // 保存當前 tab 到 sessionStorage
             sessionStorage.setItem('currentAdminTab', tab); 
             // 保存當前 tab
@@ -2067,10 +2069,16 @@ if (dashboard) {
                     }
                 });
             }
-            document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users'); 
-            document.getElementById('tab-import-export').classList.toggle('hidden', tab !== 'import-export');
-            document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs'); 
-            document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions'); 
+            const tabUsers = document.getElementById('tab-users');
+            const tabImportExport = document.getElementById('tab-import-export');
+            const tabLogs = document.getElementById('tab-logs');
+            const tabActions = document.getElementById('tab-actions');
+            const tabSystem = document.getElementById('tab-system');
+            if (tabUsers) tabUsers.classList.toggle('hidden', tab !== 'users'); 
+            if (tabImportExport) tabImportExport.classList.toggle('hidden', tab !== 'import-export');
+            if (tabLogs) tabLogs.classList.toggle('hidden', tab !== 'logs'); 
+            if (tabActions) tabActions.classList.toggle('hidden', tab !== 'actions'); 
+            if (tabSystem) tabSystem.classList.toggle('hidden', tab !== 'system');
             if (tab === 'logs') {
                 restoreLogsViewState();
                 loadLogsPage(logsPage || 1); 
@@ -2081,6 +2089,13 @@ if (dashboard) {
             }
             if (tab === 'users') {
                 loadUsersPage(usersPage || 1);
+            }
+            if (tab === 'system') {
+                // 初始化匯出選項顯示/隱藏
+                setTimeout(() => { 
+                    try { setupAdminElements(); } catch (e) {}
+                    try { setupExportOptions(); } catch (e) {} 
+                }, 50);
             }
         }
 
@@ -2367,16 +2382,23 @@ if (dashboard) {
                 const stageText = stageRadio && stageRadio.value === 'initial' ? '初次開立' : `第 ${round} 次審查`;
                 const badgeClass = stageRadio && stageRadio.value === 'initial' ? 'new' : 'update';
 
-                document.getElementById('previewModeBadge').innerHTML = `<span class="badge ${badgeClass}">Word 匯入 (${stageText})</span>`;
-                document.getElementById('uploadCardWord').classList.add('hidden');
-                document.getElementById('uploadCardBackup').classList.add('hidden');
+                const badgeEl = document.getElementById('previewModeBadge');
+                if (badgeEl) badgeEl.innerHTML = `<span class="badge ${badgeClass}">Word 匯入 (${stageText})</span>`;
+                const uploadCardWord = document.getElementById('uploadCardWord');
+                if (uploadCardWord) uploadCardWord.classList.add('hidden');
+                const uploadCardBackup = document.getElementById('uploadCardBackup');
+                if (uploadCardBackup) uploadCardBackup.classList.add('hidden');
             } else {
-                document.getElementById('previewModeBadge').innerHTML = `<span class="badge active">⚠️ 災難復原模式</span>`;
-                document.getElementById('uploadCardWord').classList.add('hidden');
-                document.getElementById('uploadCardBackup').classList.add('hidden');
+                const badgeEl = document.getElementById('previewModeBadge');
+                if (badgeEl) badgeEl.innerHTML = `<span class="badge active">⚠️ 災難復原模式</span>`;
+                const uploadCardWord = document.getElementById('uploadCardWord');
+                if (uploadCardWord) uploadCardWord.classList.add('hidden');
+                const uploadCardBackup = document.getElementById('uploadCardBackup');
+                if (uploadCardBackup) uploadCardBackup.classList.add('hidden');
             }
             renderPreviewTable();
-            document.getElementById('previewContainer').classList.remove('hidden');
+            const previewContainer = document.getElementById('previewContainer');
+            if (previewContainer) previewContainer.classList.remove('hidden');
             if (msgElement) msgElement.innerText = '';
         }
 
@@ -2398,13 +2420,20 @@ if (dashboard) {
 
         function cancelImport() {
             stagedImportData = [];
-            document.getElementById('previewContainer').classList.add('hidden');
-            document.getElementById('uploadCardWord').classList.remove('hidden');
-            if (currentUser && currentUser.role === 'admin') { document.getElementById('uploadCardBackup').classList.remove('hidden'); }
-            document.getElementById('wordInput').value = '';
-            document.getElementById('backupInput').value = '';
-            document.getElementById('importStatusWord').innerText = '';
-            document.getElementById('importStatusBackup').innerText = '';
+            const previewContainer = document.getElementById('previewContainer');
+            if (previewContainer) previewContainer.classList.add('hidden');
+            const uploadCardWord = document.getElementById('uploadCardWord');
+            if (uploadCardWord) uploadCardWord.classList.remove('hidden');
+            const uploadCardBackup = document.getElementById('uploadCardBackup');
+            if (uploadCardBackup && currentUser && currentUser.role === 'admin') uploadCardBackup.classList.remove('hidden');
+            const wordInput = document.getElementById('wordInput');
+            if (wordInput) wordInput.value = '';
+            const backupInput = document.getElementById('backupInput');
+            if (backupInput) backupInput.value = '';
+            const importStatusWord = document.getElementById('importStatusWord');
+            if (importStatusWord) importStatusWord.innerText = '';
+            const importStatusBackup = document.getElementById('importStatusBackup');
+            if (importStatusBackup) importStatusBackup.innerText = '';
         }
 
         async function confirmImport() {
@@ -2540,6 +2569,8 @@ if (dashboard) {
         }
 
         function switchDataTab(tab) { 
+            // 匯出功能已移至「後台管理」，避免舊狀態導向不存在的頁籤
+            if (tab === 'export') tab = 'issues';
             // 保存當前 tab 到 sessionStorage
             sessionStorage.setItem('currentDataTab', tab);
             
@@ -2559,7 +2590,6 @@ if (dashboard) {
             // 主要 tab 切換
             document.getElementById('tab-data-issues').classList.toggle('hidden', tab !== 'issues'); 
             document.getElementById('tab-data-plans').classList.toggle('hidden', tab !== 'plans');
-            document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export');
             
             // 處理各 tab 的初始化
             if (tab === 'issues') {
@@ -2575,10 +2605,7 @@ if (dashboard) {
                 setTimeout(() => switchPlansSubTab(savedSubTab), 100);
                 loadPlanOptions();
             }
-            if (tab === 'export') {
-                // 設置匯出選項的顯示/隱藏
-                setTimeout(() => setupExportOptions(), 100);
-            }
+            // 匯出功能已移至「後台管理」
         }
         
         // 檢查計畫的子 tab 切換
@@ -2675,7 +2702,7 @@ if (dashboard) {
                     radio.parentNode.replaceChild(newRadio, radio);
                     
                     newRadio.addEventListener('change', function() {
-                        if (this.value === 'plans') {
+                        if (this.value === 'plans' || this.value === 'users') {
                             exportIssuesOptions.style.display = 'none';
                         } else {
                             exportIssuesOptions.style.display = 'block';
@@ -2685,7 +2712,7 @@ if (dashboard) {
                 
                 // 初始化顯示狀態
                 const checked = document.querySelector('input[name="exportDataType"]:checked');
-                if (checked && checked.value === 'plans') {
+                if (checked && (checked.value === 'plans' || checked.value === 'users')) {
                     exportIssuesOptions.style.display = 'none';
                 } else {
                     exportIssuesOptions.style.display = 'block';
@@ -4525,6 +4552,7 @@ if (dashboard) {
                 
                 let issuesData = [];
                 let planSchedulesData = [];
+                let usersData = [];
                 
                 // 根據選擇的資料類型獲取資料
                 if (exportDataType === 'issues' || exportDataType === 'both') {
@@ -4532,6 +4560,13 @@ if (dashboard) {
                     if (!res.ok) throw new Error('取得開立事項資料失敗');
                     const json = await res.json();
                     issuesData = json.data || [];
+                }
+
+                if (exportDataType === 'users') {
+                    const res = await fetch('/api/users?page=1&pageSize=10000', { credentials: 'include' });
+                    if (!res.ok) throw new Error('取得帳號資料失敗');
+                    const json = await res.json();
+                    usersData = json.data || [];
                 }
                 
                 if (exportDataType === 'plans' || exportDataType === 'both') {
@@ -4544,6 +4579,9 @@ if (dashboard) {
                 
                 if (exportDataType === 'issues' && issuesData.length === 0) {
                     return showToast('無開立事項資料可匯出', 'error');
+                }
+                if (exportDataType === 'users' && usersData.length === 0) {
+                    return showToast('無帳號資料可匯出', 'error');
                 }
                 if (exportDataType === 'plans' && planSchedulesData.length === 0) {
                     return showToast('無檢查計畫資料可匯出', 'error');
@@ -4562,10 +4600,13 @@ if (dashboard) {
                         // JSON 仍輸出原始資料結構（代號保留）
                         exportData.plans = planSchedulesData;
                     }
+                    if (exportDataType === 'users') {
+                        exportData.users = usersData;
+                    }
                     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
                     const link = document.createElement("a");
                     link.href = URL.createObjectURL(blob);
-                    const dataTypeLabel = exportDataType === 'issues' ? 'Issues' : (exportDataType === 'plans' ? 'Plans' : 'All');
+                    const dataTypeLabel = exportDataType === 'issues' ? 'Issues' : (exportDataType === 'plans' ? 'Plans' : (exportDataType === 'users' ? 'Users' : 'All'));
                     link.download = `SMS_Backup_${dataTypeLabel}_${new Date().toISOString().slice(0, 10)}.json`;
                     document.body.appendChild(link);
                     link.click();
@@ -4688,6 +4729,18 @@ if (dashboard) {
                             const schedulesWS = XLSX.utils.aoa_to_sheet(schedulesWSData);
                             XLSX.utils.book_append_sheet(wb, schedulesWS, '檢查計畫');
                         }
+                    } else if (exportDataType === 'users') {
+                        const usersWSData = [['姓名', '帳號', '權限', '註冊時間']];
+                        usersData.forEach(u => {
+                            usersWSData.push([
+                                u.name || '',
+                                u.username || '',
+                                u.role || '',
+                                u.created_at ? new Date(u.created_at).toLocaleString('zh-TW') : ''
+                            ]);
+                        });
+                        const usersWS = XLSX.utils.aoa_to_sheet(usersWSData);
+                        XLSX.utils.book_append_sheet(wb, usersWS, '帳號');
                     } else {
                         // 僅匯出開立事項
                         const issuesWSData = [];
@@ -4752,6 +4805,8 @@ if (dashboard) {
                     if (exportDataType === 'issues') {
                         const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory';
                         fileName = `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                    } else if (exportDataType === 'users') {
+                        fileName = `SMS_Users_${new Date().toISOString().slice(0, 10)}.xlsx`;
                     } else if (exportDataType === 'plans') {
                         fileName = `SMS_Plans_${new Date().toISOString().slice(0, 10)}.xlsx`;
                     } else {
@@ -4919,35 +4974,100 @@ if (dashboard) {
         // 帳號匯入功能
         function openUserImportModal() {
             const modal = document.getElementById('userImportModal');
-            if (modal) modal.classList.add('open');
+            if (modal) {
+                const fileInput = document.getElementById('userImportModalFile');
+                if (fileInput) fileInput.value = '';
+                modal.classList.add('open');
+            }
         }
         
         function closeUserImportModal() {
             const modal = document.getElementById('userImportModal');
             if (modal) {
                 modal.classList.remove('open');
-                const fileInput = document.getElementById('userImportFile');
+                const fileInput = document.getElementById('userImportModalFile');
                 if (fileInput) fileInput.value = '';
             }
         }
-        
-        function downloadUserCSVTemplate() {
-            // 範例檔格式：姓名,帳號,權限,密碼（選填）
-            // 權限值：admin（系統管理員）、manager（資料管理者）、editor（審查人員）、viewer（檢視人員）
-            const csv = '姓名,帳號,權限,密碼\n張三,zhang@example.com,editor,password123\n李四,li@example.com,manager,password123\n王五,wang@example.com,viewer,\n趙六,zhao@example.com,admin,admin123';
-            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = '帳號匯入範例.csv';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+
+        async function importUsersCSVFromModal() {
+            const fileInput = document.getElementById('userImportModalFile');
+            if (!fileInput) return showToast('找不到檔案選擇器', 'error');
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return showToast('請選擇 CSV 檔案', 'error');
+            return importUsersCSV(file);
         }
         
-        async function importUsersCSV() {
-            const fileInput = document.getElementById('userImportFile');
-            if (!fileInput) return showToast('找不到檔案選擇器', 'error');
-            const file = fileInput.files[0];
+        function downloadUserCSVTemplate() {
+            // 優先下載「你上傳設定」的範例檔；若尚未設定才用系統預設產生
+            (async () => {
+                try {
+                    const res = await fetch('/api/templates/users-import-csv?t=' + Date.now(), { credentials: 'include' });
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        const cd = res.headers.get('content-disposition') || '';
+                        let filename = '帳號匯入範例.csv';
+                        const m = cd.match(/filename\*\=UTF-8''([^;]+)/i);
+                        if (m && m[1]) filename = decodeURIComponent(m[1]);
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        return;
+                    }
+                } catch (e) {}
+
+                // fallback：系統預設範例
+                // 範例檔格式：姓名,帳號,權限,密碼（選填）
+                // 權限值：admin（系統管理員）、manager（資料管理者）、editor（審查人員）、viewer（檢視人員）
+                const csv = '姓名,帳號,權限,密碼\n張三,zhang@example.com,editor,password123\n李四,li@example.com,manager,password123\n王五,wang@example.com,viewer,\n趙六,zhao@example.com,admin,admin123';
+                const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = '帳號匯入範例.csv';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            })();
+        }
+
+        async function uploadUserCSVTemplate() {
+            const input = document.getElementById('userTemplateFile');
+            if (!input) return showToast('找不到檔案選擇器', 'error');
+            input.onchange = async function () {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                const name = String(file.name || '帳號匯入範例.csv');
+                if (!name.toLowerCase().endsWith('.csv')) {
+                    input.value = '';
+                    return showToast('請選擇 .csv 檔案', 'error');
+                }
+                try {
+                    const buf = await file.arrayBuffer();
+                    const dataBase64 = arrayBufferToBase64(buf);
+                    const res = await apiFetch('/api/templates/users-import-csv', {
+                        method: 'POST',
+                        body: JSON.stringify({ filename: name, dataBase64 })
+                    });
+                    const j = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        showToast(j.error || '上傳失敗', 'error');
+                        return;
+                    }
+                    showToast('已設為帳號匯入範例檔', 'success');
+                } catch (e) {
+                    showToast('上傳失敗：' + (e.message || '請稍後再試'), 'error');
+                } finally {
+                    input.value = '';
+                }
+            };
+            input.click();
+        }
+        
+        async function importUsersCSV(fileOverride) {
+            const file = fileOverride || (document.getElementById('userImportModalFile')?.files?.[0]) || (document.getElementById('userImportFile')?.files?.[0]);
             if (!file) return showToast('請選擇 CSV 檔案', 'error');
             
             const reader = new FileReader();
@@ -5085,9 +5205,8 @@ if (dashboard) {
                                     }
                                     
                                     showToast(msg, j.failed > 0 ? 'warning' : 'success');
-                                    // 清除檔案選擇
-                                    const fileInput = document.getElementById('userImportFile');
-                                    if (fileInput) fileInput.value = '';
+                                    // 關閉匯入視窗並更新列表
+                                    closeUserImportModal();
                                     await loadUsersPage(1);
                                     return;
                                 } else {
@@ -5109,6 +5228,18 @@ if (dashboard) {
                 }
             };
             reader.readAsText(file, 'UTF-8');
+        }
+
+        // 後台管理（帳號列表）用：點按後直接選檔並執行匯入
+        function promptUsersImport() {
+            const input = document.getElementById('userImportFile');
+            if (!input) return showToast('找不到檔案選擇器', 'error');
+            input.value = '';
+            input.onchange = async function () {
+                if (!input.files || !input.files[0]) return;
+                await importUsersCSV();
+            };
+            input.click();
         }
 
         // Plan Management
@@ -5403,6 +5534,8 @@ if (dashboard) {
             loadSchedulePlanOptions();
             const startDateInput = document.getElementById('scheduleStartDate');
             const endDateInput = document.getElementById('scheduleEndDate');
+            const locationInput = document.getElementById('scheduleLocation');
+            const inspectorInput = document.getElementById('scheduleInspector');
             if (startDateInput) {
                 startDateInput.removeEventListener('change', scheduleOnDateChange);
                 startDateInput.addEventListener('change', scheduleOnDateChange);
@@ -5411,7 +5544,40 @@ if (dashboard) {
                 endDateInput.removeEventListener('change', scheduleOnDateChange);
                 endDateInput.addEventListener('change', scheduleOnDateChange);
             }
+            if (locationInput) {
+                locationInput.removeEventListener('input', scheduleMaybeUpdatePlanNumberDebounced);
+                locationInput.addEventListener('input', scheduleMaybeUpdatePlanNumberDebounced);
+            }
+            if (inspectorInput) {
+                inspectorInput.removeEventListener('input', scheduleMaybeUpdatePlanNumberDebounced);
+                inspectorInput.addEventListener('input', scheduleMaybeUpdatePlanNumberDebounced);
+            }
             scheduleClearForm();
+        }
+
+        let schedulePlanNumberDebounceTimer = null;
+        function scheduleCanShowPlanNumber() {
+            const planValue = (document.getElementById('schedulePlanSelect') || {}).value || '';
+            const startDateVal = (document.getElementById('scheduleStartDate') || {}).value || '';
+            const endDateVal = (document.getElementById('scheduleEndDate') || {}).value || '';
+            const locationValue = ((document.getElementById('scheduleLocation') || {}).value || '').trim();
+            const inspectorValue = ((document.getElementById('scheduleInspector') || {}).value || '').trim();
+            return !!(planValue && schedulePlanDetails.railway && schedulePlanDetails.inspection_type && startDateVal && endDateVal && locationValue && inspectorValue);
+        }
+
+        async function scheduleMaybeUpdatePlanNumber() {
+            if (!scheduleCanShowPlanNumber()) {
+                hideSchedulePlanNumber();
+                return;
+            }
+            await updateSchedulePlanNumber();
+        }
+
+        function scheduleMaybeUpdatePlanNumberDebounced() {
+            if (schedulePlanNumberDebounceTimer) clearTimeout(schedulePlanNumberDebounceTimer);
+            schedulePlanNumberDebounceTimer = setTimeout(() => {
+                scheduleMaybeUpdatePlanNumber().catch(() => {});
+            }, 300);
         }
 
         function scheduleUpdateYearFromStartDate() {
@@ -5476,13 +5642,16 @@ if (dashboard) {
                 renderScheduleCalendar();
             }
             scheduleRenderDayList(v);
-            
-            // 如果有計畫資訊，自動計算取號編號
-            await updateSchedulePlanNumber();
+            // 取號提示：等使用者把必填內容填完才顯示
+            await scheduleMaybeUpdatePlanNumber();
         }
         
         async function updateSchedulePlanNumber() {
             // 檢查是否有必要的資訊（不再需要 business）
+            if (!scheduleCanShowPlanNumber()) {
+                hideSchedulePlanNumber();
+                return;
+            }
             if (!schedulePlanDetails.railway || !schedulePlanDetails.inspection_type) {
                 hideSchedulePlanNumber();
                 return;
@@ -5526,18 +5695,18 @@ if (dashboard) {
         
         function showSchedulePlanNumber(planNumber) {
             const displayDiv = document.getElementById('schedulePlanNumberDisplay');
-            const valueInput = document.getElementById('schedulePlanNumberValue');
-            if (displayDiv && valueInput) {
-                valueInput.value = planNumber || '';
+            const valueEl = document.getElementById('schedulePlanNumberValue');
+            if (displayDiv && valueEl) {
+                valueEl.textContent = planNumber || '';
                 displayDiv.style.display = 'block';
             }
         }
         
         function hideSchedulePlanNumber() {
             const displayDiv = document.getElementById('schedulePlanNumberDisplay');
-            const valueInput = document.getElementById('schedulePlanNumberValue');
+            const valueEl = document.getElementById('schedulePlanNumberValue');
             if (displayDiv) displayDiv.style.display = 'none';
-            if (valueInput) valueInput.value = '';
+            if (valueEl) valueEl.textContent = '-';
         }
 
         function schedulePrevMonth() {
@@ -6249,8 +6418,8 @@ if (dashboard) {
                             planInfoDiv.style.display = 'block';
                         }
                         
-                        // 如果有開始日期，自動計算取號編號
-                        await updateSchedulePlanNumber();
+                        // 取號提示：等使用者把必填內容填完才顯示
+                        await scheduleMaybeUpdatePlanNumber();
                         
                     } catch (error) {
                         showToast('無法取得計畫資訊，請稍後再試', 'error');
@@ -6259,19 +6428,14 @@ if (dashboard) {
                     }
                 };
                 
-                // 為開始日期添加事件監聽，當日期改變時更新取號編號
-                const startDateInput = document.getElementById('scheduleStartDate');
-                if (startDateInput) {
-                    startDateInput.removeEventListener('change', handleScheduleStartDateChange);
-                    startDateInput.addEventListener('change', handleScheduleStartDateChange);
-                }
+                // 不在此額外綁定開始日期事件（由 initScheduleCalendar 統一處理）
             } catch (e) {
                 console.error('載入計畫選項失敗:', e);
             }
         }
         
         async function handleScheduleStartDateChange() {
-            await updateSchedulePlanNumber();
+            await scheduleMaybeUpdatePlanNumber();
         }
 
         async function scheduleSubmitPlan() {
@@ -6363,8 +6527,6 @@ if (dashboard) {
             const adYear = parseInt(startDateVal.slice(0, 4), 10);
             const rocYear = adYear - 1911;
             const yr = String(rocYear).replace(/\D/g, '').slice(-3).padStart(3, '0');
-            const planNumberInput = document.getElementById('schedulePlanNumberValue');
-            const customPlanNumber = planNumberInput && planNumberInput.value ? String(planNumberInput.value).trim() : '';
             const payload = {
                 plan_name: planName,
                 start_date: startDateVal,
@@ -6376,7 +6538,6 @@ if (dashboard) {
                 location: locationValue,
                 inspector: inspectorValue
             };
-            if (customPlanNumber) payload.plan_number = customPlanNumber;
             try {
                 const res = await apiFetch('/api/plan-schedule', {
                     method: 'POST',
