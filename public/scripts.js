@@ -2234,14 +2234,8 @@ if (dashboard) {
             }
 
             const q = String(document.getElementById('groupUserSearch')?.value || '').trim().toLowerCase();
-            const showAdminsEl = document.getElementById('toggleShowAdminsInGroup');
-            const isAdminGroup = group && (group.is_admin_group === true || group.isAdminGroup === true);
-            // 若正在管理「系統管理群組」，預設直接顯示系統管理員（避免看不到成員）
-            if (isAdminGroup && showAdminsEl && !showAdminsEl.checked) showAdminsEl.checked = true;
-            const showAdmins = showAdminsEl?.checked === true;
 
             const rows = users
-                .filter(u => showAdmins ? true : (u.isAdmin !== true))
                 .filter(u => {
                     if (!q) return true;
                     const hay = `${u.name || ''} ${u.username || ''}`.toLowerCase();

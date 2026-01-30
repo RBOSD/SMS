@@ -96,10 +96,6 @@
                 <div style="padding:12px;">
                     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
                         <input id="groupUserSearch" class="filter-input" placeholder="搜尋使用者（姓名/帳號）..." style="flex:1; min-width:200px;" autocomplete="off" oninput="renderSelectedGroupMembers()">
-                        <label style="display:flex; gap:8px; align-items:center; font-size:12px; color:#475569; user-select:none;">
-                            <input type="checkbox" id="toggleShowAdminsInGroup" onchange="renderSelectedGroupMembers()">
-                            顯示系統管理員
-                        </label>
                     </div>
                     <div id="groupMembersBody" style="max-height:320px; overflow:auto; border:1px solid var(--border); border-radius:10px; padding:8px; background:#f8fafc;">
                         <div style="padding:8px; color:#64748b; font-size:13px;">請先選擇群組</div>
