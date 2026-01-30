@@ -5187,11 +5187,43 @@ if (dashboard) {
                 </label>`;
             }).join('');
         }
+        let userModalOriginalRole = 'viewer';
+        let userModalAdminConfirmed = false;
+
+        function updateUserRoleWarning(role) {
+            const warn = document.getElementById('uRoleAdminWarn');
+            if (!warn) return;
+            if (role === 'admin') warn.classList.remove('hidden');
+            else warn.classList.add('hidden');
+        }
+
+        async function handleUserRoleChange(newRole) {
+            updateUserRoleWarning(newRole);
+            if (newRole !== 'admin') return;
+            if (userModalOriginalRole === 'admin') return; // 原本就是 admin，不需要再確認
+            if (userModalAdminConfirmed) return;
+
+            const ok = await showConfirmModal(
+                '你即將把此帳號設定為「系統管理員」。\n\n系統管理員可進入後台管理並可新增/修改/刪除各類資料與帳號設定。\n\n確定要授予此權限嗎？',
+                '確定授權',
+                '取消'
+            );
+            if (ok) {
+                userModalAdminConfirmed = true;
+                updateUserRoleWarning('admin');
+            } else {
+                const sel = document.getElementById('uRole');
+                if (sel) sel.value = userModalOriginalRole || 'viewer';
+                updateUserRoleWarning(userModalOriginalRole || 'viewer');
+            }
+        }
+
         async function openUserModal(mode, id) {
             const m = document.getElementById('userModal');
             const t = document.getElementById('userModalTitle');
             const e = document.getElementById('uEmail');
             const groupIds = [];
+            userModalAdminConfirmed = false;
             if (mode === 'create') {
                 t.innerText = '新增';
                 document.getElementById('targetUserId').value = '';
@@ -5202,6 +5234,7 @@ if (dashboard) {
                 document.getElementById('uPwdConfirm').value = '';
                 document.getElementById('pwdStrength').innerText = '密碼強度: -';
                 document.getElementById('pwdHint').innerText = '';
+                userModalOriginalRole = 'viewer';
                 document.getElementById('uRole').value = 'viewer';
             } else {
                 const u = userList.find(x => x.id === id) || {};
@@ -5214,11 +5247,13 @@ if (dashboard) {
                 document.getElementById('uPwdConfirm').value = '';
                 document.getElementById('pwdHint').innerText = '(留空不改)';
                 document.getElementById('pwdStrength').innerText = '密碼強度: -';
-                document.getElementById('uRole').value = u.role || 'viewer';
+                userModalOriginalRole = u.role || 'viewer';
+                document.getElementById('uRole').value = userModalOriginalRole;
                 if (Array.isArray(u.groupIds)) groupIds.push(...u.groupIds);
             }
             await ensureGroupsForUserModalLoaded();
             renderUserGroupsCheckboxes(groupIds);
+            updateUserRoleWarning(document.getElementById('uRole')?.value || 'viewer');
             m.classList.add('open');
         }
         async function submitUser() { 
@@ -5228,6 +5263,12 @@ if (dashboard) {
                 pwd = document.getElementById('uPwd').value, 
                 pwdConfirm = document.getElementById('uPwdConfirm').value, 
                 role = document.getElementById('uRole').value; 
+            if (role === 'admin' && userModalOriginalRole !== 'admin' && !userModalAdminConfirmed) {
+                // 防止使用者直接按送出而略過 onchange
+                await handleUserRoleChange('admin');
+                const roleNow = document.getElementById('uRole')?.value || 'viewer';
+                if (roleNow !== 'admin') return; // 使用者取消
+            }
             const groupIds = Array.from(document.querySelectorAll('#uGroupsBox .uGroupCheck:checked'))
                 .map(cb => parseInt(cb.value, 10))
                 .filter(n => Number.isFinite(n));
