@@ -1475,7 +1475,7 @@ app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
     const safeField = safeSortFields.includes(sortField) ? sortField : 'id';
     const order = `u.${safeField} ${sortDir==='desc'?'DESC':'ASC'}`;
     try {
-        const cRes = await pool.query(`SELECT count(*) FROM users WHERE ${where.join(" AND ")}`, params);
+        const cRes = await pool.query(`SELECT count(*) FROM users u WHERE ${where.join(" AND ")}`, params);
         const total = parseInt(cRes.rows[0].count);
         const dRes = await pool.query(
             `SELECT u.id, u.username, u.name, u.role, u.created_at,

@@ -95,7 +95,14 @@
                 });
                 
                 // 處理認證錯誤
-                if (response.status === 401 || response.status === 403) {
+                // 重要：403 不一定是未登入（可能是權限不足 / 被拒絕），不可一律導向登入頁
+                if (response.status === 401) {
+                    if (isDevelopment) console.warn('未登入（401），重定向到登入頁');
+                    sessionStorage.clear();
+                    window.location.href = '/login.html';
+                    throw new Error('Unauthorized');
+                }
+                if (response.status === 403) {
                     // 如果是 CSRF token 錯誤，清除快取並重試一次
                     if (response.status === 403 && needsCsrf) {
                         const errorData = await response.json().catch(() => ({}));
@@ -112,18 +119,15 @@
                                         ...options.headers
                                     }
                                 });
+                                // 只要不是 CSRF 造成的 403，就把回應交回呼叫端處理（不要導向登入頁）
                                 if (retryResponse.ok || retryResponse.status !== 403) {
                                     return retryResponse;
                                 }
                             }
                         }
                     }
-                    if (isDevelopment) console.warn('認證失敗，重定向到登入頁');
-                    // 清除 sessionStorage
-                    sessionStorage.clear();
-                    // 重定向到登入頁
-                    window.location.href = '/login.html';
-                    throw new Error('Unauthorized');
+                    // 403（權限不足）交由呼叫端決定如何顯示訊息
+                    return response;
                 }
                 
                 return response;
@@ -1829,7 +1833,26 @@ if (dashboard) {
                 if (isDevelopment) console.warn('usersTableBody element not found');
                 return;
             }
-            tbody.innerHTML = userList.map(u => `<tr><td data-label="姓名" style="padding:12px;">${u.name || '-'}</td><td data-label="帳號">${u.username}</td><td data-label="權限">${getRoleName(u.role)}</td><td data-label="註冊時間">${new Date(u.created_at).toLocaleDateString()}</td><td data-label="操作">${u.id !== currentUser.userId ? `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button><button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>` : '-'}</td></tr>`).join(''); 
+            const groupsMap = new Map((cachedGroupsForModal || []).map(g => [parseInt(g.id, 10), g.name]));
+            const myId = currentUser?.id;
+            tbody.innerHTML = userList.map(u => {
+                const gids = Array.isArray(u.groupIds) ? u.groupIds : [];
+                const groupNames = gids.map(id => groupsMap.get(parseInt(id, 10)) || `#${id}`);
+                const groupText = groupNames.length ? groupNames.join(', ') : '-';
+                return `<tr>
+                    <td data-label="姓名" style="padding:12px;">${escapeHtml(u.name || '-')}</td>
+                    <td data-label="帳號">${escapeHtml(u.username || '-')}</td>
+                    <td data-label="群組">${escapeHtml(groupText)}</td>
+                    <td data-label="權限">${escapeHtml(getRoleName(u.role))}</td>
+                    <td data-label="註冊時間">${u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
+                    <td data-label="操作">${
+                        (myId && u.id === myId)
+                            ? '-'
+                            : `<button class="btn btn-outline" style="padding:2px 6px;margin-right:4px;" onclick="openUserModal('edit', ${u.id})">✏️</button>
+                               <button class="btn btn-danger" style="padding:2px 6px;" onclick="deleteUser(${u.id})">🗑️</button>`
+                    }</td>
+                </tr>`;
+            }).join(''); 
         }
         function usersSortBy(field) { 
             if (usersSortField === field) {
@@ -2115,6 +2138,8 @@ if (dashboard) {
                 }
                 const j = await res.json();
                 const groups = j.data || [];
+                // 讓帳號列表可顯示群組名稱（已載入 users 時重畫一次）
+                cachedGroupsForModal = groups;
                 if (groups.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="2" style="padding:12px;color:#64748b;">尚無群組</td></tr>';
                     return;
@@ -2129,6 +2154,7 @@ if (dashboard) {
                         </td>
                     </tr>`;
                 }).join('');
+                try { renderUsers(); } catch (e) {}
             } catch (e) {
                 tbody.innerHTML = `<tr><td colspan="2" style="padding:12px;color:#ef4444;">載入失敗：${escapeHtml(e.message || 'error')}</td></tr>`;
             }
