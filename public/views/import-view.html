@@ -410,7 +410,9 @@
                         <div style="font-size:13px; color:#92400e; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
                             <span>🔢</span> <span>取號編號</span>
                         </div>
-                        <input type="text" id="schedulePlanNumberValue" class="filter-input" placeholder="系統自動產生" readonly style="font-size:16px; font-weight:700; font-family:'Courier New',monospace; color:#78350f; background:#fff; border:2px solid #f59e0b; padding:10px 12px;" autocomplete="off">
+                        <div id="schedulePlanNumberValue" style="font-size:16px; font-weight:700; font-family:'Courier New',monospace; color:#78350f; background:#fff; border:2px solid #f59e0b; padding:10px 12px; border-radius:8px; min-height:44px; display:flex; align-items:center;">
+                            -
+                        </div>
                     </div>
                     <div style="display:flex; gap:8px;">
                         <button type="button" class="btn btn-primary" style="flex:1;" onclick="scheduleSubmitPlan()">上傳至資料庫</button>

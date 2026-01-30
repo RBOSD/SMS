@@ -4987,16 +4987,71 @@ if (dashboard) {
         }
         
         function downloadUserCSVTemplate() {
-            // 範例檔格式：姓名,帳號,權限,密碼（選填）
-            // 權限值：admin（系統管理員）、manager（資料管理者）、editor（審查人員）、viewer（檢視人員）
-            const csv = '姓名,帳號,權限,密碼\n張三,zhang@example.com,editor,password123\n李四,li@example.com,manager,password123\n王五,wang@example.com,viewer,\n趙六,zhao@example.com,admin,admin123';
-            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = '帳號匯入範例.csv';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // 優先下載「你上傳設定」的範例檔；若尚未設定才用系統預設產生
+            (async () => {
+                try {
+                    const res = await fetch('/api/templates/users-import-csv?t=' + Date.now(), { credentials: 'include' });
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        const cd = res.headers.get('content-disposition') || '';
+                        let filename = '帳號匯入範例.csv';
+                        const m = cd.match(/filename\*\=UTF-8''([^;]+)/i);
+                        if (m && m[1]) filename = decodeURIComponent(m[1]);
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        return;
+                    }
+                } catch (e) {}
+
+                // fallback：系統預設範例
+                // 範例檔格式：姓名,帳號,權限,密碼（選填）
+                // 權限值：admin（系統管理員）、manager（資料管理者）、editor（審查人員）、viewer（檢視人員）
+                const csv = '姓名,帳號,權限,密碼\n張三,zhang@example.com,editor,password123\n李四,li@example.com,manager,password123\n王五,wang@example.com,viewer,\n趙六,zhao@example.com,admin,admin123';
+                const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = '帳號匯入範例.csv';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            })();
+        }
+
+        async function uploadUserCSVTemplate() {
+            const input = document.getElementById('userTemplateFile');
+            if (!input) return showToast('找不到檔案選擇器', 'error');
+            input.onchange = async function () {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                const name = String(file.name || '帳號匯入範例.csv');
+                if (!name.toLowerCase().endsWith('.csv')) {
+                    input.value = '';
+                    return showToast('請選擇 .csv 檔案', 'error');
+                }
+                try {
+                    const buf = await file.arrayBuffer();
+                    const dataBase64 = arrayBufferToBase64(buf);
+                    const res = await apiFetch('/api/templates/users-import-csv', {
+                        method: 'POST',
+                        body: JSON.stringify({ filename: name, dataBase64 })
+                    });
+                    const j = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        showToast(j.error || '上傳失敗', 'error');
+                        return;
+                    }
+                    showToast('已設為帳號匯入範例檔', 'success');
+                } catch (e) {
+                    showToast('上傳失敗：' + (e.message || '請稍後再試'), 'error');
+                } finally {
+                    input.value = '';
+                }
+            };
+            input.click();
         }
         
         async function importUsersCSV() {
@@ -5593,18 +5648,18 @@ if (dashboard) {
         
         function showSchedulePlanNumber(planNumber) {
             const displayDiv = document.getElementById('schedulePlanNumberDisplay');
-            const valueInput = document.getElementById('schedulePlanNumberValue');
-            if (displayDiv && valueInput) {
-                valueInput.value = planNumber || '';
+            const valueEl = document.getElementById('schedulePlanNumberValue');
+            if (displayDiv && valueEl) {
+                valueEl.textContent = planNumber || '';
                 displayDiv.style.display = 'block';
             }
         }
         
         function hideSchedulePlanNumber() {
             const displayDiv = document.getElementById('schedulePlanNumberDisplay');
-            const valueInput = document.getElementById('schedulePlanNumberValue');
+            const valueEl = document.getElementById('schedulePlanNumberValue');
             if (displayDiv) displayDiv.style.display = 'none';
-            if (valueInput) valueInput.value = '';
+            if (valueEl) valueEl.textContent = '-';
         }
 
         function schedulePrevMonth() {

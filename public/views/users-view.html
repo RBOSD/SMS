@@ -175,6 +175,21 @@
         </div>
     </div>
 
+    <!-- 帳號匯入範例檔 -->
+    <div class="detail-card" style="margin-bottom:30px;">
+        <div style="margin-bottom:16px;">
+            <h4 style="margin:0 0 8px 0; font-weight:600; color:#334155; font-size:16px;">👤 帳號匯入 CSV 範例檔</h4>
+            <p style="color:#64748b; font-size:13px; margin:0;">
+                「下載匯入範例」會優先下載你在這裡上傳設定的檔案；若尚未設定，系統會改用預設範例。
+            </p>
+        </div>
+        <input type="file" id="userTemplateFile" accept=".csv" style="display:none;">
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button class="btn btn-outline" onclick="downloadUserCSVTemplate()">📥 下載匯入範例</button>
+            <button class="btn btn-primary" onclick="uploadUserCSVTemplate()">📤 上傳並設為範例</button>
+        </div>
+    </div>
+
     <!-- 系統資料匯出 -->
     <div class="detail-card" style="margin-bottom:30px;">
         <div style="margin-bottom:16px;">
@@ -203,15 +218,6 @@
                 <label style="cursor:pointer; display:flex; align-items:center; gap:10px; padding:12px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s;" 
                     onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#eff6ff';" 
                     onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white';">
-                    <input type="radio" name="exportDataType" value="users" style="cursor:pointer;">
-                    <div style="flex:1;">
-                        <div style="font-weight:600; color:#334155; font-size:14px;">僅匯出帳號</div>
-                        <div style="font-size:12px; color:#64748b; margin-top:2px;">匯出系統帳號（不含密碼）</div>
-                    </div>
-                </label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:10px; padding:12px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s;" 
-                    onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#eff6ff';" 
-                    onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white';">
                     <input type="radio" name="exportDataType" value="plans" style="cursor:pointer;">
                     <div style="flex:1;">
                         <div style="font-weight:600; color:#334155; font-size:14px;">僅匯出檢查計畫</div>
@@ -225,6 +231,15 @@
                     <div style="flex:1;">
                         <div style="font-weight:600; color:#334155; font-size:14px;">匯出開立事項與檢查計畫（合併）</div>
                         <div style="font-size:12px; color:#64748b; margin-top:2px;">同時匯出開立事項和檢查計畫的完整資料</div>
+                    </div>
+                </label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:10px; padding:12px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s;" 
+                    onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#eff6ff';" 
+                    onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white';">
+                    <input type="radio" name="exportDataType" value="users" style="cursor:pointer;">
+                    <div style="flex:1;">
+                        <div style="font-weight:600; color:#334155; font-size:14px;">僅匯出帳號</div>
+                        <div style="font-size:12px; color:#64748b; margin-top:2px;">匯出系統帳號（不含密碼）</div>
                     </div>
                 </label>
             </div>
