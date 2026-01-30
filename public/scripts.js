@@ -2136,38 +2136,161 @@ if (dashboard) {
         }
 
         // --- 群組管理（後台 system tab）---
+        let adminSelectedGroupId = null;
+        let adminAllUsersCache = null;
+
+        async function loadAllUsersForAdmin(force = false) {
+            if (adminAllUsersCache && !force) return adminAllUsersCache;
+            const params = new URLSearchParams({ page: 1, pageSize: 10000, q: '', sortField: 'id', sortDir: 'asc', _t: Date.now() });
+            const res = await apiFetch('/api/users?' + params.toString());
+            if (!res.ok) {
+                const j = await res.json().catch(() => ({}));
+                throw new Error(j.error || '載入使用者失敗');
+            }
+            const j = await res.json();
+            adminAllUsersCache = j.data || [];
+            return adminAllUsersCache;
+        }
+
+        function renderGroupsFolderList() {
+            const body = document.getElementById('groupsFolderListBody');
+            if (!body) return;
+            const groups = Array.isArray(cachedGroupsForModal) ? cachedGroupsForModal : [];
+            if (groups.length === 0) {
+                body.innerHTML = '<div style="padding:12px; color:#64748b; font-size:13px;">尚無群組</div>';
+                return;
+            }
+            const selected = adminSelectedGroupId != null ? parseInt(adminSelectedGroupId, 10) : null;
+            body.innerHTML = groups.map(g => {
+                const id = parseInt(g.id, 10);
+                const name = g.name || `群組 ${id}`;
+                const active = (selected != null && id === selected);
+                return `<button type="button"
+                    onclick="selectGroupAdmin(${id})"
+                    style="width:100%; text-align:left; border:none; background:${active ? '#eff6ff' : '#ffffff'}; cursor:pointer; padding:10px 12px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                    <span style="font-weight:800; color:${active ? '#1d4ed8' : '#334155'}; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        📁 ${escapeHtml(name)}
+                    </span>
+                    <span style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+                        <span class="badge" style="background:#f8fafc;border:1px solid #e2e8f0;color:#64748b;">ID ${id}</span>
+                    </span>
+                </button>`;
+            }).join('');
+        }
+
         async function loadGroupsAdmin() {
-            const tbody = document.getElementById('groupsTableBody');
-            if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="2" style="padding:12px;color:#64748b;">載入中…</td></tr>';
+            const folderBody = document.getElementById('groupsFolderListBody');
+            const membersBody = document.getElementById('groupMembersBody');
+            if (folderBody) folderBody.innerHTML = '<div style="padding:12px; color:#64748b; font-size:13px;">載入中…</div>';
+            if (membersBody) membersBody.innerHTML = '<div style="padding:8px; color:#64748b; font-size:13px;">載入中…</div>';
             try {
                 const res = await apiFetch('/api/groups?_t=' + Date.now());
                 if (!res.ok) {
                     const j = await res.json().catch(() => ({}));
-                    tbody.innerHTML = `<tr><td colspan="2" style="padding:12px;color:#ef4444;">載入失敗：${escapeHtml(j.error || 'Denied')}</td></tr>`;
+                    if (folderBody) folderBody.innerHTML = `<div style="padding:12px; color:#ef4444; font-size:13px;">載入失敗：${escapeHtml(j.error || 'Denied')}</div>`;
                     return;
                 }
                 const j = await res.json();
                 const groups = j.data || [];
-                // 讓帳號列表可顯示群組名稱（已載入 users 時重畫一次）
                 cachedGroupsForModal = groups;
-                if (groups.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="2" style="padding:12px;color:#64748b;">尚無群組</td></tr>';
+                if (!adminSelectedGroupId && groups.length > 0) adminSelectedGroupId = groups[0].id;
+                renderGroupsFolderList();
+                try { renderUsers(); } catch (e) {}
+                await renderSelectedGroupMembers();
+            } catch (e) {
+                if (folderBody) folderBody.innerHTML = `<div style="padding:12px; color:#ef4444; font-size:13px;">載入失敗：${escapeHtml(e.message || 'error')}</div>`;
+            }
+        }
+
+        function selectGroupAdmin(groupId) {
+            adminSelectedGroupId = parseInt(groupId, 10);
+            renderGroupsFolderList();
+            renderSelectedGroupMembers();
+        }
+
+        function openRenameSelectedGroup() {
+            if (!adminSelectedGroupId) return showToast('請先選擇群組', 'error');
+            openRenameGroupModal(adminSelectedGroupId);
+        }
+
+        async function renderSelectedGroupMembers() {
+            const box = document.getElementById('groupMembersBody');
+            const nameEl = document.getElementById('selectedGroupName');
+            if (!box || !nameEl) return;
+            const groups = Array.isArray(cachedGroupsForModal) ? cachedGroupsForModal : [];
+            const gid = adminSelectedGroupId != null ? parseInt(adminSelectedGroupId, 10) : null;
+            const group = gid != null ? groups.find(g => parseInt(g.id, 10) === gid) : null;
+            nameEl.textContent = group ? (group.name || `群組 ${group.id}`) : '（請先選擇群組）';
+            if (!gid || !group) {
+                box.innerHTML = '<div style="padding:8px; color:#64748b; font-size:13px;">請先選擇群組</div>';
+                return;
+            }
+
+            let users;
+            try {
+                users = await loadAllUsersForAdmin(false);
+            } catch (e) {
+                box.innerHTML = `<div style="padding:8px; color:#ef4444; font-size:13px;">載入使用者失敗：${escapeHtml(e.message || 'error')}</div>`;
+                return;
+            }
+
+            const q = String(document.getElementById('groupUserSearch')?.value || '').trim().toLowerCase();
+            const showAdmins = document.getElementById('toggleShowAdminsInGroup')?.checked === true;
+
+            const rows = users
+                .filter(u => showAdmins ? true : (u.role !== 'admin'))
+                .filter(u => {
+                    if (!q) return true;
+                    const hay = `${u.name || ''} ${u.username || ''}`.toLowerCase();
+                    return hay.includes(q);
+                })
+                .map(u => {
+                    const member = Array.isArray(u.groupIds) && u.groupIds.map(x => parseInt(x, 10)).includes(gid);
+                    return `<label style="display:flex; align-items:flex-start; gap:10px; padding:8px 10px; border-radius:10px; background:${member ? '#eff6ff' : '#ffffff'}; border:1px solid ${member ? '#bfdbfe' : '#e2e8f0'}; margin-bottom:8px; cursor:pointer;">
+                        <input type="checkbox" style="margin-top:3px; width:16px; height:16px; cursor:pointer;" ${member ? 'checked' : ''} onchange="toggleUserInSelectedGroup(${u.id}, this.checked)">
+                        <div style="min-width:0;">
+                            <div style="font-weight:800; color:#334155; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                ${escapeHtml(u.name || u.username || '-')}
+                            </div>
+                            <div style="color:#64748b; font-size:12px; margin-top:2px;">
+                                ${escapeHtml(u.username || '-')} · ${escapeHtml(getRoleName(u.role))}
+                            </div>
+                        </div>
+                    </label>`;
+                });
+
+            box.innerHTML = rows.join('') || '<div style="padding:8px; color:#64748b; font-size:13px;">查無使用者</div>';
+        }
+
+        async function toggleUserInSelectedGroup(userId, checked) {
+            const gid = adminSelectedGroupId != null ? parseInt(adminSelectedGroupId, 10) : null;
+            if (!gid) return showToast('請先選擇群組', 'error');
+            try {
+                const users = await loadAllUsersForAdmin(false);
+                const u = users.find(x => parseInt(x.id, 10) === parseInt(userId, 10));
+                if (!u) return showToast('找不到使用者', 'error');
+                const cur = Array.isArray(u.groupIds) ? u.groupIds.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n)) : [];
+                const next = checked ? Array.from(new Set([...cur, gid])) : cur.filter(x => x !== gid);
+                const res = await apiFetch(`/api/users/${u.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ name: u.name, role: u.role, groupIds: next })
+                });
+                const j = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    showToast(j.error || '更新失敗', 'error');
+                    // revert by re-render
+                    await loadAllUsersForAdmin(true);
+                    await renderSelectedGroupMembers();
                     return;
                 }
-                tbody.innerHTML = groups.map(g => {
-                    const id = g.id;
-                    const name = g.name || `群組 ${id}`;
-                    return `<tr>
-                        <td style="padding:12px;">${escapeHtml(name)}</td>
-                        <td>
-                            <button class="btn btn-outline btn-sm" onclick="openRenameGroupModal(${id})">更名</button>
-                        </td>
-                    </tr>`;
-                }).join('');
-                try { renderUsers(); } catch (e) {}
+                // refresh caches and UI
+                await loadAllUsersForAdmin(true);
+                await loadUsersPage(usersPage || 1);
+                await renderSelectedGroupMembers();
             } catch (e) {
-                tbody.innerHTML = `<tr><td colspan="2" style="padding:12px;color:#ef4444;">載入失敗：${escapeHtml(e.message || 'error')}</td></tr>`;
+                showToast('更新失敗: ' + (e.message || 'error'), 'error');
+                try { await loadAllUsersForAdmin(true); } catch (_) {}
+                try { await renderSelectedGroupMembers(); } catch (_) {}
             }
         }
 
