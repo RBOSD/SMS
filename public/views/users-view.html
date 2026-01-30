@@ -158,6 +158,34 @@
         </p>
     </div>
 
+    <!-- 群組管理 -->
+    <div class="detail-card" style="margin-bottom:30px;">
+        <div style="margin-bottom:16px;">
+            <h4 style="margin:0 0 8px 0; font-weight:600; color:#334155; font-size:16px;">👥 群組管理</h4>
+            <p style="color:#64748b; font-size:13px; margin:0;">
+                用於「同群組可編輯」的權限控管。可新增群組、調整名稱（帳號可多群組隸屬）。
+            </p>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+            <input id="newGroupName" class="filter-input" placeholder="輸入新群組名稱..." style="max-width:260px;" autocomplete="off">
+            <button class="btn btn-primary btn-sm" onclick="createGroupAdmin()">新增群組</button>
+            <button class="btn btn-outline btn-sm" onclick="loadGroupsAdmin()">重新整理</button>
+        </div>
+        <div class="data-container">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th style="padding:12px;">群組名稱</th>
+                        <th style="width:140px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="groupsTableBody">
+                    <tr><td colspan="2" style="padding:12px;color:#64748b;">載入中…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- 匯入範例檔管理（檢查計畫 / 帳號） -->
     <div class="detail-card" style="margin-bottom:30px;">
         <div style="margin-bottom:16px;">

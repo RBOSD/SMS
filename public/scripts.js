@@ -2095,7 +2095,82 @@ if (dashboard) {
                 setTimeout(() => { 
                     try { setupAdminElements(); } catch (e) {}
                     try { setupExportOptions(); } catch (e) {} 
+                    try { loadGroupsAdmin(); } catch (e) {}
                 }, 50);
+            }
+        }
+
+        // --- 群組管理（後台 system tab）---
+        async function loadGroupsAdmin() {
+            const tbody = document.getElementById('groupsTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="2" style="padding:12px;color:#64748b;">載入中…</td></tr>';
+            try {
+                const res = await apiFetch('/api/groups?_t=' + Date.now());
+                if (!res.ok) {
+                    const j = await res.json().catch(() => ({}));
+                    tbody.innerHTML = `<tr><td colspan="2" style="padding:12px;color:#ef4444;">載入失敗：${escapeHtml(j.error || 'Denied')}</td></tr>`;
+                    return;
+                }
+                const j = await res.json();
+                const groups = j.data || [];
+                if (groups.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="2" style="padding:12px;color:#64748b;">尚無群組</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = groups.map(g => {
+                    const id = g.id;
+                    const name = g.name || `群組 ${id}`;
+                    return `<tr>
+                        <td style="padding:12px;">${escapeHtml(name)}</td>
+                        <td>
+                            <button class="btn btn-outline btn-sm" onclick="renameGroupAdmin(${id}, ${JSON.stringify(name)})">更名</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="2" style="padding:12px;color:#ef4444;">載入失敗：${escapeHtml(e.message || 'error')}</td></tr>`;
+            }
+        }
+
+        async function createGroupAdmin() {
+            const input = document.getElementById('newGroupName');
+            const name = String(input?.value || '').trim();
+            if (!name) return showToast('請輸入群組名稱', 'error');
+            try {
+                const res = await apiFetch('/api/groups', {
+                    method: 'POST',
+                    body: JSON.stringify({ name })
+                });
+                const j = await res.json().catch(() => ({}));
+                if (!res.ok) return showToast(j.error || '新增群組失敗', 'error');
+                if (input) input.value = '';
+                showToast('新增群組成功', 'success');
+                // user modal 群組快取需要刷新
+                cachedGroupsForModal = null;
+                await loadGroupsAdmin();
+            } catch (e) {
+                showToast('新增群組失敗: ' + e.message, 'error');
+            }
+        }
+
+        async function renameGroupAdmin(id, currentName) {
+            const name = prompt('請輸入新的群組名稱', currentName || '');
+            if (name == null) return;
+            const trimmed = String(name).trim();
+            if (!trimmed) return showToast('群組名稱不可為空', 'error');
+            try {
+                const res = await apiFetch(`/api/groups/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ name: trimmed })
+                });
+                const j = await res.json().catch(() => ({}));
+                if (!res.ok) return showToast(j.error || '更新群組失敗', 'error');
+                showToast('更新群組成功', 'success');
+                cachedGroupsForModal = null;
+                await loadGroupsAdmin();
+            } catch (e) {
+                showToast('更新群組失敗: ' + e.message, 'error');
             }
         }
 
@@ -4852,7 +4927,70 @@ if (dashboard) {
         }
 
         // User CRUD
-        async function openUserModal(mode, id) { const m = document.getElementById('userModal'), t = document.getElementById('userModalTitle'), e = document.getElementById('uEmail'); if (mode === 'create') { t.innerText = '新增'; document.getElementById('targetUserId').value = ''; document.getElementById('uName').value = ''; e.value = ''; e.disabled = false; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('pwdHint').innerText = ''; document.getElementById('uRole').value = 'viewer'; } else { const u = userList.find(x => x.id === id) || {}; t.innerText = '編輯'; document.getElementById('targetUserId').value = u.id || ''; document.getElementById('uName').value = u.name || ''; e.value = u.username || ''; e.disabled = true; document.getElementById('uPwd').value = ''; document.getElementById('uPwdConfirm').value = ''; document.getElementById('pwdHint').innerText = '(留空不改)'; document.getElementById('pwdStrength').innerText = '密碼強度: -'; document.getElementById('uRole').value = u.role || 'viewer'; } m.classList.add('open'); }
+        let cachedGroupsForModal = null;
+        async function ensureGroupsForUserModalLoaded() {
+            const sel = document.getElementById('uGroups');
+            if (!sel) return;
+            if (cachedGroupsForModal) return;
+            try {
+                const res = await apiFetch('/api/groups?_t=' + Date.now());
+                if (!res.ok) throw new Error('載入群組失敗');
+                const j = await res.json();
+                cachedGroupsForModal = j.data || [];
+            } catch (e) {
+                cachedGroupsForModal = [];
+            }
+        }
+        function renderUserGroupsSelect(selectedIds) {
+            const sel = document.getElementById('uGroups');
+            if (!sel) return;
+            const selected = new Set((selectedIds || []).map(x => parseInt(x, 10)).filter(n => Number.isFinite(n)));
+            const groups = Array.isArray(cachedGroupsForModal) ? cachedGroupsForModal : [];
+            if (groups.length === 0) {
+                sel.innerHTML = '<option value="">（尚無群組）</option>';
+                return;
+            }
+            sel.innerHTML = groups.map(g => {
+                const id = g.id;
+                const name = g.name || `群組 ${id}`;
+                const isSel = selected.has(parseInt(id, 10));
+                return `<option value="${id}" ${isSel ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+            }).join('');
+        }
+        async function openUserModal(mode, id) {
+            const m = document.getElementById('userModal');
+            const t = document.getElementById('userModalTitle');
+            const e = document.getElementById('uEmail');
+            const groupIds = [];
+            if (mode === 'create') {
+                t.innerText = '新增';
+                document.getElementById('targetUserId').value = '';
+                document.getElementById('uName').value = '';
+                e.value = '';
+                e.disabled = false;
+                document.getElementById('uPwd').value = '';
+                document.getElementById('uPwdConfirm').value = '';
+                document.getElementById('pwdStrength').innerText = '密碼強度: -';
+                document.getElementById('pwdHint').innerText = '';
+                document.getElementById('uRole').value = 'viewer';
+            } else {
+                const u = userList.find(x => x.id === id) || {};
+                t.innerText = '編輯';
+                document.getElementById('targetUserId').value = u.id || '';
+                document.getElementById('uName').value = u.name || '';
+                e.value = u.username || '';
+                e.disabled = true;
+                document.getElementById('uPwd').value = '';
+                document.getElementById('uPwdConfirm').value = '';
+                document.getElementById('pwdHint').innerText = '(留空不改)';
+                document.getElementById('pwdStrength').innerText = '密碼強度: -';
+                document.getElementById('uRole').value = u.role || 'viewer';
+                if (Array.isArray(u.groupIds)) groupIds.push(...u.groupIds);
+            }
+            await ensureGroupsForUserModalLoaded();
+            renderUserGroupsSelect(groupIds);
+            m.classList.add('open');
+        }
         async function submitUser() { 
             const id = document.getElementById('targetUserId').value, 
                 name = document.getElementById('uName').value, 
@@ -4860,6 +4998,10 @@ if (dashboard) {
                 pwd = document.getElementById('uPwd').value, 
                 pwdConfirm = document.getElementById('uPwdConfirm').value, 
                 role = document.getElementById('uRole').value; 
+            const groupsSelect = document.getElementById('uGroups');
+            const groupIds = groupsSelect
+                ? Array.from(groupsSelect.selectedOptions || []).map(o => parseInt(o.value, 10)).filter(n => Number.isFinite(n))
+                : [];
             
             if (!id) { 
                 if (!email) return showToast('請輸入帳號', 'error'); 
@@ -4872,7 +5014,7 @@ if (dashboard) {
                 
                 const res = await apiFetch('/api/users', { 
                     method: 'POST', 
-                    body: JSON.stringify({ username: email, name, password: pwd, role }) 
+                    body: JSON.stringify({ username: email, name, password: pwd, role, groupIds }) 
                 }); 
                 const j = await res.json(); 
                 if (res.ok) { 
@@ -4882,6 +5024,7 @@ if (dashboard) {
                 } else showToast(j.error || '新增失敗', 'error'); 
             } else { 
                 const payload = { name, role }; 
+                payload.groupIds = groupIds;
                 if (pwd) { 
                     if (pwd !== pwdConfirm) return showToast('密碼與確認密碼不符', 'error'); 
                     

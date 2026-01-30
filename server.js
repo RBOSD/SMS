@@ -160,6 +160,42 @@ const protectHtmlPages = (req, res, next) => {
 // 應用路由保護（在靜態檔案服務之前）
 app.use(protectHtmlPages);
 
+// 管理頁面模板權限（避免僅靠前端隱藏）
+// - 一般帳號：可看查詢/月曆等業務內容
+// - 但不可取得「資料管理 / 後台管理」的 view HTML
+app.use((req, res, next) => {
+    // 只處理 views 下的 html 模板
+    if (!(req.path && req.path.startsWith('/views/') && req.path.endsWith('.html'))) {
+        return next();
+    }
+
+    // 已由 protectHtmlPages 保證登入（.html 需登入）；這裡再做角色限制
+    const role = req.session?.user?.role;
+    const requireRole = (allowed) => {
+        if (!role || !allowed.includes(role)) {
+            return res.status(403).send(
+                `<div style="padding:24px;font-family:system-ui,'Noto Sans TC',sans-serif;color:#0f172a;">
+                    <h3 style="margin:0 0 8px 0;">權限不足</h3>
+                    <div style="color:#64748b;font-size:14px;line-height:1.6;">
+                        您沒有權限存取此管理頁面。
+                    </div>
+                </div>`
+            );
+        }
+        return next();
+    };
+
+    // 後台管理（僅 admin）
+    if (req.path === '/views/users-view.html') {
+        return requireRole(['admin']);
+    }
+    // 資料管理（admin/manager）
+    if (req.path === '/views/import-view.html' || req.path === '/views/plans-view.html') {
+        return requireRole(['admin', 'manager']);
+    }
+    return next();
+});
+
 // 靜態檔案服務
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -177,6 +213,42 @@ const requireAdminOrManager = (req, res, next) => {
     }
     next();
 };
+
+// --- Groups / record-level authorization helpers ---
+async function getUserGroupIds(userId, db = pool) {
+    const r = await db.query('SELECT group_id FROM user_groups WHERE user_id = $1', [userId]);
+    return (r.rows || []).map(x => parseInt(x.group_id, 10)).filter(n => Number.isFinite(n));
+}
+
+async function getPrimaryGroupId(userId, db = pool) {
+    const r = await db.query('SELECT group_id FROM user_groups WHERE user_id = $1 ORDER BY group_id ASC LIMIT 1', [userId]);
+    const gid = r.rows[0]?.group_id;
+    const n = gid != null ? parseInt(gid, 10) : null;
+    return Number.isFinite(n) ? n : null;
+}
+
+async function canEditByOwnership(user, record, db = pool) {
+    // user: { id, role }
+    // record: { owner_group_id, owner_user_id, edit_mode }
+    if (!user || !user.id) return false;
+    if (user.role === 'admin') return true; // rescue
+
+    const ownerUserId = record?.owner_user_id != null ? parseInt(record.owner_user_id, 10) : null;
+    const ownerGroupId = record?.owner_group_id != null ? parseInt(record.owner_group_id, 10) : null;
+    const mode = String(record?.edit_mode || 'GROUP').toUpperCase();
+
+    if (ownerUserId && user.id === ownerUserId) return true;
+
+    if (mode === 'OWNER_ONLY') {
+        return ownerUserId != null && user.id === ownerUserId;
+    }
+
+    // legacy (owner_group_id 未設定) → 開發中先不擋，避免舊資料無法操作
+    if (!ownerGroupId) return true;
+
+    const gids = await getUserGroupIds(user.id, db);
+    return gids.includes(ownerGroupId);
+}
 
 // 統一的 API 錯誤處理函數
 function handleApiError(e, req, res, context) {
@@ -308,6 +380,9 @@ async function initDB() {
                     review TEXT,
                     plan_name TEXT,
                     issue_date TEXT,
+                    owner_group_id INTEGER,
+                    owner_user_id INTEGER,
+                    edit_mode TEXT DEFAULT 'GROUP',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
@@ -328,6 +403,19 @@ async function initDB() {
                     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT true`);
                 } catch (e) {}
 
+                // Groups / User groups (多群組隸屬)
+                await client.query(`CREATE TABLE IF NOT EXISTS groups (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )`);
+                await client.query(`CREATE TABLE IF NOT EXISTS user_groups (
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, group_id)
+                )`);
+
                 // 檢查計畫單一表（原 inspection_plan_schedule）：月曆排程 + 取號 等，不再使用 inspection_plans
                 await client.query(`CREATE TABLE IF NOT EXISTS inspection_plan_schedule (
                     id SERIAL PRIMARY KEY,
@@ -343,6 +431,9 @@ async function initDB() {
                     plan_number TEXT NOT NULL,
                     location TEXT,
                     inspector TEXT,
+                    owner_group_id INTEGER,
+                    owner_user_id INTEGER,
+                    edit_mode TEXT DEFAULT 'GROUP',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
@@ -377,6 +468,17 @@ async function initDB() {
                     await client.query(`CREATE INDEX IF NOT EXISTS idx_schedule_start_date ON inspection_plan_schedule(start_date)`);
                     await client.query(`CREATE INDEX IF NOT EXISTS idx_schedule_year ON inspection_plan_schedule(year)`);
                 } catch (e) {}
+                // 取號唯一性：同年度+鐵路機構+檢查類別下，inspection_seq（不含 00 主檔）不得重複
+                // 注意：若既有資料已重複，建立唯一索引會失敗，但開發中可忽略並於清庫後自動生效
+                try {
+                    await client.query(`
+                        CREATE UNIQUE INDEX IF NOT EXISTS uq_schedule_seq
+                        ON inspection_plan_schedule(year, railway, inspection_type, inspection_seq)
+                        WHERE inspection_seq <> '00'
+                    `);
+                } catch (e) {
+                    console.warn('Create uq_schedule_seq index warning:', e?.message || e);
+                }
                 await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS planned_count INTEGER`);
 
                 // 遷移：若曾使用 inspection_plans，將僅存於該表的 (name,year) 補進 schedule 後刪除 inspection_plans
@@ -450,6 +552,16 @@ async function initDB() {
                     } catch (e) { }
                 }
 
+                // Issues ownership / edit mode（向後兼容）
+                try { await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS owner_group_id INTEGER`); } catch (e) {}
+                try { await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS owner_user_id INTEGER`); } catch (e) {}
+                try { await client.query(`ALTER TABLE issues ADD COLUMN IF NOT EXISTS edit_mode TEXT DEFAULT 'GROUP'`); } catch (e) {}
+
+                // Plan schedule ownership / edit mode（向後兼容）
+                try { await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS owner_group_id INTEGER`); } catch (e) {}
+                try { await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS owner_user_id INTEGER`); } catch (e) {}
+                try { await client.query(`ALTER TABLE inspection_plan_schedule ADD COLUMN IF NOT EXISTS edit_mode TEXT DEFAULT 'GROUP'`); } catch (e) {}
+
                 // Create Default Admin if no users exist
                 const userRes = await client.query("SELECT count(*) as count FROM users");
                 if (parseInt(userRes.rows[0].count) === 0) {
@@ -465,6 +577,28 @@ async function initDB() {
                     console.log("密碼: " + (process.env.DEFAULT_ADMIN_PASSWORD ? "使用環境變數設定" : defaultPassword));
                     console.log("請立即登入並修改密碼！");
                     console.log("===========================================");
+                }
+
+                // Ensure default group exists, and admin is assigned (for fresh installs)
+                try {
+                    const gRes = await client.query("SELECT id FROM groups ORDER BY id ASC LIMIT 1");
+                    let defaultGroupId = gRes.rows[0]?.id;
+                    if (!defaultGroupId) {
+                        const ins = await client.query("INSERT INTO groups (name) VALUES ($1) RETURNING id", ['預設群組']);
+                        defaultGroupId = ins.rows[0]?.id;
+                    }
+                    if (defaultGroupId) {
+                        const aRes = await client.query("SELECT id FROM users WHERE username = $1 LIMIT 1", ['admin']);
+                        const adminId = aRes.rows[0]?.id;
+                        if (adminId) {
+                            await client.query(
+                                "INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                                [adminId, defaultGroupId]
+                            );
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Default group/admin mapping warning:', e?.message || e);
                 }
                 
                 console.log('Database initialized successfully.');
@@ -728,16 +862,28 @@ app.post('/api/auth/logout', (req, res) => {
 app.get('/api/auth/me', async (req, res) => {
     if (req.session && req.session.user) {
         try {
-            const result = await pool.query("SELECT id, username, name, role FROM users WHERE id = $1", [req.session.user.id]);
+            const result = await pool.query(
+                `SELECT u.id, u.username, u.name, u.role,
+                        COALESCE(array_agg(ug.group_id) FILTER (WHERE ug.group_id IS NOT NULL), '{}') AS group_ids
+                 FROM users u
+                 LEFT JOIN user_groups ug ON ug.user_id = u.id
+                 WHERE u.id = $1
+                 GROUP BY u.id`,
+                [req.session.user.id]
+            );
             const latestUser = result.rows[0];
 
             if (!latestUser) {
                 req.session.destroy();
                 return res.json({ isLogin: false });
             }
-            req.session.user = latestUser;
+            // session 只保留必要欄位
+            req.session.user = { id: latestUser.id, username: latestUser.username, role: latestUser.role, name: latestUser.name };
             res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-            res.json({ isLogin: true, ...latestUser });
+            const groupIds = Array.isArray(latestUser.group_ids)
+                ? latestUser.group_ids.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n))
+                : [];
+            res.json({ isLogin: true, id: latestUser.id, username: latestUser.username, name: latestUser.name, role: latestUser.role, groupIds });
         } catch (e) {
             console.error("Auth check db error:", e);
             res.json({ isLogin: false });
@@ -907,9 +1053,24 @@ app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
     const replyField = `reply_date_r${r}`;
     const respField = `response_date_r${r}`;
     try {
+        // 角色限制：viewer 不可寫入
+        const role = req.session?.user?.role;
+        if (!['admin', 'manager', 'editor'].includes(role)) {
+            return res.status(403).json({ error: 'Denied' });
+        }
+
+        // 讀取歸屬以判斷是否可編輯
+        const issueMetaRes = await pool.query(
+            "SELECT id, number, status, owner_group_id, owner_user_id, edit_mode FROM issues WHERE id=$1",
+            [id]
+        );
+        if (issueMetaRes.rows.length === 0) return res.status(404).json({ error: 'Issue not found' });
+        const issueMeta = issueMetaRes.rows[0];
+        const canEdit = await canEditByOwnership({ id: req.session.user.id, role }, issueMeta, pool);
+        if (!canEdit) return res.status(403).json({ error: 'Denied' });
+
         // 先查詢 issue number
-        const issueRes = await pool.query("SELECT number FROM issues WHERE id=$1", [id]);
-        const issueNumber = issueRes.rows[0]?.number || `ID:${id}`;
+        const issueNumber = issueMeta.number || `ID:${id}`;
         
         // 如果超過預設欄位範圍（30次），動態創建欄位
         if (r > 30) {
@@ -924,6 +1085,34 @@ app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
                     console.error('Error creating columns:', colError);
                 }
             }
+        }
+
+        // editor 僅允許更新「審查意見（reviewN）」與（可選）狀態
+        if (role === 'editor') {
+            const updateParts = [];
+            const params = [];
+            let idx = 1;
+            if (review !== undefined) {
+                updateParts.push(`${rField}=$${idx++}`);
+                params.push(review || '');
+            }
+            if (status !== undefined) {
+                updateParts.push(`status=$${idx++}`);
+                params.push(status);
+            }
+            // 允許更新本次函復日期（若前端有送），避免 reviewer 流程卡住；不允許改 replyDate（機構回復）
+            if (responseDate !== undefined) {
+                updateParts.push(`${respField}=$${idx++}`);
+                params.push(responseDate || '');
+            }
+            if (updateParts.length === 0) {
+                return res.status(400).json({ error: 'No editable fields' });
+            }
+            updateParts.push(`updated_at=CURRENT_TIMESTAMP`);
+            params.push(id);
+            await pool.query(`UPDATE issues SET ${updateParts.join(', ')} WHERE id=$${idx}`, params);
+            logAction(req.session.user.username, 'UPDATE_ISSUE', `更新開立事項：編號 ${issueNumber}，第 ${r} 次審查（review）`, req);
+            return res.json({ success: true });
         }
         
         // 構建更新語句，如果提供了 content 或 issueDate 則包含它們
@@ -1020,9 +1209,19 @@ app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
 
 app.delete('/api/issues/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     try {
-        // 先查詢 issue number 再刪除
-        const issueRes = await pool.query("SELECT number FROM issues WHERE id=$1", [req.params.id]);
+        // 先查詢 issue number / 歸屬再刪除
+        const issueRes = await pool.query(
+            "SELECT number, owner_group_id, owner_user_id, edit_mode FROM issues WHERE id=$1",
+            [req.params.id]
+        );
+        if (issueRes.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const issueNumber = issueRes.rows[0]?.number || `ID:${req.params.id}`;
+        const canEdit = await canEditByOwnership(
+            { id: req.session.user.id, role: req.session.user.role },
+            issueRes.rows[0],
+            pool
+        );
+        if (!canEdit) return res.status(403).json({ error: 'Denied' });
         
         await pool.query("DELETE FROM issues WHERE id=$1", [req.params.id]);
         logAction(req.session.user.username, 'DELETE_ISSUE', `刪除開立事項：編號 ${issueNumber}`, req);
@@ -1037,6 +1236,28 @@ app.post('/api/issues/batch-delete', requireAuth, verifyCsrf, async (req, res) =
     if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
     const { ids } = req.body;
     try {
+        if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids required' });
+
+        // 權限檢查（避免跨組批次刪除）
+        if (req.session.user.role !== 'admin') {
+            const rows = await pool.query(
+                "SELECT id, number, owner_group_id, owner_user_id, edit_mode FROM issues WHERE id = ANY($1)",
+                [ids]
+            );
+            const denied = [];
+            for (const row of (rows.rows || [])) {
+                const ok = await canEditByOwnership(
+                    { id: req.session.user.id, role: req.session.user.role },
+                    row,
+                    pool
+                );
+                if (!ok) denied.push(row.number || `ID:${row.id}`);
+            }
+            if (denied.length > 0) {
+                return res.status(403).json({ error: `Denied: ${denied.slice(0, 10).join(', ')}${denied.length > 10 ? '...' : ''}` });
+            }
+        }
+
         // 先查詢所有要刪除的編號
         const issueRes = await pool.query("SELECT number FROM issues WHERE id = ANY($1)", [ids]);
         const numbers = issueRes.rows.map(r => r.number).filter(Boolean);
@@ -1058,11 +1279,16 @@ app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, a
         await client.query('BEGIN');
         const duplicateNumbers = [];
         const operationResults = []; // 記錄每個項目的操作類型
+        const ownerGroupId = await getPrimaryGroupId(req.session.user.id, client);
+        const ownerUserId = req.session.user.id;
         
         for (const item of data) {
             // 使用精確匹配查詢編號（區分大小寫，去除前後空格）
             const trimmedNumber = (item.number || '').trim();
-            const check = await client.query("SELECT id, content FROM issues WHERE TRIM(number) = $1", [trimmedNumber]);
+            const check = await client.query(
+                "SELECT id, content, owner_group_id, owner_user_id, edit_mode FROM issues WHERE TRIM(number) = $1",
+                [trimmedNumber]
+            );
             if (check.rows.length > 0) {
                 // 如果是新增事項（round=1）且不允許更新，檢查內容是否相同
                 // 只有在編號已存在、內容不同、且現有內容不為空時，才視為重複編號錯誤
@@ -1081,6 +1307,17 @@ app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, a
                     // 如果內容相同或現有內容為空，允許更新（視為正常的新增/更新操作）
                 }
                 
+                // 權限：只能更新自己群組（或 admin rescue）
+                const canEdit = await canEditByOwnership(
+                    { id: req.session.user.id, role: req.session.user.role },
+                    check.rows[0],
+                    client
+                );
+                if (!canEdit) {
+                    operationResults.push({ number: trimmedNumber, action: 'skipped_no_permission' });
+                    continue;
+                }
+
                 // 允許更新：更新現有記錄
                 const hCol = r===1 ? 'handling' : `handling${r}`;
                 const rCol = r===1 ? 'review' : `review${r}`;
@@ -1129,13 +1366,15 @@ app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, a
                 await client.query(
                     `INSERT INTO issues (
                         number, year, unit, content, status, item_kind_code, category, division_name, inspection_category_name,
-                        handling, review, plan_name, issue_date, response_date_r1, reply_date_r1
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+                        handling, review, plan_name, issue_date, response_date_r1, reply_date_r1,
+                        owner_group_id, owner_user_id, edit_mode
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
                     [
                         trimmedNumber, item.year, item.unit, item.content, item.status||'持續列管',
                         item.itemKindCode, item.category, item.divisionName, item.inspectionCategoryName,
                         item.handling||'', item.review||'', item.planName || null, item.issueDate || null, 
-                        reviewDate || '', itemReplyDate
+                        reviewDate || '', itemReplyDate,
+                        ownerGroupId, ownerUserId, 'GROUP'
                     ]
                 );
                 // 記錄為新增操作
@@ -1157,11 +1396,14 @@ app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, a
         
         // 統計新增和更新的項目（使用操作記錄）
         let newCount = 0, updateCount = 0;
+        let skippedNoPermission = 0;
         const results = operationResults.map(op => {
             if (op.action === 'created') {
                 newCount++;
-            } else {
+            } else if (op.action === 'updated') {
                 updateCount++;
+            } else if (op.action === 'skipped_no_permission') {
+                skippedNoPermission++;
             }
             return op;
         });
@@ -1174,6 +1416,7 @@ app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, a
             count: data.length,
             newCount: newCount,
             updateCount: updateCount,
+            skippedNoPermission,
             results: results
         });
     } catch (e) {
@@ -1184,6 +1427,42 @@ app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, a
     }
 });
 
+// --- Groups API ---
+app.get('/api/groups', requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+        const r = await pool.query("SELECT id, name FROM groups ORDER BY name ASC, id ASC");
+        res.json({ data: r.rows || [] });
+    } catch (e) {
+        handleApiError(e, req, res, 'Get groups error');
+    }
+});
+
+app.post('/api/groups', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: '群組名稱為必填' });
+    try {
+        const r = await pool.query("INSERT INTO groups (name) VALUES ($1) RETURNING id, name", [name]);
+        logAction(req.session.user.username, 'CREATE_GROUP', `新增群組：${name}`, req).catch(() => {});
+        res.json({ success: true, group: r.rows[0] });
+    } catch (e) {
+        handleApiError(e, req, res, 'Create group error');
+    }
+});
+
+app.put('/api/groups/:id', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const name = String(req.body?.name || '').trim();
+    if (!id) return res.status(400).json({ error: 'Invalid id' });
+    if (!name) return res.status(400).json({ error: '群組名稱為必填' });
+    try {
+        await pool.query("UPDATE groups SET name = $1 WHERE id = $2", [name, id]);
+        logAction(req.session.user.username, 'UPDATE_GROUP', `更新群組：ID ${id} → ${name}`, req).catch(() => {});
+        res.json({ success: true });
+    } catch (e) {
+        handleApiError(e, req, res, 'Update group error');
+    }
+});
+
 // --- User Management API ---
 
 app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
@@ -1191,22 +1470,43 @@ app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
     const limit = parseInt(pageSize);
     const offset = (page-1)*limit;
     let where = ["1=1"], params = [], idx = 1;
-    if(q) { where.push(`(username LIKE $${idx} OR name LIKE $${idx})`); params.push(`%${q}%`); idx++; }
+    if(q) { where.push(`(u.username LIKE $${idx} OR u.name LIKE $${idx})`); params.push(`%${q}%`); idx++; }
     const safeSortFields = ['id', 'username', 'name', 'role', 'created_at'];
     const safeField = safeSortFields.includes(sortField) ? sortField : 'id';
-    const order = `${safeField} ${sortDir==='desc'?'DESC':'ASC'}`;
+    const order = `u.${safeField} ${sortDir==='desc'?'DESC':'ASC'}`;
     try {
         const cRes = await pool.query(`SELECT count(*) FROM users WHERE ${where.join(" AND ")}`, params);
         const total = parseInt(cRes.rows[0].count);
-        const dRes = await pool.query(`SELECT id, username, name, role, created_at FROM users WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT $${idx} OFFSET $${idx+1}`, [...params, limit, offset]);
-        res.json({data:dRes.rows, total, page: parseInt(page), pages: Math.ceil(total/limit)});
+        const dRes = await pool.query(
+            `SELECT u.id, u.username, u.name, u.role, u.created_at,
+                    COALESCE(array_agg(ug.group_id) FILTER (WHERE ug.group_id IS NOT NULL), '{}') AS group_ids
+             FROM users u
+             LEFT JOIN user_groups ug ON ug.user_id = u.id
+             WHERE ${where.join(" AND ")}
+             GROUP BY u.id
+             ORDER BY ${order}
+             LIMIT $${idx} OFFSET $${idx+1}`,
+            [...params, limit, offset]
+        );
+        const users = (dRes.rows || []).map(u => ({
+            id: u.id,
+            username: u.username,
+            name: u.name,
+            role: u.role,
+            created_at: u.created_at,
+            groupIds: Array.isArray(u.group_ids) ? u.group_ids.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n)) : []
+        }));
+        res.json({data: users, total, page: parseInt(page), pages: Math.ceil(total/limit)});
     } catch (e) { 
         handleApiError(e, req, res, 'Get users error');
     }
 });
 
 app.post('/api/users', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
-    const { username, password, name, role } = req.body;
+    const { username, password, name, role, groupIds } = req.body;
+    const gids = Array.isArray(groupIds)
+        ? groupIds.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n))
+        : null; // null = 不更新群組
     try {
         // Basic Validation
         if (!username || !password) return res.status(400).json({error: 'Username and password required'});
@@ -1218,7 +1518,23 @@ app.post('/api/users', requireAuth, requireAdmin, verifyCsrf, async (req, res) =
         }
         
         const hash = bcrypt.hashSync(password, 10);
-        await pool.query("INSERT INTO users (username, password, name, role, must_change_password) VALUES ($1, $2, $3, $4, $5)", [username, hash, name, role, true]);
+        const ins = await pool.query(
+            "INSERT INTO users (username, password, name, role, must_change_password) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+            [username, hash, name, role, true]
+        );
+        const newId = ins.rows[0]?.id;
+        if (newId && gids) {
+            // 驗證群組存在
+            const gRows = await pool.query("SELECT id FROM groups WHERE id = ANY($1)", [gids]);
+            const allowedIds = new Set((gRows.rows || []).map(r => parseInt(r.id, 10)));
+            for (const gid of gids) {
+                if (!allowedIds.has(gid)) continue;
+                await pool.query(
+                    "INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                    [newId, gid]
+                );
+            }
+        }
         logAction(req.session.user.username, 'CREATE_USER', `新增使用者：${name} (${username})，權限：${role}`, req);
         res.json({success:true});
     } catch (e) { 
@@ -1227,8 +1543,11 @@ app.post('/api/users', requireAuth, requireAdmin, verifyCsrf, async (req, res) =
 });
 
 app.put('/api/users/:id', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
-    const { name, password, role } = req.body;
-    const id = req.params.id;
+    const { name, password, role, groupIds } = req.body;
+    const id = parseInt(req.params.id, 10);
+    const gids = Array.isArray(groupIds)
+        ? groupIds.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n))
+        : null; // null = 不更新群組
     try {
         // 先查詢使用者資訊以便記錄
         const userRes = await pool.query("SELECT username, name FROM users WHERE id=$1", [id]);
@@ -1236,18 +1555,45 @@ app.put('/api/users/:id', requireAuth, requireAdmin, verifyCsrf, async (req, res
         const targetUsername = targetUser ? targetUser.username : `ID:${id}`;
         const targetName = targetUser ? targetUser.name : '未知';
         
-        if (password) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            if (password) {
             // 驗證密碼複雜度
             const passwordValidation = validatePassword(password);
             if (!passwordValidation.valid) {
+                await client.query('ROLLBACK');
                 return res.status(400).json({ error: passwordValidation.message });
             }
             const hash = bcrypt.hashSync(password, 10);
-            await pool.query("UPDATE users SET name=$1, role=$2, password=$3, must_change_password=$4 WHERE id=$5", [name, role, hash, true, id]);
+            await client.query("UPDATE users SET name=$1, role=$2, password=$3, must_change_password=$4 WHERE id=$5", [name, role, hash, true, id]);
             logAction(req.session.user.username, 'UPDATE_USER', `修改使用者：${targetName} (${targetUsername})，已更新姓名、權限和密碼`, req);
         } else {
-            await pool.query("UPDATE users SET name=$1, role=$2 WHERE id=$3", [name, role, id]);
+            await client.query("UPDATE users SET name=$1, role=$2 WHERE id=$3", [name, role, id]);
             logAction(req.session.user.username, 'UPDATE_USER', `修改使用者：${targetName} (${targetUsername})，已更新姓名和權限`, req);
+        }
+
+            if (gids !== null) {
+                // replace mappings
+                await client.query("DELETE FROM user_groups WHERE user_id = $1", [id]);
+                if (gids.length > 0) {
+                    const gRows = await client.query("SELECT id FROM groups WHERE id = ANY($1)", [gids]);
+                    const allowedIds = new Set((gRows.rows || []).map(r => parseInt(r.id, 10)));
+                    for (const gid of gids) {
+                        if (!allowedIds.has(gid)) continue;
+                        await client.query(
+                            "INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                            [id, gid]
+                        );
+                    }
+                }
+            }
+            await client.query('COMMIT');
+        } catch (e) {
+            try { await client.query('ROLLBACK'); } catch (_) {}
+            throw e;
+        } finally {
+            client.release();
         }
         res.json({success:true});
     } catch (e) { 
@@ -1931,10 +2277,14 @@ app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (re
         if (exists.rows.length > 0) {
             return res.status(400).json({ error: `計畫名稱「${n}」在年度「${y}」已存在` });
         }
+        const ownerGroupId = await getPrimaryGroupId(req.session.user.id, pool);
+        const ownerUserId = req.session.user.id;
         await pool.query(
-            `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, planned_count)
-             VALUES (NULL, NULL, $1, $2, $3, $4, $5, '00', '(手動)', $6)`,
-            [n, y, rCode, it, b, pc]
+            `INSERT INTO inspection_plan_schedule (
+                start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, planned_count,
+                owner_group_id, owner_user_id, edit_mode
+             ) VALUES (NULL, NULL, $1, $2, $3, $4, $5, '00', '(手動)', $6, $7, $8, $9)`,
+            [n, y, rCode, it, b, pc, ownerGroupId, ownerUserId, 'GROUP']
         );
         logAction(req.session.user.username, 'CREATE_PLAN', `新增檢查計畫：${n} (年度：${y})`, req);
         res.json({success:true});
@@ -1948,10 +2298,16 @@ app.put('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, async 
     const id = req.params.id;
     try {
         const planRes = await pool.query(
-            "SELECT plan_name AS name, year FROM inspection_plan_schedule WHERE id = $1",
+            "SELECT id, plan_name AS name, year, owner_group_id, owner_user_id, edit_mode FROM inspection_plan_schedule WHERE id = $1",
             [id]
         );
         if (planRes.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
+        const canEdit = await canEditByOwnership(
+            { id: req.session.user.id, role: req.session.user.role },
+            planRes.rows[0],
+            pool
+        );
+        if (!canEdit) return res.status(403).json({ error: 'Denied' });
         const oldName = planRes.rows[0].name;
         const oldYear = planRes.rows[0].year || '';
         
@@ -1993,10 +2349,16 @@ app.put('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, async 
 app.delete('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     try {
         const planRes = await pool.query(
-            "SELECT plan_name AS name, year FROM inspection_plan_schedule WHERE id = $1",
+            "SELECT id, plan_name AS name, year, owner_group_id, owner_user_id, edit_mode FROM inspection_plan_schedule WHERE id = $1",
             [req.params.id]
         );
         if (planRes.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
+        const canEdit = await canEditByOwnership(
+            { id: req.session.user.id, role: req.session.user.role },
+            planRes.rows[0],
+            pool
+        );
+        if (!canEdit) return res.status(403).json({ error: 'Denied' });
         const planName = planRes.rows[0].name;
         const planYear = planRes.rows[0].year || '';
         
@@ -2026,6 +2388,8 @@ app.post('/api/plans/import', requireAuth, requireAdminOrManager, verifyCsrf, as
     // 收到匯入資料（日誌已移除，只在需要時記錄錯誤）
     
     const results = { success: 0, failed: 0, errors: [], skipped: 0 };
+    const ownerGroupId = await getPrimaryGroupId(req.session.user.id, pool);
+    const ownerUserId = req.session.user.id;
     
     for (let i = 0; i < data.length; i++) {
         const row = data[i];
@@ -2073,9 +2437,11 @@ app.post('/api/plans/import', requireAuth, requireAdminOrManager, verifyCsrf, as
             const b = business ? String(business).toUpperCase() : null;
 
             await pool.query(
-                `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, planned_count)
-                 VALUES (NULL, NULL, $1, $2, $3, $4, $5, '00', '(手動)', $6)`,
-                [name, year, rCode, it, b, planned_count]
+                `INSERT INTO inspection_plan_schedule (
+                    start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, planned_count,
+                    owner_group_id, owner_user_id, edit_mode
+                 ) VALUES (NULL, NULL, $1, $2, $3, $4, $5, '00', '(手動)', $6, $7, $8, $9)`,
+                [name, year, rCode, it, b, planned_count, ownerGroupId, ownerUserId, 'GROUP']
             );
             results.success++;
         } catch (e) {
@@ -2105,6 +2471,37 @@ app.post('/api/plans/import', requireAuth, requireAdminOrManager, verifyCsrf, as
 const RAILWAY_CODES = { T: '臺鐵', H: '高鐵', A: '林鐵', S: '糖鐵' };
 const INSPECTION_CODES = { '1': '年度定期檢查', '2': '特別檢查', '3': '例行性檢查', '4': '臨時檢查', '5': '調查' };
 const BUSINESS_CODES = { OP: '運轉', CV: '土建', ME: '機務', EL: '電務', SM: '安全管理', AD: '營運', OT: '其他' };
+
+function getPlanScheduleLockKey(year3, railwayCode, inspectionType) {
+    return `plan-schedule|${year3}|${railwayCode}|${inspectionType}`;
+}
+
+async function getNextAvailableScheduleSeq(db, year3, railwayCode, inspectionType, excludeId = null) {
+    // 取最小未使用的正整數序號（01 起），不靠暫存，完全由 DB 現況推導
+    // 允許 2~3 位以上（例如 100），但格式仍以 padStart(2,'0') 呈現
+    const params = [year3, railwayCode, inspectionType];
+    let sql = `
+        SELECT inspection_seq
+        FROM inspection_plan_schedule
+        WHERE year = $1 AND railway = $2 AND inspection_type = $3
+          AND inspection_seq <> '00'
+    `;
+    if (excludeId != null) {
+        sql += ` AND id <> $4`;
+        params.push(excludeId);
+    }
+    const r = await db.query(sql, params);
+    const used = new Set();
+    for (const row of (r.rows || [])) {
+        const s = String(row.inspection_seq || '').trim();
+        if (!s) continue;
+        const n = parseInt(s, 10);
+        if (Number.isFinite(n) && n > 0) used.add(n);
+    }
+    let next = 1;
+    while (used.has(next)) next++;
+    return String(next).padStart(2, '0');
+}
 
 app.get('/api/plan-schedule', requireAuth, async (req, res) => {
     const { year, month } = req.query;
@@ -2139,14 +2536,7 @@ app.get('/api/plan-schedule/next-number', requireAuth, async (req, res) => {
         const y = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
         const r = String(railway).toUpperCase();
         const it = String(inspectionType);
-        const maxRes = await pool.query(
-            `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
-             FROM inspection_plan_schedule 
-             WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
-            [y, r, it]
-        );
-        const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
-        const seq = String(next).padStart(2, '0');
+        const seq = await getNextAvailableScheduleSeq(pool, y, r, it);
         const planNumber = `${y}${r}${it}-${seq}`;
         res.json({ nextSeq: seq, planNumber });
     } catch (e) {
@@ -2156,6 +2546,7 @@ app.get('/api/plan-schedule/next-number', requireAuth, async (req, res) => {
 
 app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { plan_name, start_date, end_date, year, railway, inspection_type, business, location, inspector, plan_number: clientPlanNumber } = req.body;
+    const client = await pool.connect();
     try {
         // 驗證必填欄位
         if (!plan_name || !start_date || !end_date || !year || !railway || !inspection_type) {
@@ -2195,6 +2586,35 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
         const name = String(plan_name).trim();
         let planNumber;
         let seq;
+        
+        await client.query('BEGIN');
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [getPlanScheduleLockKey(y, r, it)]);
+
+        const ownerGroupId = await getPrimaryGroupId(req.session.user.id, client);
+        const ownerUserId = req.session.user.id;
+
+        // 若該計畫主檔（00）存在，需符合主檔歸屬才能新增排程，避免跨組把行程塞到別組計畫
+        try {
+            const headerRes = await client.query(
+                "SELECT owner_group_id, owner_user_id, edit_mode FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 AND inspection_seq = '00' LIMIT 1",
+                [name, y]
+            );
+            if (headerRes.rows.length > 0) {
+                const ok = await canEditByOwnership(
+                    { id: req.session.user.id, role: req.session.user.role },
+                    headerRes.rows[0],
+                    client
+                );
+                if (!ok) {
+                    await client.query('ROLLBACK');
+                    return res.status(403).json({ error: 'Denied' });
+                }
+            }
+        } catch (e) {
+            // 若查詢主檔失敗，讓後續流程走統一錯誤處理
+            throw e;
+        }
+
         const manualNumber = clientPlanNumber && String(clientPlanNumber).trim();
         if (manualNumber) {
             planNumber = manualNumber;
@@ -2202,46 +2622,55 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
             if (seqMatch) {
                 seq = seqMatch[1];
             } else {
-                const maxRes = await pool.query(
-                    `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx FROM inspection_plan_schedule WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
-                    [y, r, it]
-                );
-                const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
-                seq = String(next).padStart(2, '0');
+                // 手動取號若未包含序號，仍自動補最小可用序號（向後兼容）
+                seq = await getNextAvailableScheduleSeq(client, y, r, it);
             }
         } else {
-            const maxRes = await pool.query(
-                `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
-                 FROM inspection_plan_schedule 
-                 WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
-                [y, r, it]
-            );
-            const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
-            seq = String(next).padStart(2, '0');
+            seq = await getNextAvailableScheduleSeq(client, y, r, it);
             planNumber = `${y}${r}${it}-${seq}`;
+        }
+
+        // 檢查序號是否已被占用（避免手動取號重複）
+        const seqExists = await client.query(
+            `SELECT 1 FROM inspection_plan_schedule
+             WHERE year = $1 AND railway = $2 AND inspection_type = $3
+               AND inspection_seq = $4 AND inspection_seq <> '00'
+             LIMIT 1`,
+            [y, r, it, seq]
+        );
+        if (seqExists.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `取號序號 ${seq} 已被使用，請重新新增或改用自動取號` });
         }
         
         // business 欄位仍然儲存（為了向後兼容），但取號編碼不再使用
         const b = business ? String(business).toUpperCase() : null;
         
-        await pool.query(
-            `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, location, inspector) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-            [start_date, end_date, name, y, r, it, b, seq, planNumber, location || null, inspector || null]
+        await client.query(
+            `INSERT INTO inspection_plan_schedule (
+                start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number,
+                location, inspector, owner_group_id, owner_user_id, edit_mode
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+            [start_date, end_date, name, y, r, it, b, seq, planNumber, location || null, inspector || null, ownerGroupId, ownerUserId, 'GROUP']
         );
+        await client.query('COMMIT');
+
         const dateRange = end_date ? `${start_date} ~ ${end_date}` : start_date;
         logAction(req.session.user.username, 'CREATE_PLAN_SCHEDULE', `新增檢查計畫規劃：${name}，取號 ${planNumber}，日期 ${dateRange}`, req);
         res.json({ success: true, planNumber, inspectionSeq: seq });
     } catch (e) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
         // 如果是資料庫約束錯誤，提供更清楚的錯誤訊息
         if (e.code === '23505') { // 唯一約束違反
-            return res.status(400).json({ error: '該計畫排程已存在，請勿重複新增' });
+            return res.status(400).json({ error: '取號衝突（序號已被使用），請重新再試' });
         } else if (e.code === '23502') { // NOT NULL 約束違反
             return res.status(400).json({ error: '必填欄位不能為空，請檢查輸入的資料' });
         } else if (e.code === '22007' || e.code === '22008') { // 日期格式錯誤
             return res.status(400).json({ error: '日期格式錯誤，請使用正確的日期格式（YYYY-MM-DD）' });
         }
         handleApiError(e, req, res, 'Create plan schedule error');
+    } finally {
+        client.release();
     }
 });
 
@@ -2398,6 +2827,7 @@ app.post('/api/templates/users-import-csv', requireAuth, requireAdminOrManager, 
 
 app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     const { plan_name, start_date, end_date, year, railway, inspection_type, business, location, inspector, plan_number: clientPlanNumber } = req.body;
+    const client = await pool.connect();
     try {
         if (!plan_name || !start_date || !end_date || !year || !railway || !inspection_type) {
             return res.status(400).json({ error: '計畫名稱、開始日期、結束日期、年度、鐵路機構、檢查類別為必填' });
@@ -2405,35 +2835,109 @@ app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf
         if (end_date < start_date) {
             return res.status(400).json({ error: '結束日期不能早於開始日期' });
         }
-        const r = await pool.query('SELECT * FROM inspection_plan_schedule WHERE id = $1', [req.params.id]);
-        if (r.rows.length === 0) return res.status(404).json({ error: '找不到該筆排程' });
+        
+        await client.query('BEGIN');
+        // 鎖住該筆（避免同筆同時更新）
+        const r = await client.query('SELECT * FROM inspection_plan_schedule WHERE id = $1 FOR UPDATE', [req.params.id]);
+        if (r.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: '找不到該筆排程' });
+        }
+        const oldRow = r.rows[0];
+
+        // 依歸屬限制：避免不同 manager/群組互相誤改
+        const canEdit = await canEditByOwnership({ id: req.session.user.id, role: req.session.user.role }, oldRow, client);
+        if (!canEdit) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: 'Denied' });
+        }
         
         const y = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
         const rCode = String(railway).toUpperCase();
         const it = String(inspection_type);
         const b = business ? String(business).toUpperCase() : null;
+
+        // 若目標計畫主檔（00）存在，需符合主檔歸屬才能把排程移入/更新到該計畫
+        const targetPlanName = String(plan_name).trim();
+        try {
+            const headerRes = await client.query(
+                "SELECT owner_group_id, owner_user_id, edit_mode FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 AND inspection_seq = '00' LIMIT 1",
+                [targetPlanName, y]
+            );
+            if (headerRes.rows.length > 0) {
+                const ok = await canEditByOwnership(
+                    { id: req.session.user.id, role: req.session.user.role },
+                    headerRes.rows[0],
+                    client
+                );
+                if (!ok) {
+                    await client.query('ROLLBACK');
+                    return res.status(403).json({ error: 'Denied' });
+                }
+            }
+        } catch (e) {
+            throw e;
+        }
+
+        // 鎖定目標序號池，避免多人同時更新/取號撞號
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [getPlanScheduleLockKey(y, rCode, it)]);
         
-        let inspection_seq = r.rows[0].inspection_seq;
-        let plan_number = r.rows[0].plan_number;
+        let inspection_seq = oldRow.inspection_seq;
+        let plan_number = oldRow.plan_number;
         
         const manualNumber = clientPlanNumber && String(clientPlanNumber).trim();
-        if (manualNumber) {
+        if (String(oldRow.inspection_seq) === '00' || String(oldRow.plan_number) === '(手動)') {
+            // 計畫主檔：保持 00 / (手動)
+            inspection_seq = '00';
+            plan_number = '(手動)';
+        } else if (manualNumber) {
             plan_number = manualNumber;
             const seqMatch = manualNumber.match(/-(\d{2,3})$/);
-            if (seqMatch) inspection_seq = seqMatch[1];
-        } else if (rCode !== r.rows[0].railway || it !== r.rows[0].inspection_type) {
-            const maxRes = await pool.query(
-                `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
-                 FROM inspection_plan_schedule 
-                 WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
-                [y, rCode, it]
+            if (seqMatch) {
+                inspection_seq = seqMatch[1];
+            } else {
+                inspection_seq = await getNextAvailableScheduleSeq(client, y, rCode, it, oldRow.id);
+            }
+        } else {
+            const oldYear = String(oldRow.year || '').trim();
+            const oldRailway = String(oldRow.railway || '').trim();
+            const oldType = String(oldRow.inspection_type || '').trim();
+            const poolChanged = (y !== oldYear) || (rCode !== oldRailway) || (it !== oldType);
+            if (poolChanged) {
+                // 盡量沿用原序號（若在新池未被占用），否則改取新池最小可用序號
+                const candidate = String(oldRow.inspection_seq || '').trim();
+                let canKeep = false;
+                if (candidate && candidate !== '00' && /^[0-9]+$/.test(candidate)) {
+                    const used = await client.query(
+                        `SELECT 1 FROM inspection_plan_schedule
+                         WHERE year = $1 AND railway = $2 AND inspection_type = $3
+                           AND inspection_seq = $4 AND id <> $5 AND inspection_seq <> '00'
+                         LIMIT 1`,
+                        [y, rCode, it, candidate, oldRow.id]
+                    );
+                    canKeep = used.rows.length === 0;
+                }
+                inspection_seq = canKeep ? candidate : await getNextAvailableScheduleSeq(client, y, rCode, it, oldRow.id);
+                plan_number = `${y}${rCode}${it}-${inspection_seq}`;
+            }
+        }
+
+        // 防呆：更新時仍檢查序號唯一性（避免手動號碼/異常狀況）
+        if (String(inspection_seq) !== '00') {
+            const ex = await client.query(
+                `SELECT 1 FROM inspection_plan_schedule
+                 WHERE year = $1 AND railway = $2 AND inspection_type = $3
+                   AND inspection_seq = $4 AND id <> $5 AND inspection_seq <> '00'
+                 LIMIT 1`,
+                [y, rCode, it, inspection_seq, oldRow.id]
             );
-            const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
-            inspection_seq = String(next).padStart(2, '0');
-            plan_number = `${y}${rCode}${it}-${inspection_seq}`;
+            if (ex.rows.length > 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: `取號序號 ${inspection_seq} 已被使用，請重新選擇或改用自動取號` });
+            }
         }
         
-        await pool.query(
+        await client.query(
             `UPDATE inspection_plan_schedule 
              SET plan_name = $1, start_date = $2, end_date = $3, year = $4, railway = $5, 
                  inspection_type = $6, business = $7, inspection_seq = $8, plan_number = $9, 
@@ -2441,19 +2945,23 @@ app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf
              WHERE id = $12`,
             [plan_name.trim(), start_date, end_date, y, rCode, it, b, inspection_seq, plan_number, location || null, inspector || null, req.params.id]
         );
+        await client.query('COMMIT');
         
         const dateRange = `${start_date} ~ ${end_date}`;
         logAction(req.session.user.username, 'UPDATE_PLAN_SCHEDULE', `更新檢查計畫規劃：${plan_name}，取號 ${plan_number}，日期 ${dateRange}`, req);
         res.json({ success: true, planNumber: plan_number });
     } catch (e) {
+        try { await client.query('ROLLBACK'); } catch (_) {}
         handleApiError(e, req, res, 'Update plan schedule error');
+    } finally {
+        client.release();
     }
 });
 
 app.delete('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     try {
         const r = await pool.query(
-            'SELECT id, plan_name, plan_number, year, railway, inspection_type, inspection_seq FROM inspection_plan_schedule WHERE id = $1',
+            'SELECT id, plan_name, plan_number, year, railway, inspection_type, inspection_seq, owner_group_id, owner_user_id, edit_mode FROM inspection_plan_schedule WHERE id = $1',
             [req.params.id]
         );
         if (r.rows.length === 0) return res.status(404).json({ error: '找不到該筆排程' });
@@ -2461,22 +2969,11 @@ app.delete('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyC
         if (row.plan_number === '(手動)' || row.inspection_seq === '00') {
             return res.status(400).json({ error: '不可刪除計畫主檔，請從計畫管理刪除整個計畫' });
         }
+        const canEdit = await canEditByOwnership({ id: req.session.user.id, role: req.session.user.role }, row, pool);
+        if (!canEdit) return res.status(403).json({ error: 'Denied' });
         await pool.query('DELETE FROM inspection_plan_schedule WHERE id = $1', [req.params.id]);
-        const y = row.year, rCode = row.railway, it = row.inspection_type;
-        const seqNum = parseInt(row.inspection_seq, 10) || 0;
-        const remaining = await pool.query(
-            `SELECT id FROM inspection_plan_schedule WHERE year = $1 AND railway = $2 AND inspection_type = $3 AND (plan_number IS NULL OR plan_number <> '(手動)') ORDER BY inspection_seq ASC, id ASC`,
-            [y, rCode, it]
-        );
-        for (let i = 0; i < remaining.rows.length; i++) {
-            const newSeq = String(i + 1).padStart(2, '0');
-            const newPlanNumber = `${y}${rCode}${it}-${newSeq}`;
-            await pool.query(
-                'UPDATE inspection_plan_schedule SET inspection_seq = $1, plan_number = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
-                [newSeq, newPlanNumber, remaining.rows[i].id]
-            );
-        }
-        logAction(req.session.user.username, 'DELETE_PLAN_SCHEDULE', `刪除檢查計畫規劃：${row.plan_name}（${row.plan_number}）並重新編號`, req);
+        // 不再刪除後重新編號：避免一次刪除影響大量資料；缺號會在下一次新增時以「最小可用序號」補回
+        logAction(req.session.user.username, 'DELETE_PLAN_SCHEDULE', `刪除檢查計畫規劃：${row.plan_name}（${row.plan_number}）`, req);
         res.json({ success: true });
     } catch (e) {
         handleApiError(e, req, res, 'Delete plan schedule error');
