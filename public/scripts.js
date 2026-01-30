@@ -262,7 +262,7 @@
             
             return null;
         }
-        function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'viewer': '檢視人員' }; return map[r] || r; }
+        function getRoleName(r) { const map = { 'manager': '資料管理者', 'viewer': '檢視人員' }; return map[r] || r; }
         // [Enhanced] 改進編號提取，支持從帶換行的儲存格中提取編號
         function extractNumberFromCell(cell) {
             if (!cell) return "";
@@ -1376,7 +1376,7 @@ if (dashboard) {
                         }
                     }
                     // Preload users if needed
-                    if(currentUser.role === 'admin' && targetView === 'usersView') {
+                    if(currentUser.isAdmin === true && targetView === 'usersView') {
                         try {
                             loadUsersPage(1);
                         } catch (e) {
@@ -1436,17 +1436,16 @@ if (dashboard) {
                     const nameEl = document.getElementById('headerUserName');
                     const roleEl = document.getElementById('headerUserRole');
                     if (nameEl) nameEl.innerText = data.name || data.username;
-                    if (roleEl) roleEl.innerText = getRoleName(data.role);
+                    const isAdmin = data.isAdmin === true;
+                    if (roleEl) roleEl.innerText = isAdmin ? '系統管理員' : getRoleName(data.role);
                     
                     const btnCalendar = document.getElementById('btn-planCalendarView');
                     if (btnCalendar) btnCalendar.classList.remove('hidden');
-                    if (['admin', 'manager'].includes(data.role)) {
+                    if (isAdmin || data.role === 'manager') {
                         const btnImport = document.getElementById('btn-importView');
                         if (btnImport) btnImport.classList.remove('hidden');
-                        if (data.role === 'admin') {
-                            const btnUsers = document.getElementById('btn-usersView');
-                            if (btnUsers) btnUsers.classList.remove('hidden');
-                        }
+                        const btnUsers = document.getElementById('btn-usersView');
+                        if (btnUsers) btnUsers.classList.toggle('hidden', !isAdmin);
                     } else {
                         const btnImport = document.getElementById('btn-importView');
                         const btnUsers = document.getElementById('btn-usersView');
@@ -1491,7 +1490,7 @@ if (dashboard) {
         
         // 在視圖載入後設置 admin 專屬元素的函數
         function setupAdminElements() {
-            if (!currentUser || currentUser.role !== 'admin') return;
+            if (!currentUser || currentUser.isAdmin !== true) return;
             
             const uploadCardBackup = document.getElementById('uploadCardBackup');
             if (uploadCardBackup) {
@@ -1716,8 +1715,8 @@ if (dashboard) {
             const tbody = document.getElementById('dataBody'); tbody.innerHTML = '';
             if (!currentData || currentData.length === 0) { document.getElementById('emptyMsg').style.display = 'block'; return; }
             document.getElementById('emptyMsg').style.display = 'none';
-            const canManage = currentUser && ['admin', 'manager'].includes(currentUser.role);
-            const canEdit = currentUser && ['admin', 'manager'].includes(currentUser.role);
+            const canManage = currentUser && (currentUser.isAdmin === true || currentUser.role === 'manager');
+            const canEdit = currentUser && (currentUser.isAdmin === true || currentUser.role === 'manager');
             const isViewer = currentUser && currentUser.role === 'viewer';
             document.getElementById('batchActionContainer').style.display = 'none'; document.getElementById('selectedCountBadge').innerText = ''; document.getElementById('selectAll').checked = false;
             document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
@@ -1854,7 +1853,7 @@ if (dashboard) {
                     <td data-label="姓名" style="padding:12px;">${escapeHtml(u.name || '-')}</td>
                     <td data-label="帳號">${escapeHtml(u.username || '-')}</td>
                     <td data-label="群組" style="display:flex; flex-wrap:wrap; gap:6px; padding:12px 8px;">${groupHtml}</td>
-                    <td data-label="權限">${escapeHtml(getRoleName(u.role))}</td>
+                    <td data-label="權限">${escapeHtml(u.isAdmin === true ? '系統管理員' : getRoleName(u.role))}</td>
                     <td data-label="註冊時間">${u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
                     <td data-label="操作">${
                         (myId && u.id === myId)
@@ -2235,10 +2234,14 @@ if (dashboard) {
             }
 
             const q = String(document.getElementById('groupUserSearch')?.value || '').trim().toLowerCase();
-            const showAdmins = document.getElementById('toggleShowAdminsInGroup')?.checked === true;
+            const showAdminsEl = document.getElementById('toggleShowAdminsInGroup');
+            const isAdminGroup = group && (group.is_admin_group === true || group.isAdminGroup === true);
+            // 若正在管理「系統管理群組」，預設直接顯示系統管理員（避免看不到成員）
+            if (isAdminGroup && showAdminsEl && !showAdminsEl.checked) showAdminsEl.checked = true;
+            const showAdmins = showAdminsEl?.checked === true;
 
             const rows = users
-                .filter(u => showAdmins ? true : (u.role !== 'admin'))
+                .filter(u => showAdmins ? true : (u.isAdmin !== true))
                 .filter(u => {
                     if (!q) return true;
                     const hay = `${u.name || ''} ${u.username || ''}`.toLowerCase();
@@ -2253,7 +2256,7 @@ if (dashboard) {
                                 ${escapeHtml(u.name || u.username || '-')}
                             </div>
                             <div style="color:#64748b; font-size:12px; margin-top:2px;">
-                                ${escapeHtml(u.username || '-')} · ${escapeHtml(getRoleName(u.role))}
+                                ${escapeHtml(u.username || '-')} · ${escapeHtml(u.isAdmin === true ? '系統管理員' : getRoleName(u.role))}
                             </div>
                         </div>
                     </label>`;
@@ -2298,15 +2301,17 @@ if (dashboard) {
             // 供資料管理頁面使用：開立事項匯入/建檔、計畫新增、行程規劃
             await ensureGroupsForUserModalLoaded();
             const groups = Array.isArray(cachedGroupsForModal) ? cachedGroupsForModal : [];
+            // 排除「系統管理群組」：只允許資料群組作為 owner_group
+            const dataGroups = groups.filter(g => !(g && (g.is_admin_group === true || g.isAdminGroup === true)));
             const myGroupIds = Array.isArray(currentUser?.groupIds) ? currentUser.groupIds.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n)) : [];
-            const allowedSet = currentUser?.role === 'admin' ? null : new Set(myGroupIds);
-            const allowedGroups = allowedSet ? groups.filter(g => allowedSet.has(parseInt(g.id, 10))) : groups;
-            const defaultId = allowedGroups[0]?.id || groups[0]?.id || '';
+            const allowedSet = currentUser?.isAdmin === true ? null : new Set(myGroupIds);
+            const allowedGroups = allowedSet ? dataGroups.filter(g => allowedSet.has(parseInt(g.id, 10))) : dataGroups;
+            const defaultId = allowedGroups[0]?.id || dataGroups[0]?.id || '';
 
             const fill = (id, forceDisabled = false) => {
                 const sel = document.getElementById(id);
                 if (!sel) return;
-                sel.innerHTML = (allowedGroups.length ? allowedGroups : groups).map(g => {
+                sel.innerHTML = (allowedGroups.length ? allowedGroups : dataGroups).map(g => {
                     return `<option value="${g.id}">${escapeHtml(g.name || `群組 ${g.id}`)}</option>`;
                 }).join('') || '<option value="">（尚無群組）</option>';
                 if (defaultId) sel.value = String(defaultId);
@@ -2723,7 +2728,7 @@ if (dashboard) {
             const uploadCardWord = document.getElementById('uploadCardWord');
             if (uploadCardWord) uploadCardWord.classList.remove('hidden');
             const uploadCardBackup = document.getElementById('uploadCardBackup');
-            if (uploadCardBackup && currentUser && currentUser.role === 'admin') uploadCardBackup.classList.remove('hidden');
+            if (uploadCardBackup && currentUser && currentUser.isAdmin === true) uploadCardBackup.classList.remove('hidden');
             const wordInput = document.getElementById('wordInput');
             if (wordInput) wordInput.value = '';
             const backupInput = document.getElementById('backupInput');
@@ -5187,43 +5192,11 @@ if (dashboard) {
                 </label>`;
             }).join('');
         }
-        let userModalOriginalRole = 'viewer';
-        let userModalAdminConfirmed = false;
-
-        function updateUserRoleWarning(role) {
-            const warn = document.getElementById('uRoleAdminWarn');
-            if (!warn) return;
-            if (role === 'admin') warn.classList.remove('hidden');
-            else warn.classList.add('hidden');
-        }
-
-        async function handleUserRoleChange(newRole) {
-            updateUserRoleWarning(newRole);
-            if (newRole !== 'admin') return;
-            if (userModalOriginalRole === 'admin') return; // 原本就是 admin，不需要再確認
-            if (userModalAdminConfirmed) return;
-
-            const ok = await showConfirmModal(
-                '你即將把此帳號設定為「系統管理員」。\n\n系統管理員可進入後台管理並可新增/修改/刪除各類資料與帳號設定。\n\n確定要授予此權限嗎？',
-                '確定授權',
-                '取消'
-            );
-            if (ok) {
-                userModalAdminConfirmed = true;
-                updateUserRoleWarning('admin');
-            } else {
-                const sel = document.getElementById('uRole');
-                if (sel) sel.value = userModalOriginalRole || 'viewer';
-                updateUserRoleWarning(userModalOriginalRole || 'viewer');
-            }
-        }
-
         async function openUserModal(mode, id) {
             const m = document.getElementById('userModal');
             const t = document.getElementById('userModalTitle');
             const e = document.getElementById('uEmail');
             const groupIds = [];
-            userModalAdminConfirmed = false;
             if (mode === 'create') {
                 t.innerText = '新增';
                 document.getElementById('targetUserId').value = '';
@@ -5234,7 +5207,6 @@ if (dashboard) {
                 document.getElementById('uPwdConfirm').value = '';
                 document.getElementById('pwdStrength').innerText = '密碼強度: -';
                 document.getElementById('pwdHint').innerText = '';
-                userModalOriginalRole = 'viewer';
                 document.getElementById('uRole').value = 'viewer';
             } else {
                 const u = userList.find(x => x.id === id) || {};
@@ -5247,13 +5219,11 @@ if (dashboard) {
                 document.getElementById('uPwdConfirm').value = '';
                 document.getElementById('pwdHint').innerText = '(留空不改)';
                 document.getElementById('pwdStrength').innerText = '密碼強度: -';
-                userModalOriginalRole = u.role || 'viewer';
-                document.getElementById('uRole').value = userModalOriginalRole;
+                document.getElementById('uRole').value = u.role || 'viewer';
                 if (Array.isArray(u.groupIds)) groupIds.push(...u.groupIds);
             }
             await ensureGroupsForUserModalLoaded();
             renderUserGroupsCheckboxes(groupIds);
-            updateUserRoleWarning(document.getElementById('uRole')?.value || 'viewer');
             m.classList.add('open');
         }
         async function submitUser() { 
@@ -5263,12 +5233,6 @@ if (dashboard) {
                 pwd = document.getElementById('uPwd').value, 
                 pwdConfirm = document.getElementById('uPwdConfirm').value, 
                 role = document.getElementById('uRole').value; 
-            if (role === 'admin' && userModalOriginalRole !== 'admin' && !userModalAdminConfirmed) {
-                // 防止使用者直接按送出而略過 onchange
-                await handleUserRoleChange('admin');
-                const roleNow = document.getElementById('uRole')?.value || 'viewer';
-                if (roleNow !== 'admin') return; // 使用者取消
-            }
             const groupIds = Array.from(document.querySelectorAll('#uGroupsBox .uGroupCheck:checked'))
                 .map(cb => parseInt(cb.value, 10))
                 .filter(n => Number.isFinite(n));
@@ -5434,8 +5398,9 @@ if (dashboard) {
 
                 // fallback：系統預設範例
                 // 範例檔格式：姓名,帳號,權限,密碼（選填）
-                // 權限值：admin（系統管理員）、manager（資料管理者）、viewer（檢視人員）
-                const csv = '姓名,帳號,權限,密碼\n張三,zhang@example.com,manager,password123\n李四,li@example.com,manager,password123\n王五,wang@example.com,viewer,\n趙六,zhao@example.com,admin,admin123';
+                // 權限值：manager（資料管理者）、viewer（檢視人員）
+                // 注意：系統管理員權限由「系統管理群組」決定（不是用 role 欄位）
+                const csv = '姓名,帳號,權限,密碼\n張三,zhang@example.com,manager,password123\n李四,li@example.com,manager,password123\n王五,wang@example.com,viewer,';
                 const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
@@ -5541,11 +5506,11 @@ if (dashboard) {
                                 
                                 // 驗證權限值（支援英文代碼和中文名稱）
                                 const roleMap = {
-                                    'admin': 'admin',
+                                    'admin': 'manager', // admin 由群組決定，匯入時視為 manager
                                     'manager': 'manager',
                                     'editor': 'manager',
                                     'viewer': 'viewer',
-                                    '系統管理員': 'admin',
+                                    '系統管理員': 'manager', // admin 由群組決定，匯入時視為 manager
                                     '資料管理者': 'manager',
                                     '審查人員': 'manager',
                                     '檢視人員': 'viewer'
@@ -5555,7 +5520,7 @@ if (dashboard) {
                                 if (!normalizedRole) {
                                     invalidRows.push({
                                         row: index + 2,
-                                        error: `無效的權限值：${role}（應為：admin/系統管理員, manager/資料管理者, viewer/檢視人員）`
+                                        error: `無效的權限值：${role}（應為：manager/資料管理者, viewer/檢視人員）`
                                     });
                                     return;
                                 }
@@ -7964,7 +7929,7 @@ if (dashboard) {
             const timelineHtml = `<div class="timeline-line"></div>` + (h || '<div style="color:#999;padding-left:20px;">無歷程紀錄</div>');
             document.getElementById('dTimeline').innerHTML = timelineHtml;
 
-            const canEdit = ['admin', 'manager'].includes(currentUser.role); const canDelete = ['admin', 'manager'].includes(currentUser.role); document.getElementById('editBtn').classList.toggle('hidden', !canEdit); document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit);
+            const canEdit = (currentUser && (currentUser.isAdmin === true || currentUser.role === 'manager')); const canDelete = canEdit; document.getElementById('editBtn').classList.toggle('hidden', !canEdit); document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit);
         }
         function logout() { 
             // 清除視圖狀態

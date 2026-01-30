@@ -480,26 +480,16 @@
                 <div id="pwdStrength" style="font-size:13px;color:#666;">密碼強度: -</div>
             </div>
             <div class="form-group">
-                <label>系統權限（角色）</label>
-                <select id="uRole" class="filter-select" onchange="handleUserRoleChange(this.value)">
-                    <option value="admin">系統管理員 (Admin)</option>
-                    <option value="manager">資料管理者 (Manager)</option>
-                    <option value="viewer">檢視人員 (Viewer)</option>
+                <label>權限</label>
+                <select id="uRole" class="filter-select">
+                    <option value="manager">資料管理者</option>
+                    <option value="viewer">檢視人員</option>
                 </select>
-                <div style="margin-top:6px;font-size:12px;color:#64748b;line-height:1.5;">
-                    提示：<b>系統管理員是「角色」</b>，與群組無關；群組只用於檢查計畫/開立事項的歸屬與可編輯範圍。
-                </div>
-                <div id="uRoleAdminWarn" class="hidden" style="margin-top:8px; padding:10px 12px; border-radius:10px; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; font-size:13px; line-height:1.6;">
-                    ⚠️ 你正在設定為 <b>系統管理員</b>：可進入後台管理、可新增/修改/刪除各類資料與帳號設定。請確認是必要的授權。
-                </div>
             </div>
             <div class="form-group">
-                <label>群組（資料歸屬/可編輯範圍，可多選）</label>
+                <label>群組（可多選）</label>
                 <div id="uGroupsBox" style="border:1px solid var(--border); border-radius:10px; padding:10px; background:#f8fafc; max-height:180px; overflow:auto;">
                     <div style="color:#64748b;font-size:13px;">（載入中…）</div>
-                </div>
-                <div style="margin-top:6px;font-size:12px;color:#64748b;line-height:1.5;">
-                    提示：同一使用者可隸屬多個群組（任一群組符合即可具備該群組資料的編輯權）；但<b>不會因為加入群組就取得系統管理員權限</b>。
                 </div>
             </div>
             <div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%"

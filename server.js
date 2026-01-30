@@ -169,11 +169,19 @@ app.use((req, res, next) => {
         return next();
     }
 
-    // 已由 protectHtmlPages 保證登入（.html 需登入）；這裡再做角色限制
-    const role = req.session?.user?.role;
-    const requireRole = (allowed) => {
-        if (!role || !allowed.includes(role)) {
-            return res.status(403).send(
+    // 已由 protectHtmlPages 保證登入（.html 需登入）；這裡再做「群組/角色」限制
+    (async () => {
+        const userId = req.session?.user?.id;
+        const role = req.session?.user?.role;
+        let isAdmin = false;
+        try {
+            if (userId) isAdmin = await isAdminUser(userId, pool);
+        } catch (e) {
+            isAdmin = false;
+        }
+
+        const deny = () =>
+            res.status(403).send(
                 `<div style="padding:24px;font-family:system-ui,'Noto Sans TC',sans-serif;color:#0f172a;">
                     <h3 style="margin:0 0 8px 0;">權限不足</h3>
                     <div style="color:#64748b;font-size:14px;line-height:1.6;">
@@ -181,37 +189,69 @@ app.use((req, res, next) => {
                     </div>
                 </div>`
             );
+
+        // 後台管理：僅「系統管理群組」成員
+        if (req.path === '/views/users-view.html') {
+            return isAdmin ? next() : deny();
+        }
+        // 資料管理：系統管理群組 或 角色=manager
+        if (req.path === '/views/import-view.html' || req.path === '/views/plans-view.html') {
+            return (isAdmin || role === 'manager') ? next() : deny();
         }
         return next();
-    };
-
-    // 後台管理（僅 admin）
-    if (req.path === '/views/users-view.html') {
-        return requireRole(['admin']);
-    }
-    // 資料管理（admin/manager）
-    if (req.path === '/views/import-view.html' || req.path === '/views/plans-view.html') {
-        return requireRole(['admin', 'manager']);
-    }
-    return next();
+    })().catch(() => {
+        return res.status(403).send(
+            `<div style="padding:24px;font-family:system-ui,'Noto Sans TC',sans-serif;color:#0f172a;">
+                <h3 style="margin:0 0 8px 0;">權限不足</h3>
+                <div style="color:#64748b;font-size:14px;line-height:1.6;">
+                    您沒有權限存取此管理頁面。
+                </div>
+            </div>`
+        );
+    });
 });
 
 // 靜態檔案服務
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 權限檢查中間件
-const requireAdmin = (req, res, next) => {
-    if (!req.session || !req.session.user || req.session.user.role !== 'admin') {
+// --- Admin group helpers ---
+async function isAdminUser(userId, db = pool) {
+    const id = userId != null ? parseInt(userId, 10) : null;
+    if (!Number.isFinite(id)) return false;
+    const r = await db.query(
+        `SELECT 1
+         FROM user_groups ug
+         JOIN groups g ON g.id = ug.group_id
+         WHERE ug.user_id = $1 AND g.is_admin_group = true
+         LIMIT 1`,
+        [id]
+    );
+    return (r.rows || []).length > 0;
+}
+
+// 權限檢查中間件（admin 由「系統管理群組」決定）
+const requireAdmin = async (req, res, next) => {
+    try {
+        if (!req.session || !req.session.user) return res.status(403).json({ error: 'Denied' });
+        const ok = await isAdminUser(req.session.user.id, pool);
+        if (!ok) return res.status(403).json({ error: 'Denied' });
+        return next();
+    } catch (e) {
         return res.status(403).json({ error: 'Denied' });
     }
-    next();
 };
 
-const requireAdminOrManager = (req, res, next) => {
-    if (!req.session || !req.session.user || !['admin', 'manager'].includes(req.session.user.role)) {
+const requireAdminOrManager = async (req, res, next) => {
+    try {
+        if (!req.session || !req.session.user) return res.status(403).json({ error: 'Denied' });
+        const role = req.session.user.role;
+        if (role === 'manager') return next();
+        const ok = await isAdminUser(req.session.user.id, pool);
+        if (!ok) return res.status(403).json({ error: 'Denied' });
+        return next();
+    } catch (e) {
         return res.status(403).json({ error: 'Denied' });
     }
-    next();
 };
 
 // --- Groups / record-level authorization helpers ---
@@ -220,18 +260,45 @@ async function getUserGroupIds(userId, db = pool) {
     return (r.rows || []).map(x => parseInt(x.group_id, 10)).filter(n => Number.isFinite(n));
 }
 
+async function getUserDataGroupIds(userId, db = pool) {
+    const r = await db.query(
+        `SELECT ug.group_id
+         FROM user_groups ug
+         JOIN groups g ON g.id = ug.group_id
+         WHERE ug.user_id = $1 AND COALESCE(g.is_admin_group, false) = false
+         ORDER BY ug.group_id ASC`,
+        [userId]
+    );
+    return (r.rows || []).map(x => parseInt(x.group_id, 10)).filter(n => Number.isFinite(n));
+}
+
 async function getPrimaryGroupId(userId, db = pool) {
-    const r = await db.query('SELECT group_id FROM user_groups WHERE user_id = $1 ORDER BY group_id ASC LIMIT 1', [userId]);
+    // 主要群組：排除「系統管理群組」（避免新資料歸屬到 admin group）
+    const r = await db.query(
+        `SELECT ug.group_id
+         FROM user_groups ug
+         JOIN groups g ON g.id = ug.group_id
+         WHERE ug.user_id = $1 AND COALESCE(g.is_admin_group, false) = false
+         ORDER BY ug.group_id ASC
+         LIMIT 1`,
+        [userId]
+    );
     const gid = r.rows[0]?.group_id;
     const n = gid != null ? parseInt(gid, 10) : null;
     return Number.isFinite(n) ? n : null;
 }
 
 async function canEditByOwnership(user, record, db = pool) {
-    // user: { id, role }
+    // user: { id, role?, isAdmin? }
     // record: { owner_group_id, owner_user_id, edit_mode }
     if (!user || !user.id) return false;
-    if (user.role === 'admin') return true; // rescue
+    // admin 以「系統管理群組」為準（兼容舊 role=admin）
+    try {
+        if (user.isAdmin === true) return true;
+        if (user.role === 'admin') return true; // legacy rescue
+        const ok = await isAdminUser(user.id, db);
+        if (ok) return true;
+    } catch (e) {}
 
     const ownerUserId = record?.owner_user_id != null ? parseInt(record.owner_user_id, 10) : null;
     const ownerGroupId = record?.owner_group_id != null ? parseInt(record.owner_group_id, 10) : null;
@@ -407,13 +474,27 @@ async function initDB() {
                 try {
                     await client.query(`UPDATE users SET role = 'manager' WHERE role = 'editor'`);
                 } catch (e) {}
+                // admin 將改由「系統管理群組」決定（舊 role=admin 會在後面遷移）
 
                 // Groups / User groups (多群組隸屬)
                 await client.query(`CREATE TABLE IF NOT EXISTS groups (
                     id SERIAL PRIMARY KEY,
                     name TEXT UNIQUE NOT NULL,
+                    is_admin_group BOOLEAN DEFAULT false,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
+                // 向後兼容：舊資料庫可能沒有 is_admin_group
+                try { await client.query(`ALTER TABLE groups ADD COLUMN IF NOT EXISTS is_admin_group BOOLEAN DEFAULT false`); } catch (e) {}
+                // 確保「系統管理群組」唯一（只允許一個 true）
+                try {
+                    await client.query(`
+                        CREATE UNIQUE INDEX IF NOT EXISTS uq_groups_admin_group_true
+                        ON groups ((is_admin_group))
+                        WHERE is_admin_group = true
+                    `);
+                } catch (e) {
+                    // 若既有資料已多個 true，索引會失敗；開發中先忽略
+                }
                 await client.query(`CREATE TABLE IF NOT EXISTS user_groups (
                     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
@@ -575,7 +656,7 @@ async function initDB() {
                         require('crypto').randomBytes(16).toString('hex');
                     const hash = bcrypt.hashSync(defaultPassword, 10);
                     await client.query("INSERT INTO users (username, password, name, role, must_change_password) VALUES ($1, $2, $3, $4, $5)", 
-                        ['admin', hash, '系統管理員', 'admin', true]);
+                        ['admin', hash, '系統管理員', 'manager', true]);
                     console.log("===========================================");
                     console.log("警告: 已建立預設管理員帳號");
                     console.log("帳號: admin");
@@ -586,21 +667,59 @@ async function initDB() {
 
                 // Ensure default group exists, and admin is assigned (for fresh installs)
                 try {
-                    const gRes = await client.query("SELECT id FROM groups ORDER BY id ASC LIMIT 1");
-                    let defaultGroupId = gRes.rows[0]?.id;
-                    if (!defaultGroupId) {
-                        const ins = await client.query("INSERT INTO groups (name) VALUES ($1) RETURNING id", ['預設群組']);
-                        defaultGroupId = ins.rows[0]?.id;
+                    // 1) 確保存在「系統管理群組」（is_admin_group=true）
+                    let adminGroupId = null;
+                    const agRes = await client.query("SELECT id FROM groups WHERE is_admin_group = true ORDER BY id ASC LIMIT 1");
+                    adminGroupId = agRes.rows[0]?.id || null;
+                    if (!adminGroupId) {
+                        const ins = await client.query(
+                            "INSERT INTO groups (name, is_admin_group) VALUES ($1, true) ON CONFLICT (name) DO UPDATE SET is_admin_group = true RETURNING id",
+                            ['系統管理群組']
+                        );
+                        adminGroupId = ins.rows[0]?.id || null;
                     }
-                    if (defaultGroupId) {
-                        const aRes = await client.query("SELECT id FROM users WHERE username = $1 LIMIT 1", ['admin']);
-                        const adminId = aRes.rows[0]?.id;
-                        if (adminId) {
-                            await client.query(
-                                "INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                                [adminId, defaultGroupId]
-                            );
+
+                    // 2) 確保至少有一個一般群組（用於資料歸屬/預設 owner_group）
+                    let defaultGroupId = null;
+                    const gRes = await client.query("SELECT id FROM groups WHERE is_admin_group = false ORDER BY id ASC LIMIT 1");
+                    defaultGroupId = gRes.rows[0]?.id || null;
+                    if (!defaultGroupId) {
+                        const ins = await client.query("INSERT INTO groups (name, is_admin_group) VALUES ($1, false) RETURNING id", ['預設群組']);
+                        defaultGroupId = ins.rows[0]?.id || null;
+                    }
+
+                    // 3) 把 admin 使用者加入「系統管理群組」與「預設群組」（避免鎖死）
+                    // 3-1) 遷移：舊 role=admin → 加入系統管理群組，並把 role 降回 manager（admin 改由群組判斷）
+                    try {
+                        if (adminGroupId) {
+                            const legacyAdmins = await client.query("SELECT id FROM users WHERE role = 'admin'");
+                            for (const row of (legacyAdmins.rows || [])) {
+                                const uid = row?.id;
+                                if (!uid) continue;
+                                await client.query(
+                                    "INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                                    [uid, adminGroupId]
+                                );
+                            }
                         }
+                        await client.query("UPDATE users SET role = 'manager' WHERE role = 'admin'");
+                    } catch (e) {
+                        console.warn('Legacy admin migration warning:', e?.message || e);
+                    }
+
+                    const aRes = await client.query("SELECT id FROM users WHERE username = $1 LIMIT 1", ['admin']);
+                    const adminId = aRes.rows[0]?.id;
+                    if (adminId && adminGroupId) {
+                        await client.query(
+                            "INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                            [adminId, adminGroupId]
+                        );
+                    }
+                    if (adminId && defaultGroupId) {
+                        await client.query(
+                            "INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                            [adminId, defaultGroupId]
+                        );
                     }
                 } catch (e) {
                     console.warn('Default group/admin mapping warning:', e?.message || e);
@@ -831,7 +950,8 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         }
 
         if (bcrypt.compareSync(password, user.password)) {
-            req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name };
+            const isAdmin = await isAdminUser(user.id, pool);
+            req.session.user = { id: user.id, username: user.username, role: user.role, name: user.name, isAdmin };
             req.session.save((err) => {
                 if(err) {
                     console.error("Session save error:", err);
@@ -869,9 +989,11 @@ app.get('/api/auth/me', async (req, res) => {
         try {
             const result = await pool.query(
                 `SELECT u.id, u.username, u.name, u.role,
-                        COALESCE(array_agg(ug.group_id) FILTER (WHERE ug.group_id IS NOT NULL), '{}') AS group_ids
+                        COALESCE(array_agg(ug.group_id) FILTER (WHERE ug.group_id IS NOT NULL), '{}') AS group_ids,
+                        COALESCE(BOOL_OR(g.is_admin_group = true), false) AS is_admin
                  FROM users u
                  LEFT JOIN user_groups ug ON ug.user_id = u.id
+                 LEFT JOIN groups g ON g.id = ug.group_id
                  WHERE u.id = $1
                  GROUP BY u.id`,
                 [req.session.user.id]
@@ -883,12 +1005,13 @@ app.get('/api/auth/me', async (req, res) => {
                 return res.json({ isLogin: false });
             }
             // session 只保留必要欄位
-            req.session.user = { id: latestUser.id, username: latestUser.username, role: latestUser.role, name: latestUser.name };
+            const isAdmin = latestUser.is_admin === true;
+            req.session.user = { id: latestUser.id, username: latestUser.username, role: latestUser.role, name: latestUser.name, isAdmin };
             res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
             const groupIds = Array.isArray(latestUser.group_ids)
                 ? latestUser.group_ids.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n))
                 : [];
-            res.json({ isLogin: true, id: latestUser.id, username: latestUser.username, name: latestUser.name, role: latestUser.role, groupIds });
+            res.json({ isLogin: true, id: latestUser.id, username: latestUser.username, name: latestUser.name, role: latestUser.role, isAdmin, groupIds });
         } catch (e) {
             console.error("Auth check db error:", e);
             res.json({ isLogin: false });
@@ -1058,9 +1181,10 @@ app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
     const replyField = `reply_date_r${r}`;
     const respField = `response_date_r${r}`;
     try {
-        // 角色限制（方案A）：viewer 不可寫入；editor 已整併到 manager
+        // 角色限制（方案A）：viewer 不可寫入；admin 由「系統管理群組」決定
         const role = req.session?.user?.role;
-        if (!['admin', 'manager'].includes(role)) {
+        const isAdmin = await isAdminUser(req.session.user.id, pool);
+        if (!(isAdmin || role === 'manager')) {
             return res.status(403).json({ error: 'Denied' });
         }
 
@@ -1212,13 +1336,14 @@ app.delete('/api/issues/:id', requireAuth, requireAdminOrManager, verifyCsrf, as
 });
 
 app.post('/api/issues/batch-delete', requireAuth, verifyCsrf, async (req, res) => {
-    if (!['admin','manager'].includes(req.session.user.role)) return res.status(403).json({error:'Denied'});
+    const isAdmin = await isAdminUser(req.session.user.id, pool);
+    if (!(isAdmin || req.session.user.role === 'manager')) return res.status(403).json({error:'Denied'});
     const { ids } = req.body;
     try {
         if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids required' });
 
         // 權限檢查（避免跨組批次刪除）
-        if (req.session.user.role !== 'admin') {
+        if (!isAdmin) {
             const rows = await pool.query(
                 "SELECT id, number, owner_group_id, owner_user_id, edit_mode FROM issues WHERE id = ANY($1)",
                 [ids]
@@ -1258,11 +1383,12 @@ app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, a
         await client.query('BEGIN');
         const duplicateNumbers = [];
         const operationResults = []; // 記錄每個項目的操作類型
-        // 建立時的歸屬群組（允許指定；manager 只能選自己群組，admin 可選全部）
+        // 建立時的歸屬群組（允許指定；manager 只能選自己群組，admin 由「系統管理群組」決定）
         let ownerGroupId = ownerGroupIdInput != null ? parseInt(ownerGroupIdInput, 10) : null;
         if (!Number.isFinite(ownerGroupId)) ownerGroupId = null;
-        if (req.session.user.role !== 'admin') {
-            const myGids = await getUserGroupIds(req.session.user.id, client);
+        const isAdmin = await isAdminUser(req.session.user.id, client);
+        if (!isAdmin) {
+            const myGids = await getUserDataGroupIds(req.session.user.id, client);
             if (ownerGroupId == null) ownerGroupId = myGids[0] ?? null;
             if (ownerGroupId != null && !myGids.includes(ownerGroupId)) {
                 await client.query('ROLLBACK');
@@ -1270,7 +1396,7 @@ app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, a
             }
         } else {
             if (ownerGroupId != null) {
-                const g = await client.query("SELECT 1 FROM groups WHERE id = $1 LIMIT 1", [ownerGroupId]);
+                const g = await client.query("SELECT 1 FROM groups WHERE id = $1 AND COALESCE(is_admin_group, false) = false LIMIT 1", [ownerGroupId]);
                 if (g.rows.length === 0) {
                     await client.query('ROLLBACK');
                     return res.status(400).json({ error: '群組不存在' });
@@ -1278,6 +1404,10 @@ app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, a
             } else {
                 ownerGroupId = await getPrimaryGroupId(req.session.user.id, client);
             }
+        }
+        if (ownerGroupId == null) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '請先將帳號加入至少一個資料群組' });
         }
         const ownerUserId = req.session.user.id;
         
@@ -1429,7 +1559,7 @@ app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, a
 // --- Groups API ---
 app.get('/api/groups', requireAuth, requireAdminOrManager, async (req, res) => {
     try {
-        const r = await pool.query("SELECT id, name FROM groups ORDER BY name ASC, id ASC");
+        const r = await pool.query("SELECT id, name, is_admin_group FROM groups ORDER BY is_admin_group DESC, name ASC, id ASC");
         res.json({ data: r.rows || [] });
     } catch (e) {
         handleApiError(e, req, res, 'Get groups error');
@@ -1478,9 +1608,11 @@ app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
         const total = parseInt(cRes.rows[0].count);
         const dRes = await pool.query(
             `SELECT u.id, u.username, u.name, u.role, u.created_at,
-                    COALESCE(array_agg(ug.group_id) FILTER (WHERE ug.group_id IS NOT NULL), '{}') AS group_ids
+                    COALESCE(array_agg(ug.group_id) FILTER (WHERE ug.group_id IS NOT NULL), '{}') AS group_ids,
+                    COALESCE(BOOL_OR(g.is_admin_group = true), false) AS is_admin
              FROM users u
              LEFT JOIN user_groups ug ON ug.user_id = u.id
+             LEFT JOIN groups g ON g.id = ug.group_id
              WHERE ${where.join(" AND ")}
              GROUP BY u.id
              ORDER BY ${order}
@@ -1492,6 +1624,7 @@ app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
             username: u.username,
             name: u.name,
             role: u.role,
+            isAdmin: u.is_admin === true,
             created_at: u.created_at,
             groupIds: Array.isArray(u.group_ids) ? u.group_ids.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n)) : []
         }));
@@ -1503,6 +1636,8 @@ app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
 
 app.post('/api/users', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     const { username, password, name, role, groupIds } = req.body;
+    const safeRoleRaw = String(role || '').toLowerCase();
+    const safeRole = safeRoleRaw === 'admin' ? 'manager' : (['manager', 'viewer'].includes(safeRoleRaw) ? safeRoleRaw : 'viewer');
     const gids = Array.isArray(groupIds)
         ? groupIds.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n))
         : null; // null = 不更新群組
@@ -1519,7 +1654,7 @@ app.post('/api/users', requireAuth, requireAdmin, verifyCsrf, async (req, res) =
         const hash = bcrypt.hashSync(password, 10);
         const ins = await pool.query(
             "INSERT INTO users (username, password, name, role, must_change_password) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-            [username, hash, name, role, true]
+            [username, hash, name, safeRole, true]
         );
         const newId = ins.rows[0]?.id;
         if (newId && gids) {
@@ -1534,7 +1669,7 @@ app.post('/api/users', requireAuth, requireAdmin, verifyCsrf, async (req, res) =
                 );
             }
         }
-        logAction(req.session.user.username, 'CREATE_USER', `新增使用者：${name} (${username})，權限：${role}`, req);
+        logAction(req.session.user.username, 'CREATE_USER', `新增使用者：${name} (${username})，權限：${safeRole}`, req);
         res.json({success:true});
     } catch (e) { 
         handleApiError(e, req, res, 'Create user error');
@@ -1544,6 +1679,8 @@ app.post('/api/users', requireAuth, requireAdmin, verifyCsrf, async (req, res) =
 app.put('/api/users/:id', requireAuth, requireAdmin, verifyCsrf, async (req, res) => {
     const { name, password, role, groupIds } = req.body;
     const id = parseInt(req.params.id, 10);
+    const safeRoleRaw = String(role || '').toLowerCase();
+    const safeRole = safeRoleRaw === 'admin' ? 'manager' : (['manager', 'viewer'].includes(safeRoleRaw) ? safeRoleRaw : 'viewer');
     const gids = Array.isArray(groupIds)
         ? groupIds.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n))
         : null; // null = 不更新群組
@@ -1565,10 +1702,10 @@ app.put('/api/users/:id', requireAuth, requireAdmin, verifyCsrf, async (req, res
                 return res.status(400).json({ error: passwordValidation.message });
             }
             const hash = bcrypt.hashSync(password, 10);
-            await client.query("UPDATE users SET name=$1, role=$2, password=$3, must_change_password=$4 WHERE id=$5", [name, role, hash, true, id]);
+            await client.query("UPDATE users SET name=$1, role=$2, password=$3, must_change_password=$4 WHERE id=$5", [name, safeRole, hash, true, id]);
             logAction(req.session.user.username, 'UPDATE_USER', `修改使用者：${targetName} (${targetUsername})，已更新姓名、權限和密碼`, req);
         } else {
-            await client.query("UPDATE users SET name=$1, role=$2 WHERE id=$3", [name, role, id]);
+            await client.query("UPDATE users SET name=$1, role=$2 WHERE id=$3", [name, safeRole, id]);
             logAction(req.session.user.username, 'UPDATE_USER', `修改使用者：${targetName} (${targetUsername})，已更新姓名和權限`, req);
         }
 
@@ -1635,14 +1772,16 @@ app.post('/api/users/import', requireAuth, requireAdmin, verifyCsrf, async (req,
             continue;
         }
         
-        // 驗證權限值
+        // 驗證權限值（admin 改由「系統管理群組」決定）
         // 方案A：移除 editor
-        const validRoles = ['admin', 'manager', 'viewer'];
-        if (!validRoles.includes(role.toLowerCase())) {
+        const validRoles = ['manager', 'viewer', 'admin']; // 兼容舊匯入：admin 會存成 manager
+        const roleLower = String(role || '').toLowerCase();
+        if (!validRoles.includes(roleLower)) {
             results.failed++;
             results.errors.push(`第 ${i + 2} 行（${name}）：無效的權限值 "${role}"，應為：${validRoles.join(', ')}`);
             continue;
         }
+        const safeRole = roleLower === 'admin' ? 'manager' : roleLower;
         
         try {
             // 檢查是否已存在相同帳號
@@ -1662,12 +1801,12 @@ app.post('/api/users/import', requireAuth, requireAdmin, verifyCsrf, async (req,
                     const hash = bcrypt.hashSync(password, 10);
                     await pool.query(
                         "UPDATE users SET name=$1, role=$2, password=$3, must_change_password=$4 WHERE username=$5",
-                        [name, role.toLowerCase(), hash, true, username]
+                        [name, safeRole, hash, true, username]
                     );
                 } else {
                     await pool.query(
                         "UPDATE users SET name=$1, role=$2 WHERE username=$3",
-                        [name, role.toLowerCase(), username]
+                        [name, safeRole, username]
                     );
                 }
                 results.success++;
@@ -1691,7 +1830,7 @@ app.post('/api/users/import', requireAuth, requireAdmin, verifyCsrf, async (req,
                 
                 await pool.query(
                     "INSERT INTO users (name, username, role, password, must_change_password) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-                    [name, username, role.toLowerCase(), hash, true]
+                    [name, username, safeRole, hash, true]
                 );
                 results.success++;
             }
@@ -1718,7 +1857,8 @@ app.post('/api/users/import', requireAuth, requireAdmin, verifyCsrf, async (req,
 // --- Admin Logs API ---
 
 app.get('/api/admin/logs', requireAuth, async (req, res) => {
-    if(req.session.user.role !== 'admin') return res.status(403).json({error:'Denied'});
+    const isAdmin = await isAdminUser(req.session.user.id, pool);
+    if(!isAdmin) return res.status(403).json({error:'Denied'});
     try {
         const { page = 1, pageSize = 50, q } = req.query;
         const limit = parseInt(pageSize);
@@ -2280,20 +2420,22 @@ app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (re
         }
         let ownerGroupId = ownerGroupIdInput != null ? parseInt(ownerGroupIdInput, 10) : null;
         if (!Number.isFinite(ownerGroupId)) ownerGroupId = null;
-        if (req.session.user.role !== 'admin') {
-            const myGids = await getUserGroupIds(req.session.user.id, pool);
+        const isAdmin = await isAdminUser(req.session.user.id, pool);
+        if (!isAdmin) {
+            const myGids = await getUserDataGroupIds(req.session.user.id, pool);
             if (ownerGroupId == null) ownerGroupId = myGids[0] ?? null;
             if (ownerGroupId != null && !myGids.includes(ownerGroupId)) {
                 return res.status(403).json({ error: 'Denied' });
             }
         } else {
             if (ownerGroupId != null) {
-                const g = await pool.query("SELECT 1 FROM groups WHERE id = $1 LIMIT 1", [ownerGroupId]);
+                const g = await pool.query("SELECT 1 FROM groups WHERE id = $1 AND COALESCE(is_admin_group, false) = false LIMIT 1", [ownerGroupId]);
                 if (g.rows.length === 0) return res.status(400).json({ error: '群組不存在' });
             } else {
                 ownerGroupId = await getPrimaryGroupId(req.session.user.id, pool);
             }
         }
+        if (ownerGroupId == null) return res.status(400).json({ error: '請先將帳號加入至少一個資料群組' });
         const ownerUserId = req.session.user.id;
         await pool.query(
             `INSERT INTO inspection_plan_schedule (
@@ -2405,6 +2547,7 @@ app.post('/api/plans/import', requireAuth, requireAdminOrManager, verifyCsrf, as
     
     const results = { success: 0, failed: 0, errors: [], skipped: 0 };
     const ownerGroupId = await getPrimaryGroupId(req.session.user.id, pool);
+    if (ownerGroupId == null) return res.status(400).json({ error: '請先將帳號加入至少一個資料群組' });
     const ownerUserId = req.session.user.id;
     
     for (let i = 0; i < data.length; i++) {
@@ -2607,6 +2750,10 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
         await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [getPlanScheduleLockKey(y, r, it)]);
 
         const ownerGroupId = await getPrimaryGroupId(req.session.user.id, client);
+        if (ownerGroupId == null) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: '請先將帳號加入至少一個資料群組' });
+        }
         const ownerUserId = req.session.user.id;
 
         // 若該計畫主檔（00）存在，需符合主檔歸屬才能新增排程，避免跨組把行程塞到別組計畫
