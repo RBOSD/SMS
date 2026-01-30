@@ -6876,7 +6876,6 @@ if (dashboard) {
                                     console.error('匯入時發生未預期錯誤（可能已成功）：', e);
                                 }
                             }
-                        }
                 } catch (e) {
                     showToast('讀取檔案錯誤：' + e.message, 'error');
                 }
