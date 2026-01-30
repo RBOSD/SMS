@@ -315,6 +315,8 @@
                 <div style="margin-top:40px; display:flex; flex-direction:column; gap:12px;">
                     <button class="btn btn-primary hidden" id="editBtn" style="width:100%;padding:14px;font-size:15px;"
                         onclick="toggleEditMode(true)">✏️ 審查</button>
+                    <button class="btn btn-outline hidden" id="editorsBtnDrawer"
+                        style="width:100%;padding:14px;font-size:15px;" onclick="openIssueEditorsModalFromDrawer()">👥 協作編修人員</button>
                     <button class="btn btn-danger hidden" id="deleteBtnDrawer"
                         style="width:100%;padding:14px;font-size:15px;" onclick="deleteIssueFromDrawer()">🗑️
                         刪除此項目</button>
@@ -510,6 +512,30 @@
             <div style="display:flex;gap:10px;margin-top:20px;">
                 <button class="btn btn-primary" style="width:100%" onclick="submitGroupRename()">儲存</button>
                 <button class="btn btn-outline" style="width:100%" onclick="closeGroupModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 協作編修人員 Modal（開立事項 / 檢查計畫共用） -->
+    <div class="modal-overlay" id="editorsModal">
+        <div class="modal-box" style="max-width:760px; width:95%; max-height:85vh; overflow:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center; gap:12px;">
+                <h3 style="margin:0;" id="editorsModalTitle">協作編修人員</h3>
+                <button onclick="closeEditorsModal()" style="border:none;background:none;font-size:24px;color:#64748b;cursor:pointer;" aria-label="關閉協作編修">×</button>
+            </div>
+            <div id="editorsModalSubtitle" style="margin-top:8px; color:#64748b; font-size:13px; line-height:1.6;"></div>
+            <input type="hidden" id="editorsTargetType">
+            <input type="hidden" id="editorsTargetId">
+            <div class="form-group" style="margin-top:14px;">
+                <label>搜尋使用者</label>
+                <input type="text" id="editorsUserSearch" class="filter-input" placeholder="輸入姓名或帳號..." autocomplete="off" oninput="renderEditorsUserList()">
+            </div>
+            <div id="editorsUsersBox" style="border:1px solid var(--border); border-radius:12px; padding:12px; background:#f8fafc; max-height:55vh; overflow:auto;">
+                <div style="color:#64748b;font-size:13px;">（載入中…）</div>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:18px;">
+                <button class="btn btn-primary" style="flex:1;" onclick="saveEditorsSelection()">儲存</button>
+                <button class="btn btn-outline" style="flex:1;" onclick="closeEditorsModal()">取消</button>
             </div>
         </div>
     </div>

@@ -288,6 +288,46 @@ async function getPrimaryGroupId(userId, db = pool) {
     return Number.isFinite(n) ? n : null;
 }
 
+async function isIssueEditor(userId, issueId, db = pool) {
+    const uid = userId != null ? parseInt(userId, 10) : null;
+    const iid = issueId != null ? parseInt(issueId, 10) : null;
+    if (!Number.isFinite(uid) || !Number.isFinite(iid)) return false;
+    const r = await db.query(
+        "SELECT 1 FROM issue_editors WHERE issue_id = $1 AND user_id = $2 LIMIT 1",
+        [iid, uid]
+    );
+    return (r.rows || []).length > 0;
+}
+
+async function isPlanEditorByPlanId(userId, planId, db = pool) {
+    const uid = userId != null ? parseInt(userId, 10) : null;
+    const pid = planId != null ? parseInt(planId, 10) : null;
+    if (!Number.isFinite(uid) || !Number.isFinite(pid)) return false;
+    const r = await db.query(
+        "SELECT 1 FROM plan_editors WHERE plan_id = $1 AND user_id = $2 LIMIT 1",
+        [pid, uid]
+    );
+    return (r.rows || []).length > 0;
+}
+
+async function isPlanEditorByPlanNameYear(userId, planName, year, db = pool) {
+    const uid = userId != null ? parseInt(userId, 10) : null;
+    if (!Number.isFinite(uid)) return false;
+    const n = String(planName || '').trim();
+    const y = String(year || '').trim();
+    if (!n || !y) return false;
+    const r = await db.query(
+        `SELECT 1
+         FROM inspection_plan_schedule h
+         JOIN plan_editors pe ON pe.plan_id = h.id
+         WHERE h.plan_name = $1 AND h.year = $2 AND h.inspection_seq = '00'
+           AND pe.user_id = $3
+         LIMIT 1`,
+        [n, y, uid]
+    );
+    return (r.rows || []).length > 0;
+}
+
 async function canEditByOwnership(user, record, db = pool) {
     // user: { id, role?, isAdmin? }
     // record: { owner_group_id, owner_user_id, edit_mode }
@@ -303,11 +343,31 @@ async function canEditByOwnership(user, record, db = pool) {
     const ownerUserId = record?.owner_user_id != null ? parseInt(record.owner_user_id, 10) : null;
     const ownerGroupId = record?.owner_group_id != null ? parseInt(record.owner_group_id, 10) : null;
     const mode = String(record?.edit_mode || 'GROUP').toUpperCase();
+    const recType = String(record?.__type || '').trim();
+    const recId = record?.id != null ? parseInt(record.id, 10) : null;
 
     if (ownerUserId && user.id === ownerUserId) return true;
 
     if (mode === 'OWNER_ONLY') {
         return ownerUserId != null && user.id === ownerUserId;
+    }
+
+    // 協作編修（跨群組）
+    // - 只在非 OWNER_ONLY 模式下生效
+    try {
+        if (recType === 'issue' && Number.isFinite(recId)) {
+            if (await isIssueEditor(user.id, recId, db)) return true;
+        }
+        if (recType === 'plan_header' && Number.isFinite(recId)) {
+            if (await isPlanEditorByPlanId(user.id, recId, db)) return true;
+        }
+        if (recType === 'schedule') {
+            const pn = record?.plan_name;
+            const py = record?.year;
+            if (await isPlanEditorByPlanNameYear(user.id, pn, py, db)) return true;
+        }
+    } catch (e) {
+        // 若資料表不存在或查詢失敗，走原本的群組/承辦規則
     }
 
     // legacy (owner_group_id 未設定) → 開發中先不擋，避免舊資料無法操作
@@ -502,6 +562,15 @@ async function initDB() {
                     PRIMARY KEY (user_id, group_id)
                 )`);
 
+                // 協作編修：開立事項可額外指定可編修人員（跨群組）
+                // 注意：OWNER_ONLY 模式仍僅允許 owner_user + 系統管理群組
+                await client.query(`CREATE TABLE IF NOT EXISTS issue_editors (
+                    issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (issue_id, user_id)
+                )`);
+
                 // 檢查計畫單一表（原 inspection_plan_schedule）：月曆排程 + 取號 等，不再使用 inspection_plans
                 await client.query(`CREATE TABLE IF NOT EXISTS inspection_plan_schedule (
                     id SERIAL PRIMARY KEY,
@@ -522,6 +591,15 @@ async function initDB() {
                     edit_mode TEXT DEFAULT 'GROUP',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )`);
+
+                // 協作編修：檢查計畫（主檔 00）可額外指定可編修人員（跨群組）
+                // 注意：OWNER_ONLY 模式仍僅允許 owner_user + 系統管理群組
+                await client.query(`CREATE TABLE IF NOT EXISTS plan_editors (
+                    plan_id INTEGER NOT NULL REFERENCES inspection_plan_schedule(id) ON DELETE CASCADE,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (plan_id, user_id)
                 )`);
                 // 修改 start_date 為允許 NULL（如果原本是 NOT NULL）
                 try {
@@ -1195,7 +1273,7 @@ app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
         );
         if (issueMetaRes.rows.length === 0) return res.status(404).json({ error: 'Issue not found' });
         const issueMeta = issueMetaRes.rows[0];
-        const canEdit = await canEditByOwnership({ id: req.session.user.id, role }, issueMeta, pool);
+        const canEdit = await canEditByOwnership({ id: req.session.user.id, role }, { ...issueMeta, __type: 'issue' }, pool);
         if (!canEdit) return res.status(403).json({ error: 'Denied' });
 
         // 先查詢 issue number
@@ -1310,18 +1388,130 @@ app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
     }
 });
 
+// 協作編修（開立事項）：取得/設定可編修人員名單（跨群組）
+app.get('/api/issues/:id/editors', requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
+
+        const metaRes = await pool.query(
+            "SELECT id, owner_group_id, owner_user_id, edit_mode FROM issues WHERE id=$1",
+            [id]
+        );
+        if (metaRes.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        const canEdit = await canEditByOwnership(
+            { id: req.session.user.id, role: req.session.user.role },
+            { ...metaRes.rows[0], __type: 'issue' },
+            pool
+        );
+        if (!canEdit) return res.status(403).json({ error: 'Denied' });
+
+        const r = await pool.query(
+            `SELECT u.id, u.username, u.name, u.role,
+                    COALESCE(BOOL_OR(g.is_admin_group = true), false) AS is_admin
+             FROM issue_editors ie
+             JOIN users u ON u.id = ie.user_id
+             LEFT JOIN user_groups ug ON ug.user_id = u.id
+             LEFT JOIN groups g ON g.id = ug.group_id
+             WHERE ie.issue_id = $1
+             GROUP BY u.id
+             ORDER BY COALESCE(BOOL_OR(g.is_admin_group = true), false) DESC, u.role ASC, u.username ASC`,
+            [id]
+        );
+        res.json({
+            data: (r.rows || []).map(u => ({
+                id: u.id,
+                username: u.username,
+                name: u.name,
+                role: u.role,
+                isAdmin: u.is_admin === true
+            }))
+        });
+    } catch (e) {
+        handleApiError(e, req, res, 'Get issue editors error');
+    }
+});
+
+app.put('/api/issues/:id/editors', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const editorUserIdsRaw = req.body?.editorUserIds;
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
+    const editorUserIds = Array.isArray(editorUserIdsRaw)
+        ? Array.from(new Set(editorUserIdsRaw.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n))))
+        : [];
+    try {
+        const metaRes = await pool.query(
+            "SELECT id, number, owner_group_id, owner_user_id, edit_mode FROM issues WHERE id=$1",
+            [id]
+        );
+        if (metaRes.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        const meta = metaRes.rows[0];
+        const canEdit = await canEditByOwnership(
+            { id: req.session.user.id, role: req.session.user.role },
+            { ...meta, __type: 'issue' },
+            pool
+        );
+        if (!canEdit) return res.status(403).json({ error: 'Denied' });
+
+        // 僅允許指派「資料管理者」或「系統管理群組」成員，避免選到 viewer 造成表面可選但實際不可編修
+        if (editorUserIds.length > 0) {
+            const uRes = await pool.query(
+                `SELECT u.id, u.role, COALESCE(BOOL_OR(g.is_admin_group = true), false) AS is_admin
+                 FROM users u
+                 LEFT JOIN user_groups ug ON ug.user_id = u.id
+                 LEFT JOIN groups g ON g.id = ug.group_id
+                 WHERE u.id = ANY($1)
+                 GROUP BY u.id`,
+                [editorUserIds]
+            );
+            const byId = new Map((uRes.rows || []).map(r => [parseInt(r.id, 10), r]));
+            const invalid = editorUserIds.filter(uid => !byId.has(uid));
+            if (invalid.length) return res.status(400).json({ error: `找不到使用者：${invalid.join(', ')}` });
+            const notAllowed = editorUserIds.filter(uid => {
+                const row = byId.get(uid);
+                const isAdmin = row?.is_admin === true;
+                const role = String(row?.role || '');
+                return !(isAdmin || role === 'manager');
+            });
+            if (notAllowed.length) return res.status(400).json({ error: `僅可指派「資料管理者」或「系統管理員」：${notAllowed.join(', ')}` });
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query("DELETE FROM issue_editors WHERE issue_id = $1", [id]);
+            if (editorUserIds.length > 0) {
+                await client.query(
+                    "INSERT INTO issue_editors (issue_id, user_id) SELECT $1, x FROM UNNEST($2::int[]) AS x ON CONFLICT DO NOTHING",
+                    [id, editorUserIds]
+                );
+            }
+            await client.query('COMMIT');
+        } catch (e) {
+            try { await client.query('ROLLBACK'); } catch (_) {}
+            throw e;
+        } finally {
+            client.release();
+        }
+        logAction(req.session.user.username, 'UPDATE_ISSUE_EDITORS', `更新開立事項協作編修：編號 ${meta.number || `ID:${id}`}，共 ${editorUserIds.length} 人`, req).catch(()=>{});
+        res.json({ success: true });
+    } catch (e) {
+        handleApiError(e, req, res, 'Update issue editors error');
+    }
+});
+
 app.delete('/api/issues/:id', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
     try {
         // 先查詢 issue number / 歸屬再刪除
         const issueRes = await pool.query(
-            "SELECT number, owner_group_id, owner_user_id, edit_mode FROM issues WHERE id=$1",
+            "SELECT id, number, owner_group_id, owner_user_id, edit_mode FROM issues WHERE id=$1",
             [req.params.id]
         );
         if (issueRes.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const issueNumber = issueRes.rows[0]?.number || `ID:${req.params.id}`;
         const canEdit = await canEditByOwnership(
             { id: req.session.user.id, role: req.session.user.role },
-            issueRes.rows[0],
+            { ...issueRes.rows[0], __type: 'issue' },
             pool
         );
         if (!canEdit) return res.status(403).json({ error: 'Denied' });
@@ -1352,7 +1542,7 @@ app.post('/api/issues/batch-delete', requireAuth, verifyCsrf, async (req, res) =
             for (const row of (rows.rows || [])) {
                 const ok = await canEditByOwnership(
                     { id: req.session.user.id, role: req.session.user.role },
-                    row,
+                    { ...row, __type: 'issue' },
                     pool
                 );
                 if (!ok) denied.push(row.number || `ID:${row.id}`);
@@ -1439,7 +1629,7 @@ app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, a
                 // 權限：只能更新自己群組（或 admin rescue）
                 const canEdit = await canEditByOwnership(
                     { id: req.session.user.id, role: req.session.user.role },
-                    check.rows[0],
+                    { ...check.rows[0], __type: 'issue' },
                     client
                 );
                 if (!canEdit) {
@@ -1563,6 +1753,50 @@ app.get('/api/groups', requireAuth, requireAdminOrManager, async (req, res) => {
         res.json({ data: r.rows || [] });
     } catch (e) {
         handleApiError(e, req, res, 'Get groups error');
+    }
+});
+
+// --- User lookup (for managers to select collaborators) ---
+// 注意：/api/users 仍維持僅系統管理群組可用；此端點僅提供最小必要欄位供 UI 選人
+app.get('/api/users/lookup', requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+        const q = String(req.query.q || '').trim();
+        let limit = parseInt(req.query.limit || '500', 10);
+        if (!Number.isFinite(limit) || limit <= 0) limit = 500;
+        if (limit > 5000) limit = 5000;
+
+        const where = [];
+        const params = [];
+        let idx = 1;
+        if (q) {
+            where.push(`(u.username ILIKE $${idx} OR u.name ILIKE $${idx})`);
+            params.push(`%${q}%`);
+            idx++;
+        }
+        const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+        const r = await pool.query(
+            `SELECT u.id, u.username, u.name, u.role,
+                    COALESCE(BOOL_OR(g.is_admin_group = true), false) AS is_admin
+             FROM users u
+             LEFT JOIN user_groups ug ON ug.user_id = u.id
+             LEFT JOIN groups g ON g.id = ug.group_id
+             ${whereSql}
+             GROUP BY u.id
+             ORDER BY COALESCE(BOOL_OR(g.is_admin_group = true), false) DESC, u.role ASC, u.username ASC
+             LIMIT $${idx}`,
+            [...params, limit]
+        );
+        const data = (r.rows || []).map(u => ({
+            id: u.id,
+            username: u.username,
+            name: u.name,
+            role: u.role,
+            isAdmin: u.is_admin === true
+        }));
+        res.json({ data });
+    } catch (e) {
+        handleApiError(e, req, res, 'User lookup error');
     }
 });
 
@@ -2462,7 +2696,7 @@ app.put('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, async 
         if (planRes.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
         const canEdit = await canEditByOwnership(
             { id: req.session.user.id, role: req.session.user.role },
-            planRes.rows[0],
+            { ...planRes.rows[0], __type: 'plan_header' },
             pool
         );
         if (!canEdit) return res.status(403).json({ error: 'Denied' });
@@ -2513,7 +2747,7 @@ app.delete('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, asy
         if (planRes.rows.length === 0) return res.status(404).json({error: 'Plan not found'});
         const canEdit = await canEditByOwnership(
             { id: req.session.user.id, role: req.session.user.role },
-            planRes.rows[0],
+            { ...planRes.rows[0], __type: 'plan_header' },
             pool
         );
         if (!canEdit) return res.status(403).json({ error: 'Denied' });
@@ -2535,6 +2769,123 @@ app.delete('/api/plans/:id', requireAuth, requireAdminOrManager, verifyCsrf, asy
         res.json({success:true});
     } catch (e) { 
         handleApiError(e, req, res, 'Delete plan error');
+    }
+});
+
+// 協作編修（檢查計畫主檔 00）：取得/設定可編修人員名單（跨群組）
+app.get('/api/plans/:id/editors', requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+        const id = parseInt(req.params.id, 10);
+        if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
+
+        const metaRes = await pool.query(
+            "SELECT id, plan_name, year, inspection_seq, owner_group_id, owner_user_id, edit_mode FROM inspection_plan_schedule WHERE id=$1",
+            [id]
+        );
+        if (metaRes.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        const meta = metaRes.rows[0];
+        if (String(meta.inspection_seq) !== '00') return res.status(400).json({ error: '此端點僅適用計畫主檔（inspection_seq=00）' });
+
+        const canEdit = await canEditByOwnership(
+            { id: req.session.user.id, role: req.session.user.role },
+            { ...meta, __type: 'plan_header' },
+            pool
+        );
+        if (!canEdit) return res.status(403).json({ error: 'Denied' });
+
+        const r = await pool.query(
+            `SELECT u.id, u.username, u.name, u.role,
+                    COALESCE(BOOL_OR(g.is_admin_group = true), false) AS is_admin
+             FROM plan_editors pe
+             JOIN users u ON u.id = pe.user_id
+             LEFT JOIN user_groups ug ON ug.user_id = u.id
+             LEFT JOIN groups g ON g.id = ug.group_id
+             WHERE pe.plan_id = $1
+             GROUP BY u.id
+             ORDER BY COALESCE(BOOL_OR(g.is_admin_group = true), false) DESC, u.role ASC, u.username ASC`,
+            [id]
+        );
+        res.json({
+            data: (r.rows || []).map(u => ({
+                id: u.id,
+                username: u.username,
+                name: u.name,
+                role: u.role,
+                isAdmin: u.is_admin === true
+            }))
+        });
+    } catch (e) {
+        handleApiError(e, req, res, 'Get plan editors error');
+    }
+});
+
+app.put('/api/plans/:id/editors', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    const editorUserIdsRaw = req.body?.editorUserIds;
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
+    const editorUserIds = Array.isArray(editorUserIdsRaw)
+        ? Array.from(new Set(editorUserIdsRaw.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n))))
+        : [];
+    try {
+        const metaRes = await pool.query(
+            "SELECT id, plan_name, year, inspection_seq, owner_group_id, owner_user_id, edit_mode FROM inspection_plan_schedule WHERE id=$1",
+            [id]
+        );
+        if (metaRes.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        const meta = metaRes.rows[0];
+        if (String(meta.inspection_seq) !== '00') return res.status(400).json({ error: '此端點僅適用計畫主檔（inspection_seq=00）' });
+
+        const canEdit = await canEditByOwnership(
+            { id: req.session.user.id, role: req.session.user.role },
+            { ...meta, __type: 'plan_header' },
+            pool
+        );
+        if (!canEdit) return res.status(403).json({ error: 'Denied' });
+
+        // 僅允許指派「資料管理者」或「系統管理群組」成員
+        if (editorUserIds.length > 0) {
+            const uRes = await pool.query(
+                `SELECT u.id, u.role, COALESCE(BOOL_OR(g.is_admin_group = true), false) AS is_admin
+                 FROM users u
+                 LEFT JOIN user_groups ug ON ug.user_id = u.id
+                 LEFT JOIN groups g ON g.id = ug.group_id
+                 WHERE u.id = ANY($1)
+                 GROUP BY u.id`,
+                [editorUserIds]
+            );
+            const byId = new Map((uRes.rows || []).map(r => [parseInt(r.id, 10), r]));
+            const invalid = editorUserIds.filter(uid => !byId.has(uid));
+            if (invalid.length) return res.status(400).json({ error: `找不到使用者：${invalid.join(', ')}` });
+            const notAllowed = editorUserIds.filter(uid => {
+                const row = byId.get(uid);
+                const isAdmin = row?.is_admin === true;
+                const role = String(row?.role || '');
+                return !(isAdmin || role === 'manager');
+            });
+            if (notAllowed.length) return res.status(400).json({ error: `僅可指派「資料管理者」或「系統管理員」：${notAllowed.join(', ')}` });
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query("DELETE FROM plan_editors WHERE plan_id = $1", [id]);
+            if (editorUserIds.length > 0) {
+                await client.query(
+                    "INSERT INTO plan_editors (plan_id, user_id) SELECT $1, x FROM UNNEST($2::int[]) AS x ON CONFLICT DO NOTHING",
+                    [id, editorUserIds]
+                );
+            }
+            await client.query('COMMIT');
+        } catch (e) {
+            try { await client.query('ROLLBACK'); } catch (_) {}
+            throw e;
+        } finally {
+            client.release();
+        }
+        logAction(req.session.user.username, 'UPDATE_PLAN_EDITORS', `更新檢查計畫協作編修：${meta.plan_name || ''} (${meta.year || ''})，共 ${editorUserIds.length} 人`, req).catch(()=>{});
+        res.json({ success: true });
+    } catch (e) {
+        handleApiError(e, req, res, 'Update plan editors error');
     }
 });
 
@@ -2759,13 +3110,13 @@ app.post('/api/plan-schedule', requireAuth, requireAdminOrManager, verifyCsrf, a
         // 若該計畫主檔（00）存在，需符合主檔歸屬才能新增排程，避免跨組把行程塞到別組計畫
         try {
             const headerRes = await client.query(
-                "SELECT owner_group_id, owner_user_id, edit_mode FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 AND inspection_seq = '00' LIMIT 1",
+                "SELECT id, plan_name, year, owner_group_id, owner_user_id, edit_mode FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 AND inspection_seq = '00' LIMIT 1",
                 [name, y]
             );
             if (headerRes.rows.length > 0) {
                 const ok = await canEditByOwnership(
                     { id: req.session.user.id, role: req.session.user.role },
-                    headerRes.rows[0],
+                    { ...headerRes.rows[0], __type: 'plan_header' },
                     client
                 );
                 if (!ok) {
@@ -3009,7 +3360,7 @@ app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf
         const oldRow = r.rows[0];
 
         // 依歸屬限制：避免不同 manager/群組互相誤改
-        const canEdit = await canEditByOwnership({ id: req.session.user.id, role: req.session.user.role }, oldRow, client);
+        const canEdit = await canEditByOwnership({ id: req.session.user.id, role: req.session.user.role }, { ...oldRow, __type: 'schedule' }, client);
         if (!canEdit) {
             await client.query('ROLLBACK');
             return res.status(403).json({ error: 'Denied' });
@@ -3024,13 +3375,13 @@ app.put('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyCsrf
         const targetPlanName = String(plan_name).trim();
         try {
             const headerRes = await client.query(
-                "SELECT owner_group_id, owner_user_id, edit_mode FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 AND inspection_seq = '00' LIMIT 1",
+                "SELECT id, plan_name, year, owner_group_id, owner_user_id, edit_mode FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 AND inspection_seq = '00' LIMIT 1",
                 [targetPlanName, y]
             );
             if (headerRes.rows.length > 0) {
                 const ok = await canEditByOwnership(
                     { id: req.session.user.id, role: req.session.user.role },
-                    headerRes.rows[0],
+                    { ...headerRes.rows[0], __type: 'plan_header' },
                     client
                 );
                 if (!ok) {
@@ -3132,7 +3483,7 @@ app.delete('/api/plan-schedule/:id', requireAuth, requireAdminOrManager, verifyC
         if (row.plan_number === '(手動)' || row.inspection_seq === '00') {
             return res.status(400).json({ error: '不可刪除計畫主檔，請從計畫管理刪除整個計畫' });
         }
-        const canEdit = await canEditByOwnership({ id: req.session.user.id, role: req.session.user.role }, row, pool);
+        const canEdit = await canEditByOwnership({ id: req.session.user.id, role: req.session.user.role }, { ...row, __type: 'schedule' }, pool);
         if (!canEdit) return res.status(403).json({ error: 'Denied' });
         await pool.query('DELETE FROM inspection_plan_schedule WHERE id = $1', [req.params.id]);
         // 不再刪除後重新編號：避免一次刪除影響大量資料；缺號會在下一次新增時以「最小可用序號」補回

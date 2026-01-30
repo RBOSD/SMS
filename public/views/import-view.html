@@ -512,7 +512,10 @@
         <div class="modal-box plan-edit-modal plan-edit-modal-v2">
             <div class="plan-modal-header">
                 <h3 id="planModalTitle">編輯檢查計畫</h3>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="openPlanEditorsModal()">👥 協作編修</button>
                 <button type="button" class="plan-modal-close" onclick="closePlanModal()" aria-label="關閉">×</button>
+                </div>
             </div>
             <input type="hidden" id="targetPlanId">
             <input type="hidden" id="targetScheduleId">
