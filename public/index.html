@@ -55,7 +55,7 @@
             <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')">
                 資料管理</button>
             <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')">
-                帳號管理</button>
+                後台管理</button>
         </aside>
 
         <div id="filterBackdrop" onclick="onToggleSidebar()"></div>
@@ -241,6 +241,35 @@
     <div id="usersView" class="view-section">
         <!-- 內容將由 switchView 函數動態載入 -->
     </div>
+
+            <!-- 匯入預覽（共用：Word 匯入 / 資料救援） -->
+            <div id="previewContainer" class="hidden">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px; flex-wrap:wrap; gap:10px;">
+                    <h3 style="margin:0; font-weight:700; font-size:18px; color:#334155;">
+                        解析結果預覽 (<span id="previewCount" style="color:var(--primary);">0</span> 筆) <span id="previewModeBadge"></span>
+                    </h3>
+                    <div style="display:flex;gap:10px; flex-wrap:wrap;">
+                        <button class="btn btn-outline" onclick="cancelImport()">取消</button>
+                        <button class="btn btn-primary" onclick="confirmImport()">上傳至資料庫</button>
+                    </div>
+                </div>
+                <div class="main-card">
+                    <div class="data-container">
+                        <table class="preview-table">
+                            <thead>
+                                <tr>
+                                    <th>操作</th>
+                                    <th>編號</th>
+                                    <th>機構</th>
+                                    <th>事項內容</th>
+                                    <th>辦理/審查內容</th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
     </main>
     </div>
 

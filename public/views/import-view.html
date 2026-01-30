@@ -5,7 +5,6 @@
 <div class="admin-tabs">
     <button class="admin-tab-btn active" onclick="switchDataTab('issues')">開立事項管理</button>
     <button class="admin-tab-btn" onclick="switchDataTab('plans')">檢查計畫</button>
-    <button class="admin-tab-btn" onclick="switchDataTab('export')">資料匯出</button>
 </div>
 
 <!-- Tab 1: 開立事項管理 -->
@@ -113,53 +112,7 @@
                 style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
         </div>
 
-        <!-- Part B: Backup Import (Restricted to Admin) -->
-        <div class="main-card hidden" id="uploadCardBackup">
-            <div style="margin-bottom:24px;">
-                <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">🚑 資料救援區 (還原備份) [Admin Only]</h3>
-                <p style="margin:0; color:#64748b; font-size:13px;">
-                    用於資料庫清空後的災難復原。支援 CSV 或 JSON 格式。
-                </p>
-            </div>
-            <div style="margin-bottom:24px;">
-                <label
-                    style="font-weight:700;display:block;margin-bottom:12px;color:var(--text-main);">選擇備份檔案
-                    (.csv, .json)</label>
-                <input type="file" id="backupInput" class="filter-input" accept=".csv, .json"
-                    style="padding:8px;">
-            </div>
-            <button id="btnParseBackup" class="btn btn-danger" style="width:100%; padding:12px;"
-                onclick="previewBackup()">解析並還原備份資料</button>
-            <div id="importStatusBackup"
-                style="margin-top:12px;color:#64748b;font-size:13px;text-align:center;"></div>
-        </div>
-
-        <!-- Preview Modal Container (Shared) -->
-        <div id="previewContainer" class="hidden">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px;">
-                <h3 style="margin:0; font-weight:700; font-size:18px; color:#334155;">解析結果預覽 (<span id="previewCount"
-                        style="color:var(--primary);">0</span> 筆) <span id="previewModeBadge"></span></h3>
-                <div style="display:flex;gap:10px;"><button class="btn btn-outline"
-                        onclick="cancelImport()">取消</button><button class="btn btn-primary"
-                        onclick="confirmImport()">上傳至資料庫</button></div>
-            </div>
-            <div class="main-card">
-                <div class="data-container">
-                    <table class="preview-table">
-                        <thead>
-                            <tr>
-                                <th>操作</th>
-                                <th>編號</th>
-                                <th>機構</th>
-                                <th>事項內容</th>
-                                <th>辦理/審查內容</th>
-                            </tr>
-                        </thead>
-                        <tbody id="previewBody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        <!-- 備援/救援功能已移至「後台管理」 -->
     </div>
 
     <!-- Sub-tab 2: Create Issue (合併批次建檔和手動輸入) -->
@@ -478,11 +431,11 @@
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
             <div style="flex:1; min-width:200px;">
                 <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">檢查計畫管理</h3>
-                <p style="margin:0; color:#64748b; font-size:13px;">管理檢查計畫資料，可新增、編輯、刪除檢查計畫，並支援 CSV 匯入功能。</p>
+                <p style="margin:0; color:#64748b; font-size:13px;">管理檢查計畫資料，可新增、編輯、刪除檢查計畫，並支援 Excel 整批匯入。</p>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
                 <button class="btn btn-primary" onclick="openPlanModal('create')">➕ 新增計畫</button>
-                <button class="btn btn-outline" onclick="openPlanImportModal()">📥 CSV 匯入</button>
+                <button class="btn btn-outline" onclick="openPlanImportModal()">📥 整批匯入</button>
             </div>
         </div>
         <div style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
@@ -647,125 +600,16 @@
     <!-- Plan Import Modal（共用） -->
     <div class="modal-overlay" id="planImportModal">
         <div class="modal-box" style="max-width:600px;">
-            <h3 style="margin-top:0;">匯入檢查計畫（Excel）</h3>
+            <h3 style="margin-top:0;">整批匯入檢查計畫（Excel）</h3>
             <div class="form-group">
                 <label>選擇匯入檔案（.xlsx）</label>
                 <input type="file" id="planImportFile" accept=".xlsx" class="filter-input">
             </div>
-            <input type="file" id="planTemplateFile" accept=".xlsx" style="display:none;">
             <div style="display:flex;gap:12px;margin-top:24px;">
                 <button class="btn btn-primary" style="flex:1;" onclick="importPlansXlsx()">📥 執行匯入</button>
                 <button class="btn btn-outline" style="flex:1;" onclick="closePlanImportModal()">取消</button>
                 <button class="btn btn-outline" style="flex:1;" onclick="downloadPlanXlsxTemplate()">📥 下載 Excel 範例</button>
-                <button class="btn btn-outline" style="flex:1;" onclick="uploadPlanXlsxTemplate()">📤 上傳並設為範例</button>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- Tab 3: 資料匯出 -->
-<div id="tab-data-export" class="hidden">
-    <div class="main-card">
-        <!-- 標題區 -->
-        <div style="margin-bottom:24px;">
-            <h3 style="margin:0 0 8px 0; color:#334155; font-size:18px; font-weight:700;">📥 資料匯出</h3>
-            <p style="color:#64748b; font-size:13px; margin:0; line-height:1.6;">
-                將系統中的資料匯出為檔案。Excel 格式適合 Excel 編輯與分析，JSON 格式適合系統備份與還原。
-            </p>
-        </div>
-
-        <!-- 步驟 1: 選擇匯出資料類型 -->
-        <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
-                <div style="width:28px; height:28px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0;">1</div>
-                <label style="font-weight:600; color:#475569; font-size:14px; margin:0; cursor:default;">選擇匯出資料類型</label>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:12px; margin-left:36px;">
-                <label style="cursor:pointer; display:flex; align-items:center; gap:10px; padding:12px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s;" 
-                    onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#eff6ff';" 
-                    onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white';">
-                    <input type="radio" name="exportDataType" value="issues" checked style="cursor:pointer;">
-                    <div style="flex:1;">
-                        <div style="font-weight:600; color:#334155; font-size:14px;">僅匯出開立事項</div>
-                        <div style="font-size:12px; color:#64748b; margin-top:2px;">匯出所有開立事項的資料</div>
-                    </div>
-                </label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:10px; padding:12px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s;" 
-                    onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#eff6ff';" 
-                    onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white';">
-                    <input type="radio" name="exportDataType" value="plans" style="cursor:pointer;">
-                    <div style="flex:1;">
-                        <div style="font-weight:600; color:#334155; font-size:14px;">僅匯出檢查計畫</div>
-                        <div style="font-size:12px; color:#64748b; margin-top:2px;">匯出所有檢查計畫的資料</div>
-                    </div>
-                </label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:10px; padding:12px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s;" 
-                    onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#eff6ff';" 
-                    onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white';">
-                    <input type="radio" name="exportDataType" value="both" style="cursor:pointer;">
-                    <div style="flex:1;">
-                        <div style="font-weight:600; color:#334155; font-size:14px;">匯出開立事項與檢查計畫（合併）</div>
-                        <div style="font-size:12px; color:#64748b; margin-top:2px;">同時匯出開立事項和檢查計畫的完整資料</div>
-                    </div>
-                </label>
-            </div>
-        </div>
-
-        <!-- 步驟 2: 選擇匯出內容（開立事項） -->
-        <div id="exportIssuesOptions" style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
-                <div style="width:28px; height:28px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0;">2</div>
-                <label style="font-weight:600; color:#475569; font-size:14px; margin:0; cursor:default;">選擇匯出內容（開立事項）</label>
-            </div>
-            <div style="display:flex; gap:16px; margin-left:36px; flex-wrap:wrap;">
-                <label style="cursor:pointer; display:flex; align-items:center; gap:10px; padding:12px 20px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s; flex:1; min-width:200px;" 
-                    onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#eff6ff';" 
-                    onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white';">
-                    <input type="radio" name="exportScope" value="latest" checked style="cursor:pointer;">
-                    <div style="font-weight:600; color:#334155; font-size:14px;">僅匯出最新進度</div>
-                </label>
-                <label style="cursor:pointer; display:flex; align-items:center; gap:10px; padding:12px 20px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s; flex:1; min-width:200px;" 
-                    onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#eff6ff';" 
-                    onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white';">
-                    <input type="radio" name="exportScope" value="full" style="cursor:pointer;">
-                    <div style="font-weight:600; color:#334155; font-size:14px;">匯出完整歷程</div>
-                </label>
-            </div>
-        </div>
-
-        <!-- 步驟 3: 選擇檔案格式 -->
-        <div style="background:#f8fafc; padding:20px; border-radius:12px; margin-bottom:24px; border:1px solid #e2e8f0;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
-                <div style="width:28px; height:28px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0;">3</div>
-                <label style="font-weight:600; color:#475569; font-size:14px; margin:0; cursor:default;">選擇檔案格式</label>
-            </div>
-            <div style="display:flex; gap:16px; margin-left:36px; flex-wrap:wrap;">
-                <label style="cursor:pointer; display:flex; align-items:center; gap:10px; padding:12px 20px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s; flex:1; min-width:200px;" 
-                    onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#eff6ff';" 
-                    onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white';">
-                    <input type="radio" name="exportFormat" value="excel" checked style="cursor:pointer;">
-                    <div>
-                        <div style="font-weight:600; color:#334155; font-size:14px;">Excel (.xlsx)</div>
-                        <div style="font-size:12px; color:#64748b; margin-top:2px;">適合 Excel 編輯與分析</div>
-                    </div>
-                </label>
-                <label id="exportJsonOption" style="cursor:pointer; display:none; align-items:center; gap:10px; padding:12px 20px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s; flex:1; min-width:200px;" 
-                    onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#eff6ff';" 
-                    onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white';">
-                    <input type="radio" name="exportFormat" value="json" style="cursor:pointer;">
-                    <div>
-                        <div style="font-weight:600; color:#334155; font-size:14px;">JSON (備份用)</div>
-                        <div style="font-size:12px; color:#64748b; margin-top:2px;">適合系統備份與還原</div>
-                    </div>
-                </label>
-            </div>
-        </div>
-
-        <!-- 執行按鈕 -->
-        <div style="display:flex; justify-content:flex-end; padding-top:20px; border-top:1px solid #e2e8f0;">
-            <button class="btn btn-primary" onclick="exportAllData()" style="padding:12px 32px;">
-                📥 執行匯出
-            </button>
         </div>
     </div>
 </div>

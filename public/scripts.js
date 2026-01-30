@@ -2067,10 +2067,16 @@ if (dashboard) {
                     }
                 });
             }
-            document.getElementById('tab-users').classList.toggle('hidden', tab !== 'users'); 
-            document.getElementById('tab-import-export').classList.toggle('hidden', tab !== 'import-export');
-            document.getElementById('tab-logs').classList.toggle('hidden', tab !== 'logs'); 
-            document.getElementById('tab-actions').classList.toggle('hidden', tab !== 'actions'); 
+            const tabUsers = document.getElementById('tab-users');
+            const tabImportExport = document.getElementById('tab-import-export');
+            const tabLogs = document.getElementById('tab-logs');
+            const tabActions = document.getElementById('tab-actions');
+            const tabSystem = document.getElementById('tab-system');
+            if (tabUsers) tabUsers.classList.toggle('hidden', tab !== 'users'); 
+            if (tabImportExport) tabImportExport.classList.toggle('hidden', tab !== 'import-export');
+            if (tabLogs) tabLogs.classList.toggle('hidden', tab !== 'logs'); 
+            if (tabActions) tabActions.classList.toggle('hidden', tab !== 'actions'); 
+            if (tabSystem) tabSystem.classList.toggle('hidden', tab !== 'system');
             if (tab === 'logs') {
                 restoreLogsViewState();
                 loadLogsPage(logsPage || 1); 
@@ -2081,6 +2087,13 @@ if (dashboard) {
             }
             if (tab === 'users') {
                 loadUsersPage(usersPage || 1);
+            }
+            if (tab === 'system') {
+                // 初始化匯出選項顯示/隱藏
+                setTimeout(() => { 
+                    try { setupAdminElements(); } catch (e) {}
+                    try { setupExportOptions(); } catch (e) {} 
+                }, 50);
             }
         }
 
@@ -2367,16 +2380,23 @@ if (dashboard) {
                 const stageText = stageRadio && stageRadio.value === 'initial' ? '初次開立' : `第 ${round} 次審查`;
                 const badgeClass = stageRadio && stageRadio.value === 'initial' ? 'new' : 'update';
 
-                document.getElementById('previewModeBadge').innerHTML = `<span class="badge ${badgeClass}">Word 匯入 (${stageText})</span>`;
-                document.getElementById('uploadCardWord').classList.add('hidden');
-                document.getElementById('uploadCardBackup').classList.add('hidden');
+                const badgeEl = document.getElementById('previewModeBadge');
+                if (badgeEl) badgeEl.innerHTML = `<span class="badge ${badgeClass}">Word 匯入 (${stageText})</span>`;
+                const uploadCardWord = document.getElementById('uploadCardWord');
+                if (uploadCardWord) uploadCardWord.classList.add('hidden');
+                const uploadCardBackup = document.getElementById('uploadCardBackup');
+                if (uploadCardBackup) uploadCardBackup.classList.add('hidden');
             } else {
-                document.getElementById('previewModeBadge').innerHTML = `<span class="badge active">⚠️ 災難復原模式</span>`;
-                document.getElementById('uploadCardWord').classList.add('hidden');
-                document.getElementById('uploadCardBackup').classList.add('hidden');
+                const badgeEl = document.getElementById('previewModeBadge');
+                if (badgeEl) badgeEl.innerHTML = `<span class="badge active">⚠️ 災難復原模式</span>`;
+                const uploadCardWord = document.getElementById('uploadCardWord');
+                if (uploadCardWord) uploadCardWord.classList.add('hidden');
+                const uploadCardBackup = document.getElementById('uploadCardBackup');
+                if (uploadCardBackup) uploadCardBackup.classList.add('hidden');
             }
             renderPreviewTable();
-            document.getElementById('previewContainer').classList.remove('hidden');
+            const previewContainer = document.getElementById('previewContainer');
+            if (previewContainer) previewContainer.classList.remove('hidden');
             if (msgElement) msgElement.innerText = '';
         }
 
@@ -2398,13 +2418,20 @@ if (dashboard) {
 
         function cancelImport() {
             stagedImportData = [];
-            document.getElementById('previewContainer').classList.add('hidden');
-            document.getElementById('uploadCardWord').classList.remove('hidden');
-            if (currentUser && currentUser.role === 'admin') { document.getElementById('uploadCardBackup').classList.remove('hidden'); }
-            document.getElementById('wordInput').value = '';
-            document.getElementById('backupInput').value = '';
-            document.getElementById('importStatusWord').innerText = '';
-            document.getElementById('importStatusBackup').innerText = '';
+            const previewContainer = document.getElementById('previewContainer');
+            if (previewContainer) previewContainer.classList.add('hidden');
+            const uploadCardWord = document.getElementById('uploadCardWord');
+            if (uploadCardWord) uploadCardWord.classList.remove('hidden');
+            const uploadCardBackup = document.getElementById('uploadCardBackup');
+            if (uploadCardBackup && currentUser && currentUser.role === 'admin') uploadCardBackup.classList.remove('hidden');
+            const wordInput = document.getElementById('wordInput');
+            if (wordInput) wordInput.value = '';
+            const backupInput = document.getElementById('backupInput');
+            if (backupInput) backupInput.value = '';
+            const importStatusWord = document.getElementById('importStatusWord');
+            if (importStatusWord) importStatusWord.innerText = '';
+            const importStatusBackup = document.getElementById('importStatusBackup');
+            if (importStatusBackup) importStatusBackup.innerText = '';
         }
 
         async function confirmImport() {
@@ -2540,6 +2567,8 @@ if (dashboard) {
         }
 
         function switchDataTab(tab) { 
+            // 匯出功能已移至「後台管理」，避免舊狀態導向不存在的頁籤
+            if (tab === 'export') tab = 'issues';
             // 保存當前 tab 到 sessionStorage
             sessionStorage.setItem('currentDataTab', tab);
             
@@ -2559,7 +2588,6 @@ if (dashboard) {
             // 主要 tab 切換
             document.getElementById('tab-data-issues').classList.toggle('hidden', tab !== 'issues'); 
             document.getElementById('tab-data-plans').classList.toggle('hidden', tab !== 'plans');
-            document.getElementById('tab-data-export').classList.toggle('hidden', tab !== 'export');
             
             // 處理各 tab 的初始化
             if (tab === 'issues') {
@@ -2575,10 +2603,7 @@ if (dashboard) {
                 setTimeout(() => switchPlansSubTab(savedSubTab), 100);
                 loadPlanOptions();
             }
-            if (tab === 'export') {
-                // 設置匯出選項的顯示/隱藏
-                setTimeout(() => setupExportOptions(), 100);
-            }
+            // 匯出功能已移至「後台管理」
         }
         
         // 檢查計畫的子 tab 切換
