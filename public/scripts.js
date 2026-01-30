@@ -262,7 +262,7 @@
             
             return null;
         }
-        function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'editor': '審查人員', 'viewer': '檢視人員' }; return map[r] || r; }
+        function getRoleName(r) { const map = { 'admin': '系統管理員', 'manager': '資料管理者', 'viewer': '檢視人員' }; return map[r] || r; }
         // [Enhanced] 改進編號提取，支持從帶換行的儲存格中提取編號
         function extractNumberFromCell(cell) {
             if (!cell) return "";
@@ -1717,7 +1717,7 @@ if (dashboard) {
             if (!currentData || currentData.length === 0) { document.getElementById('emptyMsg').style.display = 'block'; return; }
             document.getElementById('emptyMsg').style.display = 'none';
             const canManage = currentUser && ['admin', 'manager'].includes(currentUser.role);
-            const canEdit = currentUser && ['admin', 'manager', 'editor'].includes(currentUser.role);
+            const canEdit = currentUser && ['admin', 'manager'].includes(currentUser.role);
             const isViewer = currentUser && currentUser.role === 'viewer';
             document.getElementById('batchActionContainer').style.display = 'none'; document.getElementById('selectedCountBadge').innerText = ''; document.getElementById('selectAll').checked = false;
             document.querySelectorAll('.manager-col').forEach(el => el.style.display = canManage ? 'table-cell' : 'none');
@@ -5270,8 +5270,8 @@ if (dashboard) {
 
                 // fallback：系統預設範例
                 // 範例檔格式：姓名,帳號,權限,密碼（選填）
-                // 權限值：admin（系統管理員）、manager（資料管理者）、editor（審查人員）、viewer（檢視人員）
-                const csv = '姓名,帳號,權限,密碼\n張三,zhang@example.com,editor,password123\n李四,li@example.com,manager,password123\n王五,wang@example.com,viewer,\n趙六,zhao@example.com,admin,admin123';
+                // 權限值：admin（系統管理員）、manager（資料管理者）、viewer（檢視人員）
+                const csv = '姓名,帳號,權限,密碼\n張三,zhang@example.com,manager,password123\n李四,li@example.com,manager,password123\n王五,wang@example.com,viewer,\n趙六,zhao@example.com,admin,admin123';
                 const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
@@ -5379,11 +5379,11 @@ if (dashboard) {
                                 const roleMap = {
                                     'admin': 'admin',
                                     'manager': 'manager',
-                                    'editor': 'editor',
+                                    'editor': 'manager',
                                     'viewer': 'viewer',
                                     '系統管理員': 'admin',
                                     '資料管理者': 'manager',
-                                    '審查人員': 'editor',
+                                    '審查人員': 'manager',
                                     '檢視人員': 'viewer'
                                 };
                                 
@@ -5391,7 +5391,7 @@ if (dashboard) {
                                 if (!normalizedRole) {
                                     invalidRows.push({
                                         row: index + 2,
-                                        error: `無效的權限值：${role}（應為：admin/系統管理員, manager/資料管理者, editor/審查人員, viewer/檢視人員）`
+                                        error: `無效的權限值：${role}（應為：admin/系統管理員, manager/資料管理者, viewer/檢視人員）`
                                     });
                                     return;
                                 }
@@ -7800,7 +7800,7 @@ if (dashboard) {
             const timelineHtml = `<div class="timeline-line"></div>` + (h || '<div style="color:#999;padding-left:20px;">無歷程紀錄</div>');
             document.getElementById('dTimeline').innerHTML = timelineHtml;
 
-            const canEdit = ['admin', 'manager', 'editor'].includes(currentUser.role); const canDelete = ['admin', 'manager'].includes(currentUser.role); document.getElementById('editBtn').classList.toggle('hidden', !canEdit); document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit);
+            const canEdit = ['admin', 'manager'].includes(currentUser.role); const canDelete = ['admin', 'manager'].includes(currentUser.role); document.getElementById('editBtn').classList.toggle('hidden', !canEdit); document.getElementById('deleteBtnDrawer').classList.toggle('hidden', !canDelete); document.getElementById('drawerBackdrop').classList.add('open'); document.getElementById('detailDrawer').classList.add('open'); toggleEditMode(isEdit);
         }
         function logout() { 
             // 清除視圖狀態

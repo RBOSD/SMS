@@ -24,9 +24,9 @@
     </div>
 
     <!-- 後台雙欄：左帳號、右群組 -->
-    <div style="display:grid; grid-template-columns: 2.2fr 1fr; gap:16px; align-items:start;">
+    <div class="admin-users-layout">
         <!-- Left: Users -->
-        <div class="detail-card" style="margin:0;">
+        <div class="detail-card" style="margin:0; min-width:0;">
             <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-end; flex-wrap:wrap; padding-bottom:12px; border-bottom:1px solid var(--border);">
                 <div style="min-width:220px;">
                     <div style="font-weight:800; color:#334155; font-size:16px;">👤 使用者列表</div>
@@ -62,7 +62,7 @@
         </div>
 
         <!-- Right: Groups -->
-        <div class="detail-card" style="margin:0;">
+        <div class="detail-card" style="margin:0; min-width:0;">
             <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; padding-bottom:12px; border-bottom:1px solid var(--border);">
                 <div style="min-width:180px;">
                     <div style="font-weight:800; color:#334155; font-size:16px;">👥 群組管理</div>

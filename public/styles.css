@@ -674,6 +674,24 @@
             background: #f1f5f9;
         }
 
+        /* 後台：帳號/群組雙欄（避免右側超出畫面） */
+        .admin-users-layout {
+            display: grid;
+            grid-template-columns: minmax(560px, 2.2fr) minmax(320px, 1fr);
+            gap: 16px;
+            align-items: start;
+        }
+
+        .admin-users-layout > * {
+            min-width: 0;
+        }
+
+        @media (max-width: 1100px) {
+            .admin-users-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
         /* [Added] Custom focus styles for date inputs in edit mode */
         #editReplyDate:focus,
         #editResponseDate:focus {

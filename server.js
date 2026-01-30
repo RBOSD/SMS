@@ -402,6 +402,11 @@ async function initDB() {
                 try {
                     await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT true`);
                 } catch (e) {}
+                
+                // 角色整併（方案A）：editor 視為 manager，避免舊帳號失效
+                try {
+                    await client.query(`UPDATE users SET role = 'manager' WHERE role = 'editor'`);
+                } catch (e) {}
 
                 // Groups / User groups (多群組隸屬)
                 await client.query(`CREATE TABLE IF NOT EXISTS groups (
@@ -1053,9 +1058,9 @@ app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
     const replyField = `reply_date_r${r}`;
     const respField = `response_date_r${r}`;
     try {
-        // 角色限制：viewer 不可寫入
+        // 角色限制（方案A）：viewer 不可寫入；editor 已整併到 manager
         const role = req.session?.user?.role;
-        if (!['admin', 'manager', 'editor'].includes(role)) {
+        if (!['admin', 'manager'].includes(role)) {
             return res.status(403).json({ error: 'Denied' });
         }
 
@@ -1087,33 +1092,7 @@ app.put('/api/issues/:id', requireAuth, verifyCsrf, async (req, res) => {
             }
         }
 
-        // editor 僅允許更新「審查意見（reviewN）」與（可選）狀態
-        if (role === 'editor') {
-            const updateParts = [];
-            const params = [];
-            let idx = 1;
-            if (review !== undefined) {
-                updateParts.push(`${rField}=$${idx++}`);
-                params.push(review || '');
-            }
-            if (status !== undefined) {
-                updateParts.push(`status=$${idx++}`);
-                params.push(status);
-            }
-            // 允許更新本次函復日期（若前端有送），避免 reviewer 流程卡住；不允許改 replyDate（機構回復）
-            if (responseDate !== undefined) {
-                updateParts.push(`${respField}=$${idx++}`);
-                params.push(responseDate || '');
-            }
-            if (updateParts.length === 0) {
-                return res.status(400).json({ error: 'No editable fields' });
-            }
-            updateParts.push(`updated_at=CURRENT_TIMESTAMP`);
-            params.push(id);
-            await pool.query(`UPDATE issues SET ${updateParts.join(', ')} WHERE id=$${idx}`, params);
-            logAction(req.session.user.username, 'UPDATE_ISSUE', `更新開立事項：編號 ${issueNumber}，第 ${r} 次審查（review）`, req);
-            return res.json({ success: true });
-        }
+        // 方案A：manager 同時具備審查與資料管理，沿用既有完整更新流程
         
         // 構建更新語句，如果提供了 content 或 issueDate 則包含它們
         // 注意：replyDate 和 responseDate 如果提供空字符串，應該明確更新為空字符串
@@ -1657,7 +1636,8 @@ app.post('/api/users/import', requireAuth, requireAdmin, verifyCsrf, async (req,
         }
         
         // 驗證權限值
-        const validRoles = ['admin', 'manager', 'editor', 'viewer'];
+        // 方案A：移除 editor
+        const validRoles = ['admin', 'manager', 'viewer'];
         if (!validRoles.includes(role.toLowerCase())) {
             results.failed++;
             results.errors.push(`第 ${i + 2} 行（${name}）：無效的權限值 "${role}"，應為：${validRoles.join(', ')}`);
