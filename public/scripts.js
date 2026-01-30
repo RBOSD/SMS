@@ -177,6 +177,15 @@
             btn.title = c ? '收合統計圖表' : '展開統計圖表';
         }
         function toggleUserMenu() { document.getElementById('userDropdown').classList.toggle('show'); }
+
+        function toggleGroupsPanelSize() {
+            const layout = document.getElementById('adminUsersLayout') || document.querySelector('.admin-users-layout');
+            if (!layout) return;
+            layout.classList.toggle('groups-expanded');
+            const expanded = layout.classList.contains('groups-expanded');
+            const btn = document.getElementById('btnToggleGroupsPanel');
+            if (btn) btn.textContent = expanded ? '⤡ 縮小' : '⤢ 放大';
+        }
         window.addEventListener('click', function (e) { if (!e.target.closest('.user-menu-container')) { document.getElementById('userDropdown').classList.remove('show'); } });
 
         function togglePwdVisibility(inputId, btn) { const input = document.getElementById(inputId); if (input.type === 'password') { input.type = 'text'; btn.innerText = '🚫'; } else { input.type = 'password'; btn.innerText = '👁️'; } }

@@ -24,9 +24,9 @@
     </div>
 
     <!-- 後台雙欄：左帳號、右群組 -->
-    <div class="admin-users-layout">
+    <div class="admin-users-layout" id="adminUsersLayout">
         <!-- Left: Users -->
-        <div class="detail-card" style="margin:0; min-width:0;">
+        <div class="detail-card admin-users-left" style="margin:0; min-width:0;">
             <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-end; flex-wrap:wrap; padding-bottom:12px; border-bottom:1px solid var(--border);">
                 <div style="min-width:220px;">
                     <div style="font-weight:800; color:#334155; font-size:16px;">👤 使用者列表</div>
@@ -62,13 +62,16 @@
         </div>
 
         <!-- Right: Groups -->
-        <div class="detail-card" style="margin:0; min-width:0;">
+        <div class="detail-card admin-users-right" style="margin:0; min-width:0;">
             <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; padding-bottom:12px; border-bottom:1px solid var(--border);">
                 <div style="min-width:180px;">
                     <div style="font-weight:800; color:#334155; font-size:16px;">👥 群組管理</div>
                     <div style="color:#64748b; font-size:13px; margin-top:4px; line-height:1.6;">
                         點選群組（像資料夾）後，可在下方新增/移除使用者。
                     </div>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button id="btnToggleGroupsPanel" class="btn btn-outline btn-sm" onclick="toggleGroupsPanelSize()" title="放大/縮小群組管理">⤢ 放大</button>
                 </div>
             </div>
             <div style="margin-top:12px; border:1px solid var(--border); border-radius:12px; background:#ffffff; padding:12px;">
@@ -86,7 +89,7 @@
                     <div style="font-weight:800; color:#334155; font-size:13px;">群組清單</div>
                     <button class="btn btn-outline btn-sm" onclick="loadGroupsAdmin()" title="重新載入群組">⟳ 刷新</button>
                 </div>
-                <div id="groupsFolderListBody" style="max-height:240px; overflow:auto;">
+                <div id="groupsFolderListBody" style="max-height: var(--groups-list-max, 240px); overflow:auto;">
                     <div style="padding:12px; color:#64748b; font-size:13px;">載入中…</div>
                 </div>
             </div>
@@ -103,7 +106,7 @@
                     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
                         <input id="groupUserSearch" class="filter-input" placeholder="搜尋使用者（姓名/帳號）..." style="flex:1; min-width:200px;" autocomplete="off" oninput="renderSelectedGroupMembers()">
                     </div>
-                    <div id="groupMembersBody" style="max-height:320px; overflow:auto; border:1px solid var(--border); border-radius:10px; padding:8px; background:#f8fafc;">
+                    <div id="groupMembersBody" style="max-height: var(--group-members-max, 320px); overflow:auto; border:1px solid var(--border); border-radius:10px; padding:8px; background:#f8fafc;">
                         <div style="padding:8px; color:#64748b; font-size:13px;">請先選擇群組</div>
                     </div>
                 </div>

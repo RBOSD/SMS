@@ -680,10 +680,24 @@
             grid-template-columns: minmax(560px, 2.2fr) minmax(320px, 1fr);
             gap: 16px;
             align-items: start;
+            /* 群組清單/成員清單高度（可被放大模式覆寫） */
+            --groups-list-max: 240px;
+            --group-members-max: 320px;
         }
 
         .admin-users-layout > * {
             min-width: 0;
+        }
+
+        /* 放大群組管理：右側佔滿，方便大量人員勾選 */
+        .admin-users-layout.groups-expanded {
+            grid-template-columns: 1fr;
+            --groups-list-max: 360px;
+            --group-members-max: 70vh;
+        }
+
+        .admin-users-layout.groups-expanded .admin-users-left {
+            display: none;
         }
 
         @media (max-width: 1100px) {
