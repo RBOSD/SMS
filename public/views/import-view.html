@@ -65,6 +65,13 @@
                             <!-- JavaScript 會自動產生選項 -->
                         </select>
                     </div>
+
+                    <div style="grid-column: span 2;" id="importOwnerGroupContainer">
+                        <div style="font-size:13px;color:#64748b;margin-bottom:4px;">管理群組 <span style="color:#ef4444;">*</span></div>
+                        <select id="importOwnerGroup" class="filter-select">
+                            <option value="">載入中…</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- 日期欄位區塊 -->
@@ -136,6 +143,14 @@
                         <select id="createPlanName" class="filter-select" onchange="onCreatePlanChange(); handleCreateBatchPlanChange();">
                             <option value="">請選擇計畫</option>
                             <!-- JavaScript 會自動產生選項 -->
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                        <label style="display:block;font-weight:600;font-size:13px;margin-bottom:6px;color:#475569;">
+                            管理群組 <span style="color:#ef4444;">*</span>
+                        </label>
+                        <select id="createOwnerGroup" class="filter-select">
+                            <option value="">載入中…</option>
                         </select>
                     </div>
                     <div style="flex: 1; min-width: 150px;">
@@ -383,6 +398,13 @@
                             <option value="">請選擇已建立的檢查計畫</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label>管理群組（依計畫）</label>
+                        <select id="scheduleOwnerGroup" class="filter-select" disabled>
+                            <option value="">—</option>
+                        </select>
+                        <div style="margin-top:6px; font-size:12px; color:#64748b;">行程歸屬會跟隨所選計畫。</div>
+                    </div>
                     <div id="schedulePlanInfo" style="display:none; background:#f0f9ff; padding:12px; border-radius:6px; margin-bottom:16px; border:1px solid #bae6fd;">
                         <div style="font-size:12px; color:#0369a1; font-weight:600; margin-bottom:6px;">已讀取計畫資訊：</div>
                         <div style="font-size:12px; color:#0c4a6e;">
@@ -505,6 +527,22 @@
                         <div class="form-group plan-form-half">
                             <label>計畫名稱 <span class="required">*</span></label>
                             <input type="text" id="planName" class="filter-input" placeholder="例如: 上半年定期檢查" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="plan-form-row">
+                        <div class="form-group plan-form-half">
+                            <label>管理群組 <span class="required">*</span></label>
+                            <select id="planOwnerGroup" class="filter-select">
+                                <option value="">載入中…</option>
+                            </select>
+                            <div style="margin-top:6px; font-size:12px; color:#64748b;">
+                                決定此計畫由哪個群組負責（同群組可編輯）。
+                            </div>
+                        </div>
+                        <div class="form-group plan-form-half" style="display:flex; align-items:flex-end;">
+                            <div style="width:100%; color:#64748b; font-size:12px; line-height:1.6; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:10px; padding:10px 12px;">
+                                提示：若你要「僅承辦可改」模式，後續可再加鎖定功能。
+                            </div>
                         </div>
                     </div>
                     <div class="plan-form-row">

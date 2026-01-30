@@ -1272,14 +1272,34 @@ app.post('/api/issues/batch-delete', requireAuth, verifyCsrf, async (req, res) =
 });
 
 app.post('/api/issues/import', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
-    const { data, round, reviewDate, replyDate, allowUpdate } = req.body;
+    const { data, round, reviewDate, replyDate, allowUpdate, ownerGroupId: ownerGroupIdInput } = req.body;
     const r = parseInt(round) || 1;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const duplicateNumbers = [];
         const operationResults = []; // 記錄每個項目的操作類型
-        const ownerGroupId = await getPrimaryGroupId(req.session.user.id, client);
+        // 建立時的歸屬群組（允許指定；manager 只能選自己群組，admin 可選全部）
+        let ownerGroupId = ownerGroupIdInput != null ? parseInt(ownerGroupIdInput, 10) : null;
+        if (!Number.isFinite(ownerGroupId)) ownerGroupId = null;
+        if (req.session.user.role !== 'admin') {
+            const myGids = await getUserGroupIds(req.session.user.id, client);
+            if (ownerGroupId == null) ownerGroupId = myGids[0] ?? null;
+            if (ownerGroupId != null && !myGids.includes(ownerGroupId)) {
+                await client.query('ROLLBACK');
+                return res.status(403).json({ error: 'Denied' });
+            }
+        } else {
+            if (ownerGroupId != null) {
+                const g = await client.query("SELECT 1 FROM groups WHERE id = $1 LIMIT 1", [ownerGroupId]);
+                if (g.rows.length === 0) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({ error: '群組不存在' });
+                }
+            } else {
+                ownerGroupId = await getPrimaryGroupId(req.session.user.id, client);
+            }
+        }
         const ownerUserId = req.session.user.id;
         
         for (const item of data) {
@@ -2115,7 +2135,7 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
         // 標準化年度格式（移除前導零，統一為3位數）
         const normalizedYear = planYear.replace(/^0+/, '').padStart(3, '0');
         
-        const byNameSelect = 'SELECT id, plan_name, year, railway, inspection_type, business, planned_count FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 ORDER BY id ASC LIMIT 1';
+        const byNameSelect = 'SELECT id, plan_name, year, railway, inspection_type, business, planned_count, owner_group_id FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 ORDER BY id ASC LIMIT 1';
         let queryResult = await pool.query(byNameSelect, [planName, planYear]);
         if (!queryResult || !queryResult.rows || queryResult.rows.length === 0) {
             queryResult = await pool.query(byNameSelect, [planName, normalizedYear]);
@@ -2145,7 +2165,8 @@ app.get('/api/plans/by-name', requireAuth, async (req, res) => {
                 railway,
                 inspection_type,
                 business,
-                planned_count
+                planned_count,
+                owner_group_id: plan.owner_group_id
             }]
         };
         
@@ -2259,7 +2280,7 @@ app.get('/api/plans/:id/schedules', requireAuth, requireAdminOrManager, async (r
 });
 
 app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
-    const { name, year, railway, inspection_type, business, planned_count } = req.body;
+    const { name, year, railway, inspection_type, business, planned_count, ownerGroupId: ownerGroupIdInput } = req.body;
     try {
         if (!name || !year) return res.status(400).json({error: '計畫名稱和年度為必填'});
         if (!railway || !inspection_type) return res.status(400).json({error: '鐵路機構、檢查類別為必填'});
@@ -2277,7 +2298,22 @@ app.post('/api/plans', requireAuth, requireAdminOrManager, verifyCsrf, async (re
         if (exists.rows.length > 0) {
             return res.status(400).json({ error: `計畫名稱「${n}」在年度「${y}」已存在` });
         }
-        const ownerGroupId = await getPrimaryGroupId(req.session.user.id, pool);
+        let ownerGroupId = ownerGroupIdInput != null ? parseInt(ownerGroupIdInput, 10) : null;
+        if (!Number.isFinite(ownerGroupId)) ownerGroupId = null;
+        if (req.session.user.role !== 'admin') {
+            const myGids = await getUserGroupIds(req.session.user.id, pool);
+            if (ownerGroupId == null) ownerGroupId = myGids[0] ?? null;
+            if (ownerGroupId != null && !myGids.includes(ownerGroupId)) {
+                return res.status(403).json({ error: 'Denied' });
+            }
+        } else {
+            if (ownerGroupId != null) {
+                const g = await pool.query("SELECT 1 FROM groups WHERE id = $1 LIMIT 1", [ownerGroupId]);
+                if (g.rows.length === 0) return res.status(400).json({ error: '群組不存在' });
+            } else {
+                ownerGroupId = await getPrimaryGroupId(req.session.user.id, pool);
+            }
+        }
         const ownerUserId = req.session.user.id;
         await pool.query(
             `INSERT INTO inspection_plan_schedule (

@@ -12,78 +12,85 @@
 <div id="tab-users" class="main-card">
     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
         <div style="flex:1; min-width:200px;">
-            <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">帳號列表</h3>
-            <p style="margin:0; color:#64748b; font-size:13px;">
-                管理系統使用者帳號，可新增、編輯、刪除帳號，並設定使用者權限。
+            <h3 style="margin:0 0 8px 0; font-weight:800; font-size:18px; color:#334155;">帳號與群組管理</h3>
+            <p style="margin:0; color:#64748b; font-size:13px; line-height:1.6;">
+                在同一頁面完成帳號、權限與群組管理。群組用於資料的「同群組可編輯」控管。
             </p>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
-            <button class="btn btn-primary" onclick="openUserModal('create')">新增</button>
+            <button class="btn btn-primary" onclick="openUserModal('create')">➕ 新增使用者</button>
             <button class="btn btn-outline" onclick="openUserImportModal()">📥 整批匯入</button>
         </div>
     </div>
 
-    <!-- 群組管理（放在帳號列表內，方便同頁管理） -->
-    <div class="detail-card" style="margin-bottom:18px;">
-        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-            <div style="flex:1; min-width:220px;">
-                <h4 style="margin:0 0 6px 0; font-weight:700; color:#334155; font-size:16px;">👥 群組管理</h4>
-                <div style="color:#64748b; font-size:13px; line-height:1.6;">
-                    用於「同群組可編輯」的權限控管。使用者可隸屬多個群組（任一符合即可）。
+    <!-- 後台雙欄：左帳號、右群組 -->
+    <div style="display:grid; grid-template-columns: 2.2fr 1fr; gap:16px; align-items:start;">
+        <!-- Left: Users -->
+        <div class="detail-card" style="margin:0;">
+            <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-end; flex-wrap:wrap; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                <div style="min-width:220px;">
+                    <div style="font-weight:800; color:#334155; font-size:16px;">👤 使用者列表</div>
+                    <div style="color:#64748b; font-size:13px; margin-top:4px;">可編輯姓名、帳號、權限與群組隸屬。</div>
+                </div>
+                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; min-width:300px; justify-content:flex-end; flex:1;">
+                    <input id="userSearch" class="filter-input" placeholder="搜尋姓名、帳號..." style="max-width:320px;" oninput="loadUsersPage(1)" autocomplete="off">
+                    <select id="usersPageSize" class="page-size-select" onchange="loadUsersPage(1)" style="width:130px;">
+                        <option value="10">10 筆/頁</option>
+                        <option value="20" selected>20 筆/頁</option>
+                        <option value="50">50 筆/頁</option>
+                    </select>
+                    <button class="btn btn-outline" onclick="loadUsersPage(1)">搜尋</button>
                 </div>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                <input id="newGroupName" class="filter-input" placeholder="輸入新群組名稱..." style="max-width:260px;" autocomplete="off">
-                <button class="btn btn-primary btn-sm" onclick="createGroupAdmin()">新增群組</button>
-                <button class="btn btn-outline btn-sm" onclick="loadGroupsAdmin()">重新整理</button>
+            <div id="usersPaginationTop" class="pagination-bar" style="padding:12px 0 8px; justify-content:flex-end;"></div>
+            <div class="data-container">
+                <table class="user-table">
+                    <thead>
+                        <tr>
+                            <th style="padding:16px;" onclick="usersSortBy('name')">姓名</th>
+                            <th onclick="usersSortBy('username')">帳號</th>
+                            <th style="min-width:220px;">群組</th>
+                            <th onclick="usersSortBy('role')">權限</th>
+                            <th onclick="usersSortBy('created_at')">註冊時間</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody"></tbody>
+                </table>
+            </div>
+            <div id="usersPaginationBottom" class="pagination-bar" style="padding:12px 0 0; justify-content:center;"></div>
+        </div>
+
+        <!-- Right: Groups -->
+        <div class="detail-card" style="margin:0;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                <div style="min-width:180px;">
+                    <div style="font-weight:800; color:#334155; font-size:16px;">👥 群組管理</div>
+                    <div style="color:#64748b; font-size:13px; margin-top:4px; line-height:1.6;">
+                        群組名稱會顯示在使用者列表，並用於資料編輯權限。
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:12px;">
+                <input id="newGroupName" class="filter-input" placeholder="輸入新群組名稱..." style="flex:1; min-width:180px;" autocomplete="off">
+                <button class="btn btn-primary btn-sm" onclick="createGroupAdmin()">新增</button>
+                <button class="btn btn-outline btn-sm" onclick="loadGroupsAdmin()">刷新</button>
+            </div>
+            <div class="data-container" style="margin-top:12px;">
+                <table class="user-table">
+                    <thead>
+                        <tr>
+                            <th style="padding:12px;">群組名稱</th>
+                            <th style="width:110px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="groupsTableBody">
+                        <tr><td colspan="2" style="padding:12px;color:#64748b;">載入中…</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
-        <div class="data-container" style="margin-top:12px;">
-            <table class="user-table">
-                <thead>
-                    <tr>
-                        <th style="padding:12px;">群組名稱</th>
-                        <th style="width:140px;">操作</th>
-                    </tr>
-                </thead>
-                <tbody id="groupsTableBody">
-                    <tr><td colspan="2" style="padding:12px;color:#64748b;">載入中…</td></tr>
-                </tbody>
-            </table>
-        </div>
     </div>
-    
-    <div
-        style="padding:16px; display:flex; gap:12px; align-items:center; border-bottom:1px solid var(--border); flex-wrap:wrap;">
-        <input id="userSearch" class="filter-input" placeholder="搜尋姓名、帳號..." style="max-width:300px;"
-            oninput="loadUsersPage(1)" autocomplete="off">
-        <select id="usersPageSize" class="page-size-select" onchange="loadUsersPage(1)">
-            <option value="10">10 筆/頁</option>
-            <option value="20" selected>20 筆/頁</option>
-            <option value="50">50 筆/頁</option>
-        </select>
-        <div style="margin-left:auto;">
-            <button class="btn btn-outline" onclick="loadUsersPage(1)">搜尋</button>
-        </div>
-    </div>
-    <div id="usersPaginationTop" class="pagination-bar"
-        style="padding:16px; border-bottom:1px solid var(--border); justify-content: flex-end;"></div>
-        <div class="data-container">
-        <table class="user-table">
-            <thead>
-                <tr>
-                    <th style="padding:16px;" onclick="usersSortBy('name')">姓名</th>
-                    <th onclick="usersSortBy('username')">帳號</th>
-                        <th style="min-width:180px;">群組</th>
-                    <th onclick="usersSortBy('role')">權限</th>
-                    <th onclick="usersSortBy('created_at')">註冊時間</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody id="usersTableBody"></tbody>
-        </table>
-    </div>
-    <div id="usersPaginationBottom" class="pagination-bar" style="padding:16px; justify-content: center;"></div>
 </div>
 
 <!-- Login Logs Tab -->

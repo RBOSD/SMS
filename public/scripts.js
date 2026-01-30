@@ -1108,6 +1108,10 @@ if (dashboard) {
                             setupAdminElements();
                             setTimeout(() => setupImportListeners(), 100);
                             loadPlanOptions();
+                            // 載入群組選項（管理群組下拉）
+                            setTimeout(() => {
+                                try { loadOwnerGroupSelectsForImportView(); } catch (e) {}
+                            }, 150);
                             const openPlansSchedule = sessionStorage.getItem('openPlansSchedule');
                             if (openPlansSchedule) {
                                 sessionStorage.removeItem('openPlansSchedule');
@@ -1149,6 +1153,9 @@ if (dashboard) {
             } else if (viewId === 'importView' && viewElement.dataset.loaded) {
                 const openPlansSchedule = sessionStorage.getItem('openPlansSchedule');
                 loadPlanOptions();
+                setTimeout(() => {
+                    try { loadOwnerGroupSelectsForImportView(); } catch (e) {}
+                }, 50);
                 if (openPlansSchedule) {
                     sessionStorage.removeItem('openPlansSchedule');
                     setTimeout(() => { switchDataTab('plans'); switchPlansSubTab('schedule'); }, 100);
@@ -1818,6 +1825,8 @@ if (dashboard) {
                 userList = j.data || []; 
                 usersTotal = j.total || 0; 
                 usersPages = j.pages || 1; 
+                // 確保群組已載入，讓列表能顯示群組名稱
+                try { await ensureGroupsForUserModalLoaded(); } catch (e) {}
                 renderUsers(); 
                 const usersPaginationEl = document.getElementById('usersPagination');
                 if (usersPaginationEl) {
@@ -1838,11 +1847,13 @@ if (dashboard) {
             tbody.innerHTML = userList.map(u => {
                 const gids = Array.isArray(u.groupIds) ? u.groupIds : [];
                 const groupNames = gids.map(id => groupsMap.get(parseInt(id, 10)) || `#${id}`);
-                const groupText = groupNames.length ? groupNames.join(', ') : '-';
+                const groupHtml = groupNames.length
+                    ? groupNames.map(n => `<span class="badge" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-weight:700;">${escapeHtml(n)}</span>`).join(' ')
+                    : '<span style="color:#94a3b8;">-</span>';
                 return `<tr>
                     <td data-label="姓名" style="padding:12px;">${escapeHtml(u.name || '-')}</td>
                     <td data-label="帳號">${escapeHtml(u.username || '-')}</td>
-                    <td data-label="群組">${escapeHtml(groupText)}</td>
+                    <td data-label="群組" style="display:flex; flex-wrap:wrap; gap:6px; padding:12px 8px;">${groupHtml}</td>
                     <td data-label="權限">${escapeHtml(getRoleName(u.role))}</td>
                     <td data-label="註冊時間">${u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
                     <td data-label="操作">${
@@ -2158,6 +2169,47 @@ if (dashboard) {
             } catch (e) {
                 tbody.innerHTML = `<tr><td colspan="2" style="padding:12px;color:#ef4444;">載入失敗：${escapeHtml(e.message || 'error')}</td></tr>`;
             }
+        }
+
+        async function loadOwnerGroupSelectsForImportView() {
+            // 供資料管理頁面使用：開立事項匯入/建檔、計畫新增、行程規劃
+            await ensureGroupsForUserModalLoaded();
+            const groups = Array.isArray(cachedGroupsForModal) ? cachedGroupsForModal : [];
+            const myGroupIds = Array.isArray(currentUser?.groupIds) ? currentUser.groupIds.map(x => parseInt(x, 10)).filter(n => Number.isFinite(n)) : [];
+            const allowedSet = currentUser?.role === 'admin' ? null : new Set(myGroupIds);
+            const allowedGroups = allowedSet ? groups.filter(g => allowedSet.has(parseInt(g.id, 10))) : groups;
+            const defaultId = allowedGroups[0]?.id || groups[0]?.id || '';
+
+            const fill = (id, forceDisabled = false) => {
+                const sel = document.getElementById(id);
+                if (!sel) return;
+                sel.innerHTML = (allowedGroups.length ? allowedGroups : groups).map(g => {
+                    return `<option value="${g.id}">${escapeHtml(g.name || `群組 ${g.id}`)}</option>`;
+                }).join('') || '<option value="">（尚無群組）</option>';
+                if (defaultId) sel.value = String(defaultId);
+                if (forceDisabled) sel.disabled = true;
+            };
+
+            fill('importOwnerGroup', false);
+            fill('createOwnerGroup', false);
+            // 行程群組跟隨計畫（先塞入可選群組，之後會被計畫選擇覆蓋並 disabled）
+            fill('scheduleOwnerGroup', true);
+            fill('planOwnerGroup', false);
+        }
+
+        function getOwnerGroupIdFromSelect(selectId) {
+            const el = document.getElementById(selectId);
+            if (!el) return null;
+            const v = String(el.value || '').trim();
+            const n = v ? parseInt(v, 10) : NaN;
+            return Number.isFinite(n) ? n : null;
+        }
+
+        function getIssueOwnerGroupId() {
+            // 優先使用當前所在子頁的選擇器
+            return getOwnerGroupIdFromSelect('importOwnerGroup')
+                || getOwnerGroupIdFromSelect('createOwnerGroup')
+                || null;
         }
 
         async function createGroupAdmin() {
@@ -2663,7 +2715,8 @@ if (dashboard) {
                         round: round,
                         reviewDate: responseDate,
                         replyDate: replyDate,
-                        mode: currentImportMode
+                        mode: currentImportMode,
+                        ownerGroupId: getOwnerGroupIdFromSelect('importOwnerGroup')
                     })
                 });
                 if (res.ok) { 
@@ -2972,7 +3025,8 @@ if (dashboard) {
                         data: items,
                         round: 1,
                         reviewDate: '',
-                        replyDate: ''
+                        replyDate: '',
+                        ownerGroupId: getIssueOwnerGroupId()
                     })
                 });
 
@@ -3810,7 +3864,8 @@ if (dashboard) {
                 }],
                 round: 1, 
                 reviewDate: '', 
-                replyDate: firstHandling.replyDate ? firstHandling.replyDate.trim() : ''
+                replyDate: firstHandling.replyDate ? firstHandling.replyDate.trim() : '',
+                ownerGroupId: getIssueOwnerGroupId()
             };
 
             try {
@@ -4514,8 +4569,9 @@ if (dashboard) {
                     body: JSON.stringify({
                         data: itemsForImport,
                         round: 1,
-                        reviewDate: ''
+                        reviewDate: '',
                         // 不再使用統一的 replyDate，改為使用每個 item 的 replyDate
+                        ownerGroupId: getIssueOwnerGroupId()
                     })
                 });
 
@@ -6699,7 +6755,8 @@ if (dashboard) {
                         plan_name: planName,
                         year: planYear,
                         railway: railway,
-                        inspection_type: inspection_type
+                        inspection_type: inspection_type,
+                        owner_group_id: plan.owner_group_id || plan.ownerGroupId || null
                     };
                     
                     if (!railway || !inspection_type) {
@@ -6717,6 +6774,15 @@ if (dashboard) {
                 showToast('該計畫缺少必要資訊（鐵路機構、檢查類別），請先在計畫管理中編輯該計畫', 'error');
                 return;
             }
+
+            // 同步顯示行程歸屬群組（依計畫）
+            try {
+                await ensureGroupsForUserModalLoaded();
+                const sel = document.getElementById('scheduleOwnerGroup');
+                if (sel && schedulePlanDetails.owner_group_id) {
+                    sel.value = String(schedulePlanDetails.owner_group_id);
+                }
+            } catch (e) {}
             const adYear = parseInt(startDateVal.slice(0, 4), 10);
             const rocYear = adYear - 1911;
             const yr = String(rocYear).replace(/\D/g, '').slice(-3).padStart(3, '0');
@@ -6731,6 +6797,9 @@ if (dashboard) {
                 location: locationValue,
                 inspector: inspectorValue
             };
+            if (schedulePlanDetails.owner_group_id) {
+                payload.ownerGroupId = parseInt(schedulePlanDetails.owner_group_id, 10);
+            }
             try {
                 const res = await apiFetch('/api/plan-schedule', {
                     method: 'POST',
@@ -7291,6 +7360,7 @@ if (dashboard) {
             const planInspectorEl = document.getElementById('planInspector');
             const location = planLocationEl ? planLocationEl.value.trim() : '';
             const inspector = planInspectorEl ? planInspectorEl.value.trim() : '';
+            const ownerGroupId = getOwnerGroupIdFromSelect('planOwnerGroup');
             
             if (!planId) {
                 if (!name) return showToast('請輸入計畫名稱', 'error');
@@ -7306,7 +7376,8 @@ if (dashboard) {
                             railway,
                             inspection_type: inspectionType,
                             business,
-                            planned_count: plannedCount
+                            planned_count: plannedCount,
+                            ownerGroupId
                         })
                     });
                     const j = await res.json();
