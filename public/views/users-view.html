@@ -18,10 +18,8 @@
             </p>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
-            <input type="file" id="userImportFile" accept=".csv" style="display:none;">
             <button class="btn btn-primary" onclick="openUserModal('create')">新增</button>
-            <button class="btn btn-outline" onclick="downloadUserCSVTemplate()">📥 下載匯入範例</button>
-            <button class="btn btn-outline" onclick="promptUsersImport()">📤 整批匯入</button>
+            <button class="btn btn-outline" onclick="openUserImportModal()">📥 整批匯入</button>
         </div>
     </div>
     
@@ -320,3 +318,19 @@
 </div>
 
 <div id="logsLoading" style="display:none; padding:30px; text-align:center; color:#64748b;">⏳ 載入紀錄中...</div>
+
+<!-- User Import Modal（整批匯入帳號） -->
+<div class="modal-overlay" id="userImportModal">
+    <div class="modal-box" style="max-width:600px;">
+        <h3 style="margin-top:0;">整批匯入帳號（CSV）</h3>
+        <div class="form-group">
+            <label>選擇匯入檔案（.csv）</label>
+            <input type="file" id="userImportModalFile" accept=".csv" class="filter-input">
+        </div>
+        <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap;">
+            <button class="btn btn-primary" style="flex:1;" onclick="importUsersCSVFromModal()">📥 執行匯入</button>
+            <button class="btn btn-outline" style="flex:1;" onclick="closeUserImportModal()">取消</button>
+            <button class="btn btn-outline" style="flex:1;" onclick="downloadUserCSVTemplate()">📥 下載匯入範例</button>
+        </div>
+    </div>
+</div>

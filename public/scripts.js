@@ -4974,16 +4974,28 @@ if (dashboard) {
         // 帳號匯入功能
         function openUserImportModal() {
             const modal = document.getElementById('userImportModal');
-            if (modal) modal.classList.add('open');
+            if (modal) {
+                const fileInput = document.getElementById('userImportModalFile');
+                if (fileInput) fileInput.value = '';
+                modal.classList.add('open');
+            }
         }
         
         function closeUserImportModal() {
             const modal = document.getElementById('userImportModal');
             if (modal) {
                 modal.classList.remove('open');
-                const fileInput = document.getElementById('userImportFile');
+                const fileInput = document.getElementById('userImportModalFile');
                 if (fileInput) fileInput.value = '';
             }
+        }
+
+        async function importUsersCSVFromModal() {
+            const fileInput = document.getElementById('userImportModalFile');
+            if (!fileInput) return showToast('找不到檔案選擇器', 'error');
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return showToast('請選擇 CSV 檔案', 'error');
+            return importUsersCSV(file);
         }
         
         function downloadUserCSVTemplate() {
@@ -5054,10 +5066,8 @@ if (dashboard) {
             input.click();
         }
         
-        async function importUsersCSV() {
-            const fileInput = document.getElementById('userImportFile');
-            if (!fileInput) return showToast('找不到檔案選擇器', 'error');
-            const file = fileInput.files[0];
+        async function importUsersCSV(fileOverride) {
+            const file = fileOverride || (document.getElementById('userImportModalFile')?.files?.[0]) || (document.getElementById('userImportFile')?.files?.[0]);
             if (!file) return showToast('請選擇 CSV 檔案', 'error');
             
             const reader = new FileReader();
@@ -5195,9 +5205,8 @@ if (dashboard) {
                                     }
                                     
                                     showToast(msg, j.failed > 0 ? 'warning' : 'success');
-                                    // 清除檔案選擇
-                                    const fileInput = document.getElementById('userImportFile');
-                                    if (fileInput) fileInput.value = '';
+                                    // 關閉匯入視窗並更新列表
+                                    closeUserImportModal();
                                     await loadUsersPage(1);
                                     return;
                                 } else {
@@ -5525,6 +5534,8 @@ if (dashboard) {
             loadSchedulePlanOptions();
             const startDateInput = document.getElementById('scheduleStartDate');
             const endDateInput = document.getElementById('scheduleEndDate');
+            const locationInput = document.getElementById('scheduleLocation');
+            const inspectorInput = document.getElementById('scheduleInspector');
             if (startDateInput) {
                 startDateInput.removeEventListener('change', scheduleOnDateChange);
                 startDateInput.addEventListener('change', scheduleOnDateChange);
@@ -5533,7 +5544,40 @@ if (dashboard) {
                 endDateInput.removeEventListener('change', scheduleOnDateChange);
                 endDateInput.addEventListener('change', scheduleOnDateChange);
             }
+            if (locationInput) {
+                locationInput.removeEventListener('input', scheduleMaybeUpdatePlanNumberDebounced);
+                locationInput.addEventListener('input', scheduleMaybeUpdatePlanNumberDebounced);
+            }
+            if (inspectorInput) {
+                inspectorInput.removeEventListener('input', scheduleMaybeUpdatePlanNumberDebounced);
+                inspectorInput.addEventListener('input', scheduleMaybeUpdatePlanNumberDebounced);
+            }
             scheduleClearForm();
+        }
+
+        let schedulePlanNumberDebounceTimer = null;
+        function scheduleCanShowPlanNumber() {
+            const planValue = (document.getElementById('schedulePlanSelect') || {}).value || '';
+            const startDateVal = (document.getElementById('scheduleStartDate') || {}).value || '';
+            const endDateVal = (document.getElementById('scheduleEndDate') || {}).value || '';
+            const locationValue = ((document.getElementById('scheduleLocation') || {}).value || '').trim();
+            const inspectorValue = ((document.getElementById('scheduleInspector') || {}).value || '').trim();
+            return !!(planValue && schedulePlanDetails.railway && schedulePlanDetails.inspection_type && startDateVal && endDateVal && locationValue && inspectorValue);
+        }
+
+        async function scheduleMaybeUpdatePlanNumber() {
+            if (!scheduleCanShowPlanNumber()) {
+                hideSchedulePlanNumber();
+                return;
+            }
+            await updateSchedulePlanNumber();
+        }
+
+        function scheduleMaybeUpdatePlanNumberDebounced() {
+            if (schedulePlanNumberDebounceTimer) clearTimeout(schedulePlanNumberDebounceTimer);
+            schedulePlanNumberDebounceTimer = setTimeout(() => {
+                scheduleMaybeUpdatePlanNumber().catch(() => {});
+            }, 300);
         }
 
         function scheduleUpdateYearFromStartDate() {
@@ -5598,13 +5642,16 @@ if (dashboard) {
                 renderScheduleCalendar();
             }
             scheduleRenderDayList(v);
-            
-            // 如果有計畫資訊，自動計算取號編號
-            await updateSchedulePlanNumber();
+            // 取號提示：等使用者把必填內容填完才顯示
+            await scheduleMaybeUpdatePlanNumber();
         }
         
         async function updateSchedulePlanNumber() {
             // 檢查是否有必要的資訊（不再需要 business）
+            if (!scheduleCanShowPlanNumber()) {
+                hideSchedulePlanNumber();
+                return;
+            }
             if (!schedulePlanDetails.railway || !schedulePlanDetails.inspection_type) {
                 hideSchedulePlanNumber();
                 return;
@@ -6371,8 +6418,8 @@ if (dashboard) {
                             planInfoDiv.style.display = 'block';
                         }
                         
-                        // 如果有開始日期，自動計算取號編號
-                        await updateSchedulePlanNumber();
+                        // 取號提示：等使用者把必填內容填完才顯示
+                        await scheduleMaybeUpdatePlanNumber();
                         
                     } catch (error) {
                         showToast('無法取得計畫資訊，請稍後再試', 'error');
@@ -6381,19 +6428,14 @@ if (dashboard) {
                     }
                 };
                 
-                // 為開始日期添加事件監聽，當日期改變時更新取號編號
-                const startDateInput = document.getElementById('scheduleStartDate');
-                if (startDateInput) {
-                    startDateInput.removeEventListener('change', handleScheduleStartDateChange);
-                    startDateInput.addEventListener('change', handleScheduleStartDateChange);
-                }
+                // 不在此額外綁定開始日期事件（由 initScheduleCalendar 統一處理）
             } catch (e) {
                 console.error('載入計畫選項失敗:', e);
             }
         }
         
         async function handleScheduleStartDateChange() {
-            await updateSchedulePlanNumber();
+            await scheduleMaybeUpdatePlanNumber();
         }
 
         async function scheduleSubmitPlan() {
