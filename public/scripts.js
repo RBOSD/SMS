@@ -5217,13 +5217,20 @@ if (dashboard) {
                             const firstType = validSchedules[0]?.inspection_type;
                             inspectionTypeHtml = firstType ? `<div style="margin:2px 0; font-size:12px;">${getInspectionTypeName(firstType)}</div>` : '<span style="color:#94a3b8; font-size:12px;">—</span>';
                         } else {
-                            inspectionTypeHtml = '<span style="color:#94a3b8; font-size:12px;">—</span>';
+                            // 無實際行程時，改以「計畫表頭(00)」的檢查類別顯示（例如匯入後尚未填寫行程）
+                            inspectionTypeHtml = p.inspection_type
+                                ? `<div style="margin:2px 0; font-size:12px;">${getInspectionTypeName(p.inspection_type)}</div>`
+                                : '<span style="color:#94a3b8; font-size:12px;">—</span>';
                         }
                     } else {
-                        inspectionTypeHtml = '<span style="color:#94a3b8; font-size:12px;">—</span>';
+                        inspectionTypeHtml = p.inspection_type
+                            ? `<div style="margin:2px 0; font-size:12px;">${getInspectionTypeName(p.inspection_type)}</div>`
+                            : '<span style="color:#94a3b8; font-size:12px;">—</span>';
                     }
                 } catch (e) {
-                    inspectionTypeHtml = '<span style="color:#94a3b8; font-size:12px;">—</span>';
+                    inspectionTypeHtml = p.inspection_type
+                        ? `<div style="margin:2px 0; font-size:12px;">${getInspectionTypeName(p.inspection_type)}</div>`
+                        : '<span style="color:#94a3b8; font-size:12px;">—</span>';
                 }
                 const createdDate = p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : '-';
                 const businessHtml = p.business ? getBusinessTypeName(p.business) : '<span style="color:#94a3b8;">—</span>';
@@ -6590,6 +6597,10 @@ if (dashboard) {
                     } else {
                         document.getElementById('planName').value = p.name || '';
                         document.getElementById('planYear').value = p.year || '';
+                        const railwaySel = document.getElementById('planRailway');
+                        if (railwaySel) railwaySel.value = p.railway || '';
+                        const typeSel = document.getElementById('planInspectionType');
+                        if (typeSel) typeSel.value = p.inspection_type || '';
                         if (document.getElementById('planLocation')) document.getElementById('planLocation').value = '';
                         if (document.getElementById('planInspector')) document.getElementById('planInspector').value = '';
                         var planNumberRow = document.getElementById('planNumberRow');
@@ -6707,7 +6718,7 @@ if (dashboard) {
             return { validData, invalidRows };
         }
 
-        async function importPlansFile() {
+        async function importPlansXlsx() {
             const fileInput = document.getElementById('planImportFile');
             if (!fileInput) return showToast('找不到檔案選擇器', 'error');
             const file = fileInput.files[0];
@@ -6715,91 +6726,18 @@ if (dashboard) {
 
             const filename = String(file.name || '').toLowerCase();
             const isXlsx = filename.endsWith('.xlsx');
-            const isCsv = filename.endsWith('.csv');
-            if (!isXlsx && !isCsv) return showToast('僅支援 .csv 或 .xlsx', 'error');
+            if (!isXlsx) return showToast('僅支援 .xlsx', 'error');
             
             const reader = new FileReader();
             reader.onload = async function(e) {
                 try {
                     let rows = [];
-                    if (isCsv) {
-                        const csv = e.target.result;
-                        Papa.parse(csv, {
-                            header: true,
-                            skipEmptyLines: false,
-                            encoding: "UTF-8",
-                            transformHeader: function(header) { return header.trim(); },
-                            transform: function(value) { return value ? value.trim() : ''; },
-                            complete: async function(results) {
-                                if (results.errors.length && results.data.length === 0) {
-                                    return showToast('CSV 解析錯誤：' + (results.errors[0]?.message || '未知錯誤'), 'error');
-                                }
-                                rows = results.data || [];
-                                const { validData, invalidRows } = parsePlansImportRows(rows);
-                                if (validData.length === 0) {
-                                    let errorMsg = '匯入檔案中沒有有效的資料';
-                                    if (invalidRows.length > 0) {
-                                        errorMsg += `\n發現 ${invalidRows.length} 筆資料缺少必要欄位（計畫名稱、年度、鐵路機構、檢查類別）`;
-                                        console.error('無效行詳情：', invalidRows);
-                                    }
-                                    return showToast(errorMsg, 'error');
-                                }
-                                try {
-                                    const res = await apiFetch('/api/plans/import', {
-                                        method: 'POST',
-                                        body: JSON.stringify({ data: validData })
-                                    });
-                                    // 先檢查 HTTP 狀態碼
-                                    if (res.status === 401) {
-                                        return showToast('匯入錯誤：請先登入系統', 'error');
-                                    } else if (res.status === 403) {
-                                        return showToast('匯入錯誤：您沒有權限執行此操作', 'error');
-                                    }
-                                    let j;
-                                    let text;
-                                    try {
-                                        text = await res.text();
-                                        j = JSON.parse(text);
-                                    } catch (parseError) {
-                                        if (res.ok) {
-                                            showToast('匯入可能已完成，但無法解析伺服器回應。請重新整理頁面確認結果。', 'warning');
-                                            closePlanImportModal();
-                                            await loadPlansPage(1);
-                                            await loadPlanOptions();
-                                            return;
-                                        } else {
-                                            return showToast('匯入錯誤：伺服器回應格式錯誤（狀態碼：' + res.status + '）', 'error');
-                                        }
-                                    }
-                                    if (res.ok && j.success === true) {
-                                        const successCount = j.successCount || 0;
-                                        let msg = `匯入完成：成功 ${successCount} 筆`;
-                                        if (j.skipped > 0) msg += `，跳過空行 ${j.skipped} 筆`;
-                                        if (j.failed > 0) msg += `，失敗 ${j.failed} 筆`;
-                                        showToast(msg, j.failed > 0 ? 'warning' : 'success');
-                                        closePlanImportModal();
-                                        await loadPlansPage(1);
-                                        await loadPlanOptions();
-                                        setTimeout(() => { loadPlanOptions(); }, 500);
-                                        return;
-                                    } else {
-                                        showToast(j.error || '匯入失敗', 'error');
-                                        return;
-                                    }
-                                } catch (e2) {
-                                    showToast('匯入錯誤：' + (e2.message || '請稍後再試'), 'error');
-                                }
-                            }
-                        });
-                        return;
-                    } else if (isXlsx) {
-                        if (typeof XLSX === 'undefined') return showToast('缺少 Excel 解析模組，請重新整理頁面後再試', 'error');
-                        const buf = e.target.result;
-                        const wb = XLSX.read(buf, { type: 'array' });
-                        const sheetName = wb.SheetNames.includes('匯入') ? '匯入' : wb.SheetNames[0];
-                        const ws = wb.Sheets[sheetName];
-                        rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-                    }
+                    if (typeof XLSX === 'undefined') return showToast('缺少 Excel 解析模組，請重新整理頁面後再試', 'error');
+                    const buf = e.target.result;
+                    const wb = XLSX.read(buf, { type: 'array' });
+                    const sheetName = wb.SheetNames.includes('匯入') ? '匯入' : wb.SheetNames[0];
+                    const ws = wb.Sheets[sheetName];
+                    rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
                     const { validData, invalidRows } = parsePlansImportRows(rows);
                     if (validData.length === 0) {
@@ -6880,27 +6818,44 @@ if (dashboard) {
                     showToast('讀取檔案錯誤：' + e.message, 'error');
                 }
             };
-            if (isXlsx) reader.readAsArrayBuffer(file);
-            else reader.readAsText(file, 'UTF-8');
+            reader.readAsArrayBuffer(file);
         }
 
-        // 向後相容：保留舊函數名稱
-        async function importPlansCSV() { return importPlansFile(); }
-
-        function downloadPlanCSVTemplate() {
-            const csv =
-                '年度,計畫名稱,鐵路機構,檢查類別,業務類型,規劃檢查幾次\n' +
-                '113,上半年定期檢查,臺鐵,年度定期檢查,運轉,2\n' +
-                '113,下半年定期檢查,臺鐵,年度定期檢查,土建,1\n' +
-                '113,特別檢查,高鐵,特別檢查,營運／災防審核,1';
-            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = '檢查計畫匯入範例.csv';
-            link.click();
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            const chunkSize = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+            }
+            return btoa(binary);
         }
 
-        function downloadPlanXlsxTemplate() {
+        async function downloadPlanXlsxTemplate() {
+            // 優先下載「你上傳設定」的範例檔；若尚未設定才用系統預設產生
+            try {
+                const res = await fetch('/api/templates/plans-import-xlsx?t=' + Date.now(), { credentials: 'include' });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const cd = res.headers.get('content-disposition') || '';
+                    let filename = '檢查計畫匯入範例.xlsx';
+                    const m = cd.match(/filename\*\=UTF-8''([^;]+)/i);
+                    if (m && m[1]) filename = decodeURIComponent(m[1]);
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    return;
+                }
+            } catch (e) {
+                // 忽略，改用預設範例
+            }
+            return downloadDefaultPlanXlsxTemplate();
+        }
+
+        function downloadDefaultPlanXlsxTemplate() {
             if (typeof XLSX === 'undefined') {
                 return showToast('缺少 Excel 產生模組，請重新整理頁面後再試', 'error');
             }
@@ -6931,6 +6886,39 @@ if (dashboard) {
             XLSX.utils.book_append_sheet(wb, ws2, '選單');
 
             XLSX.writeFile(wb, '檢查計畫匯入範例.xlsx');
+        }
+
+        async function uploadPlanXlsxTemplate() {
+            const input = document.getElementById('planTemplateFile');
+            if (!input) return showToast('找不到檔案選擇器', 'error');
+            input.onchange = async function() {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                const name = String(file.name || '檢查計畫匯入範例.xlsx');
+                if (!name.toLowerCase().endsWith('.xlsx')) {
+                    input.value = '';
+                    return showToast('請選擇 .xlsx 檔案', 'error');
+                }
+                try {
+                    const buf = await file.arrayBuffer();
+                    const dataBase64 = arrayBufferToBase64(buf);
+                    const res = await apiFetch('/api/templates/plans-import-xlsx', {
+                        method: 'POST',
+                        body: JSON.stringify({ filename: name, dataBase64 })
+                    });
+                    const j = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        showToast(j.error || '上傳失敗', 'error');
+                        return;
+                    }
+                    showToast('已設為網站下載範例檔', 'success');
+                } catch (e) {
+                    showToast('上傳失敗：' + (e.message || '請稍後再試'), 'error');
+                } finally {
+                    input.value = '';
+                }
+            };
+            input.click();
         }
         async function submitPlan() {
             const planId = document.getElementById('targetPlanId').value;

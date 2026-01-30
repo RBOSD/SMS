@@ -421,6 +421,15 @@ async function initDB() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
+                // App Templates / Files (for storing uploaded example xlsx)
+                await client.query(`CREATE TABLE IF NOT EXISTS app_files (
+                    key TEXT PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    mime TEXT NOT NULL,
+                    data BYTEA NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )`);
+
                 // Add missing columns if they don't exist
                 const newColumns = [];
                 // 支持無限次審查，預先創建前 30 次欄位（如果需要更多可以動態創建）
@@ -1679,19 +1688,20 @@ app.get('/api/plans', requireAuth, requireAdminOrManager, async (req, res) => {
                 GROUP BY plan_name, year
             ),
             header AS (
-                SELECT plan_name, year, planned_count, business FROM inspection_plan_schedule WHERE inspection_seq = '00'
+                SELECT plan_name, year, planned_count, business, railway, inspection_type
+                FROM inspection_plan_schedule WHERE inspection_seq = '00'
             ),
             schedule_counts AS (
                 SELECT plan_name, year, COUNT(*) AS cnt FROM inspection_plan_schedule WHERE (plan_number IS NULL OR plan_number <> '(手動)') GROUP BY plan_name, year
             )
             SELECT g.min_id AS id, g.name, g.year, g.created_at, g.updated_at,
                    COALESCE(COUNT(DISTINCT i.id), 0) AS issue_count,
-                   h.planned_count, h.business, COALESCE(sc.cnt, 0) AS schedule_count
+                   h.planned_count, h.business, h.railway, h.inspection_type, COALESCE(sc.cnt, 0) AS schedule_count
             FROM g
             LEFT JOIN issues i ON i.plan_name = g.name AND i.year = g.year
             LEFT JOIN header h ON h.plan_name = g.name AND h.year = g.year
             LEFT JOIN schedule_counts sc ON sc.plan_name = g.name AND sc.year = g.year
-            GROUP BY g.min_id, g.name, g.year, g.created_at, g.updated_at, h.planned_count, h.business, sc.cnt
+            GROUP BY g.min_id, g.name, g.year, g.created_at, g.updated_at, h.planned_count, h.business, h.railway, h.inspection_type, sc.cnt
             ORDER BY ${order}
             LIMIT $${idx} OFFSET $${idx+1}
         `;
@@ -1706,6 +1716,8 @@ app.get('/api/plans', requireAuth, requireAdminOrManager, async (req, res) => {
             issue_count: parseInt(row.issue_count) || 0,
             planned_count: row.planned_count != null ? parseInt(row.planned_count, 10) : null,
             business: row.business || null,
+            railway: row.railway && String(row.railway).trim() !== '-' ? String(row.railway).trim() : null,
+            inspection_type: row.inspection_type && String(row.inspection_type).trim() !== '-' ? String(row.inspection_type).trim() : null,
             schedule_count: parseInt(row.schedule_count) || 0
         }));
         
@@ -2303,6 +2315,45 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
         });
     } catch (e) {
         res.json({ data: [] });
+    }
+});
+
+// 下載/上傳：檢查計畫匯入 Excel 範例檔（存於資料庫）
+app.get('/api/templates/plans-import-xlsx', requireAuth, async (req, res) => {
+    try {
+        const r = await pool.query('SELECT filename, mime, data FROM app_files WHERE key = $1', ['plans_import_xlsx']);
+        if (!r.rows || r.rows.length === 0) {
+            return res.status(404).json({ error: 'Template not set' });
+        }
+        const row = r.rows[0];
+        const filename = row.filename || '檢查計畫匯入範例.xlsx';
+        const mime = row.mime || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        res.setHeader('Content-Type', mime);
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+        res.send(row.data);
+    } catch (e) {
+        handleApiError(e, req, res, 'Get plans import template error');
+    }
+});
+
+app.post('/api/templates/plans-import-xlsx', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
+    try {
+        const filename = String(req.body.filename || '檢查計畫匯入範例.xlsx');
+        const dataBase64 = String(req.body.dataBase64 || '');
+        if (!dataBase64) return res.status(400).json({ error: '缺少檔案內容' });
+        const buf = Buffer.from(dataBase64, 'base64');
+        if (!buf || buf.length === 0) return res.status(400).json({ error: '檔案內容無效' });
+        const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        await pool.query(
+            `INSERT INTO app_files (key, filename, mime, data, updated_at)
+             VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+             ON CONFLICT (key) DO UPDATE SET filename = EXCLUDED.filename, mime = EXCLUDED.mime, data = EXCLUDED.data, updated_at = CURRENT_TIMESTAMP`,
+            ['plans_import_xlsx', filename, mime, buf]
+        );
+        logAction(req.session.user.username, 'UPLOAD_TEMPLATE', `更新檢查計畫匯入範例檔：${filename}`, req);
+        res.json({ success: true });
+    } catch (e) {
+        handleApiError(e, req, res, 'Upload plans import template error');
     }
 });
 
