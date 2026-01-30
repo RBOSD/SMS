@@ -647,15 +647,16 @@
     <!-- Plan Import Modal（共用） -->
     <div class="modal-overlay" id="planImportModal">
         <div class="modal-box" style="max-width:600px;">
-            <h3 style="margin-top:0;">CSV 匯入檢查計畫</h3>
+            <h3 style="margin-top:0;">匯入檢查計畫（CSV / Excel）</h3>
             <div class="form-group">
-                <label>選擇 CSV 檔案</label>
-                <input type="file" id="planImportFile" accept=".csv" class="filter-input">
+                <label>選擇匯入檔案（.csv / .xlsx）</label>
+                <input type="file" id="planImportFile" accept=".csv,.xlsx" class="filter-input">
             </div>
             <div style="display:flex;gap:12px;margin-top:24px;">
-                <button class="btn btn-primary" style="flex:1;" onclick="importPlansCSV()">📥 執行匯入</button>
+                <button class="btn btn-primary" style="flex:1;" onclick="importPlansFile()">📥 執行匯入</button>
                 <button class="btn btn-outline" style="flex:1;" onclick="closePlanImportModal()">取消</button>
-                <button class="btn btn-outline" style="flex:1;" onclick="downloadPlanCSVTemplate()">📥 下載範例檔</button>
+                <button class="btn btn-outline" style="flex:1;" onclick="downloadPlanXlsxTemplate()">📥 下載 Excel 範例</button>
+                <button class="btn btn-outline" style="flex:1;" onclick="downloadPlanCSVTemplate()">📥 下載 CSV 範例</button>
             </div>
         </div>
     </div>
