@@ -2150,7 +2150,7 @@ if (dashboard) {
                     return `<tr>
                         <td style="padding:12px;">${escapeHtml(name)}</td>
                         <td>
-                            <button class="btn btn-outline btn-sm" onclick="renameGroupAdmin(${id}, ${JSON.stringify(name)})">更名</button>
+                            <button class="btn btn-outline btn-sm" onclick="openRenameGroupModal(${id})">更名</button>
                         </td>
                     </tr>`;
                 }).join('');
@@ -2181,20 +2181,41 @@ if (dashboard) {
             }
         }
 
-        async function renameGroupAdmin(id, currentName) {
-            const name = prompt('請輸入新的群組名稱', currentName || '');
-            if (name == null) return;
-            const trimmed = String(name).trim();
-            if (!trimmed) return showToast('群組名稱不可為空', 'error');
+        function openRenameGroupModal(groupId) {
+            const modal = document.getElementById('groupModal');
+            const idEl = document.getElementById('targetGroupId');
+            const nameEl = document.getElementById('groupNameInput');
+            if (!modal || !idEl || !nameEl) return;
+            const groups = Array.isArray(cachedGroupsForModal) ? cachedGroupsForModal : [];
+            const g = groups.find(x => parseInt(x.id, 10) === parseInt(groupId, 10));
+            idEl.value = String(groupId);
+            nameEl.value = g?.name || '';
+            modal.classList.add('open');
+            setTimeout(() => nameEl.focus(), 50);
+        }
+
+        function closeGroupModal() {
+            const modal = document.getElementById('groupModal');
+            if (modal) modal.classList.remove('open');
+        }
+
+        async function submitGroupRename() {
+            const idEl = document.getElementById('targetGroupId');
+            const nameEl = document.getElementById('groupNameInput');
+            const id = parseInt(idEl?.value || '', 10);
+            const name = String(nameEl?.value || '').trim();
+            if (!id) return showToast('群組 ID 無效', 'error');
+            if (!name) return showToast('群組名稱不可為空', 'error');
             try {
                 const res = await apiFetch(`/api/groups/${id}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ name: trimmed })
+                    body: JSON.stringify({ name })
                 });
                 const j = await res.json().catch(() => ({}));
                 if (!res.ok) return showToast(j.error || '更新群組失敗', 'error');
                 showToast('更新群組成功', 'success');
                 cachedGroupsForModal = null;
+                closeGroupModal();
                 await loadGroupsAdmin();
             } catch (e) {
                 showToast('更新群組失敗: ' + e.message, 'error');
@@ -4968,20 +4989,23 @@ if (dashboard) {
                 cachedGroupsForModal = [];
             }
         }
-        function renderUserGroupsSelect(selectedIds) {
-            const sel = document.getElementById('uGroups');
-            if (!sel) return;
+        function renderUserGroupsCheckboxes(selectedIds) {
+            const box = document.getElementById('uGroupsBox');
+            if (!box) return;
             const selected = new Set((selectedIds || []).map(x => parseInt(x, 10)).filter(n => Number.isFinite(n)));
             const groups = Array.isArray(cachedGroupsForModal) ? cachedGroupsForModal : [];
             if (groups.length === 0) {
-                sel.innerHTML = '<option value="">（尚無群組）</option>';
+                box.innerHTML = '<div style="color:#64748b;font-size:13px;">（尚無群組）</div>';
                 return;
             }
-            sel.innerHTML = groups.map(g => {
+            box.innerHTML = groups.map(g => {
                 const id = g.id;
                 const name = g.name || `群組 ${id}`;
                 const isSel = selected.has(parseInt(id, 10));
-                return `<option value="${id}" ${isSel ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+                return `<label style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px; cursor:pointer; background:${isSel ? '#eff6ff' : 'transparent'};">
+                    <input type="checkbox" class="uGroupCheck" value="${id}" ${isSel ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;">
+                    <span style="font-size:14px; color:#334155;">${escapeHtml(name)}</span>
+                </label>`;
             }).join('');
         }
         async function openUserModal(mode, id) {
@@ -5015,7 +5039,7 @@ if (dashboard) {
                 if (Array.isArray(u.groupIds)) groupIds.push(...u.groupIds);
             }
             await ensureGroupsForUserModalLoaded();
-            renderUserGroupsSelect(groupIds);
+            renderUserGroupsCheckboxes(groupIds);
             m.classList.add('open');
         }
         async function submitUser() { 
@@ -5025,10 +5049,9 @@ if (dashboard) {
                 pwd = document.getElementById('uPwd').value, 
                 pwdConfirm = document.getElementById('uPwdConfirm').value, 
                 role = document.getElementById('uRole').value; 
-            const groupsSelect = document.getElementById('uGroups');
-            const groupIds = groupsSelect
-                ? Array.from(groupsSelect.selectedOptions || []).map(o => parseInt(o.value, 10)).filter(n => Number.isFinite(n))
-                : [];
+            const groupIds = Array.from(document.querySelectorAll('#uGroupsBox .uGroupCheck:checked'))
+                .map(cb => parseInt(cb.value, 10))
+                .filter(n => Number.isFinite(n));
             
             if (!id) { 
                 if (!email) return showToast('請輸入帳號', 'error'); 

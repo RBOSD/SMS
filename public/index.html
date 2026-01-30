@@ -487,9 +487,9 @@
                 </select></div>
             <div class="form-group">
                 <label>群組（可多選）</label>
-                <select id="uGroups" class="filter-select" multiple size="6" style="height:auto;">
-                    <option value="">（載入中）</option>
-                </select>
+                <div id="uGroupsBox" style="border:1px solid var(--border); border-radius:10px; padding:10px; background:#f8fafc; max-height:180px; overflow:auto;">
+                    <div style="color:#64748b;font-size:13px;">（載入中…）</div>
+                </div>
                 <div style="margin-top:6px;font-size:12px;color:#64748b;line-height:1.5;">
                     提示：同一使用者可隸屬多個群組（任一群組符合即可具備該群組資料的編輯權）。
                 </div>
@@ -497,6 +497,22 @@
             <div style="display:flex;gap:10px;margin-top:20px;"><button class="btn btn-primary" style="width:100%"
                     onclick="submitUser()">送出</button><button class="btn btn-outline" style="width:100%"
                     onclick="document.getElementById('userModal').classList.remove('open')">取消</button></div>
+        </div>
+    </div>
+
+    <!-- Group rename modal -->
+    <div class="modal-overlay" id="groupModal">
+        <div class="modal-box" style="max-width:520px;">
+            <h3 style="margin-top:0;">群組更名</h3>
+            <input type="hidden" id="targetGroupId">
+            <div class="form-group">
+                <label>群組名稱</label>
+                <input type="text" id="groupNameInput" class="filter-input" autocomplete="off">
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button class="btn btn-primary" style="width:100%" onclick="submitGroupRename()">儲存</button>
+                <button class="btn btn-outline" style="width:100%" onclick="closeGroupModal()">取消</button>
+            </div>
         </div>
     </div>
 
