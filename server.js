@@ -421,6 +421,15 @@ async function initDB() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )`);
 
+                // App Templates / Files (for storing uploaded example xlsx)
+                await client.query(`CREATE TABLE IF NOT EXISTS app_files (
+                    key TEXT PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    mime TEXT NOT NULL,
+                    data BYTEA NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )`);
+
                 // Add missing columns if they don't exist
                 const newColumns = [];
                 // 支持無限次審查，預先創建前 30 次欄位（如果需要更多可以動態創建）
@@ -1679,19 +1688,20 @@ app.get('/api/plans', requireAuth, requireAdminOrManager, async (req, res) => {
                 GROUP BY plan_name, year
             ),
             header AS (
-                SELECT plan_name, year, planned_count, business FROM inspection_plan_schedule WHERE inspection_seq = '00'
+                SELECT plan_name, year, planned_count, business, railway, inspection_type
+                FROM inspection_plan_schedule WHERE inspection_seq = '00'
             ),
             schedule_counts AS (
                 SELECT plan_name, year, COUNT(*) AS cnt FROM inspection_plan_schedule WHERE (plan_number IS NULL OR plan_number <> '(手動)') GROUP BY plan_name, year
             )
             SELECT g.min_id AS id, g.name, g.year, g.created_at, g.updated_at,
                    COALESCE(COUNT(DISTINCT i.id), 0) AS issue_count,
-                   h.planned_count, h.business, COALESCE(sc.cnt, 0) AS schedule_count
+                   h.planned_count, h.business, h.railway, h.inspection_type, COALESCE(sc.cnt, 0) AS schedule_count
             FROM g
             LEFT JOIN issues i ON i.plan_name = g.name AND i.year = g.year
             LEFT JOIN header h ON h.plan_name = g.name AND h.year = g.year
             LEFT JOIN schedule_counts sc ON sc.plan_name = g.name AND sc.year = g.year
-            GROUP BY g.min_id, g.name, g.year, g.created_at, g.updated_at, h.planned_count, h.business, sc.cnt
+            GROUP BY g.min_id, g.name, g.year, g.created_at, g.updated_at, h.planned_count, h.business, h.railway, h.inspection_type, sc.cnt
             ORDER BY ${order}
             LIMIT $${idx} OFFSET $${idx+1}
         `;
@@ -1706,6 +1716,8 @@ app.get('/api/plans', requireAuth, requireAdminOrManager, async (req, res) => {
             issue_count: parseInt(row.issue_count) || 0,
             planned_count: row.planned_count != null ? parseInt(row.planned_count, 10) : null,
             business: row.business || null,
+            railway: row.railway && String(row.railway).trim() !== '-' ? String(row.railway).trim() : null,
+            inspection_type: row.inspection_type && String(row.inspection_type).trim() !== '-' ? String(row.inspection_type).trim() : null,
             schedule_count: parseInt(row.schedule_count) || 0
         }));
         
@@ -2017,88 +2029,58 @@ app.post('/api/plans/import', requireAuth, requireAdminOrManager, verifyCsrf, as
     
     for (let i = 0; i < data.length; i++) {
         const row = data[i];
-        let name = '', year = '', start_date = '', end_date = '', railway = '', inspection_type = '', business = '';
-        
-        for (const key in row) {
-            const cleanKey = key.trim();
-            if (cleanKey === '計畫名稱' || cleanKey === 'name' || cleanKey === 'planName' || cleanKey === '計劃名稱') {
-                name = String(row[key] || '').trim();
-            } else if (cleanKey === '年度' || cleanKey === 'year') {
-                year = String(row[key] || '').trim();
-            } else if (cleanKey === '開始日期' || cleanKey === 'start_date' || cleanKey === 'startDate') {
-                start_date = String(row[key] || '').trim();
-            } else if (cleanKey === '結束日期' || cleanKey === 'end_date' || cleanKey === 'endDate') {
-                end_date = String(row[key] || '').trim();
-            } else if (cleanKey === '鐵路機構' || cleanKey === 'railway') {
-                railway = String(row[key] || '').trim().toUpperCase();
-            } else if (cleanKey === '檢查類別' || cleanKey === 'inspection_type' || cleanKey === 'inspectionType') {
-                inspection_type = String(row[key] || '').trim();
-            } else if (cleanKey === '業務類別' || cleanKey === 'business') {
-                business = String(row[key] || '').trim().toUpperCase();
-            }
-        }
-        
-        if (!name && !year && !start_date) {
+        const name = String(row.name || row.planName || row['計畫名稱'] || row['計劃名稱'] || '').trim();
+        let year = String(row.year || row['年度'] || '').trim();
+        const railway = String(row.railway || row['鐵路機構'] || '').trim();
+        const inspection_type = String(row.inspection_type || row.inspectionType || row['檢查類別'] || '').trim();
+        const business = String(row.business || row['業務類型'] || row['業務類別'] || '').trim();
+        const planned_count_raw = row.planned_count ?? row.plannedCount ?? row['規劃檢查幾次'] ?? row['規劃檢查次數'];
+        const planned_count = planned_count_raw !== undefined && planned_count_raw !== null && String(planned_count_raw).trim() !== ''
+            ? parseInt(String(planned_count_raw).trim(), 10)
+            : null;
+
+        if (!name && !year && !railway && !inspection_type && !business && planned_count == null) {
             results.skipped++;
             continue;
         }
-        
-        if (!name || !start_date || !end_date) {
+
+        year = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
+        if (!name || !/^\d{3}$/.test(year) || !railway || !inspection_type) {
             results.failed++;
-            results.errors.push(`第 ${i + 2} 行：計畫名稱、開始日期和結束日期為必填`);
+            results.errors.push(`第 ${i + 2} 行：年度、計畫名稱、鐵路機構、檢查類別為必填`);
             continue;
         }
-        
-        if (end_date < start_date) {
+        if (planned_count != null && (Number.isNaN(planned_count) || planned_count < 0)) {
             results.failed++;
-            results.errors.push(`第 ${i + 2} 行（${name}）：結束日期不能早於開始日期`);
+            results.errors.push(`第 ${i + 2} 行（${name}）：規劃檢查幾次需為大於等於 0 的數字`);
             continue;
         }
-        
-        if (!year) {
-            const adYear = parseInt(start_date.slice(0, 4), 10);
-            year = String(adYear - 1911).padStart(3, '0');
-        } else if (!/^\d{3}$/.test(year)) {
-            results.failed++;
-            results.errors.push(`第 ${i + 2} 行（${name}）：年度格式錯誤，應為3位數字（例如：113）`);
-            continue;
-        }
-        
-        if (!railway) railway = '-';
-        if (!inspection_type) inspection_type = '-';
-        // business 改為選填，不再用於取號
-        
+
         try {
-            const y = String(year).replace(/\D/g, '').slice(-3).padStart(3, '0');
-            const r = railway === '-' ? '-' : String(railway).toUpperCase();
-            const it = inspection_type === '-' ? '-' : String(inspection_type);
-            const b = business ? String(business).toUpperCase() : null;
-            
-            let inspection_seq = '00';
-            let plan_number = '(匯入)';
-            
-            // 取號編碼不再包含業務類別
-            if (r !== '-' && it !== '-') {
-                const maxRes = await pool.query(
-                    `SELECT COALESCE(MAX(CAST(inspection_seq AS INTEGER)), 0) AS mx 
-                     FROM inspection_plan_schedule 
-                     WHERE year = $1 AND railway = $2 AND inspection_type = $3`,
-                    [y, r, it]
-                );
-                const next = (parseInt(maxRes.rows[0]?.mx || 0, 10) + 1);
-                inspection_seq = String(next).padStart(2, '0');
-                plan_number = `${y}${r}${it}-${inspection_seq}`;
+            // 防止重複（同年度同名稱）
+            const exists = await pool.query(
+                "SELECT 1 FROM inspection_plan_schedule WHERE plan_name = $1 AND year = $2 LIMIT 1",
+                [name, year]
+            );
+            if (exists.rows.length > 0) {
+                results.failed++;
+                results.errors.push(`第 ${i + 2} 行（${name}）：計畫已存在（年度 ${year}）`);
+                continue;
             }
-            
+
+            const rCode = String(railway).toUpperCase();
+            const it = String(inspection_type);
+            const b = business ? String(business).toUpperCase() : null;
+
             await pool.query(
-                `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [start_date, end_date, name, y, r, it, b, inspection_seq, plan_number]
+                `INSERT INTO inspection_plan_schedule (start_date, end_date, plan_name, year, railway, inspection_type, business, inspection_seq, plan_number, planned_count)
+                 VALUES (NULL, NULL, $1, $2, $3, $4, $5, '00', '(手動)', $6)`,
+                [name, year, rCode, it, b, planned_count]
             );
             results.success++;
         } catch (e) {
             results.failed++;
-            results.errors.push(`第 ${i + 2} 行（${name}）：${e.message}`);
+            results.errors.push(`第 ${i + 2} 行（${name || '未命名'}）：${e.message}`);
         }
     }
     
@@ -2333,6 +2315,45 @@ app.get('/api/holidays/:year', requireAuth, async (req, res) => {
         });
     } catch (e) {
         res.json({ data: [] });
+    }
+});
+
+// 下載/上傳：檢查計畫匯入 Excel 範例檔（存於資料庫）
+app.get('/api/templates/plans-import-xlsx', requireAuth, async (req, res) => {
+    try {
+        const r = await pool.query('SELECT filename, mime, data FROM app_files WHERE key = $1', ['plans_import_xlsx']);
+        if (!r.rows || r.rows.length === 0) {
+            return res.status(404).json({ error: 'Template not set' });
+        }
+        const row = r.rows[0];
+        const filename = row.filename || '檢查計畫匯入範例.xlsx';
+        const mime = row.mime || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        res.setHeader('Content-Type', mime);
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+        res.send(row.data);
+    } catch (e) {
+        handleApiError(e, req, res, 'Get plans import template error');
+    }
+});
+
+app.post('/api/templates/plans-import-xlsx', requireAuth, requireAdminOrManager, verifyCsrf, async (req, res) => {
+    try {
+        const filename = String(req.body.filename || '檢查計畫匯入範例.xlsx');
+        const dataBase64 = String(req.body.dataBase64 || '');
+        if (!dataBase64) return res.status(400).json({ error: '缺少檔案內容' });
+        const buf = Buffer.from(dataBase64, 'base64');
+        if (!buf || buf.length === 0) return res.status(400).json({ error: '檔案內容無效' });
+        const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        await pool.query(
+            `INSERT INTO app_files (key, filename, mime, data, updated_at)
+             VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+             ON CONFLICT (key) DO UPDATE SET filename = EXCLUDED.filename, mime = EXCLUDED.mime, data = EXCLUDED.data, updated_at = CURRENT_TIMESTAMP`,
+            ['plans_import_xlsx', filename, mime, buf]
+        );
+        logAction(req.session.user.username, 'UPLOAD_TEMPLATE', `更新檢查計畫匯入範例檔：${filename}`, req);
+        res.json({ success: true });
+    } catch (e) {
+        handleApiError(e, req, res, 'Upload plans import template error');
     }
 });
 

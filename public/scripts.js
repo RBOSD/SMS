@@ -4535,11 +4535,11 @@ if (dashboard) {
                 }
                 
                 if (exportDataType === 'plans' || exportDataType === 'both') {
+                    // 匯出「檢查計畫（含行程與編號等完整欄位）」— 來源使用 /api/plan-schedule/all
                     const scheduleRes = await fetch('/api/plan-schedule/all', { credentials: 'include' });
-                    if (scheduleRes.ok) {
-                        const scheduleJson = await scheduleRes.json();
-                        planSchedulesData = scheduleJson.data || [];
-                    }
+                    if (!scheduleRes.ok) throw new Error('取得檢查計畫資料失敗');
+                    const scheduleJson = await scheduleRes.json();
+                    planSchedulesData = scheduleJson.data || [];
                 }
                 
                 if (exportDataType === 'issues' && issuesData.length === 0) {
@@ -4559,6 +4559,7 @@ if (dashboard) {
                         exportData.issues = issuesData;
                     }
                     if (exportDataType === 'plans' || exportDataType === 'both') {
+                        // JSON 仍輸出原始資料結構（代號保留）
                         exportData.plans = planSchedulesData;
                     }
                     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -4576,26 +4577,29 @@ if (dashboard) {
                 // Excel 格式匯出
                 if (exportFormat === 'excel') {
                     const wb = XLSX.utils.book_new();
+                    const getRailwayNameExport = (code) => (ORG_MAP[String(code || '').toUpperCase()] || (code || ''));
+                    const getInspectionTypeNameExport = (type) => getInspectionTypeName(type);
+                    const getBusinessTypeNameExport = (code) => getBusinessTypeName(code);
                     
                     // 如果選擇合併匯出，創建多個工作表
                     if (exportDataType === 'both') {
                         if (planSchedulesData.length > 0) {
                             const schedulesWSData = [
+                                // 依照原本「完整欄位」匯出，但代號欄位改為中文（編號/取號編碼保留）
                                 ['計畫名稱', '年度', '業務類型', '規劃檢查次數', '開始日期', '結束日期', '地點', '檢查人員', '鐵路機構', '檢查類別', '檢查次數', '取號編碼', '建立時間']
                             ];
-                            const getBusinessTypeNameExport = (code) => ({ 'OP': '運轉', 'CV': '土建', 'ME': '機務', 'EL': '電務', 'SM': '安全管理', 'AD': '營運／災防審核', 'OT': '其他／產管規劃' }[String(code)] || (code || ''));
                             planSchedulesData.forEach(s => {
                                 schedulesWSData.push([
                                     s.plan_name || '',
                                     s.year || '',
                                     getBusinessTypeNameExport(s.business),
                                     s.planned_count != null ? s.planned_count : '',
-                                    s.start_date ? s.start_date.slice(0, 10) : '',
-                                    s.end_date ? s.end_date.slice(0, 10) : '',
+                                    s.start_date ? String(s.start_date).slice(0, 10) : '',
+                                    s.end_date ? String(s.end_date).slice(0, 10) : '',
                                     s.location || '',
                                     s.inspector || '',
-                                    s.railway || '',
-                                    s.inspection_type || '',
+                                    getRailwayNameExport(s.railway),
+                                    getInspectionTypeNameExport(s.inspection_type),
                                     s.inspection_seq || '',
                                     s.plan_number || '',
                                     s.created_at ? new Date(s.created_at).toLocaleString('zh-TW') : ''
@@ -4664,19 +4668,18 @@ if (dashboard) {
                             const schedulesWSData = [
                                 ['計畫名稱', '年度', '業務類型', '規劃檢查次數', '開始日期', '結束日期', '地點', '檢查人員', '鐵路機構', '檢查類別', '檢查次數', '取號編碼', '建立時間']
                             ];
-                            const getBusinessTypeNameExport = (code) => ({ 'OP': '運轉', 'CV': '土建', 'ME': '機務', 'EL': '電務', 'SM': '安全管理', 'AD': '營運／災防審核', 'OT': '其他／產管規劃' }[String(code)] || (code || ''));
                             planSchedulesData.forEach(s => {
                                 schedulesWSData.push([
                                     s.plan_name || '',
                                     s.year || '',
                                     getBusinessTypeNameExport(s.business),
                                     s.planned_count != null ? s.planned_count : '',
-                                    s.start_date ? s.start_date.slice(0, 10) : '',
-                                    s.end_date ? s.end_date.slice(0, 10) : '',
+                                    s.start_date ? String(s.start_date).slice(0, 10) : '',
+                                    s.end_date ? String(s.end_date).slice(0, 10) : '',
                                     s.location || '',
                                     s.inspector || '',
-                                    s.railway || '',
-                                    s.inspection_type || '',
+                                    getRailwayNameExport(s.railway),
+                                    getInspectionTypeNameExport(s.inspection_type),
                                     s.inspection_seq || '',
                                     s.plan_number || '',
                                     s.created_at ? new Date(s.created_at).toLocaleString('zh-TW') : ''
@@ -5214,13 +5217,20 @@ if (dashboard) {
                             const firstType = validSchedules[0]?.inspection_type;
                             inspectionTypeHtml = firstType ? `<div style="margin:2px 0; font-size:12px;">${getInspectionTypeName(firstType)}</div>` : '<span style="color:#94a3b8; font-size:12px;">—</span>';
                         } else {
-                            inspectionTypeHtml = '<span style="color:#94a3b8; font-size:12px;">—</span>';
+                            // 無實際行程時，改以「計畫表頭(00)」的檢查類別顯示（例如匯入後尚未填寫行程）
+                            inspectionTypeHtml = p.inspection_type
+                                ? `<div style="margin:2px 0; font-size:12px;">${getInspectionTypeName(p.inspection_type)}</div>`
+                                : '<span style="color:#94a3b8; font-size:12px;">—</span>';
                         }
                     } else {
-                        inspectionTypeHtml = '<span style="color:#94a3b8; font-size:12px;">—</span>';
+                        inspectionTypeHtml = p.inspection_type
+                            ? `<div style="margin:2px 0; font-size:12px;">${getInspectionTypeName(p.inspection_type)}</div>`
+                            : '<span style="color:#94a3b8; font-size:12px;">—</span>';
                     }
                 } catch (e) {
-                    inspectionTypeHtml = '<span style="color:#94a3b8; font-size:12px;">—</span>';
+                    inspectionTypeHtml = p.inspection_type
+                        ? `<div style="margin:2px 0; font-size:12px;">${getInspectionTypeName(p.inspection_type)}</div>`
+                        : '<span style="color:#94a3b8; font-size:12px;">—</span>';
                 }
                 const createdDate = p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : '-';
                 const businessHtml = p.business ? getBusinessTypeName(p.business) : '<span style="color:#94a3b8;">—</span>';
@@ -5378,7 +5388,7 @@ if (dashboard) {
         let scheduleCalendarMonth = new Date().getMonth() + 1;
         let scheduleMonthData = [];
         let holidayData = {};
-        // --- 檢查計畫月曆看板（所有人可查看）---
+        // --- 檢查行程檢索（所有人可查看）---
         let dashboardCalendarYear = new Date().getFullYear();
         let dashboardCalendarMonth = new Date().getMonth() + 1;
         let dashboardMonthData = [];
@@ -5884,7 +5894,7 @@ if (dashboard) {
                 <html>
                 <head>
                     <meta charset="UTF-8">
-                    <title>${monthTitle} 檢查計畫月曆</title>
+                    <title>${monthTitle} 檢查行程月曆</title>
                     <style>
                         @page { size: A4 landscape; margin: 18mm 28mm; }
                         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -5953,8 +5963,8 @@ if (dashboard) {
                 </head>
                 <body>
                     <div class="print-header">
-                        <h1>${monthTitle} 檢查計畫月曆</h1>
-                        <div class="sub">SMS 開立事項查詢與審查系統 · 列印日期：${new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
+                        <h1>${monthTitle} 檢查行程月曆</h1>
+                        <div class="sub">列印日期：${new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
                     </div>
                     <div class="schedule-calendar">${calendarHtml}</div>
                 </body>
@@ -6587,6 +6597,10 @@ if (dashboard) {
                     } else {
                         document.getElementById('planName').value = p.name || '';
                         document.getElementById('planYear').value = p.year || '';
+                        const railwaySel = document.getElementById('planRailway');
+                        if (railwaySel) railwaySel.value = p.railway || '';
+                        const typeSel = document.getElementById('planInspectionType');
+                        if (typeSel) typeSel.value = p.inspection_type || '';
                         if (document.getElementById('planLocation')) document.getElementById('planLocation').value = '';
                         if (document.getElementById('planInspector')) document.getElementById('planInspector').value = '';
                         var planNumberRow = document.getElementById('planNumberRow');
@@ -6619,96 +6633,127 @@ if (dashboard) {
             const m = document.getElementById('planImportModal');
             if (m) m.classList.remove('open');
         }
-        async function importPlansCSV() {
+        function parsePlansImportRows(rows) {
+            const validData = [];
+            const invalidRows = [];
+            (rows || []).forEach((row, index) => {
+                // 檢查是否為完全空行
+                const isEmptyRow = !row || Object.values(row).every(val => !val || String(val).trim() === '');
+                if (isEmptyRow) return;
+
+                let name = '', year = '', railwayRaw = '', inspectionRaw = '', businessRaw = '', planned_count = '';
+                for (const key in row) {
+                    const cleanKey = String(key || '').trim();
+                    if (cleanKey === '計畫名稱' || cleanKey === 'name' || cleanKey === 'planName' || cleanKey === '計劃名稱') {
+                        name = String(row[key] || '').trim();
+                    } else if (cleanKey === '年度' || cleanKey === 'year') {
+                        year = String(row[key] || '').trim();
+                    } else if (cleanKey === '鐵路機構' || cleanKey === 'railway') {
+                        railwayRaw = String(row[key] || '').trim();
+                    } else if (cleanKey === '檢查類別' || cleanKey === 'inspection_type' || cleanKey === 'inspectionType') {
+                        inspectionRaw = String(row[key] || '').trim();
+                    } else if (cleanKey === '業務類型' || cleanKey === '業務類別' || cleanKey === 'business') {
+                        businessRaw = String(row[key] || '').trim();
+                    } else if (cleanKey === '規劃檢查幾次' || cleanKey === '規劃檢查次數' || cleanKey === 'planned_count' || cleanKey === 'plannedCount') {
+                        planned_count = String(row[key] || '').trim();
+                    }
+                }
+
+                const yearStr = String(year || '').replace(/\D/g, '').slice(-3).padStart(3, '0');
+                const railwayMap = {
+                    '臺鐵': 'T', '台鐵': 'T', 'T': 'T',
+                    '高鐵': 'H', 'H': 'H',
+                    '林鐵': 'A', 'A': 'A',
+                    '糖鐵': 'S', 'S': 'S'
+                };
+                const inspectionMap = {
+                    '年度定期檢查': '1', '1': '1',
+                    '特別檢查': '2', '2': '2',
+                    '例行性檢查': '3', '3': '3',
+                    '臨時檢查': '4', '4': '4'
+                };
+                const businessMap = {
+                    '運轉': 'OP', 'OP': 'OP',
+                    '土建': 'CV', 'CV': 'CV',
+                    '機務': 'ME', 'ME': 'ME',
+                    '電務': 'EL', 'EL': 'EL',
+                    '安全管理': 'SM', 'SM': 'SM',
+                    '營運／災防審核': 'AD', '營運/災防審核': 'AD', '營運': 'AD', 'AD': 'AD',
+                    '其他／產管規劃': 'OT', '其他/產管規劃': 'OT', '其他': 'OT', 'OT': 'OT'
+                };
+                const railway = railwayMap[String(railwayRaw || '').trim()] || '';
+                const inspection_type = inspectionMap[String(inspectionRaw || '').trim()] || '';
+                const business = businessMap[String(businessRaw || '').trim()] || null;
+                const plannedCountVal = planned_count !== '' ? parseInt(planned_count, 10) : null;
+
+                const missing = [];
+                if (!name) missing.push('計畫名稱');
+                if (!yearStr) missing.push('年度');
+                if (!railway) missing.push('鐵路機構');
+                if (!inspection_type) missing.push('檢查類別');
+                if (plannedCountVal != null && (Number.isNaN(plannedCountVal) || plannedCountVal < 0)) missing.push('規劃檢查幾次(需為>=0數字)');
+
+                if (missing.length === 0) {
+                    validData.push({
+                        name,
+                        year: yearStr,
+                        railway,
+                        inspection_type,
+                        business,
+                        planned_count: plannedCountVal
+                    });
+                } else {
+                    invalidRows.push({
+                        row: index + 2,
+                        name: name || '(空白)',
+                        year: year || '(空白)',
+                        railway: railwayRaw || '(空白)',
+                        inspection_type: inspectionRaw || '(空白)',
+                        planned_count: planned_count || '(空白)',
+                        missing,
+                        rawRow: row
+                    });
+                }
+            });
+            return { validData, invalidRows };
+        }
+
+        async function importPlansXlsx() {
             const fileInput = document.getElementById('planImportFile');
             if (!fileInput) return showToast('找不到檔案選擇器', 'error');
             const file = fileInput.files[0];
-            if (!file) return showToast('請選擇 CSV 檔案', 'error');
+            if (!file) return showToast('請選擇匯入檔案', 'error');
+
+            const filename = String(file.name || '').toLowerCase();
+            const isXlsx = filename.endsWith('.xlsx');
+            if (!isXlsx) return showToast('僅支援 .xlsx', 'error');
             
             const reader = new FileReader();
             reader.onload = async function(e) {
                 try {
-                    const csv = e.target.result;
-                    Papa.parse(csv, {
-                        header: true,
-                        skipEmptyLines: false, // 改為 false，手動處理空行
-                        encoding: "UTF-8",
-                        transformHeader: function(header) {
-                            // 統一處理欄位名稱，去除空白
-                            return header.trim();
-                        },
-                        transform: function(value) {
-                            // 去除值的前後空白
-                            return value ? value.trim() : '';
-                        },
-                        complete: async function(results) {
-                            if (results.errors.length && results.data.length === 0) {
-                                return showToast('CSV 解析錯誤：' + (results.errors[0]?.message || '未知錯誤'), 'error');
-                            }
-                            
-                            // 顯示解析結果統計
-                            
-                            // 過濾掉空行，支援多種欄位名稱
-                            const validData = [];
-                            const invalidRows = [];
-                            
-                            results.data.forEach((row, index) => {
-                                // 檢查是否為完全空行（所有值都為空或只有空白）
-                                const isEmptyRow = Object.values(row).every(val => !val || String(val).trim() === '');
-                                if (isEmptyRow) {
-                                    // 完全空行，跳過
-                                    return;
-                                }
-                                
-                                let name = '', year = '', start_date = '', end_date = '', railway = '', inspection_type = '', business = '';
-                                for (const key in row) {
-                                    const cleanKey = key.trim();
-                                    if (cleanKey === '計畫名稱' || cleanKey === 'name' || cleanKey === 'planName' || cleanKey === '計劃名稱') {
-                                        name = String(row[key] || '').trim();
-                                    } else if (cleanKey === '年度' || cleanKey === 'year') {
-                                        year = String(row[key] || '').trim();
-                                    } else if (cleanKey === '開始日期' || cleanKey === 'start_date' || cleanKey === 'startDate') {
-                                        start_date = String(row[key] || '').trim();
-                                    } else if (cleanKey === '結束日期' || cleanKey === 'end_date' || cleanKey === 'endDate') {
-                                        end_date = String(row[key] || '').trim();
-                                    } else if (cleanKey === '鐵路機構' || cleanKey === 'railway') {
-                                        railway = String(row[key] || '').trim();
-                                    } else if (cleanKey === '檢查類別' || cleanKey === 'inspection_type' || cleanKey === 'inspectionType') {
-                                        inspection_type = String(row[key] || '').trim();
-                                    } else if (cleanKey === '業務類別' || cleanKey === 'business') {
-                                        business = String(row[key] || '').trim();
-                                    }
-                                }
-                                
-                                if (name && start_date && end_date) {
-                                    validData.push({ name, year, start_date, end_date, railway, inspection_type, business: null }); // business 改為 null
-                                } else {
-                                    invalidRows.push({
-                                        row: index + 2,
-                                        name: name || '(空白)',
-                                        start_date: start_date || '(空白)',
-                                        end_date: end_date || '(空白)',
-                                        rawRow: row
-                                    });
-                                }
-                            });
-                            
-                            // 已移除調試資訊（只在伺服器 log 中記錄）
-                            
-                            if (validData.length === 0) {
-                                let errorMsg = 'CSV 檔案中沒有有效的資料';
-                                if (invalidRows.length > 0) {
-                                    errorMsg += `\n發現 ${invalidRows.length} 筆資料缺少必要欄位（計畫名稱或開始日期）`;
-                                    console.error('無效行詳情：', invalidRows);
-                                }
-                                return showToast(errorMsg, 'error');
-                            }
-                            
-                            try {
-                                const res = await apiFetch('/api/plans/import', {
-                                    method: 'POST',
-                                    body: JSON.stringify({ data: validData })
-                                });
+                    let rows = [];
+                    if (typeof XLSX === 'undefined') return showToast('缺少 Excel 解析模組，請重新整理頁面後再試', 'error');
+                    const buf = e.target.result;
+                    const wb = XLSX.read(buf, { type: 'array' });
+                    const sheetName = wb.SheetNames.includes('匯入') ? '匯入' : wb.SheetNames[0];
+                    const ws = wb.Sheets[sheetName];
+                    rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+                    const { validData, invalidRows } = parsePlansImportRows(rows);
+                    if (validData.length === 0) {
+                        let errorMsg = '匯入檔案中沒有有效的資料';
+                        if (invalidRows.length > 0) {
+                            errorMsg += `\n發現 ${invalidRows.length} 筆資料缺少必要欄位（計畫名稱、年度、鐵路機構、檢查類別）`;
+                            console.error('無效行詳情：', invalidRows);
+                        }
+                        return showToast(errorMsg, 'error');
+                    }
+
+                    try {
+                        const res = await apiFetch('/api/plans/import', {
+                            method: 'POST',
+                            body: JSON.stringify({ data: validData })
+                        });
                                 
                                 // 先檢查 HTTP 狀態碼
                                 if (res.status === 401) {
@@ -6737,51 +6782,20 @@ if (dashboard) {
                                     }
                                 }
                                 
-                                // 檢查回應是否成功
-                                // 後端回應格式：{ success: true, successCount: 數字, failed: 數字, errors: [], skipped: 數字 }
                                 if (res.ok && j.success === true) {
-                                    // 取得成功筆數
                                     const successCount = j.successCount || 0;
-                                    
                                     let msg = `匯入完成：成功 ${successCount} 筆`;
-                                    if (j.skipped > 0) {
-                                        msg += `，跳過空行 ${j.skipped} 筆`;
-                                    }
-                                    if (j.failed > 0) {
-                                        msg += `，失敗 ${j.failed} 筆`;
-                                        if (j.errors && j.errors.length > 0) {
-                                            // 錯誤詳情已在伺服器 log 中記錄
-                                            // 顯示前3個錯誤（避免訊息過長）
-                                            const errorPreview = j.errors.slice(0, 3).join('；');
-                                            if (j.errors.length > 3) {
-                                                msg += `\n（前3個錯誤：${errorPreview}...）`;
-                                            } else {
-                                                msg += `\n（錯誤：${errorPreview}）`;
-                                            }
-                                        }
-                                    }
-                                    
-                                    // 如果成功筆數少於有效資料筆數，顯示警告
-                                    if (successCount < validData.length) {
-                                        msg += `\n⚠️ 注意：前端解析到 ${validData.length} 筆有效資料，但只成功匯入 ${successCount} 筆。可能是因為資料庫中已有重複的計畫名稱。`;
-                                    }
-                                    
+                                    if (j.skipped > 0) msg += `，跳過空行 ${j.skipped} 筆`;
+                                    if (j.failed > 0) msg += `，失敗 ${j.failed} 筆`;
                                     showToast(msg, j.failed > 0 ? 'warning' : 'success');
                                     closePlanImportModal();
-                                    
-                                    // 重新載入計畫列表和選項
                                     await loadPlansPage(1);
                                     await loadPlanOptions();
-                                    
-                                    // 確保選項已更新
-                                    setTimeout(() => {
-                                        loadPlanOptions();
-                                    }, 500);
-                                    return; // 明確返回，避免繼續執行 catch 區塊
+                                    setTimeout(() => { loadPlanOptions(); }, 500);
+                                    return;
                                 } else {
-                                    // 如果狀態碼不是 OK 或 success 為 false
                                     showToast(j.error || '匯入失敗', 'error');
-                                    return; // 明確返回
+                                    return;
                                 }
                             } catch (e) {
                                 // 只有在真正的網路錯誤或無法處理的錯誤時才顯示錯誤
@@ -6800,21 +6814,111 @@ if (dashboard) {
                                     console.error('匯入時發生未預期錯誤（可能已成功）：', e);
                                 }
                             }
-                        }
-                    });
                 } catch (e) {
                     showToast('讀取檔案錯誤：' + e.message, 'error');
                 }
             };
-            reader.readAsText(file, 'UTF-8');
+            reader.readAsArrayBuffer(file);
         }
-        function downloadPlanCSVTemplate() {
-            const csv = '計畫名稱,年度,業務類型,規劃檢查次數,開始日期,結束日期,鐵路機構,檢查類別\n上半年定期檢查,113,OP,2,2024-01-01,2024-06-30,T,1\n下半年定期檢查,113,CV,1,2024-07-01,2024-12-31,T,1\n特別檢查,113,,1,2024-03-15,2024-03-20,H,2';
-            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = '檢查計畫匯入範例.csv';
-            link.click();
+
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            const chunkSize = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+            }
+            return btoa(binary);
+        }
+
+        async function downloadPlanXlsxTemplate() {
+            // 優先下載「你上傳設定」的範例檔；若尚未設定才用系統預設產生
+            try {
+                const res = await fetch('/api/templates/plans-import-xlsx?t=' + Date.now(), { credentials: 'include' });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const cd = res.headers.get('content-disposition') || '';
+                    let filename = '檢查計畫匯入範例.xlsx';
+                    const m = cd.match(/filename\*\=UTF-8''([^;]+)/i);
+                    if (m && m[1]) filename = decodeURIComponent(m[1]);
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    return;
+                }
+            } catch (e) {
+                // 忽略，改用預設範例
+            }
+            return downloadDefaultPlanXlsxTemplate();
+        }
+
+        function downloadDefaultPlanXlsxTemplate() {
+            if (typeof XLSX === 'undefined') {
+                return showToast('缺少 Excel 產生模組，請重新整理頁面後再試', 'error');
+            }
+            const wb = XLSX.utils.book_new();
+
+            const sheet1 = [
+                ['年度', '計畫名稱', '鐵路機構', '檢查類別', '業務類型', '規劃檢查幾次'],
+                ['113', '上半年定期檢查', '臺鐵', '年度定期檢查', '運轉', '2'],
+                ['113', '特別檢查', '高鐵', '特別檢查', '營運／災防審核', '1']
+            ];
+            const ws1 = XLSX.utils.aoa_to_sheet(sheet1);
+            ws1['!cols'] = [{ wch: 6 }, { wch: 20 }, { wch: 10 }, { wch: 16 }, { wch: 16 }, { wch: 14 }];
+            XLSX.utils.book_append_sheet(wb, ws1, '匯入');
+
+            const sheet2 = [
+                ['鐵路機構(中文)', '代號', '', '檢查類別(中文)', '代號', '', '業務類型(中文)', '代號'],
+                ['臺鐵', 'T', '', '年度定期檢查', '1', '', '運轉', 'OP'],
+                ['高鐵', 'H', '', '特別檢查', '2', '', '土建', 'CV'],
+                ['林鐵', 'A', '', '例行性檢查', '3', '', '機務', 'ME'],
+                ['糖鐵', 'S', '', '臨時檢查', '4', '', '電務', 'EL'],
+                ['', '', '', '', '', '', '安全管理', 'SM'],
+                ['', '', '', '', '', '', '營運／災防審核', 'AD'],
+                ['', '', '', '', '', '', '其他／產管規劃', 'OT'],
+                ['說明', '請在「匯入」工作表填寫中文值；系統會自動轉換成代號存入資料庫。', '', '', '', '', '', '']
+            ];
+            const ws2 = XLSX.utils.aoa_to_sheet(sheet2);
+            ws2['!cols'] = [{ wch: 14 }, { wch: 6 }, { wch: 2 }, { wch: 16 }, { wch: 6 }, { wch: 2 }, { wch: 18 }, { wch: 6 }];
+            XLSX.utils.book_append_sheet(wb, ws2, '選單');
+
+            XLSX.writeFile(wb, '檢查計畫匯入範例.xlsx');
+        }
+
+        async function uploadPlanXlsxTemplate() {
+            const input = document.getElementById('planTemplateFile');
+            if (!input) return showToast('找不到檔案選擇器', 'error');
+            input.onchange = async function() {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                const name = String(file.name || '檢查計畫匯入範例.xlsx');
+                if (!name.toLowerCase().endsWith('.xlsx')) {
+                    input.value = '';
+                    return showToast('請選擇 .xlsx 檔案', 'error');
+                }
+                try {
+                    const buf = await file.arrayBuffer();
+                    const dataBase64 = arrayBufferToBase64(buf);
+                    const res = await apiFetch('/api/templates/plans-import-xlsx', {
+                        method: 'POST',
+                        body: JSON.stringify({ filename: name, dataBase64 })
+                    });
+                    const j = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        showToast(j.error || '上傳失敗', 'error');
+                        return;
+                    }
+                    showToast('已設為網站下載範例檔', 'success');
+                } catch (e) {
+                    showToast('上傳失敗：' + (e.message || '請稍後再試'), 'error');
+                } finally {
+                    input.value = '';
+                }
+            };
+            input.click();
         }
         async function submitPlan() {
             const planId = document.getElementById('targetPlanId').value;
