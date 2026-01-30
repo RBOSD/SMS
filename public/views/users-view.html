@@ -160,33 +160,33 @@
         </p>
     </div>
 
-    <!-- 檢查計畫匯入範例檔 -->
+    <!-- 匯入範例檔管理（檢查計畫 / 帳號） -->
     <div class="detail-card" style="margin-bottom:30px;">
         <div style="margin-bottom:16px;">
-            <h4 style="margin:0 0 8px 0; font-weight:600; color:#334155; font-size:16px;">📄 檢查計畫匯入 Excel 範例檔</h4>
+            <h4 style="margin:0 0 8px 0; font-weight:600; color:#334155; font-size:16px;">📄 匯入範例檔管理</h4>
             <p style="color:#64748b; font-size:13px; margin:0;">
-                「下載 Excel 範例」會優先下載你在這裡上傳設定的檔案；若尚未設定，系統會改用預設範例。
+                可上傳並設為系統範例檔；未設定時會使用系統預設範例。
             </p>
         </div>
-        <input type="file" id="planTemplateFile" accept=".xlsx" style="display:none;">
-        <div style="display:flex; gap:12px; flex-wrap:wrap;">
-            <button class="btn btn-outline" onclick="downloadPlanXlsxTemplate()">📥 下載 Excel 範例</button>
-            <button class="btn btn-primary" onclick="uploadPlanXlsxTemplate()">📤 上傳並設為範例</button>
-        </div>
-    </div>
 
-    <!-- 帳號匯入範例檔 -->
-    <div class="detail-card" style="margin-bottom:30px;">
-        <div style="margin-bottom:16px;">
-            <h4 style="margin:0 0 8px 0; font-weight:600; color:#334155; font-size:16px;">👤 帳號匯入 CSV 範例檔</h4>
-            <p style="color:#64748b; font-size:13px; margin:0;">
-                「下載匯入範例」會優先下載你在這裡上傳設定的檔案；若尚未設定，系統會改用預設範例。
-            </p>
-        </div>
-        <input type="file" id="userTemplateFile" accept=".csv" style="display:none;">
-        <div style="display:flex; gap:12px; flex-wrap:wrap;">
-            <button class="btn btn-outline" onclick="downloadUserCSVTemplate()">📥 下載匯入範例</button>
-            <button class="btn btn-primary" onclick="uploadUserCSVTemplate()">📤 上傳並設為範例</button>
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:280px; border:1px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:14px;">
+                <div style="font-weight:700; color:#334155; margin-bottom:10px;">檢查計畫（Excel）</div>
+                <input type="file" id="planTemplateFile" accept=".xlsx" style="display:none;">
+                <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                    <button class="btn btn-outline" onclick="downloadPlanXlsxTemplate()">📥 下載 Excel 範例</button>
+                    <button class="btn btn-primary" onclick="uploadPlanXlsxTemplate()">📤 上傳並設為範例</button>
+                </div>
+            </div>
+
+            <div style="flex:1; min-width:280px; border:1px solid #e2e8f0; background:#f8fafc; border-radius:12px; padding:14px;">
+                <div style="font-weight:700; color:#334155; margin-bottom:10px;">帳號（CSV）</div>
+                <input type="file" id="userTemplateFile" accept=".csv" style="display:none;">
+                <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                    <button class="btn btn-outline" onclick="downloadUserCSVTemplate()">📥 下載匯入範例</button>
+                    <button class="btn btn-primary" onclick="uploadUserCSVTemplate()">📤 上傳並設為範例</button>
+                </div>
+            </div>
         </div>
     </div>
 
