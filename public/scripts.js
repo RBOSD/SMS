@@ -2049,6 +2049,8 @@ if (dashboard) {
         }
 
         function switchAdminTab(tab) {
+            // 舊版 tab 向後相容：已移除「帳號匯入/匯出」分頁
+            if (tab === 'import-export') tab = 'users';
             // 保存當前 tab 到 sessionStorage
             sessionStorage.setItem('currentAdminTab', tab); 
             // 保存當前 tab
@@ -2700,7 +2702,7 @@ if (dashboard) {
                     radio.parentNode.replaceChild(newRadio, radio);
                     
                     newRadio.addEventListener('change', function() {
-                        if (this.value === 'plans') {
+                        if (this.value === 'plans' || this.value === 'users') {
                             exportIssuesOptions.style.display = 'none';
                         } else {
                             exportIssuesOptions.style.display = 'block';
@@ -2710,7 +2712,7 @@ if (dashboard) {
                 
                 // 初始化顯示狀態
                 const checked = document.querySelector('input[name="exportDataType"]:checked');
-                if (checked && checked.value === 'plans') {
+                if (checked && (checked.value === 'plans' || checked.value === 'users')) {
                     exportIssuesOptions.style.display = 'none';
                 } else {
                     exportIssuesOptions.style.display = 'block';
@@ -4550,6 +4552,7 @@ if (dashboard) {
                 
                 let issuesData = [];
                 let planSchedulesData = [];
+                let usersData = [];
                 
                 // 根據選擇的資料類型獲取資料
                 if (exportDataType === 'issues' || exportDataType === 'both') {
@@ -4557,6 +4560,13 @@ if (dashboard) {
                     if (!res.ok) throw new Error('取得開立事項資料失敗');
                     const json = await res.json();
                     issuesData = json.data || [];
+                }
+
+                if (exportDataType === 'users') {
+                    const res = await fetch('/api/users?page=1&pageSize=10000', { credentials: 'include' });
+                    if (!res.ok) throw new Error('取得帳號資料失敗');
+                    const json = await res.json();
+                    usersData = json.data || [];
                 }
                 
                 if (exportDataType === 'plans' || exportDataType === 'both') {
@@ -4569,6 +4579,9 @@ if (dashboard) {
                 
                 if (exportDataType === 'issues' && issuesData.length === 0) {
                     return showToast('無開立事項資料可匯出', 'error');
+                }
+                if (exportDataType === 'users' && usersData.length === 0) {
+                    return showToast('無帳號資料可匯出', 'error');
                 }
                 if (exportDataType === 'plans' && planSchedulesData.length === 0) {
                     return showToast('無檢查計畫資料可匯出', 'error');
@@ -4587,10 +4600,13 @@ if (dashboard) {
                         // JSON 仍輸出原始資料結構（代號保留）
                         exportData.plans = planSchedulesData;
                     }
+                    if (exportDataType === 'users') {
+                        exportData.users = usersData;
+                    }
                     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
                     const link = document.createElement("a");
                     link.href = URL.createObjectURL(blob);
-                    const dataTypeLabel = exportDataType === 'issues' ? 'Issues' : (exportDataType === 'plans' ? 'Plans' : 'All');
+                    const dataTypeLabel = exportDataType === 'issues' ? 'Issues' : (exportDataType === 'plans' ? 'Plans' : (exportDataType === 'users' ? 'Users' : 'All'));
                     link.download = `SMS_Backup_${dataTypeLabel}_${new Date().toISOString().slice(0, 10)}.json`;
                     document.body.appendChild(link);
                     link.click();
@@ -4713,6 +4729,18 @@ if (dashboard) {
                             const schedulesWS = XLSX.utils.aoa_to_sheet(schedulesWSData);
                             XLSX.utils.book_append_sheet(wb, schedulesWS, '檢查計畫');
                         }
+                    } else if (exportDataType === 'users') {
+                        const usersWSData = [['姓名', '帳號', '權限', '註冊時間']];
+                        usersData.forEach(u => {
+                            usersWSData.push([
+                                u.name || '',
+                                u.username || '',
+                                u.role || '',
+                                u.created_at ? new Date(u.created_at).toLocaleString('zh-TW') : ''
+                            ]);
+                        });
+                        const usersWS = XLSX.utils.aoa_to_sheet(usersWSData);
+                        XLSX.utils.book_append_sheet(wb, usersWS, '帳號');
                     } else {
                         // 僅匯出開立事項
                         const issuesWSData = [];
@@ -4777,6 +4805,8 @@ if (dashboard) {
                     if (exportDataType === 'issues') {
                         const typeLabel = exportScope === 'latest' ? 'Latest' : 'FullHistory';
                         fileName = `SMS_Issues_${typeLabel}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                    } else if (exportDataType === 'users') {
+                        fileName = `SMS_Users_${new Date().toISOString().slice(0, 10)}.xlsx`;
                     } else if (exportDataType === 'plans') {
                         fileName = `SMS_Plans_${new Date().toISOString().slice(0, 10)}.xlsx`;
                     } else {
@@ -5134,6 +5164,18 @@ if (dashboard) {
                 }
             };
             reader.readAsText(file, 'UTF-8');
+        }
+
+        // 後台管理（帳號列表）用：點按後直接選檔並執行匯入
+        function promptUsersImport() {
+            const input = document.getElementById('userImportFile');
+            if (!input) return showToast('找不到檔案選擇器', 'error');
+            input.value = '';
+            input.onchange = async function () {
+                if (!input.files || !input.files[0]) return;
+                await importUsersCSV();
+            };
+            input.click();
         }
 
         // Plan Management
@@ -6388,8 +6430,6 @@ if (dashboard) {
             const adYear = parseInt(startDateVal.slice(0, 4), 10);
             const rocYear = adYear - 1911;
             const yr = String(rocYear).replace(/\D/g, '').slice(-3).padStart(3, '0');
-            const planNumberInput = document.getElementById('schedulePlanNumberValue');
-            const customPlanNumber = planNumberInput && planNumberInput.value ? String(planNumberInput.value).trim() : '';
             const payload = {
                 plan_name: planName,
                 start_date: startDateVal,
@@ -6401,7 +6441,6 @@ if (dashboard) {
                 location: locationValue,
                 inspector: inspectorValue
             };
-            if (customPlanNumber) payload.plan_number = customPlanNumber;
             try {
                 const res = await apiFetch('/api/plan-schedule', {
                     method: 'POST',

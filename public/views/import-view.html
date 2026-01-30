@@ -408,12 +408,9 @@
                     </div>
                     <div id="schedulePlanNumberDisplay" style="display:none; background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%); padding:14px; border-radius:10px; margin-bottom:16px; border:2px solid #f59e0b; box-shadow:0 2px 4px rgba(245,158,11,0.15);">
                         <div style="font-size:13px; color:#92400e; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-                            <span>🔢</span> <span>取號編號（可手動修改）</span>
+                            <span>🔢</span> <span>取號編號</span>
                         </div>
-                        <input type="text" id="schedulePlanNumberValue" class="filter-input" placeholder="自動帶入，可手動修改" style="font-size:16px; font-weight:700; font-family:'Courier New',monospace; color:#78350f; background:#fff; border:2px solid #f59e0b; padding:10px 12px;" autocomplete="off">
-                        <div class="schedule-plan-number-warn" style="font-size:12px; color:#b45309; margin-top:8px; padding:8px; background:rgba(255,255,255,0.6); border-radius:6px; border-left:3px solid #f59e0b;">
-                            ⚠️ <strong>注意：</strong>若手動修改編號，請確認無重複後再提交。
-                        </div>
+                        <input type="text" id="schedulePlanNumberValue" class="filter-input" placeholder="系統自動產生" readonly style="font-size:16px; font-weight:700; font-family:'Courier New',monospace; color:#78350f; background:#fff; border:2px solid #f59e0b; padding:10px 12px;" autocomplete="off">
                     </div>
                     <div style="display:flex; gap:8px;">
                         <button type="button" class="btn btn-primary" style="flex:1;" onclick="scheduleSubmitPlan()">上傳至資料庫</button>

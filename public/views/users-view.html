@@ -5,7 +5,6 @@
     <button class="admin-tab-btn active" onclick="switchAdminTab('users')">帳號列表</button>
     <button class="admin-tab-btn" onclick="switchAdminTab('logs')">登入紀錄</button>
     <button class="admin-tab-btn" onclick="switchAdminTab('actions')">操作歷程</button>
-    <button class="admin-tab-btn" onclick="switchAdminTab('import-export')">帳號匯入/匯出</button>
     <button class="admin-tab-btn" onclick="switchAdminTab('system')">系統維護</button>
 </div>
 
@@ -19,7 +18,10 @@
             </p>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
+            <input type="file" id="userImportFile" accept=".csv" style="display:none;">
             <button class="btn btn-primary" onclick="openUserModal('create')">新增</button>
+            <button class="btn btn-outline" onclick="downloadUserCSVTemplate()">📥 下載匯入範例</button>
+            <button class="btn btn-outline" onclick="promptUsersImport()">📤 整批匯入</button>
         </div>
     </div>
     
@@ -149,55 +151,6 @@
     </div>
 </div>
 
-<!-- User Import/Export Tab -->
-<div id="tab-import-export" class="main-card hidden">
-    <div style="margin-bottom:24px;">
-        <h3 style="margin:0 0 8px 0; font-weight:700; font-size:18px; color:#334155;">帳號匯入與匯出</h3>
-        <p style="margin:0; color:#64748b; font-size:13px;">
-            匯出系統中的所有帳號資料，或從 CSV 檔案批次匯入帳號資料。
-        </p>
-    </div>
-    
-    <div style="padding:24px;">
-        
-        <!-- 匯出區塊 -->
-        <div class="detail-card" style="margin-bottom:30px; max-width:700px;">
-            <div style="margin-bottom:16px;">
-                <h4 style="margin:0 0 8px 0; font-weight:600; color:#334155; font-size:16px;">📥 匯出帳號資料</h4>
-                <p style="color:#64748b; font-size:13px; margin:0;">將系統中的所有帳號資料匯出為 CSV 或 JSON 格式。匯出的檔案不包含密碼資訊。</p>
-            </div>
-            <div style="margin-bottom:16px;">
-                <label style="font-weight:600; color:#475569; font-size:13px; margin-bottom:8px; display:block;">選擇匯出格式</label>
-                <div style="display:flex; gap:16px;">
-                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-                        <input type="radio" name="userExportFormat" value="csv" checked> CSV (Excel)
-                    </label>
-                    <label style="cursor:pointer; display:flex; align-items:center; gap:8px;">
-                        <input type="radio" name="userExportFormat" value="json"> JSON (備份用)
-                    </label>
-                </div>
-            </div>
-            <button class="btn btn-primary" onclick="exportUsers()">執行匯出</button>
-        </div>
-        
-        <!-- 匯入區塊 -->
-        <div class="detail-card" style="max-width:700px;">
-            <div style="margin-bottom:16px;">
-                <h4 style="margin:0 0 8px 0; font-weight:600; color:#334155; font-size:16px;">📤 匯入帳號資料</h4>
-                <p style="color:#64748b; font-size:13px; margin:0;">從 CSV 檔案批次匯入帳號資料。檔案格式：姓名,帳號,權限,密碼（選填）</p>
-            </div>
-            <div style="margin-bottom:16px;">
-                <label style="font-weight:600; color:#475569; font-size:13px; margin-bottom:8px; display:block;">選擇 CSV 檔案</label>
-                <input type="file" id="userImportFile" accept=".csv" class="filter-input" style="width:100%; padding:8px;">
-            </div>
-            <div style="margin-bottom:16px;">
-                <button class="btn btn-outline btn-sm" onclick="downloadUserCSVTemplate()">📥 下載範例檔案</button>
-            </div>
-            <button class="btn btn-primary" onclick="importUsersCSV()">執行匯入</button>
-        </div>
-    </div>
-</div>
-
 <!-- System Tab -->
 <div id="tab-system" class="main-card hidden">
     <div style="margin-bottom:24px;">
@@ -245,6 +198,15 @@
                     <div style="flex:1;">
                         <div style="font-weight:600; color:#334155; font-size:14px;">僅匯出開立事項</div>
                         <div style="font-size:12px; color:#64748b; margin-top:2px;">匯出所有開立事項的資料</div>
+                    </div>
+                </label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:10px; padding:12px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s;" 
+                    onmouseover="this.style.borderColor='#2563eb'; this.style.backgroundColor='#eff6ff';" 
+                    onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='white';">
+                    <input type="radio" name="exportDataType" value="users" style="cursor:pointer;">
+                    <div style="flex:1;">
+                        <div style="font-weight:600; color:#334155; font-size:14px;">僅匯出帳號</div>
+                        <div style="font-size:12px; color:#64748b; margin-top:2px;">匯出系統帳號（不含密碼）</div>
                     </div>
                 </label>
                 <label style="cursor:pointer; display:flex; align-items:center; gap:10px; padding:12px; background:white; border-radius:8px; border:2px solid #e2e8f0; transition:all 0.2s;" 
