@@ -22,7 +22,7 @@
     <div id="toast-container"></div>
 
     <header class="app-header">
-        <div class="brand" onclick="switchView('searchView')" title="回到查詢看板">
+        <div class="brand" onclick="switchView('searchView')" title="回到開立事項檢索">
             <button class="filter-toggle-btn" onclick="event.stopPropagation();onToggleSidebar()"
                 title="開啟選單" aria-label="開啟選單">☰</button>
             <div class="brand-icon">🚄</div>
@@ -49,9 +49,9 @@
                 <button class="sidebar-close-btn" onclick="onToggleSidebar()" aria-label="關閉選單">×</button>
             </div>
             <button class="sidebar-btn active" id="btn-searchView" onclick="switchView('searchView')">
-                查詢看板</button>
+                開立事項檢索</button>
             <button class="sidebar-btn hidden" id="btn-planCalendarView" onclick="switchView('planCalendarView')">
-                檢查計畫月曆</button>
+                檢查行程檢索</button>
             <button class="sidebar-btn hidden" id="btn-importView" onclick="switchView('importView')">
                 資料管理</button>
             <button class="sidebar-btn hidden" id="btn-usersView" onclick="switchView('usersView')">
@@ -62,6 +62,9 @@
 
         <main class="main-content">
             <div id="searchView" class="view-section active">
+                <div class="content-header">
+                    <div class="content-title">開立事項檢索</div>
+                </div>
                 <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
                     <button class="dashboard-toggle-btn" onclick="toggleDashboard(this)" title="收合/展開統計圖表">
                         <span class="toggle-icon">▲</span>
@@ -230,7 +233,7 @@
             </div>
 
             <div id="planCalendarView" class="view-section">
-                <!-- 檢查計畫月曆看板，由 switchView 動態載入 -->
+                <!-- 檢查行程檢索，由 switchView 動態載入 -->
             </div>
             <div id="importView" class="view-section">
                 <!-- 內容將由 switchView 函數動態載入 -->
