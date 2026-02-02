@@ -5,9 +5,11 @@
 
 ## Render 部署（Blueprint）
 本 repo 已包含 `render.yaml`，可直接用 Render Blueprint 建立：
-- `sms-v2-db`：Postgres
 - `sms-v2-api`：NestJS API（會在啟動時自動 `prisma migrate deploy`）
 - `sms-v2-web`：Next.js Web（透過 Render private network 反向代理到 API）
+
+> 若你要使用 **Supabase Postgres**（或任何外部 Postgres），`render.yaml` 已改為不建立 Render 內建 DB；
+> 請在 Render 的 `sms-v2-api` 手動設定 `DATABASE_URL` 指向你的 Supabase 連線字串。
 
 ### 1) 先把 `D:\\sms-v2` 推到 GitHub
 Render 只能從 Git repo 部署，所以請先把此資料夾初始化 git、推到 GitHub。
@@ -19,6 +21,9 @@ Render 只能從 Git repo 部署，所以請先把此資料夾初始化 git、�
 
 ### 3) 需要你在 Render 上填的變數
 `sms-v2-api`：
+- **DATABASE_URL**：填入 Supabase 連線字串（建議包含 `sslmode=require`）
+  - 若你用的是 Supabase **pooler**（host 會長得像 `*.pooler.supabase.com`），建議再加 `pgbouncer=true`
+- **DIRECT_URL**：填入 Supabase **直連**（非 pooler）的 Postgres 連線字串（也建議包含 `sslmode=require`）
 - **GEMINI_API_KEY**：要啟用 AI 審查才需要（可先留空）
 
 > 其他像 `JWT_SECRET`、`DEFAULT_ADMIN_PASSWORD` 會由 Blueprint 自動產生。

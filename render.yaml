@@ -1,7 +1,3 @@
-databases:
-  - name: sms-v2-db
-    plan: free
-
 services:
   - type: web
     name: sms-v2-api
@@ -14,10 +10,12 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
       - key: DATABASE_URL
-        fromDatabase:
-          name: sms-v2-db
-          property: connectionString
+        sync: false
+      - key: DIRECT_URL
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_COOKIE_NAME
@@ -40,6 +38,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
       - key: API_ORIGIN
         fromService:
           type: web
