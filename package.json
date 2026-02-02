@@ -6,11 +6,14 @@
   "scripts": {
     "dev:api": "npm run start:dev -w @sms/api",
     "dev:web": "npm run dev -w @sms/web",
-    "build": "npm run build --workspaces",
 	"postinstall": "npx prisma generate",
+    "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces",
     "test": "npm run test --workspaces"
   },
+  "devDependencies": {
+    "prisma": "^6.0.0" 
+  }
   "workspaces": [
     "apps/*",
     "packages/*"
