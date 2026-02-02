@@ -1,0 +1,21 @@
+{
+  "name": "sms-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SMS v2 (Next.js + NestJS + PostgreSQL + Prisma) monorepo",
+  "scripts": {
+    "dev:api": "npm run start:dev -w @sms/api",
+    "dev:web": "npm run dev -w @sms/web",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

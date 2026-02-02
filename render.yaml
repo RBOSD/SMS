@@ -1,0 +1,48 @@
+databases:
+  - name: sms-v2-db
+    plan: free
+
+services:
+  - type: web
+    name: sms-v2-api
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm ci && npm run build -w @sms/api
+    startCommand: npm run start:render -w @sms/api
+    healthCheckPath: /api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sms-v2-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_COOKIE_NAME
+        value: sms_token
+      - key: DEFAULT_ADMIN_USERNAME
+        value: admin
+      - key: DEFAULT_ADMIN_PASSWORD
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+
+  - type: web
+    name: sms-v2-web
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm ci && npm run build -w @sms/shared && npm run build -w @sms/web
+    startCommand: npm run start:render -w @sms/web
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_ORIGIN
+        fromService:
+          type: web
+          name: sms-v2-api
+          property: hostport
+

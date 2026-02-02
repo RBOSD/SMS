@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MANAGER
+  VIEWER
+}
+
+model User {
+  id                 Int        @id @default(autoincrement())
+  username           String     @unique
+  passwordHash       String
+  name               String?
+  role               Role       @default(VIEWER)
+  mustChangePassword Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  groups             UserGroup[]
+  auditLogs          AuditLog[]  @relation("AuditLogActor")
+}
+
+model Group {
+  id           Int        @id @default(autoincrement())
+  name         String     @unique
+  isAdminGroup Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  users        UserGroup[]
+}
+
+model UserGroup {
+  userId    Int
+  groupId   Int
+  createdAt DateTime @default(now())
+
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([userId, groupId])
+  @@index([groupId])
+}
+
+model FeatureFlag {
+  key       String   @id
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  actorUserId Int?
+  action      String
+  details     String?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  actor       User?    @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([action])
+}
+
+model Plan {
+  id        Int      @id @default(autoincrement())
+  name      String
+  year      String
+  status    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedules PlanSchedule[]
+  issues    Issue[]
+
+  @@unique([name, year])
+  @@index([year])
+}
+
+model PlanSchedule {
+  id             Int       @id @default(autoincrement())
+  planId         Int
+  startDate      DateTime?
+  endDate        DateTime?
+  planNumber     String?
+  railway        String
+  inspectionType String
+  business       String?
+  location       String?
+  inspector      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  plan           Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@index([startDate])
+}
+
+model Issue {
+  id                     Int       @id @default(autoincrement())
+  number                 String    @unique
+  year                   String?
+  unit                   String?
+  status                 String?
+  itemKindCode           String?
+  divisionName           String?
+  inspectionCategoryName String?
+  category               String?
+  content                String?
+  issueDate              String?
+  planId                 Int?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  plan                   Plan?     @relation(fields: [planId], references: [id], onDelete: SetNull)
+  rounds                 IssueRound[]
+
+  @@index([year])
+  @@index([planId])
+}
+
+model IssueRound {
+  id           Int      @id @default(autoincrement())
+  issueId      Int
+  round        Int
+  handling     String?
+  review       String?
+  replyDate    String?
+  responseDate String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  issue        Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, round])
+  @@index([issueId])
+}
+
