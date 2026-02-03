@@ -44,5 +44,5 @@ services:
         fromService:
           type: web
           name: sms-v2-api
-          property: hostport
+          property: url
 
