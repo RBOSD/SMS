@@ -9,7 +9,7 @@ export class AppInitService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     // Ensure groups exist
@@ -35,6 +35,23 @@ export class AppInitService implements OnModuleInit {
     });
 
     const usersCount = await this.prisma.user.count();
+
+    // Check for forced password reset
+    if (this.config.get('FORCE_RESET_ADMIN') === 'true') {
+      const username = this.config.get<string>('DEFAULT_ADMIN_USERNAME') || 'admin';
+      const password = this.config.get<string>('DEFAULT_ADMIN_PASSWORD') || 'ChangeMe123';
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      const u = await this.prisma.user.findUnique({ where: { username } });
+      if (u) {
+        await this.prisma.user.update({
+          where: { username },
+          data: { passwordHash, mustChangePassword: true },
+        });
+        console.log(`[AppInit] Forced password reset for user: ${username}`);
+      }
+    }
+
     if (usersCount > 0) return;
 
     const username =
