@@ -6,9 +6,9 @@ import { FeatureFlagsAdminController } from './feature-flags.controller';
 import { FeatureFlagsService } from './feature-flags.service';
 
 @Module({
-  imports: [forwardRef(() => AuthModule), AuditLogsModule],
+  imports: [forwardRef(() => AuthModule), forwardRef(() => AuditLogsModule)],
   controllers: [FeatureFlagsAdminController],
   providers: [FeatureFlagsService, FeatureFlagGuard],
   exports: [FeatureFlagsService, FeatureFlagGuard],
 })
-export class FeatureFlagsModule {}
+export class FeatureFlagsModule { }
