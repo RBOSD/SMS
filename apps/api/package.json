@@ -15,7 +15,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "start:render": "prisma migrate deploy && node dist/main",
+    "start:render": "(prisma migrate deploy || prisma migrate resolve --applied 20260202000000_init) && node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "test": "jest",
     "test:watch": "jest --watch",
