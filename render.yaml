@@ -23,6 +23,7 @@ services:
       - key: DEFAULT_ADMIN_USERNAME
         value: admin
       - key: DEFAULT_ADMIN_PASSWORD
+        value: admin
         generateValue: true
       - key: GEMINI_API_KEY
         sync: false
